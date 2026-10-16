@@ -11,14 +11,14 @@
     "exercises": 57,
     "labs": 12,
     "courseWeeks": 16,
-    "changedFilesExcludingThisRecord": 113,
+    "changedFilesExcludingThisRecord": 114,
     "historicalEvidenceRewritten": false,
     "newRobotMotionTrials": false,
     "preexistingMarketingChangesIncluded": false
   },
   "checks": {
     "publicationAndPythonDocs": {
-      "passed": 49,
+      "passed": 52,
       "log": "artifacts/maintenance/20261016-architecture-book/publication-docs-tests.log"
     },
     "goDocs": {
@@ -65,31 +65,38 @@
       "legacyBrokenAnchorsCorrected": 2,
       "verification": "Confirmed exact heading IDs with GitHub rendered Markdown; preserved source text, corrected links only",
       "log": "artifacts/maintenance/20261016-architecture-book/fragment-audit.json"
+    },
+    "documentationLinks": {
+      "separateFrozenSnapshots": true,
+      "codeSnapshot": "821659dfd6782927d02924916ced5474a8142d74",
+      "documentationSnapshot": "d88158adfe2c2c459cd25eaa7d1a11605151dd42",
+      "legacyFallbackPreserved": true,
+      "floatingBranchesRejected": true
     }
   },
   "publicationSha256": {
     "LICENSE": "5ff10dbe139e863c4f76cedfd8b6269b29c4efa81650264e0a0ec4a121b6ccb0",
-    "SHA256SUMS": "c2e953dd4b5ff4d56124efb67d4b2e15bf57802f40b6a7d4983551b04ac7c89a",
-    "book.epub": "ce1ceddfedb47493b63375f261b63efd293dbabddbe18f333cf540b2ca09ada8",
-    "book.md": "d6ec4689b6c48d7d3d39998f6f775ead2adf6869b427060194971ee73c034c10",
-    "index.html": "d5771b61c77e2139192ab8d04d3960c0a3d189c8ed49bf41969a99132f7543c9",
-    "provenance.json": "09915d21b6a9721a23367bf43ca6f9f6842c33170d04fcb24954c0ab2c6ca5ea"
+    "SHA256SUMS": "37a44b921f0e1105c37a015691acb645cb12a99256fa2f1bf10d07f1f6ce6d46",
+    "book.epub": "1680443427b4d059bc39f1e69547f396e17f6fc5544836b157128db1966ee65d",
+    "book.md": "3f3d3c82466ce601b05c2d957e161c52ca258c50f41d800b92a3b0966c7292eb",
+    "index.html": "35bb55fd04b573f29233c1985af87d78c6e7017308c97c5c6effc35fff60573b",
+    "provenance.json": "8c829a1d65c5b8d35e2c86539797207351ba78b13f1a31f55a953e57947a6ede"
   },
   "updatedFileSha256": {
     "CHANGELOG.md": "680d95c9b27672c83d574b22ec983c9f81b657f919b9eebc3e6ff86e2eb0b6f8",
-    "README.md": "83b1d497e0c7f4a5708afe4b0ccf9e7826c026f9092603f33384041b23280462",
-    "book/README.md": "ac6c9b0ab8e9e7b16691c639efa5845001e8585e0117da182f0b5ffb0b50e233",
-    "book/RELEASE.md": "c146fcd9200f845faf16073816c79299e78e50d67527ab88a22727f7d29cc8dc",
-    "book/appendix/A-source-map.md": "bd7581e37b017285715af2c275e9dabc95f23930e6418d4be5766c370853cd55",
+    "README.md": "8ed42cde46e6bd823bd74732591b09df47c7b398ed66289748248509a6decdd3",
+    "book/README.md": "6b368925581468cb4d6434a2c525a9601e95380ab02bac3d49e42bb40a4b09a0",
+    "book/RELEASE.md": "19493f47e7a0d9b5a635515265eb76717d4ac1de8cb1585791494444d1404bce",
+    "book/appendix/A-source-map.md": "a4253956732576fc6a813ef9cbcf41d734be820be1142563f728883da3c7377d",
     "book/appendix/B-checklists.md": "c7b5615e911af30e9d3a4bd9ae51362e47f1bef8ed435ac4076732027c94e0c1",
     "book/appendix/C-experiment-index.md": "8cf1f43fec3879938bc978b5bca19877149f24aae65e413f0d9e54a1b7a71e70",
     "book/appendix/D-glossary-and-assumptions.md": "d5359188d269c06ea8f6a860e86195d3db5e0316cd73cd88ecc2b0e3722dfca2",
-    "book/appendix/E-references.md": "353efd189c5b8dd10d726f98c5e5c986ed65fb7ae3025d0a1b27e16fb454bc54",
+    "book/appendix/E-references.md": "ab9580c0ebf66a3d2945514dd5ce3879aff81d4041350a243cff805b3293dcb2",
     "book/appendix/F-learning-labs.md": "702dc8c4e3c1d30a1fa0afe840acc90dc201389f135ce19349549bdeac5cb083",
     "book/appendix/G-course-design.md": "1f9be9a6ccb0b7510f98a577d33b0481d45c04754011c997a83edf9bdb69d1d9",
     "book/appendix/H-engineering-playbook.md": "5a36f07228b1389d1c420b167b06f4fc071336f7899ecb9bd520bdf85331e799",
     "book/appendix/I-exercise-guide.md": "2ef08d51f3d61dcfa5f8b932ab44fd8c8f7da9989849dedd311eaa2e364258ce",
-    "book/book.md": "d6ec4689b6c48d7d3d39998f6f775ead2adf6869b427060194971ee73c034c10",
+    "book/book.md": "3f3d3c82466ce601b05c2d957e161c52ca258c50f41d800b92a3b0966c7292eb",
     "book/chapters/ch01-physical-constraints.md": "cc86a6c6b1f0d8a526abe9a6ce250d2ef651a720c347cb6df4d93b5d0290fbee",
     "book/chapters/ch02-architecture-evolution.md": "0e7acf390e7fcfec9dbca0d1100b7c37991b8b4ed0a326430cf37dd053b96f6c",
     "book/chapters/ch03-closed-loop-contract.md": "0cf19508a915fe1503f8d0a88869e4916b85051a69252c7b199c0752852e53f3",
@@ -109,13 +116,13 @@
     "book/chapters/ch17-cloud-edge-agent-harness.md": "eba5315f191ac893ff28f1a05ca3ae678f545704a40bd51e083cc73cef5d2340",
     "book/chapters/ch18-long-horizon-context.md": "9b9d1c37deb106f768a963bb5d0f8a4f2043b62f8a0c3f876992baa174236842",
     "book/chapters/ch19-long-horizon-walkthrough.md": "8b47c92dd6596ae1a1793d8524190a0ed234d84769f980096b9c0e937ad2653d",
-    "book/edition.json": "7114ed4ab3403acbd50bc7e34958c5496a436f967209f42ab4e504c37dee90b0",
+    "book/edition.json": "52c3b8fe85ba05e3fa4a6a4279fe1c2b4f738840cfccdaa5146ed8530610fba8",
     "book/editions/2.1.0/README.md": "c0fd8f1ebd973f13843fb61afb3c4a5638b0bac6905d0106e962909aecdca876",
     "book/editions/2.1.0/RELEASE.md": "4a8cd8404e41b56ac8e94fc996277149d6e5dfccfa2349799fd845940daaeb2b",
     "book/editions/2.1.0/edition.json": "dfcf8d508415ddf82ede1907d96a90472a86d08008a66a868f9ff5b1ab45fad8",
     "book/editions/2.1.0/source-manifest.json": "d4151d12769be3a42c97d61712254ec8c6ef64291a643756b8ccd04638cb9760",
     "book/front/00-preface.md": "cec79ddaba1fcb96ee20d9cd7c322cc9f5714b14782adf3f61d03ae2bdbfde35",
-    "book/front/01-publication-notes.md": "b12f990cda8a61339b5b12a5331ef37d91a183d4ab4023da43cc842d820a2269",
+    "book/front/01-publication-notes.md": "632f4a30972c468aca7a9797191bb39caadc969f39a3b04e2458c3b898e154e2",
     "book/front/02-study-guide.md": "2950d59756e67572a3dc83ccc4cc6c6c8683e11a7145d87b3caaea01d28a7c0d",
     "book/updates/2026-10-15-hierarchical-edge-objectives.md": "df85e28d7fcdfcf89597e0bd60c0a2c580dad48101ece96600b63597a69547f1",
     "core/contextcontract/README.md": "a699ab8dd7bb400da6a9d789d482613fb7a1b14eb30ec960b9946c4ea96af375",
@@ -138,7 +145,7 @@
     "docs/architecture/semantic-execution-protocol.md": "1d46ebbe33a0686c990c251f3933bf2f0c3416890022d471ffc9344726e5d99e",
     "docs/architecture/supervision-verification.md": "5edaa28dbc344478fb1020478cbc401b3e28662955401834d2ca1d217962c65b",
     "docs/catalog.md": "895770f1941f1011f8d9299577785b89e59230c18bc078f5de806c7752028274",
-    "docs/development/2026-10-16-architecture-book-refresh.md": "2f66664b678ff9f5663ea8a6813b7be8970aaef0973377de9d2307edf543517b",
+    "docs/development/2026-10-16-architecture-book-refresh.md": "37dab6bc0b897b92f706f53f6e9b405b4397db20e2d31d0bf9baf2152eeea0f0",
     "docs/development/README.md": "b28500f89ac7c42996635aac8279d1694bd3287c8f03b60a208847b90e0c516f",
     "docs/development/adding-an-agent.md": "b7b1c2ea0f7637d9a090b3a3587ed42e55b955286cd170e663d881f161460556",
     "docs/development/edge-data-exchange.md": "6d893c13015eb5df45bd23f72406da5f67d0c6e85b3904c85c6375ec19a5d835",
@@ -188,12 +195,14 @@
     "docs/research/README.md": "78bcf2873e0f611d7791d627daac78a3e95370509d6261f9d37833d6711b30d2",
     "docs/sim2real/README.md": "11362c42cd66349a75dbacba3f24ff861c58a064594f1021d6f5b88037db0ca4",
     "robot/mcp/README.md": "61ff5894d0d814ec3a17b250709fc29d75512248dc307b8d04615fe428a855ef",
-    "tests/book/test_publication.py": "e0599c71c4ad2211df24d3c40ae98a4548932e32f85139373e014b9b8d6aeb0b"
+    "tests/book/test_publication.py": "038aea7d188e161cd9543e80545f9040f392fdd519dcd1c72f8169f5b2be0e4e",
+    "scripts/build_book.py": "c4f3f0cde77bbe5b353cbbb90d60e107cc704e56b0ee8c042bf7a1ff81e76185"
   },
   "merge": {
     "pullRequest": 28,
     "url": "https://github.com/SUSTechWLA/tangying-robot-agent-os/pull/28",
     "status": "pending_remote_checks_and_merge",
     "receipt": "artifacts/maintenance/20261016-architecture-book/main-integration.json"
-  }
+  },
+  "documentationSnapshot": "d88158adfe2c2c459cd25eaa7d1a11605151dd42"
 }

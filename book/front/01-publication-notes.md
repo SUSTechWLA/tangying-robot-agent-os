@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | 书籍版次 | book/edition.json 的 2.2.0 | 编排、引用与勘误 |
 | 代码复核快照 | `821659dfd6782927d02924916ced5474a8142d74` | 本版项目实现与指南链接 |
+| 配套文档快照 | `d88158adfe2c2c459cd25eaa7d1a11605151dd42` | 本轮架构、指南、运维与实验链接 |
 | 软件正式标签 | v0.7.0 → `30df0602f3baaab6cb75644e9051b919248c53af` | 与书籍版号独立 |
 | 书稿编辑版本 | Git 提交及发布 provenance | 实际正文、工具和输出身份 |
 | 实验版本 | 每份原报告注明的代码、模型、场景与时间 | 不被新的书稿版次覆盖 |
@@ -48,7 +49,7 @@ git show 821659dfd6782927d02924916ced5474a8142d74:core/contextcontract/basis.go
 
 ## 数字出版与复现
 
-分章 Markdown 是编辑源，book.md、HTML 和 EPUB 由统一脚本生成。篇级目录和节级导航服务于连续学习及工程查阅；HTML/EPUB 的章节链接在包内，源码链接固定到 GitHub 快照，需要网络。
+分章 Markdown 是编辑源，book.md、HTML 和 EPUB 由统一脚本生成。篇级目录和节级导航服务于连续学习及工程查阅；HTML/EPUB 的章节链接在包内，源码链接固定到实现快照，配套 Markdown/实验文档固定到 documentation_snapshot，需要网络；二者都使用完整 Git 提交，不随 main 漂移。
 
 发布包附 LICENSE、provenance.json 和 SHA256SUMS，检查源清单、篇级覆盖、围栏、链接、锚点、XHTML、EPUB 资源、旧版恢复与可重复构建。相同正文和固定依赖不引入当前时间、机器路径或随机身份。
 

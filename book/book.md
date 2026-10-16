@@ -72,6 +72,7 @@
 | --- | --- | --- |
 | 书籍版次 | book/edition.json 的 2.2.0 | 编排、引用与勘误 |
 | 代码复核快照 | `821659dfd6782927d02924916ced5474a8142d74` | 本版项目实现与指南链接 |
+| 配套文档快照 | `d88158adfe2c2c459cd25eaa7d1a11605151dd42` | 本轮架构、指南、运维与实验链接 |
 | 软件正式标签 | v0.7.0 → `30df0602f3baaab6cb75644e9051b919248c53af` | 与书籍版号独立 |
 | 书稿编辑版本 | Git 提交及发布 provenance | 实际正文、工具和输出身份 |
 | 实验版本 | 每份原报告注明的代码、模型、场景与时间 | 不被新的书稿版次覆盖 |
@@ -120,7 +121,7 @@ git show 821659dfd6782927d02924916ced5474a8142d74:core/contextcontract/basis.go
 
 ## 数字出版与复现
 
-分章 Markdown 是编辑源，book.md、HTML 和 EPUB 由统一脚本生成。篇级目录和节级导航服务于连续学习及工程查阅；HTML/EPUB 的章节链接在包内，源码链接固定到 GitHub 快照，需要网络。
+分章 Markdown 是编辑源，book.md、HTML 和 EPUB 由统一脚本生成。篇级目录和节级导航服务于连续学习及工程查阅；HTML/EPUB 的章节链接在包内，源码链接固定到实现快照，配套 Markdown/实验文档固定到 documentation_snapshot，需要网络；二者都使用完整 Git 提交，不随 main 漂移。
 
 发布包附 LICENSE、provenance.json 和 SHA256SUMS，检查源清单、篇级覆盖、围栏、链接、锚点、XHTML、EPUB 资源、旧版恢复与可重复构建。相同正文和固定依赖不引入当前时间、机器路径或随机身份。
 
@@ -374,7 +375,7 @@ HTML 与 EPUB 提供篇级目录及每章的节级导航，可用阅读器搜索
 
 ## 1.7 小结与阅读
 
-本章建立问题域。继续读第2章职责模型、第3章闭环。项目入口见[系统架构](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/architecture.md)与[闭环契约](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/closedloop/closedloop.go)。
+本章建立问题域。继续读第2章职责模型、第3章闭环。项目入口见[系统架构](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/architecture.md)与[闭环契约](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/closedloop/closedloop.go)。
 
 <a id="part-04-h009"></a>
 
@@ -496,7 +497,7 @@ Local管理一台机器人；Fleet管理机群。两者共用 `internal/edgeagen
 
 机器人侧再区分五个职责：外部 SLAM 估计位姿；Provider 校验并保存测量；地图包保存不可变内容；语义层管理标签与 CAS 版本；定位/规划/控制器分别提供当前事实、几何路径与实际运动。Runtime 是唯一受控动作入口。独立 edge-exchange 处理设备间和云边 advisory 数据，它没有替代 Task 或 Runtime 的权威。
 
-学习时用 [模块边界评估](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/modular-extensibility.md)对照接口依赖，画出某个插件替换时需要一起变更的合同，而不是仅列进程数。
+学习时用 [模块边界评估](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/modular-extensibility.md)对照接口依赖，画出某个插件替换时需要一起变更的合同，而不是仅列进程数。
 
 <a id="part-05-h010"></a>
 
@@ -738,7 +739,7 @@ A与B必须对同物料和共同坐标达成可核对解释；物体在交接区
 
 当前点云语义层以实际点集合和三维选区建立标注，保存几何 mapRevision、独立 semanticRevision、annotationId、来源与过期状态。写入使用 CAS，不能覆盖另一个编辑者的版本。标签回答“哪一部分可能是什么”，不会证明附近空间可通行或机器人已到达。
 
-冻结计划通道在批准内容中固定目标顺序和重复访问；目标委托通道固定权限包络，再把各代具体路线保存在子计划中。两者执行到一站时都要读取适用的新 semantic.plan，保存本阶段 grounding 身份和候选；模型进度摘要不能代替当前语义修订或到达事实。原 semantic.plan 仍生成二维地面观察候选，签名执行绑定不自动延伸到任意三维标签。空间通道可以执行完整 XYZ 目标，但三维语义候选到飞行观察姿态的联合合同仍需补充。见 [点云语义](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/semantic-point-cloud.md)与[语义执行](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/semantic-execution-protocol.md)。
+冻结计划通道在批准内容中固定目标顺序和重复访问；目标委托通道固定权限包络，再把各代具体路线保存在子计划中。两者执行到一站时都要读取适用的新 semantic.plan，保存本阶段 grounding 身份和候选；模型进度摘要不能代替当前语义修订或到达事实。原 semantic.plan 仍生成二维地面观察候选，签名执行绑定不自动延伸到任意三维标签。空间通道可以执行完整 XYZ 目标，但三维语义候选到飞行观察姿态的联合合同仍需补充。见 [点云语义](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/semantic-point-cloud.md)与[语义执行](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/semantic-execution-protocol.md)。
 
 <a id="part-07-h010"></a>
 
@@ -751,7 +752,7 @@ A与B必须对同物料和共同坐标达成可核对解释；物体在交接区
 
 空间 Provider 接收外部算法的配准结果。LiDAR、视觉惯性或 RGB-D 算法仍负责原始测量、时间同步、外参、自体过滤、估计和 loop closure。不能把这个采集 Provider 描述为新 SLAM 位姿估计器。坐标校正、标定改变或回环优化需要新修订，旧批准和空间引用重新核对。
 
-ROS spatial_mapper 节点使用有界 Reliable 队列接收登记来源；保存时冻结测量并原子发布 volume/provenance/measurements/manifest。加载器核对摘要、测量来源和重放结果，不能仅重算一个被篡改体素文件的 SHA 后称其有效。配置和离线 CLI 见 [空间建图](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/spatial-mapping.md)。
+ROS spatial_mapper 节点使用有界 Reliable 队列接收登记来源；保存时冻结测量并原子发布 volume/provenance/measurements/manifest。加载器核对摘要、测量来源和重放结果，不能仅重算一个被篡改体素文件的 SHA 后称其有效。配置和离线 CLI 见 [空间建图](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/spatial-mapping.md)。
 
 <a id="part-07-h011"></a>
 
@@ -773,7 +774,7 @@ ROS spatial_mapper 节点使用有界 Reliable 队列接收登记来源；保存
 
 设禁行体素集合为 O，机器人包络为 B，余量为 M。保守规划检查参考点路径不进入膨胀集合 `O ⊕ (B+M)`，未知和地图外部也进入禁行判断。连续整段检查避免端点都 free、连接却穿墙的捷径。当前上限为 250,000 体素，并限制展开数、航点和碰撞计算；这是一份有限静态地图，不是无限动态环境保证。
 
-地面起终点高度须贴合支撑面加 referenceHeightM，容差 0.02 m；该参考高度需超过底盘半高度与 margin。大 maxStep 只允许相邻地形过渡，不允许任意长线悬浮跨谷。单层高度场不能同时表达桥上和桥下；底盘包络不覆盖足端接触、摆腿或动态平衡。空中包络要覆盖允许姿态下机体和旋翼，曲率/跟踪/起降由控制器验证。参数与算法见 [空间导航](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/spatial-navigation.md)。
+地面起终点高度须贴合支撑面加 referenceHeightM，容差 0.02 m；该参考高度需超过底盘半高度与 margin。大 maxStep 只允许相邻地形过渡，不允许任意长线悬浮跨谷。单层高度场不能同时表达桥上和桥下；底盘包络不覆盖足端接触、摆腿或动态平衡。空中包络要覆盖允许姿态下机体和旋翼，曲率/跟踪/起降由控制器验证。参数与算法见 [空间导航](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/spatial-navigation.md)。
 
 <a id="part-07-h013"></a>
 
@@ -787,7 +788,7 @@ spatial.localization.v1 关联同一次重建的 observationId、sequence、采�
 
 ## 4.7 小结与阅读
 
-感知的作用是提供带来源事实。规范见[适配器观测契约](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/robot-adapters.md)，投影实现见[worldmodel](https://github.com/SUSTechWLA/tangying-robot-agent-os/tree/821659dfd6782927d02924916ced5474a8142d74/core/worldmodel)。
+感知的作用是提供带来源事实。规范见[适配器观测契约](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/robot-adapters.md)，投影实现见[worldmodel](https://github.com/SUSTechWLA/tangying-robot-agent-os/tree/821659dfd6782927d02924916ced5474a8142d74/core/worldmodel)。
 
 <a id="part-07-h015"></a>
 
@@ -897,7 +898,7 @@ RobotProfile保留robot/adapter/model身份、原生关节及SI限位、末端�
 
 ## 5.8 小结与阅读
 
-实现入口：[目标包络](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/objective/contract.go)、[Capability](https://github.com/SUSTechWLA/tangying-robot-agent-os/tree/821659dfd6782927d02924916ced5474a8142d74/core/capability)、[PluginBackend](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/robot/gateway/tangying_robot_gateway/plugin_backend.py)、[能力目标指南](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/unified-capability-goals.md)。下一章把工具边界应用到Agent协作。
+实现入口：[目标包络](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/objective/contract.go)、[Capability](https://github.com/SUSTechWLA/tangying-robot-agent-os/tree/821659dfd6782927d02924916ced5474a8142d74/core/capability)、[PluginBackend](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/robot/gateway/tangying_robot_gateway/plugin_backend.py)、[能力目标指南](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/unified-capability-goals.md)。下一章把工具边界应用到Agent协作。
 
 <a id="part-08-h010"></a>
 
@@ -1150,7 +1151,7 @@ Host 只把完成条件、完成总数/摘要、最近8项确认调用和当前�
 
 ## 7.8 小结与阅读
 
-实现见[目标合同](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/objective/contract.go)、[共享Host](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/edgeagent/host.go)、[目标接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/delegated-edge-goals.md)、[Planner](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/capabilityagent/planner.go)、[创建任务](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/tasks/capability.go)、[失败规划](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/cmd/local-agent/planning_failure.go)。长上下文见第18章。
+实现见[目标合同](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/objective/contract.go)、[共享Host](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/edgeagent/host.go)、[目标接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/delegated-edge-goals.md)、[Planner](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/capabilityagent/planner.go)、[创建任务](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/tasks/capability.go)、[失败规划](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/cmd/local-agent/planning_failure.go)。长上下文见第18章。
 
 <a id="part-10-h012"></a>
 
@@ -1347,7 +1348,7 @@ curl --fail --silent http://127.0.0.1:8897/v1/readiness
 
 这是开发仿真入口，需要对应依赖及Docker。已有服务承载任务时先核对并复用，不重复启动。healthz是进程存活；Runtime ready与Console readiness涉及不同范围；批准和现场使能又是另外的条件。
 
-先查看设备目录、地图/标定与历史，再选择入口：工作台自然语言表单创建冻结能力计划；目标委托通过显式 `/v1/objectives` API提交合同，并使用既有任务批准路由。目标合同需绑定真实 `goalCatalogRevision`、工具/参数/次数、只读完成条件、预算和期限，详见[接口指南](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/delegated-edge-goals.md)。不要将旧表单成功解析理解为新Host已经启用。敏感模型配置保存在私有文件，不能通过日志展示key。
+先查看设备目录、地图/标定与历史，再选择入口：工作台自然语言表单创建冻结能力计划；目标委托通过显式 `/v1/objectives` API提交合同，并使用既有任务批准路由。目标合同需绑定真实 `goalCatalogRevision`、工具/参数/次数、只读完成条件、预算和期限，详见[接口指南](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/delegated-edge-goals.md)。不要将旧表单成功解析理解为新Host已经启用。敏感模型配置保存在私有文件，不能通过日志展示key。
 
 <a id="part-12-h005"></a>
 
@@ -1401,7 +1402,7 @@ Local 简化了机群协调和跨主机运维，但仍保留批准、日志、�
 
 Local Agent/Worker 当前保存完整 Runtime Profile、目录、设备和安全配置的固定合同，重启及逐工具调用都复核。改变限位、标定或安全配置后，即使工具名字没变，旧合同也会拒绝。空间部署摘要进一步绑定完整体素图、策略和定位条件，通过导航目录描述进入相同固定机制。
 
-有执行历史却缺少 pin 时，系统不会自动信任当前设备重建旧身份；先对账，再使用无动作 --admit-runtime-contract 入口显式准入。它不恢复未知动作，不解除设备停止锁存。具体迁移见 [边缘部署](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/edge-field-testing.md)。
+有执行历史却缺少 pin 时，系统不会自动信任当前设备重建旧身份；先对账，再使用无动作 --admit-runtime-contract 入口显式准入。它不恢复未知动作，不解除设备停止锁存。具体迁移见 [边缘部署](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/edge-field-testing.md)。
 
 receipt 绑定的有界 status/cancel 在目录查询暂时失效时仍可请求停止，但不能用该例外开始新操作或续租。恢复从 journal、pin 和新观测查证，清空本机数据库会丢掉判断依据。
 
@@ -1533,13 +1534,13 @@ Gazebo家庭任务使用规定模型、地图、目标杯/盘及验证器。修�
 
 无人车可使用经调试的制动；足式需要保持平衡或厂商程序；多旋翼由受控降落或完整厂商故障流程处理失联。停止 ACK 表示登记流程已响应，不等于已停稳或已落地。高频租约、轨迹跟踪与硬件 watchdog 留在设备，不能依赖云端逐步任务消息。
 
-两端必须重新构建新增 Action/状态字段。默认 Unix 墙钟、use_sim_time=false；DDS 属于受信本地设备边界，生产部署应配置实际 namespace/domain 和权限。合同、配置与限制见 [异构运动接入](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/heterogeneous-mobility.md)和[空间部署](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/spatial-navigation.md)。
+两端必须重新构建新增 Action/状态字段。默认 Unix 墙钟、use_sim_time=false；DDS 属于受信本地设备边界，生产部署应配置实际 namespace/domain 和权限。合同、配置与限制见 [异构运动接入](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/heterogeneous-mobility.md)和[空间部署](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/spatial-navigation.md)。
 
 <a id="part-13-h010"></a>
 
 ## 10.8 小结与阅读
 
-项目实现见[PluginBackend](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/robot/gateway/tangying_robot_gateway/plugin_backend.py)与[实机集成指南](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/hardware-agent-integration.md)。行业交付模板见附录H。
+项目实现见[PluginBackend](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/robot/gateway/tangying_robot_gateway/plugin_backend.py)与[实机集成指南](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/hardware-agent-integration.md)。行业交付模板见附录H。
 
 <a id="part-13-h011"></a>
 
@@ -1768,7 +1769,7 @@ Gazebo家庭任务使用规定模型、地图、目标杯/盘及验证器。修�
 
 `train.Compare` 要求候选与基线使用相同冻结用例且运行完整；可执行与正确拒绝两方面均不退化，至少一方面改善。没有在役基线时另用绝对门禁。该门禁覆盖给定评测集，不保证新模型所有物理场景安全。
 
-实现见[量化](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/training/quantify.go)、[比较](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/train/gate.go)，历史导出与流程见[后训练资料](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/post-training-pipeline.md)。上线前还需对应环境、模型/配置身份与实际运行验证。
+实现见[量化](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/training/quantify.go)、[比较](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/train/gate.go)，历史导出与流程见[后训练资料](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/post-training-pipeline.md)。上线前还需对应环境、模型/配置身份与实际运行验证。
 
 <a id="part-15-h010"></a>
 
@@ -1778,7 +1779,7 @@ Gazebo家庭任务使用规定模型、地图、目标杯/盘及验证器。修�
 
 保留全部 11 次自然语言尝试：首次解析拒绝没有派发；第二次任务 succeeded，但验收因起点恰好与最后地点重合而失败。修正测试起点为 x=-0.5 后保持 11 段判据。开发复验与最终 run5 分别记录，不把这 11 次不同条件合成可靠性成功率。
 
-CSV 的 geometricLengthM 是几何折线长度，记录耗时不是实际行驶/飞行速度。不同模式的目标高度也不同，不能用 48 与 41 个航点推断三维方法更优。ATE/RPE、动态控制、小时级任务与实机需要新的独立设计，原始数据和源码摘要见 [完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-14-spatial-navigation.md)。
+CSV 的 geometricLengthM 是几何折线长度，记录耗时不是实际行驶/飞行速度。不同模式的目标高度也不同，不能用 48 与 41 个航点推断三维方法更优。ATE/RPE、动态控制、小时级任务与实机需要新的独立设计，原始数据和源码摘要见 [完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-14-spatial-navigation.md)。
 
 <a id="part-15-h011"></a>
 
@@ -1790,13 +1791,13 @@ CSV 的 geometricLengthM 是几何折线长度，记录耗时不是实际行驶/
 
 实际Gazebo另保留准备、创建超时、旧通道巡检、Host装配失败、修复后Host巡检共五项，跨四个二进制SHA。Host02为239.846秒执行、4子能力、10物理/验证子步骤；未实测累计行驶里程，不填0。独立验收覆盖子计划、命令后RGB-D、路线与地图条件。不能将五个不同用途/版本案例计算成3/5可靠率，也不能用软件长链耗时预测实机MTBF。
 
-原始数据不得覆盖。采集器检查预定场景、源测试结论、截断与前后源码SHA；两轮边跑边修改源码即使Go测试通过仍被整轮排除。第19章示范如何沿任务CSV、原始JSONL与manifest核查，完整[实验报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-single-robot-robustness.md)保留这些排除项。
+原始数据不得覆盖。采集器检查预定场景、源测试结论、截断与前后源码SHA；两轮边跑边修改源码即使Go测试通过仍被整轮排除。第19章示范如何沿任务CSV、原始JSONL与manifest核查，完整[实验报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-single-robot-robustness.md)保留这些排除项。
 
 <a id="part-15-h012"></a>
 
 ## 12.8 小结与阅读
 
-系统Eval见[设计与使用](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/agent-evaluation-system.md)，实验索引见附录C，研究报告模板见附录G/H。
+系统Eval见[设计与使用](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/agent-evaluation-system.md)，实验索引见附录C，研究报告模板见附录G/H。
 
 <a id="part-15-h013"></a>
 
@@ -1902,13 +1903,13 @@ healthz正常表明服务存活；readiness可能因历史未确认动作、传�
 
 运行目录与实验目录具有不同保存要求。当前 MuJoCo 按 scene/perception/seed 隔离任务历史，避免两种感知模式共享旧 Runtime pin；旧数据不自动迁移。地图数据库、测量、失败目录与执行记录可供论文复核，不能当缓存删除。
 
-临时 scratch 文件、过时重复 CLI 和可重建输出先检查跟踪、引用、manifest 与打开文件，再按明确清单清理。[产物管理](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/artifact-retention.md)记录本轮删除及保留边界。电子书不同出版身份也不能覆盖已有版本，原生成器与正文可按恢复清单回读。
+临时 scratch 文件、过时重复 CLI 和可重建输出先检查跟踪、引用、manifest 与打开文件，再按明确清单清理。[产物管理](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/artifact-retention.md)记录本轮删除及保留边界。电子书不同出版身份也不能覆盖已有版本，原生成器与正文可按恢复清单回读。
 
 <a id="part-16-h010"></a>
 
 ## 13.8 小结与阅读
 
-配置见[Fleet](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/fleet-cloud.md)、[安全配置](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/configuration-and-security.md)与[升级回执边界](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-10-10-cloud-edge-protocol.md)。操作模板见附录H。
+配置见[Fleet](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/fleet-cloud.md)、[安全配置](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/configuration-and-security.md)与[升级回执边界](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-10-10-cloud-edge-protocol.md)。操作模板见附录H。
 
 <a id="part-16-h011"></a>
 
@@ -2023,7 +2024,7 @@ fixture用于协议和控制流；仿真用于指定物理环境；实机用于�
 
 ## 14.7 小结与阅读
 
-源码地图见附录A，课程综合项目见附录G，工程评审清单见附录H。实现原则见[开发原则](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/principles.md)。
+源码地图见附录A，课程综合项目见附录G，工程评审清单见附录H。实现原则见[开发原则](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/principles.md)。
 
 <a id="part-17-h010"></a>
 
@@ -2133,7 +2134,7 @@ lease、MySQL事件、Redis资源、World投影与物理效果之间的中断需
 
 ## 15.8 小结与阅读
 
-当前边界来源：[目标委托](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/hierarchical-edge-objectives.md)、[最新鲁棒性实验](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-single-robot-robustness.md)、[协作实现导读](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/long-horizon-collaboration.md)与[长程实验](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-10-long-horizon-protocol.md)。不要用旧版未实现清单判断新代码。
+当前边界来源：[目标委托](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/hierarchical-edge-objectives.md)、[最新鲁棒性实验](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-single-robot-robustness.md)、[协作实现导读](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/long-horizon-collaboration.md)与[长程实验](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-10-long-horizon-protocol.md)。不要用旧版未实现清单判断新代码。
 
 <a id="part-18-h011"></a>
 
@@ -2231,7 +2232,7 @@ lease、MySQL事件、Redis资源、World投影与物理效果之间的中断需
 
 ## 16.7 小结与阅读
 
-项目角色实现见[Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/agentharness/profile.go)，长上下文见第18章。历史对照依据见[能力架构审计](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-09-27-agent-capability-architecture-review.md)。
+项目角色实现见[Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/agentharness/profile.go)，长上下文见第18章。历史对照依据见[能力架构审计](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-09-27-agent-capability-architecture-review.md)。
 
 <a id="part-19-h009"></a>
 
@@ -2382,7 +2383,7 @@ Basis绑定task/revision、aggregate/claim version、intent/step/command、robot
 
 已有双机器人流程由A把红方块放入交接区，B取出送到目标区；Coordinator按前序成功领取下一Intent。物料稳定在区内、A不再持有、命令后来源新鲜与owner/fence转换分别验证。共同world、物料ID和标定必须对应，“A已交给B”的消息不能替代交接证据。
 
-目标Host只绑定一台robot/catalog，v1只有robot资源；既有按序交接与新单机目标通道不能直接相加成通用异构并行编队。跨机器人目标分配、共享区域预约、联合取消和联合后置条件仍需上层协议与实际验收。见[双机操作](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/robocasa-handoff.md)。
+目标Host只绑定一台robot/catalog，v1只有robot资源；既有按序交接与新单机目标通道不能直接相加成通用异构并行编队。跨机器人目标分配、共享区域预约、联合取消和联合后置条件仍需上层协议与实际验收。见[双机操作](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/robocasa-handoff.md)。
 
 异构差异通过RobotProfile、能力Manifest、验证器和ROS 2适配器表达。UGV、足式和多旋翼可以共用navigation/verify_arrival语义，实际准备、限位、制动/平衡/降落由设备实现。二维Nav2保留；地形和三维空间通道检查地图/部署摘要、完整定位与路径身份。外部SLAM负责估计，Provider保存测量与地图；目标宿主不接管高频运动控制。
 
@@ -2402,9 +2403,9 @@ A本地事实 → outbox → 认证传输 → B/云端inbox → 数据ACK
                      查询、建议或待审批方案 → 正式任务通道
 ```
 
-相同mapId却摘要不同要保留冲突、拒绝关联；新修订先记录建议，不能覆盖当前地图。跨机器人pose需共同world变换，标签与空间包也各有版本。云端同事可实现合同与业务消费者，不需要共享边缘私钥或模型key。接口与双进程验证见[设备数据交换](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/edge-data-exchange.md)。
+相同mapId却摘要不同要保留冲突、拒绝关联；新修订先记录建议，不能覆盖当前地图。跨机器人pose需共同world变换，标签与空间包也各有版本。云端同事可实现合同与业务消费者，不需要共享边缘私钥或模型key。接口与双进程验证见[设备数据交换](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/edge-data-exchange.md)。
 
-高频感知和控制留在设备，上传任务需要的语义字段或选定证据。模型Assist只推理；原始trace即使没有Authorization也可能含业务资料，公开发布另做权限与脱敏。部署指南见[边缘实测](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/edge-field-testing.md)和[目标接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/delegated-edge-goals.md)。
+高频感知和控制留在设备，上传任务需要的语义字段或选定证据。模型Assist只推理；原始trace即使没有Authorization也可能含业务资料，公开发布另做权限与脱敏。部署指南见[边缘实测](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/edge-field-testing.md)和[目标接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/delegated-edge-goals.md)。
 
 <a id="part-20-h011"></a>
 
@@ -2603,7 +2604,7 @@ context_read是内部只读工具，不进入待批准的机器人工具序列�
 
 ## 18.10 小结与源码路线
 
-路线先从[目标检查点](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/edgeagent/journal.go)与[Host进度投影](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/edgeagent/host.go)区分父/子状态，再看：[ContextForRevisions](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/tasks/context.go)→[命令记忆](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/tasks/context_memory.go)→[managed projection](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/agentcontext/managed.go)→[回查](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/actionloop/context_read.go)→[规划trace](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/capabilityagent/planner.go)。真实故障与数字见[预算修复](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-10-10-context-budget-recovery.md)。
+路线先从[目标检查点](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/edgeagent/journal.go)与[Host进度投影](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/edgeagent/host.go)区分父/子状态，再看：[ContextForRevisions](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/tasks/context.go)→[命令记忆](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/tasks/context_memory.go)→[managed projection](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/core/agentcontext/managed.go)→[回查](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/actionloop/context_read.go)→[规划trace](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/internal/capabilityagent/planner.go)。真实故障与数字见[预算修复](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-10-10-context-budget-recovery.md)。
 
 完整权威来源、有界模型视图与执行Basis分工不同。中心/边缘不必保存相同聊天，必须核对身份与依据；压缩和分页不改变未知、冲突和批准权。必要状态超预算仍拒绝，不保证无界持续规划。
 
@@ -2764,7 +2765,7 @@ Host01使用同一精确巡检目标，但结果为RECOVERABLE_FAILURE，17.179�
 
 历史暂停seq49→52由操作员发起，65.580224秒，不是自动故障恢复。11个managed上下文、7模型请求、4次压缩、冷分页调用0；机制测试存在不能当现场分页发生。末尾localized且地图一致，但ready=false，定位年龄1078ms超过1000ms阈值；目标要求读取报告，所以保留原false，后采样ready=true不能覆盖它。
 
-独立重验核对1171文件、约1.224GB，257事件和1不可变版本。备份18任务中12失败/6成功，失败没有删除。该案例补充抓放和历史上下文证据，不能把其抓放、当前Host和三维接口拼成一个已联调实机系统。详见[原报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-10-long-horizon-protocol.md)与[验收索引](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-10-long-horizon-acceptance.json)。
+独立重验核对1171文件、约1.224GB，257事件和1不可变版本。备份18任务中12失败/6成功，失败没有删除。该案例补充抓放和历史上下文证据，不能把其抓放、当前Host和三维接口拼成一个已联调实机系统。详见[原报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-10-long-horizon-protocol.md)与[验收索引](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-10-long-horizon-acceptance.json)。
 
 <a id="part-22-h010"></a>
 
@@ -2788,9 +2789,9 @@ Host01使用同一精确巡检目标，但结果为RECOVERABLE_FAILURE，17.179�
 
 本轮真实Host说明粗目标包络、边缘细化、复合执行、完成证明和回溯在该单机仿真可闭环；软件矩阵补测长链、预算、未知和云边交付。它们没有证明任意任务必完成、离线继续、异构机群长稳或实机认证。
 
-当前资料从[完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-single-robot-robustness.md)进入[任务CSV](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/tasks.csv)、[软件记录](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/records.jsonl)、[总manifest](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/evidence/2026-10-15-single-robot-robustness/master-manifest.json)与[冻结复验说明](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)。只读复验使用全新scratch，优化模式被验证器拒绝，不覆盖原始结果。
+当前资料从[完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-single-robot-robustness.md)进入[任务CSV](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/tasks.csv)、[软件记录](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/records.jsonl)、[总manifest](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/evidence/2026-10-15-single-robot-robustness/master-manifest.json)与[冻结复验说明](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)。只读复验使用全新scratch，优化模式被验证器拒绝，不覆盖原始结果。
 
-新运动实验需具备场景、地图/标定、模型和独立输出目录，按[长程Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/long-horizon-harness.md)执行；旧文件重放不会增加机器人样本。附录F的12组实验覆盖从协议阅读、软件故障到受控仿真的渐进学习。
+新运动实验需具备场景、地图/标定、模型和独立输出目录，按[长程Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/long-horizon-harness.md)执行；旧文件重放不会增加机器人样本。附录F的12组实验覆盖从协议阅读、软件故障到受控仿真的渐进学习。
 
 [上一章：长程上下文](#part-21) · [下一步：分级学习实验](#part-28)
 
@@ -2817,7 +2818,7 @@ Host01使用同一精确巡检目标，但结果为RECOVERABLE_FAILURE，17.179�
 
 ## A.1 先追职责，再追调用
 
-本版代码复核为 821659df。包名是导航入口，接口和行为以该快照为准；正文中的目录链接在导出时固定到它。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
+本版代码复核为 821659df。包名是导航入口，接口和行为以该快照为准；源码文件/目录链接在导出时固定到它；配套文档另固定到本轮文档快照，见出版说明。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
 
 | 问题 | 先读入口 | 再查对象 | 对应章 |
 | --- | --- | --- | --- |
@@ -2848,7 +2849,7 @@ Host01使用同一精确巡检目标，但结果为RECOVERABLE_FAILURE，17.179�
 | 设备数据怎样跨进程交换 | edge/exchange/、cmd/edge-exchange/ | peer/domain、inbox/outbox、序号/TTL/ACK |
 | Worker 如何避免通知丢失 | edge/tasksource/、edge/worker/ | SQLite 提交先于队列确认，重启与 claim |
 
-Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 robot/gateway/tests/。具体配置和部署按 [空间导航](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/spatial-navigation.md)、[采集节点](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/spatial-mapping.md)与[数据交换](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/edge-data-exchange.md)核对。
+Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 robot/gateway/tests/。具体配置和部署按 [空间导航](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/spatial-navigation.md)、[采集节点](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/spatial-mapping.md)与[数据交换](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/edge-data-exchange.md)核对。
 
 <a id="part-23-h004"></a>
 
@@ -2999,7 +3000,7 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 ## C.2 长程单自然语言任务，2026-10-10
 
-来源：[完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-10-long-horizon-protocol.md)、[验收摘要](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-10-long-horizon-acceptance.json)、[Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/long-horizon-harness.md)。教学拆解见第 19 章。
+来源：[完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-10-long-horizon-protocol.md)、[验收摘要](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-10-long-horizon-acceptance.json)、[Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/long-horizon-harness.md)。教学拆解见第 19 章。
 
 | 身份/指标 | 原记录 |
 | --- | --- |
@@ -3017,7 +3018,7 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 ## C.3 统一能力目标闭环，2026-09-27
 
-来源：[闭环报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-09-27-capability-goal-closure.md)、[验收摘要](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-09-27-capability-goal-acceptance.json)。Local + Gazebo，实际 GOAL 模型规划；task-77d1b15939d54145bedd36ef，约 11 分钟 34 秒。
+来源：[闭环报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-09-27-capability-goal-closure.md)、[验收摘要](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-09-27-capability-goal-acceptance.json)。Local + Gazebo，实际 GOAL 模型规划；task-77d1b15939d54145bedd36ef，约 11 分钟 34 秒。
 
 主链 calibration.run → mapping.build(survey) → semantic.resolve(厨房) → robot.task；4 个 CAPABILITY_VERIFIED，到达判定 CONFIRMED。原 SLAM 记录为 230 帧、220 配准、2 回环、72382 点、23.492 米。标定、地图 revision 和观测身份以原摘要为准。
 
@@ -3029,8 +3030,8 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 | 原资料 | 可用于学习 | 解释限制 |
 | --- | --- | --- |
-| [Grounded verification](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-09-21-grounded-verification.md) | 回执、证据基线与独立判据的比较设计 | 指定场景和模型条件，不是所有验证器证明 |
-| [Agent context evaluation](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-09-21-agent-context-evaluation.md) | 信息完整性、表示、阶段和统计单位 | 不把 JSON 与缺信息摘要的差异全归因于格式 |
+| [Grounded verification](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-09-21-grounded-verification.md) | 回执、证据基线与独立判据的比较设计 | 指定场景和模型条件，不是所有验证器证明 |
+| [Agent context evaluation](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-09-21-agent-context-evaluation.md) | 信息完整性、表示、阶段和统计单位 | 不把 JSON 与缺信息摘要的差异全归因于格式 |
 
 上下文第一轮有 480 个标注案例，留出 test 240；另有 160 条行为轨迹。旧摘要和完整事实表达在该行为沙箱中都最终完成，差别主要在推进轮数等效率指标。不能写成“完整事实提高最终成功率”。第二轮按环节比较表达，不能从某一环节优势推出所有阶段都应采用同一格式。
 
@@ -3042,10 +3043,10 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 | 来源 | 覆盖对象 | 不支持的更强结论 |
 | --- | --- | --- |
-| [双机交接流程](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/robocasa-handoff.md) | 规定物料/交接区、共享资源与按序双机流程 | 通用异构最优匹配、任意并行任务 |
+| [双机交接流程](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/robocasa-handoff.md) | 规定物料/交接区、共享资源与按序双机流程 | 通用异构最优匹配、任意并行任务 |
 | `tests/contract/test_heterogeneous_runtime_boundary.py` | 两类 Profile、Python gRPC 与 Go 客户端的实际协议夹具 | 两类实机已合作抓放 |
-| [云边验收](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/cloud-edge-upgrade-acceptance.md) | 规定协议、存储、容器和故障分支 | 全局事务、生产 HA 或无限离线执行 |
-| [现场准备](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/field-readiness-2026-09-26.md) | 设备接入与待验证项 | 当前全部实体现场已经放行 |
+| [云边验收](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/cloud-edge-upgrade-acceptance.md) | 规定协议、存储、容器和故障分支 | 全局事务、生产 HA 或无限离线执行 |
+| [现场准备](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/field-readiness-2026-09-26.md) | 设备接入与待验证项 | 当前全部实体现场已经放行 |
 
 <a id="part-25-h007"></a>
 
@@ -3059,18 +3060,18 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 | 记录 | 已验证的范围 | 原始数据与限制 |
 | --- | --- | --- |
-| [2026-10-13 边缘候选](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-13-edge-field-candidate.md) | 持久合同/通知、三类 ROS 2 协议、单机恢复、双 Worker 交接及数据交换 | fixture、MuJoCo 和软件检查分别记录；实体未验收 |
-| [2026-10-14 空间导航](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-14-spatial-navigation.md) | 注册测量采集/包重放、三类各 11 段任务、完整定位与回执、拒绝条件 | 实际 DDS/gRPC，控制器/几何记录式；无动力学与 SLAM 精度 |
-| [空间逐次任务](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-14-spatial-navigation.csv) | 全部 11 次尝试、失败与最终 run5 | 不同修复/条件不合为可靠性比例 |
-| [空间逐段路径](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-14-spatial-navigation-paths.csv) | 33 段 task/command/plan/map/deployment/到达观测关联 | geometricLengthM 不是实体里程或速度 |
+| [2026-10-13 边缘候选](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-13-edge-field-candidate.md) | 持久合同/通知、三类 ROS 2 协议、单机恢复、双 Worker 交接及数据交换 | fixture、MuJoCo 和软件检查分别记录；实体未验收 |
+| [2026-10-14 空间导航](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-14-spatial-navigation.md) | 注册测量采集/包重放、三类各 11 段任务、完整定位与回执、拒绝条件 | 实际 DDS/gRPC，控制器/几何记录式；无动力学与 SLAM 精度 |
+| [空间逐次任务](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-14-spatial-navigation.csv) | 全部 11 次尝试、失败与最终 run5 | 不同修复/条件不合为可靠性比例 |
+| [空间逐段路径](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-14-spatial-navigation-paths.csv) | 33 段 task/command/plan/map/deployment/到达观测关联 | geometricLengthM 不是实体里程或速度 |
 
-Git 保留 JSON/CSV 与摘要，原始实验目录在本机。缺原图、数据库或二进制时只说明摘要检查范围。[产物清理记录](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-10-14-artifact-cleanup.json)逐文件登记临时删除，实验原始数据和失败仍保留。
+Git 保留 JSON/CSV 与摘要，原始实验目录在本机。缺原图、数据库或二进制时只说明摘要检查范围。[产物清理记录](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-10-14-artifact-cleanup.json)逐文件登记临时删除，实验原始数据和失败仍保留。
 
 <a id="part-25-h009"></a>
 
 ## C.8 分层目标与单机器人长程，2026-10-15
 
-来源：[架构验收](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-hierarchical-edge-objectives.md)、[预定实验方案](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-single-robot-robustness-protocol.md)、[完整鲁棒性报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-single-robot-robustness.md)。软件原始输出与实际 Gazebo 分开保存，master manifest 固定 160 份文件、21,543,481 字节；`.gitattributes` 保留原 CSV CRLF，不修改其字节。
+来源：[架构验收](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-hierarchical-edge-objectives.md)、[预定实验方案](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-single-robot-robustness-protocol.md)、[完整鲁棒性报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-single-robot-robustness.md)。软件原始输出与实际 Gazebo 分开保存，master manifest 固定 160 份文件、21,543,481 字节；`.gitattributes` 保留原 CSV CRLF，不修改其字节。
 
 | 证据单位 | 结果与身份 | 可支持的结论与限制 |
 | --- | --- | --- |
@@ -3083,7 +3084,7 @@ Git 保留 JSON/CSV 与摘要，原始实验目录在本机。缺原图、数据
 
 Gazebo 仅一个移动机器人和 episode 1016；世界/Runtime 未重置，Agent 在任务边界更新，失败任务保留。五条尝试实际涉及四个二进制 SHA，不能混算 3/5 成功率。Host02 的地图身份/定位谓词并非巡检证明的全部，独立核验还检查房间顺序、命令、到位和命令后采集。到位残差相对任务目标，不是 SLAM 绝对精度；巡检实走里程未测。
 
-[Gazebo 证据与冻结重验说明](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)列出原任务、二进制、模型、失败和原大制品位置。缺本地图像/数据库时只能检查分发范围。本版整理已有记录，没有新增仿真运动、抓放、无人机、足式或实机证据。软件 `sourceChangedDuringRun=true` 的旧尝试继续保留但不作最终代码证据；最终来源摘要以 final-campaign-04 原记录为准。
+[Gazebo 证据与冻结重验说明](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)列出原任务、二进制、模型、失败和原大制品位置。缺本地图像/数据库时只能检查分发范围。本版整理已有记录，没有新增仿真运动、抓放、无人机、足式或实机证据。软件 `sourceChangedDuringRun=true` 的旧尝试继续保留但不作最终代码证据；最终来源摘要以 final-campaign-04 原记录为准。
 
 
 ---
@@ -3289,18 +3290,18 @@ Host 分别提供原目标和最多 8000 字节的进度 JSON；后者保留完�
 
 ## E.2 项目实现与协议
 
-出版链接固定到代码复核快照；历史报告的模型/场景身份仍按原记录。阅读源文件同时读测试，辨别接口、实际接线和已覆盖行为。
+源码链接固定到代码复核快照，配套文档链接固定到独立的完整文档提交；历史报告的模型/场景身份仍按原记录。阅读源文件同时读测试，辨别接口、实际接线和已覆盖行为。
 
 | 主题 | 项目资料 | 相关章 |
 | --- | --- | --- |
-| 整体架构 | [系统架构](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/architecture.md)、[Fleet](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/fleet-cloud.md) | 2、9、13、17 |
+| 整体架构 | [系统架构](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/architecture.md)、[Fleet](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/fleet-cloud.md) | 2、9、13、17 |
 | 闭环与世界 | `core/closedloop/`、`core/harness/`、`core/worldmodel/` | 3、4 |
-| 能力/本体 | [能力目标](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/unified-capability-goals.md)、[硬件接入](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/hardware-agent-integration.md)、[适配器](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/robot-adapters.md) | 5、10、14 |
-| Agent 协议 | [事件、权限与恢复 binding](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-10-10-agent-interaction-protocol.md) | 6、11 |
-| 分层目标委托 | [当前合同和共享 Host](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/hierarchical-edge-objectives.md)、[接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/delegated-edge-goals.md) | 2、6–9、17、18 |
-| 云边协议 | [Basis、检查点、完成与兼容](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-10-10-cloud-edge-protocol.md) | 8、17 |
-| 长上下文 | [预算修复与原失败](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/development/2026-10-10-context-budget-recovery.md)、[协作导读](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/long-horizon-collaboration.md) | 18 |
-| 运行治理 | [配置和安全](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/configuration-and-security.md)、[Orin](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/install/edge-orin.md)、[现场准备](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/production/field-readiness-2026-09-26.md) | 10、13 |
+| 能力/本体 | [能力目标](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/unified-capability-goals.md)、[硬件接入](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/hardware-agent-integration.md)、[适配器](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/robot-adapters.md) | 5、10、14 |
+| Agent 协议 | [事件、权限与恢复 binding](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-10-10-agent-interaction-protocol.md) | 6、11 |
+| 分层目标委托 | [当前合同和共享 Host](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/hierarchical-edge-objectives.md)、[接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/delegated-edge-goals.md) | 2、6–9、17、18 |
+| 云边协议 | [Basis、检查点、完成与兼容](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-10-10-cloud-edge-protocol.md) | 8、17 |
+| 长上下文 | [预算修复与原失败](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/development/2026-10-10-context-budget-recovery.md)、[协作导读](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/long-horizon-collaboration.md) | 18 |
+| 运行治理 | [配置和安全](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/configuration-and-security.md)、[Orin](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/install/edge-orin.md)、[现场准备](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/production/field-readiness-2026-09-26.md) | 10、13 |
 | 研究与完整案例 | [实验索引](#part-25) | 12、19 |
 
 <a id="part-27-h005"></a>
@@ -3441,7 +3442,7 @@ curl --fail --silent http://127.0.0.1:8897/v1/readiness
 
 ## F.9 实验7：双机交接的证据与资源
 
-按[双机操作流程](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/robocasa-handoff.md)或[Fleet入口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/architecture/fleet-cloud.md)准备受限仿真。明确区分独立e2e夹具凭据和Compose生成的私有凭据，别混用端口、数据库与设备ID。
+按[双机操作流程](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/robocasa-handoff.md)或[Fleet入口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/architecture/fleet-cloud.md)准备受限仿真。明确区分独立e2e夹具凭据和Compose生成的私有凭据，别混用端口、数据库与设备ID。
 
 **目标**：跟踪A的claim、放置、世界新鲜稳定验证、共享owner/fence转换、B被ready outbox唤醒及最后完成。
 
@@ -3453,7 +3454,7 @@ curl --fail --silent http://127.0.0.1:8897/v1/readiness
 
 ## F.10 实验8：长目标与严格重验
 
-先阅读第19章，再按[完整Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/long-horizon-harness.md)操作。它要求Gazebo、有效标定/地图、客厅起点、GOAL模型与三角色接线；验收脚本会自动批准本次仿真运动，运行即该实验的明确授权。
+先阅读第19章，再按[完整Harness](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/long-horizon-harness.md)操作。它要求Gazebo、有效标定/地图、客厅起点、GOAL模型与三角色接线；验收脚本会自动批准本次仿真运动，运行即该实验的明确授权。
 
 先查看脚本参数，不在本书给出忽略前置条件的“一行成功”命令：
 
@@ -3506,7 +3507,7 @@ go test ./core/objective -count=1
 go test ./internal/edgeagent -run 'TestDelegated' -count=1
 ```
 
-**目标**：结合[目标接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/guides/delegated-edge-goals.md)追踪未批准父包络、当前批准/claim、Task 计划、Ops 判断、Recovery 提案、子能力与独立完成读。该命令使用受控软件工具和规划器，不调用实机；真实 HTTP 模型输入测试也使用测试服务器。
+**目标**：结合[目标接口](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/guides/delegated-edge-goals.md)追踪未批准父包络、当前批准/claim、Task 计划、Ops 判断、Recovery 提案、子能力与独立完成读。该命令使用受控软件工具和规划器，不调用实机；真实 HTTP 模型输入测试也使用测试服务器。
 
 **检查产物**：为一个 REJECTED 后重规划和一个 UNKNOWN 停止案例，列出父 revision、catalogRevision、child ID/代次、grant 参数域/次数、计划/能力/读计数、持久事件及终态。解释 `maxSteps=32` 不等于最多 32 次底层物理运动，地图身份相等不独立证明路线完成。
 
@@ -3521,7 +3522,7 @@ go test ./internal/edgeagent -run 'TestDelegated' -count=1
 go test ./internal/edgeagent -run 'TestDelegatedVerifiedCrash|TestDelegatedCompletion' -count=1
 ```
 
-**目标**：审计[最新完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/experiments/2026-10-15-single-robot-robustness.md)及主 manifest，对照子验证完成但父提交中断、完成读暂时失败、未知写和报告丢失。上面第二条只运行软件回归。完整 campaign 需另选全新输出目录并保存原始 Go JSON、任务 CSV、源码前后 SHA，不复用历史 evidence 目录。
+**目标**：审计[最新完整报告](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/experiments/2026-10-15-single-robot-robustness.md)及主 manifest，对照子验证完成但父提交中断、完成读暂时失败、未知写和报告丢失。上面第二条只运行软件回归。完整 campaign 需另选全新输出目录并保存原始 Go JSON、任务 CSV、源码前后 SHA，不复用历史 evidence 目录。
 
 **检查产物**：选一个正确停止与一个自动恢复，列出证据和允许动作。比较两个“重启”：已确认且完整绑定时只补父记账，读尝试确认中断时停止审查。对照 actual Gazebo Host01/02，解释为何原失败不删除、新任务成功不等于原任务自动续跑。
 
@@ -3773,7 +3774,7 @@ go test ./internal/edgeagent -run 'TestDelegatedVerifiedCrash|TestDelegatedCompl
 
 流程：外部配准与原测量校验 → 新目录发布不可变地图包 → 重放/摘要校验 → 独立部署/控制器配置 → 无动作定位/就绪检查 → 几何正反例 → 小范围受控实际运动 → 独立到达/停止 → 长程与故障。未知空间、lost/stale、摘要冲突或旧批准阻塞受影响操作。
 
-轮式曲率、足端/步态、飞行动力学与动态障碍交由设备方案验证。参考书的底盘/旋翼包络和软件到达容差不能直接当厂商验收值。日志、地图和原始失败按 [产物规则](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/821659dfd6782927d02924916ced5474a8142d74/docs/operations/artifact-retention.md)保存。
+轮式曲率、足端/步态、飞行动力学与动态障碍交由设备方案验证。参考书的底盘/旋翼包络和软件到达容差不能直接当厂商验收值。日志、地图和原始失败按 [产物规则](https://github.com/SUSTechWLA/tangying-robot-agent-os/blob/d88158adfe2c2c459cd25eaa7d1a11605151dd42/docs/operations/artifact-retention.md)保存。
 
 <a id="part-30-h011"></a>
 

@@ -67,6 +67,6 @@ make book-release
 | provenance.json | 正文/代码/生成器/依赖/渲染器身份 |
 | SHA256SUMS | 发布文件完整性 |
 
-HTML/EPUB 不依赖外部脚本、字体或 CDN；源码链接固定到 GitHub 快照。相同源和固定依赖可重复构建。维护时改分章与清单，再生成、测试、校验 EPUB；勿手改导出或覆盖旧版。
+HTML/EPUB 不依赖外部脚本、字体或 CDN；源码链接固定到 GitHub 实现快照；配套文档固定到 `d88158ad`，其完整提交另存 `edition.json` 的 `documentation_snapshot`。相同源和固定依赖可重复构建。维护时改分章与清单，再生成、测试、校验 EPUB；勿手改导出或覆盖旧版。
 
 MIT License · [项目仓库](https://github.com/SUSTechWLA/tangying-robot-agent-os)。
