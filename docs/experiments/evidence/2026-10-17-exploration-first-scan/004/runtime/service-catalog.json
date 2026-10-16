@@ -1,0 +1,1167 @@
+{
+  "robotId": "gazebo-firstscan-20261017-004",
+  "services": [
+    {
+      "name": "calibration.get",
+      "description": "读取机器人标定与编辑模板",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "revision",
+          "status",
+          "valid",
+          "source"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "calibration.run",
+      "description": "运行机器人注册的标定算法",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true,
+      "contract": {
+        "verification": {
+          "match": {
+            "revision": "result.revision"
+          },
+          "required": [
+            "revision"
+          ],
+          "service": "calibration.get"
+        },
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [
+          "robot"
+        ],
+        "effects": [
+          "CONFIG_CHANGE",
+          "ARTIFACT_WRITE"
+        ]
+      }
+    },
+    {
+      "name": "calibration.save",
+      "description": "验证并应用自行标定结果",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "document",
+          "expectedRevision"
+        ],
+        "properties": {
+          "expectedRevision": {
+            "type": "string"
+          },
+          "document": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "algorithm": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true,
+      "contract": {
+        "verification": {
+          "match": {
+            "revision": "result.revision"
+          },
+          "required": [
+            "revision"
+          ],
+          "service": "calibration.get"
+        },
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [
+          "robot"
+        ],
+        "effects": [
+          "CONFIG_CHANGE",
+          "ARTIFACT_WRITE"
+        ]
+      }
+    },
+    {
+      "name": "mapping.status",
+      "description": "读取扫描进度和当前地图",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "state",
+          "sessionId",
+          "operationId",
+          "mapId",
+          "message",
+          "activeMap"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "mapping.conflicts",
+      "description": "只读：把最近采集的点与在用地图比对，报告冲突格子（不改写地图）",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "available",
+          "reason",
+          "mapId",
+          "mapRevision",
+          "measuredPoints",
+          "occupiedInMapFreeInCloud",
+          "freeInMapOccupiedInCloud",
+          "conflictFraction",
+          "suggestsRescan"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "mapping.start",
+      "description": "操作员手动调试入口；Agent 请用 mapping.build 自动建图",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "survey",
+              "explore"
+            ]
+          },
+          "maxLegs": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0
+          },
+          "baseMapId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "maxTravelM": {
+            "type": "number",
+            "maximum": 120.0,
+            "minimum": 2.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true
+    },
+    {
+      "name": "mapping.build",
+      "description": "自动执行完整 RGB-D SLAM 闭环，包括移动、采集、优化、保存并启用地图。survey 使用完整注册巡检路线，不接受 maxTravelM/maxLegs；explore 才可设置探索预算。完成后不要再调用 mapping.finish；给出 baseMapId 可续建。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": true,
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "survey"
+                ]
+              },
+              "baseMapId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "explore"
+                ]
+              },
+              "maxLegs": {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 1.0
+              },
+              "baseMapId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "maxTravelM": {
+                "type": "number",
+                "maximum": 120.0,
+                "minimum": 2.0
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "available": true,
+      "mutatesWorld": true,
+      "contract": {
+        "verification": {
+          "match": {
+            "activeMap.mapId": "result.mapId"
+          },
+          "required": [
+            "activeMap.mapId",
+            "activeMap.mapRevision",
+            "activeMap.calibrationRevision"
+          ],
+          "service": "mapping.status"
+        },
+        "operation": {
+          "failure": [
+            "failed",
+            "cancelled"
+          ],
+          "running": [
+            "moving",
+            "exploring",
+            "surveying",
+            "finalizing",
+            "recording"
+          ],
+          "statusIdentityPath": "operationId",
+          "statePath": "state",
+          "cancelService": "mapping.cancel",
+          "success": [
+            "completed"
+          ],
+          "leaseSupported": true,
+          "identityPath": "operationId",
+          "statusService": "mapping.status"
+        },
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [
+          "robot"
+        ],
+        "effects": [
+          "PHYSICAL_MOTION",
+          "ARTIFACT_WRITE"
+        ]
+      }
+    },
+    {
+      "name": "mapping.move",
+      "description": "执行有界扫描移动",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "angleRad": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.01
+          },
+          "distanceM": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.01
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "forward",
+              "backward",
+              "left",
+              "right",
+              "turn_left",
+              "turn_right"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true
+    },
+    {
+      "name": "mapping.stop_motion",
+      "description": "停止当前扫描移动",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true
+    },
+    {
+      "name": "mapping.finish",
+      "description": "仅操作员手动扫描结束时使用；自动建图会自行保存",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true
+    },
+    {
+      "name": "mapping.cancel",
+      "description": "取消本次扫描",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true
+    },
+    {
+      "name": "mapping.activate",
+      "description": "验证并加载保存的机器人地图",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mapId"
+        ],
+        "properties": {
+          "mapId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true,
+      "contract": {
+        "verification": {
+          "match": {
+            "activeMap.mapId": "arguments.mapId"
+          },
+          "required": [
+            "activeMap.mapId",
+            "activeMap.mapRevision",
+            "activeMap.calibrationRevision"
+          ],
+          "service": "mapping.status"
+        },
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [
+          "robot"
+        ],
+        "effects": [
+          "CONFIG_CHANGE"
+        ]
+      }
+    },
+    {
+      "name": "mapping.inventory",
+      "description": "只读：列出本机当前机器人、当前标定下可用的地图（含在用地图与最新一张）",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "availableMaps",
+          "activeMapId",
+          "activeMapRevision",
+          "count"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "mapping.ensure",
+      "description": "面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "maxLegs": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0
+          },
+          "mapId": {
+            "type": "string"
+          },
+          "maxTravelM": {
+            "type": "number",
+            "maximum": 120.0,
+            "minimum": 2.0
+          },
+          "environment": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true,
+      "contract": {
+        "verification": {
+          "required": [
+            "activeMap.mapId",
+            "activeMap.mapRevision",
+            "activeMap.calibrationRevision"
+          ],
+          "service": "mapping.status"
+        },
+        "operation": {
+          "failure": [
+            "failed",
+            "cancelled"
+          ],
+          "running": [
+            "moving",
+            "exploring",
+            "surveying",
+            "finalizing",
+            "recording"
+          ],
+          "statusIdentityPath": "operationId",
+          "statePath": "state",
+          "cancelService": "mapping.cancel",
+          "success": [
+            "completed"
+          ],
+          "leaseSupported": true,
+          "identityPath": "session.operationId",
+          "statusService": "mapping.status"
+        },
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [
+          "robot"
+        ],
+        "effects": [
+          "PHYSICAL_MOTION",
+          "ARTIFACT_WRITE",
+          "CONFIG_CHANGE"
+        ]
+      }
+    },
+    {
+      "name": "navigation.map",
+      "description": "读取当前导航地图与定位",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "navigation.status",
+      "description": "读取融合后的导航与定位摘要，不返回栅格或传感器帧",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "robotId",
+          "ready",
+          "mode",
+          "mapId",
+          "mapRevision",
+          "mapPose",
+          "poseSource",
+          "poseFusionSource",
+          "poseObservedAtUnixMs",
+          "localizationState",
+          "localizationReason",
+          "gridUnavailable"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.locations",
+      "description": "读取在用 SLAM 地图中的地点、工作区、别名与通行状态",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "activeMap",
+          "frameId",
+          "locations"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.resolve",
+      "description": "从在用地图解析唯一地点，不接受模型生成的坐标",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "minLength": 1.0,
+            "type": "string",
+            "maxLength": 256.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "name",
+          "aliases",
+          "navigationReady",
+          "goalPose",
+          "mapId",
+          "mapRevision",
+          "frameId"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.map",
+      "description": "读取绑定当前 SLAM 点云的语义层摘要；标签是带来源的声明，不是实时识别结果。",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "mapRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "identity",
+          "activeMap",
+          "frameId",
+          "semanticRevision",
+          "requiresReobservation",
+          "cloudSha256",
+          "annotationCount",
+          "measuredPointCount",
+          "coverage",
+          "conflictCount",
+          "categories",
+          "categoryCount",
+          "categoriesTruncated"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.query",
+      "description": "按名称、类别、区域检索三维点云标注；默认隐藏过期物体。分页必须固定 semanticRevision。",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "mapRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "offset": {
+            "type": "integer",
+            "maximum": 128.0,
+            "minimum": 0.0
+          },
+          "semanticRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0
+          },
+          "includeStale": {
+            "type": "boolean"
+          },
+          "regionId": {
+            "minLength": 1.0,
+            "type": "string",
+            "maxLength": 128.0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "object",
+              "region"
+            ]
+          },
+          "name": {
+            "minLength": 1.0,
+            "type": "string",
+            "maxLength": 128.0
+          },
+          "maxAgeMs": {
+            "type": "integer",
+            "maximum": 86400000.0,
+            "minimum": 0.0
+          },
+          "category": {
+            "minLength": 1.0,
+            "type": "string",
+            "maxLength": 128.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "identity",
+          "activeMap",
+          "frameId",
+          "semanticRevision",
+          "requiresReobservation",
+          "results",
+          "total",
+          "nextOffset"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.history",
+      "description": "读取当前地图语义层的追加版本历史。",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "mapRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "identity",
+          "revisions",
+          "truncated"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.plan",
+      "description": "为指定点云标注提出已测栅格支持的观察位置候选；不移动，不证明视线或机械臂可达性。",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mapRevision",
+          "semanticRevision",
+          "annotationId"
+        ],
+        "properties": {
+          "mapRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "maxDistanceM": {
+            "type": "number",
+            "maximum": 5.0,
+            "minimum": 0.5
+          },
+          "verificationMode": {
+            "type": "string",
+            "enum": [
+              "arrival",
+              "object"
+            ]
+          },
+          "annotationId": {
+            "minLength": 1.0,
+            "type": "string",
+            "maxLength": 128.0
+          },
+          "allowStaleSearch": {
+            "type": "boolean"
+          },
+          "semanticRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "identity",
+          "activeMap",
+          "frameId",
+          "semanticRevision",
+          "requiresReobservation",
+          "annotationId",
+          "candidates",
+          "executionAuthorized",
+          "requiresFreshLocalization",
+          "requiresDynamicObstacleChecking",
+          "visibilityVerified",
+          "manipulationReachVerified",
+          "worldFrameRevision",
+          "poseObservedAtUnixMs",
+          "executionBindingSupported",
+          "targetFresh",
+          "verificationMode"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "semantic.annotate",
+      "description": "提交整份三维点云标注集合；必须显式提供当前地图和语义版本，冲突时重新读取，不能自动覆盖。不会移动机器人。",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mapRevision",
+          "expectedSemanticRevision",
+          "annotations"
+        ],
+        "properties": {
+          "expectedSemanticRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "mapRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "annotations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "category",
+                "kind",
+                "bounds",
+                "source",
+                "confidence",
+                "observedAtUnixMs"
+              ],
+              "properties": {
+                "source": {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "reference"
+                  ],
+                  "properties": {
+                    "reference": {
+                      "minLength": 1.0,
+                      "type": "string",
+                      "maxLength": 512.0
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "operator",
+                        "perception"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "bounds": {
+                  "type": "object",
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "properties": {
+                    "min": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3.0,
+                      "maxItems": 3.0
+                    },
+                    "max": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3.0,
+                      "maxItems": 3.0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "observedAtUnixMs": {
+                  "type": "integer",
+                  "minimum": 1.0
+                },
+                "confidence": {
+                  "type": "number",
+                  "maximum": 1.0,
+                  "minimum": 0.0
+                },
+                "aliases": {
+                  "type": "array",
+                  "items": {
+                    "minLength": 1.0,
+                    "type": "string",
+                    "maxLength": 128.0
+                  },
+                  "maxItems": 16.0
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object",
+                    "region"
+                  ]
+                },
+                "id": {
+                  "minLength": 1.0,
+                  "type": "string",
+                  "maxLength": 128.0
+                },
+                "name": {
+                  "minLength": 1.0,
+                  "type": "string",
+                  "maxLength": 128.0
+                },
+                "category": {
+                  "minLength": 1.0,
+                  "type": "string",
+                  "maxLength": 128.0
+                }
+              },
+              "additionalProperties": false
+            },
+            "maxItems": 128.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "mutatesWorld": true,
+      "contract": {
+        "verification": {
+          "match": {
+            "semanticRevision": "result.semanticRevision"
+          },
+          "required": [
+            "semanticRevision"
+          ],
+          "service": "semantic.map"
+        },
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [
+          "robot"
+        ],
+        "effects": [
+          "CONFIG_CHANGE",
+          "ARTIFACT_WRITE"
+        ]
+      }
+    },
+    {
+      "name": "semantic.observe",
+      "description": "用当前已标定感知源复核点云标注；几何可见不等于语义确认，旧标注不会被刷新。",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mapRevision",
+          "semanticRevision",
+          "annotationId"
+        ],
+        "properties": {
+          "notBeforeUnixMs": {
+            "type": "integer",
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0
+          },
+          "requireMatch": {
+            "type": "boolean"
+          },
+          "semanticRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          },
+          "annotationId": {
+            "minLength": 1.0,
+            "type": "string",
+            "maxLength": 128.0
+          },
+          "mapRevision": {
+            "minLength": 64.0,
+            "type": "string",
+            "maxLength": 64.0
+          }
+        },
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "activeMap",
+          "mapRevision",
+          "semanticRevision",
+          "annotationId",
+          "frameId",
+          "worldFrameRevision",
+          "observationId",
+          "sourceId",
+          "observedAtUnixMs",
+          "targetFresh",
+          "semanticConfirmed",
+          "geometryObserved",
+          "geometryPointCount",
+          "matchCount",
+          "matches",
+          "matchesTruncated",
+          "reason",
+          "evidenceHash",
+          "executionAuthorized",
+          "manipulationReachVerified"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    },
+    {
+      "name": "runtime.readiness",
+      "description": "只读采集与反馈新鲜度诊断；不授权运动",
+      "inputSchema": {
+        "type": "object",
+        "required": [],
+        "properties": {},
+        "additionalProperties": false
+      },
+      "available": true,
+      "contract": {
+        "planningFields": [
+          "ready",
+          "blockers",
+          "robotId",
+          "clockSource"
+        ],
+        "version": "1",
+        "outputSchema": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "resources": [],
+        "effects": [
+          "READ"
+        ]
+      }
+    }
+  ]
+}

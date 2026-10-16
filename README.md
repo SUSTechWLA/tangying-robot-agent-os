@@ -332,11 +332,11 @@ make navigation-status
 
 **建图阶段的行为是刻意设计的安全门禁**：全局代价地图的 `allow_unknown=false`，Nav2 拒绝规划穿过尚未建图的区域。所以冷启动后只能导航到已覆盖范围（例如客厅），去厨房会以 `NAV_FAILED NAV2_ACTION_ENDED` 结束——这不是缺陷，而是"不知道的地方不进去"。因此正确顺序是：
 
-1. **建图**：`--mode mapping` 下低速探索覆盖五个房间，确认视觉词典、占据图与定位都在更新；
+1. **建图**：`--mode mapping` 下按场景、传感器与预算逐步探索，确认视觉词典、占据图与定位更新；房间覆盖范围以实际地图和验收证据为准；
 2. **执行**：`--mode localization --scene home` 复用同一张地图，再运行自然语言路线；
 3. **抓取**：Gazebo 使用 `--scene home_furnished` 的陶瓷杯与收纳盘；MuJoCo 使用 `--scene home_task --home-assets artifacts/sim-assets/furnished-home`。不带家庭资产包的彩色模型仅保留为历史测试基线。
 
-工作台支持手动有界移动扫描，以及驱动注册的巡航路线扫描。后者使用已配置路线，尚未实现未知住宅的自主 frontier 探索。RTAB-Map 操作详见[家庭场景操作](docs/guides/home-scene-operations.md)。
+首次进入未知场景使用 `mapping.build(mode=explore)`：有界主动环视、基于实测自由空间的 frontier 选点、局部受阻重规划、预算停止与分段地图发布。`survey` 使用驱动注册路线，手动扫描用于调试；三种模式分别留痕。当前自主探索适配器是平面移动机器人，三维点云保存不等于三维自主探索。开始方式、模块边界与最新验收见[首次扫描升级记录](docs/development/2026-10-17-exploration-first-scan.md)和[实验协议](docs/experiments/2026-10-17-exploration-first-scan-protocol.md)；地图发布成功不代表全环境覆盖。RTAB-Map 操作详见[家庭场景操作](docs/guides/home-scene-operations.md)。
 
 ## 六、真机（Sim2Real）
 

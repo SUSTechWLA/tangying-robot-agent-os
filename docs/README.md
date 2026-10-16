@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+最新探索增量（2026-10-17）：[首次扫描实现](development/2026-10-17-exploration-first-scan.md) → [操作指南](guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索) → [实验与全部尝试](experiments/2026-10-17-exploration-first-scan.md) → [书籍补充](../book/updates/2026-10-17-exploration-first-scan.md)。当前为平面本体主动观察和在线 frontier 增强，不代表三维自主探索或实机认证。
+
 当前文档核对到实现 `821659df`（2026-10-16）；教材入口为[数字版 2.2.0](../book/README.md)。最新云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
 
 从你的工作目标选择入口。四条路线负责推荐顺序，[全量分类目录](catalog.md)负责查找所有文档、实验数据表与配图，[文档维护规则](maintenance.md)说明新增资料该放哪里。

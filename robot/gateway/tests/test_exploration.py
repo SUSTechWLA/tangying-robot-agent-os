@@ -23,7 +23,9 @@ from tangying_robot_gateway.exploration import (
     frontier_mask,
     next_waypoint,
     plan_path,
+    plan_route,
     shorten_path,
+    traversable_for,
     traversable_mask,
 )
 
@@ -246,6 +248,30 @@ def test_a_frontier_walled_off_from_every_route_is_not_offered():
                           radius_m=0.0, min_frontier_area_m2=0.0) is None
 
 
+def test_large_isolated_fragments_do_not_spend_the_reachable_cluster_budget():
+    cells = np.full((20, 40), 100, dtype=np.int16)
+    cells[2:7, 2:8] = 0
+    cells[7, 3:6] = -1  # a small frontier in the robot's connected room
+    for column in (2, 14, 26):
+        cells[11:15, column:column + 8] = 0
+        cells[15, column:column + 8] = -1  # larger, isolated free-space patches
+    grid = Grid(cells=cells, resolution=1.0, origin=(0.0, 0.0))
+    chosen = explore_target(grid, robot_xy=(4.5, 3.5), sensor_radius_m=2.0,
+                            radius_m=0.0, min_frontier_area_m2=0.0, max_clusters=2)
+    assert chosen is not None, "isolated fragments must not hide the reachable frontier"
+    assert chosen.viewpoint[1] < 8.0
+    assert all(2 <= grid.row(y) < 7 and 2 <= grid.column(x) < 8
+               for x, y in chosen.path)
+
+
+def test_a_reachable_viewpoint_cannot_see_a_frontier_through_a_wall():
+    grid = art(["..#.?", "..#..", "..#.."], resolution=1.0)
+    assert frontier_mask(grid.cells).any(), "the isolated right pocket has a frontier"
+    chosen = explore_target(grid, robot_xy=(0.5, 0.5), sensor_radius_m=3.0,
+                            radius_m=0.0, min_frontier_area_m2=0.0)
+    assert chosen is None, "the nearby reachable left pocket sees a wall, not that frontier"
+
+
 def test_coverage_counts_every_settled_state_separately():
     report = coverage_report(art([
         "?.",
@@ -274,7 +300,33 @@ def test_an_unknown_fraction_is_high_where_nothing_has_been_seen():
         "....",
     ], resolution=1.0)
     assert grid.unknown_fraction(0.5, 0.5, 2.0) > 0.4
-    assert grid.unknown_fraction(3.5, 0.5, 1.0) < 0.4
+    assert grid.unknown_fraction(3.5, 0.5, 1.0) == pytest.approx(0.4)
+
+
+def test_a_small_first_scan_keeps_directions_outside_the_map_unknown():
+    grid = art(["."], resolution=1.0)
+    # The map contains one observed cell, but the radius-one disc also includes
+    # four neighbours that have never been measured. Clipping to the one cell
+    # incorrectly returned zero and suppressed the initial look-around.
+    assert grid.unknown_fraction(0.5, 0.5, 1.0) == pytest.approx(4 / 5)
+    assert grid.cells[0, 0] == 0, "coverage estimates never expand or edit the map"
+
+
+def test_lookaround_counts_a_disc_without_distant_square_corners():
+    cells = np.full((5, 5), -1, dtype=np.int16)
+    rows, columns = np.indices(cells.shape)
+    cells[(rows - 2) ** 2 + (columns - 2) ** 2 <= 4] = 0
+    grid = Grid(cells=cells, resolution=1.0, origin=(0.0, 0.0))
+    assert grid.unknown_fraction(2.5, 2.5, 2.0) == 0.0
+    # Occupied observations are equally settled for this sensing decision.
+    grid.cells[2, 2] = 100
+    assert grid.unknown_fraction(2.5, 2.5, 2.0) == 0.0
+
+
+@pytest.mark.parametrize("radius", [-1.0, math.inf, math.nan])
+def test_lookaround_rejects_invalid_sensor_radii(radius):
+    with pytest.raises(ValueError, match="observation radius"):
+        art(["."]).unknown_fraction(0.5, 0.5, radius)
 
 
 def test_an_out_of_grid_pose_is_reported_rather_than_clamped():
@@ -334,6 +386,97 @@ def test_a_step_that_would_cut_a_corner_is_shortened():
 
     assert not _straight_line_clear(grid, (0.5, 0.5), (1.5, 2.5), traversable)
     assert _straight_line_clear(grid, (0.5, 0.5), (0.5, 2.5), traversable)
+
+
+def test_a_straight_segment_cannot_cross_the_exact_corner_of_two_obstacles():
+    from tangying_robot_gateway.exploration import _straight_line_clear
+
+    grid = art(["#.", ".#"], resolution=1.0)
+    assert not _straight_line_clear(grid, (0.5, 0.5), (1.5, 1.5),
+                                    traversable_for(grid, 0.0))
+
+
+def test_subcell_lookahead_does_not_recheck_the_exceptional_start_cell():
+    from tangying_robot_gateway.exploration import _straight_line_clear
+
+    grid = art(["...."], resolution=1.0)
+    mask = np.array([[False, True, True, True]])
+    assert _straight_line_clear(grid, (0.1, 0.5), (2.5, 0.5), mask)
+
+
+def test_live_subcell_pose_escapes_a_fine_grid_corner_without_cutting_it():
+    """Equivalent geometry to the recorded Gazebo 003 no-progress stop.
+
+    A 5 cm A* route turns left then diagonally around a clearance corner. Its
+    first cell is only 3.55 cm from the actual robot pose, so a 5 cm execution
+    minimum refuses it. Longer straight steps from the *cell centre* clip the
+    corner; from the actual measured pose, two further route points are clear.
+    """
+    from tangying_robot_gateway.exploration import _straight_line_clear
+
+    grid = grid_from([
+        "......",
+        "......",
+        "......",
+        "....##",
+        "...###",
+        "..####",
+        "..####",
+    ], resolution=0.05)
+    mask = traversable_for(grid, 0.0)
+    path = [grid.centre(r, c) for r, c in [(2, 4), (2, 3), (3, 2), (4, 1), (5, 1)]]
+    robot_xy = (0.208606163463709, 0.113498974612349)
+    legacy = next_waypoint(grid, path, lookahead_m=0.6, traversable=mask)
+    assert legacy == path[1]
+    assert math.dist(robot_xy, legacy) < 0.05
+    assert not _straight_line_clear(grid, path[0], path[2], mask)
+    assert _straight_line_clear(grid, robot_xy, path[3], mask)
+    assert not _straight_line_clear(grid, robot_xy, path[4], mask)
+    chosen = next_waypoint(grid, path, lookahead_m=0.6, traversable=mask,
+                           robot_xy=robot_xy, min_step_m=0.05)
+    assert chosen == path[3]
+    assert 0.05 <= math.dist(robot_xy, chosen) <= 0.6
+
+
+def test_live_waypoint_refuses_a_corner_when_no_verified_step_clears_the_deadband():
+    grid = grid_from(["..", ".#"], resolution=0.05)
+    path = [grid.centre(0, 1), grid.centre(0, 0), grid.centre(1, 0)]
+    robot_xy = (0.065, 0.025)
+    # The first 4 cm step is below the adapter minimum, and the straight line
+    # to the longer step would cut the blocked corner. No blind fallback.
+    assert next_waypoint(grid, path, lookahead_m=0.6,
+                         traversable=traversable_for(grid, 0.0),
+                         robot_xy=robot_xy, min_step_m=0.05) is None
+
+
+def test_live_waypoint_respects_lookahead_and_minimum_step_without_a_blind_fallback():
+    grid = grid_from(["..."], resolution=0.05)
+    path = [grid.centre(0, c) for c in range(3)]
+    assert next_waypoint(grid, path, lookahead_m=0.04,
+                         traversable=traversable_for(grid, 0.0),
+                         robot_xy=path[0], min_step_m=0.05) is None
+    assert next_waypoint(grid, [path[0]], lookahead_m=0.6,
+                         robot_xy=path[0], min_step_m=0.05) is None
+
+
+def test_live_waypoint_can_verify_a_bounded_prefix_of_a_coarse_grid_segment():
+    grid = grid_from(["..."], resolution=1.0)
+    path = [grid.centre(0, c) for c in range(3)]
+    chosen = next_waypoint(grid, path, lookahead_m=0.6,
+                           traversable=traversable_for(grid, 0.0),
+                           robot_xy=path[0], min_step_m=0.05)
+    assert chosen == (1.1, 0.5)
+    assert math.dist(path[0], chosen) == pytest.approx(0.6)
+    # The original unconfigured helper keeps its historical one-cell fallback.
+    assert next_waypoint(grid, path, lookahead_m=0.6) == path[1]
+
+
+def test_a_coarse_prefix_must_still_pass_its_own_collision_check():
+    grid = grid_from([".#."], resolution=1.0)
+    path = [(0.9, 0.5), (2.5, 0.5)]
+    assert next_waypoint(grid, path, lookahead_m=0.6,
+                         traversable=traversable_for(grid, 0.0),
+                         robot_xy=path[0], min_step_m=0.05) is None
 
 
 def test_a_whole_unmapped_room_beats_a_sliver_beside_the_robot():
@@ -397,6 +540,60 @@ def test_a_clearance_wider_than_the_map_does_not_crash_the_mask():
     assert not clearance_mask(cells, 500)[2, 5]
     # Radius zero keeps everything that is not itself an obstacle.
     assert clearance_mask(cells, 0)[2, 5]
+
+
+def test_an_oversized_clearance_still_rejects_the_far_rectangular_corner():
+    cells = np.zeros((6, 20), dtype=np.int16)
+    cells[0, 0] = 100
+    # The opposite corner is sqrt(5**2 + 19**2) > 19 cells away. Bounding the
+    # radius itself to width-1 accidentally opened this corner for radius 500.
+    assert clearance_mask(cells, 19)[5, 19]
+    assert not clearance_mask(cells, 500).any()
+    assert not clearance_mask(np.array([[100]], dtype=np.int16), 500).any()
+
+
+def test_a_footprint_cannot_reopen_an_obstacle_clearance_or_refused_step():
+    grid = art([".......", "...#...", "......."], resolution=0.1)
+    footprint = np.ones(grid.shape, dtype=bool)
+    mask = traversable_for(grid, radius_m=0.1, avoid_xy=[(0.15, 0.15)],
+                           extra_traversable=footprint)
+    assert not mask[1, 3], "a measured obstacle always wins over a footprint"
+    assert not mask[0, 3], "the obstacle clearance remains blocked"
+    assert not mask[1, 1], "a refused approach remains blocked"
+
+
+def test_a_trusted_footprint_only_bridges_its_evidenced_near_field():
+    grid = art(["..??.."], resolution=0.1)
+    footprint = np.zeros(grid.shape, dtype=bool)
+    footprint[0, 2] = True
+    path, _ = plan_route(grid, robot_xy=(0.05, 0.05), goal_xy=(0.55, 0.05),
+                         radius_m=0.0, extra_traversable=footprint)
+    assert path is None, "one evidenced cell does not authorize the next unknown cell"
+    footprint[0, 3] = True
+    path, _ = plan_route(grid, robot_xy=(0.05, 0.05), goal_xy=(0.55, 0.05),
+                         radius_m=0.0, extra_traversable=footprint)
+    assert path is not None, "the robot's evidenced footprint can bridge the near field"
+    np.testing.assert_array_equal(grid.cells[0], [0, 0, -1, -1, 0, 0])
+
+
+def test_a_footprint_shape_mismatch_is_refused():
+    with pytest.raises(ValueError, match="footprint mask"):
+        traversable_for(art(["..."]), 0.0, extra_traversable=np.ones((2, 3)))
+
+
+def test_retiring_a_viewpoint_does_not_turn_measured_floor_into_a_roadblock():
+    grid = art(["??????????", "..........", "..........", "..........", ".........."])
+    first = explore_target(grid, robot_xy=(0.5, 0.5), sensor_radius_m=2.0,
+                           radius_m=0.0, min_frontier_area_m2=0.0)
+    assert first is not None
+    next_target = explore_target(grid, robot_xy=first.viewpoint, sensor_radius_m=2.0,
+                                 radius_m=0.0, min_frontier_area_m2=0.0,
+                                 exclude_viewpoints=[first.viewpoint])
+    assert next_target is not None
+    assert math.dist(next_target.viewpoint, first.viewpoint) > 0.3
+    path, _ = plan_route(grid, robot_xy=(0.5, 0.5), goal_xy=first.viewpoint, radius_m=0.0)
+    assert path is not None and path[-1] == first.viewpoint
+    assert next_target.path[0] == first.viewpoint, "the robot may leave its retired viewpoint"
 
 def test_the_robots_own_cell_never_vetoes_its_next_step():
     """``plan_path`` opens the cell the robot stands in, because a base parked

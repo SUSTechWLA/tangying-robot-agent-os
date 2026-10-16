@@ -1,5 +1,7 @@
 # 实验协议、报告与证据索引
 
+最新首次扫描：[实验协议](2026-10-17-exploration-first-scan-protocol.md)与[实际 Gazebo 尝试和修复报告](2026-10-17-exploration-first-scan.md)，使用新隔离地图存储、保留首轮转角不足及修复后复测；Runtime 验收与自然语言/实机/全环境覆盖分别判断。
+
 最新单机鲁棒性：[实验协议](2026-10-15-single-robot-robustness-protocol.md)与[长程任务及故障报告](2026-10-15-single-robot-robustness.md)，分别登记连续软件长步骤链、云边丢包与实际 Gazebo；保留修复前失败、环境拒绝和源码变化导致无效的运行。
 
 最新分层目标测试：[2026-10-15 目标委托与边缘重规划](2026-10-15-hierarchical-edge-objectives.md)，覆盖 11 站合同任务、明确拒绝后的剩余计划、未知写结果、重启、HTTP 鉴权及云端完成证据核验。脚本决策器/设备 fixture 与真实模型、Gazebo 动力学和实体样本分别报告。

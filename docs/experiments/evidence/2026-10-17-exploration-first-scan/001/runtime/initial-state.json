@@ -1,0 +1,37 @@
+{
+  "mapping": {
+    "mapId": "",
+    "message": "开始扫描，或选择已保存地图。",
+    "frameCount": 0.0,
+    "registrationCount": 0.0,
+    "pointCount": 0.0,
+    "activeMap": null,
+    "travelledM": 0.0,
+    "operationId": "",
+    "sessionId": "",
+    "loopClosures": 0.0,
+    "scanEvidence": {
+      "looks": [],
+      "legs": [],
+      "depthRejectedFrames": 0.0,
+      "consecutiveInsufficientDepth": 0.0
+    },
+    "trajectory": [],
+    "state": "idle",
+    "exploration": {}
+  },
+  "inventory": {
+    "availableMaps": [],
+    "count": 0.0,
+    "activeMapRevision": "",
+    "activeMapId": ""
+  },
+  "navigation": {
+    "localizationState": "unavailable",
+    "gridUnavailable": true,
+    "ready": false,
+    "robotId": "gazebo-firstscan-20261017-001",
+    "mapPose": [],
+    "mode": "mapping"
+  }
+}

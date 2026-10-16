@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+首次探索增量（2026-10-17）：[实现与变更](2026-10-17-exploration-first-scan.md) → [预登记](../experiments/2026-10-17-exploration-first-scan-protocol.md) → [全部实际尝试](../experiments/2026-10-17-exploration-first-scan.md)，关注初始观察、实测 yaw 闭环、取消/深度失效与前沿完成范围。
+
 单机鲁棒性增量（2026-10-15）：[恢复实现与取证工具](2026-10-15-single-robot-robustness.md) → [实验协议](../experiments/2026-10-15-single-robot-robustness-protocol.md) → [实际报告](../experiments/2026-10-15-single-robot-robustness.md)。关注确认提交丢失、云边失败同步、完成观测抖动，以及连续长步骤链的预算与上下文。
 
 目标委托增量（2026-10-15）：[分层职责与合同](../architecture/hierarchical-edge-objectives.md) → [云端同事对接指南](../guides/delegated-edge-goals.md) → [实施与迁移记录](2026-10-15-hierarchical-edge-objectives.md) → [实际功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)。重点源码：`core/objective`、`internal/edgeagent`、Local/Worker 装配与 Fleet 证据核验。
