@@ -1,0 +1,24 @@
+........................................................................ [ 57%]
+......................................................                   [100%]
+============================= slowest 20 durations =============================
+1.11s call     tests/book/test_publication.py::test_exports_are_deterministic_and_all_epub_links_resolve
+0.50s call     tests/book/test_publication.py::test_identical_publication_can_be_rebuilt_in_place
+0.47s call     tests/book/test_publication.py::test_2_0_0_sources_and_generator_are_exactly_recoverable
+0.47s call     tests/book/test_publication.py::test_1_2_0_content_and_original_generator_are_exactly_recoverable
+0.39s call     tests/book/test_publication.py::test_1_1_3_sources_are_exactly_recoverable
+0.37s call     tests/book/test_publication.py::test_previous_edition_can_be_recovered_without_overwriting_history
+0.32s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[edition]
+0.30s call     tests/book/test_publication.py::test_html_and_epub_navigation_reach_every_section
+0.29s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[source]
+0.28s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[unknown]
+0.28s call     tests/book/test_publication.py::test_back_to_contents_cannot_target_a_non_spine_navigation_document
+0.27s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[symlink]
+0.25s call     tests/book/test_publication.py::test_every_chapter_and_appendix_is_in_the_publication
+0.20s call     tests/docs/test_production_docs.py::test_every_documentation_link_and_make_target_resolves
+0.05s call     tests/book/test_publication.py::test_1_1_0_release_record_matches_the_previous_snapshot
+0.05s call     tests/book/test_publication.py::test_1_1_1_release_record_matches_the_previous_snapshot
+0.04s call     tests/book/test_publication.py::test_1_1_2_release_record_matches_the_previous_snapshot
+0.03s call     tests/docs/console_session_contract_test.py::test_no_script_talks_to_the_console_without_being_classified
+0.02s call     tests/install/test_long_horizon_eval.py::test_pause_resume_exceeds_sixty_seconds_and_is_operator_attributed
+0.02s call     tests/install/test_long_horizon_eval.py::test_collects_late_collaboration_without_claiming_read_only_repair
+126 passed in 6.20s

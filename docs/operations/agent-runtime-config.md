@@ -2,6 +2,8 @@
 
 本页只说明 Local Agent 内的事件式 `agentruntime`（Task/Ops/Recovery Agent）启用名单。2026-09-25 新增的 Server/Edge 决策 Harness 负责**每次模型调用可见的工具类别和阶段路由**，配置见[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)与[模型配置](../production/configuration-and-security.md)；不要把下面的 `TANGYING_AGENTS` 当成云端系统 Agent 或模型选择开关。
 
+目标委托通道另有 Local/Worker 共用的 `internal/edgeagent.Host`，Task 规划、确定性 Ops 诊断和 RecoveryPolicy 通过持久子账本协作。Worker 没有直接托管本文整套总线；`TANGYING_AGENTS` 也不关闭 Host 的权限/预算检查、未知效果阻断或目标完成监督。详见[分层目标架构](../architecture/hierarchical-edge-objectives.md)与[目标运维](delegated-goal-operations.md)。
+
 ## 配置项
 
 | 环境变量 | 默认值 | 说明 |
@@ -56,7 +58,7 @@ TANGYING_AGENTS=task,ops ./bin/local-agent
 TANGYING_AGENTS=task ./bin/local-agent
 ```
 
-这是**受支持的部署形态，不是测试夹具**：运维要判断"观测本身有没有改变行为"时，关掉观察者、其它都不动即可。执行路径逐字节相同，有测试断言这一点。
+这是受支持的 Local 部署形态，可用于比较是否启用事件式观察。基础任务执行、批准与物理门禁不依赖这套总线；旧能力执行器的诊断后只读自动续跑要求 Ops 与 Recovery 均启用，关闭后相应恢复能力也不再具备。共享 Host 的监督逻辑不受此开关控制。
 
 日志里被关掉的 Agent 会被列出来，所以"打包里有但没跑"是可见的：
 
@@ -69,7 +71,7 @@ agent runtime started: enabled=[task] disabled=[ops]
 `TANGYING_AGENTS` 显式设成空或只有分隔符时，**保留默认**并记一条日志：
 
 ```
-TANGYING_AGENTS is set but names no agent; using the default [task ops]
+TANGYING_AGENTS is set but names no agent; using the default [task ops recovery]
 ```
 
 空列表更可能是写错了，而不是"一个都别跑"，而"一个都别跑"和"一切正常"在外部看起来完全一样。真要把观察者关掉，就明确写 `task`。
@@ -80,10 +82,10 @@ TANGYING_AGENTS is set but names no agent; using the default [task ops]
 
 | 想回到 | 做法 |
 | --- | --- |
-| 只跑执行 Agent（等价于接入前的行为） | `TANGYING_AGENTS=task` |
-| 完全不启动运行时 | 移除 `cmd/local-agent/main.go` 里对 `startAgentRuntime` 的调用（一处），或保持 `TANGYING_AGENTS=task` 并忽略观察者不存在 |
+| 只启用 Local 总线中的执行 Agent | `TANGYING_AGENTS=task`；相应事件诊断/自动只读恢复不再启用 |
+| 暂时停用事件式观察 | 使用受支持的启用名单调整；生产环境不通过删启动代码实现回滚，先按[目标运维](delegated-goal-operations.md)核对制品与未决状态 |
 
-任务执行、闭环契约、失败分类、租约/fencing、回放、恢复引擎都不经过 Agent 运行时，所以关掉它不改变任何任务结果。
+关闭事件式观察不会授予或解除批准、闭环、租约/fencing 和未知结果门禁；它会影响依赖这些观察事件的诊断与只读恢复。因此比较任务结果时应同时记录启用名单、执行路径和实际恢复事件。
 
 ## 排障
 

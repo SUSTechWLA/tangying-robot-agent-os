@@ -2,6 +2,8 @@
 
 Use this with the [purchased-XLeRobot guide](../sim2real/README.md) and [first-trial procedure](../install/xlerobot-experiment.md). The repository has no completed physical acceptance result. A software READY result is not permission to move hardware.
 
+For ROS 2 ground, legged and aerial integrations, also use the [edge field procedure](edge-field-testing.md) and [delegated goal operations](delegated-goal-operations.md). The tabletop items below retain their XLeRobot scope; vehicle braking, legged balance and controlled landing require device-specific controller evidence. An approved coarse goal does not expand tool, parameter or physical limits.
+
 Before any supervised trial, the operator must verify:
 
 - [ ] An independent physical emergency stop removes actuator power without software, and is reachable throughout the trial.

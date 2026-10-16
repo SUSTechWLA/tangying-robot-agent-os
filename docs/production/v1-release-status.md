@@ -1,5 +1,7 @@
 # V1 当前交付状态
 
+证据范围：本页各轮次、测试数和二进制摘要保持其原始版本。当前目标 Host、恢复与上下文实现见[最新架构](../architecture/hierarchical-edge-objectives.md)；`821659df` 的软件与 Gazebo 任务结果、全部失败和可重验清单见[2026-10-15 鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)，不能用旧验收表替代新设备放行。
+
 更新：原 V1 记录截至 2026-09-11；2026-09-25 云端/边缘 Agent 升级见[云边软件验收](cloud-edge-upgrade-acceptance.md)、[角色 Harness / Docker 验收](agent-harness-docker-acceptance.md)和[升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。软件 v0.3.0 的发布身份与当时结果保留在 [v0.3.0 发布记录](../releases/v0.3.0.md)；v0.2.0 的导航与会话级验收见 [v0.2.0 发布记录](../releases/v0.2.0.md)。下文 V1 表格是原单机器人范围快照，不能用来否认已新增的云边软件能力，也不能代替客户实机验收。
 
 **本轮收敛到单机器人双 RGB-D 闭环、RTAB-Map / Nav2 可选导航、原始验证证据与稳定放置检查。** 工作台统一彩色、深度、点云画面尺寸，并显示实际显示帧率。当前验证结果和实机交付边界见[单机器人 V1](single-robot-v1.md)；下方较早记录保留其原始数字，不自动代表最新源码。

@@ -1,0 +1,2 @@
+python3.11 scripts/build_book.py --check
+Book sources and generated Markdown verified: 31 sections

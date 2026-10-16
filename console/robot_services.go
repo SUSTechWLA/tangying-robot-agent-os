@@ -3,6 +3,8 @@ package console
 import (
 	"context"
 	"encoding/json"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"io"
 	"net/http"
 	"time"
@@ -36,7 +38,12 @@ func (s *Server) serviceCatalogue(w http.ResponseWriter, r *http.Request) {
 	for _, item := range catalog.Services {
 		entries = append(entries, map[string]any{"name": item.Name, "description": item.Description, "inputSchema": item.InputSchema.AsMap(), "contract": item.Contract.AsMap(), "available": item.Available, "mutatesWorld": item.MutatesWorld})
 	}
-	writeJSON(w, 200, map[string]any{"robotId": catalog.RobotId, "services": entries})
+	_, goals, err := capabilityagent.Catalogue(ctx, s.robotServices)
+	if err != nil {
+		writeError(w, 502, "SERVICES_UNAVAILABLE", err.Error())
+		return
+	}
+	writeJSON(w, 200, map[string]any{"robotId": catalog.RobotId, "services": entries, "goalCatalogRevision": capability.Fingerprint(goals), "goalCapabilities": goals})
 }
 
 func (s *Server) callRobotService(w http.ResponseWriter, r *http.Request) {

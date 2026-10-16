@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "robot.robustness.metrics.v1",
+  "evidenceType": "software_contract",
+  "primaryRun": "final-campaign-04",
+  "sourceSetDigest": "218cce6f735d42945e1199ac505b496dc291d35c472a94983531b550416d063a",
+  "sourceTestResults": {
+    "topLevel": 27,
+    "includingSubtests": 58
+  },
+  "taskRecords": 23,
+  "serviceCallRecords": 980,
+  "continuousRobotGoals": [
+    {
+      "taskId": "task-1aa7fd7ba85082032f41ad41",
+      "plannedStations": 32,
+      "writes": 32,
+      "injectedRejections": 0,
+      "plans": 2,
+      "steps": 32,
+      "reads": 34,
+      "elapsedSeconds": 2.09,
+      "durationScope": "initial_host_run_only",
+      "maxProgressBytes": 2630,
+      "restartWrites": 0,
+      "restartPlans": 0
+    },
+    {
+      "taskId": "task-6d19ab664d7c99806f538992",
+      "plannedStations": 48,
+      "writes": 48,
+      "injectedRejections": 3,
+      "plans": 6,
+      "steps": 51,
+      "reads": 51,
+      "elapsedSeconds": 6.892233,
+      "durationScope": "initial_host_run_only",
+      "maxProgressBytes": 2630,
+      "restartWrites": 0,
+      "restartPlans": 0
+    },
+    {
+      "taskId": "task-8ffc44ba56bf16a7071c590e",
+      "plannedStations": 64,
+      "writes": 64,
+      "injectedRejections": 3,
+      "plans": 7,
+      "steps": 67,
+      "reads": 68,
+      "elapsedSeconds": 14.564209,
+      "durationScope": "initial_host_run_only",
+      "maxProgressBytes": 2633,
+      "restartWrites": 0,
+      "restartPlans": 0
+    },
+    {
+      "taskId": "task-040423027e30ead94d4d3165",
+      "plannedStations": 96,
+      "writes": 96,
+      "injectedRejections": 0,
+      "plans": 6,
+      "steps": 96,
+      "reads": 102,
+      "elapsedSeconds": 46.564099,
+      "durationScope": "initial_host_run_only",
+      "maxProgressBytes": 2633,
+      "restartWrites": 0,
+      "restartPlans": 0
+    },
+    {
+      "taskId": "task-37d5aafd1d6e4be80da4ea11",
+      "plannedStations": 128,
+      "writes": 128,
+      "injectedRejections": 0,
+      "plans": 8,
+      "steps": 128,
+      "reads": 136,
+      "elapsedSeconds": 133.658931,
+      "durationScope": "initial_host_run_only",
+      "maxProgressBytes": 2634,
+      "restartWrites": 0,
+      "restartPlans": 0
+    }
+  ],
+  "httpReceiptMatrix": {
+    "tasks": 12,
+    "advisoryEventsDropped": 120,
+    "lostFinalProofResponsesBeforeCommit": 6,
+    "lostFinalProofResponsesAfterCommit": 6
+  },
+  "notes": [
+    "Deterministic contract fixtures, no model inference or physical movement.",
+    "Repeated engineering cases are not independent robot samples.",
+    "Blank CSV values indicate unmeasured values, never zero."
+  ]
+}

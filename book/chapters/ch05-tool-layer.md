@@ -18,7 +18,7 @@
 | operation | 长操作如何命名、查询、取消、持久恢复？ |
 | verification | 哪个独立读回或后置条件证明结束？ |
 
-能力目录是规划可见范围，不是审批凭据。安全字段由确定性层生成和校验，模型只产生受约束业务候选。
+能力目录是规划可见范围，不是审批凭据。目标委托还用 `grants[].tool/argumentsSchema/maxExecutions` 收窄本机工具、业务参数与相同写调用的次数；执行前同时满足目标包络和 Provider 原始 Schema。安全字段由确定性层生成和校验，模型只产生受约束业务候选。
 
 ## 5.2 描述、available与执行准入
 
@@ -46,6 +46,8 @@ RobotProfile保留robot/adapter/model身份、原生关节及SI限位、末端�
 
 建图可能跨多次采集，operationId需要稳定，完成制品需可读回。取消请求只表示请求停止，operation终态和实际停止反馈仍须核对。
 
+目标目录使用规范化能力清单的 `catalogRevision`：Local 的 `/v1/robot/services` 返回 `goalCatalogRevision` 与按工具名索引的 `goalCapabilities`，Fleet 则查询 `/v1/devices/{id}/goal-catalog`。它不是 Runtime 低层服务目录的同名摘要；调用方应取真实目录，不能自行拼出一个哈希。
+
 目录或标定在任务期间变化，应使旧批准内容失效或停止重新登记；不能让新handler承接旧目录哈希的命令。新增工具不只改一句描述，也必须增加验证、拒绝、未知与停止路径。
 
 ## 5.6 工程案例
@@ -71,7 +73,7 @@ RobotProfile保留robot/adapter/model身份、原生关节及SI限位、末端�
 
 ## 5.8 小结与阅读
 
-实现入口：[Capability](../../core/capability/)、[PluginBackend](../../robot/gateway/tangying_robot_gateway/plugin_backend.py)、[能力目标指南](../../docs/guides/unified-capability-goals.md)。下一章把工具边界应用到Agent协作。
+实现入口：[目标包络](../../core/objective/contract.go)、[Capability](../../core/capability/)、[PluginBackend](../../robot/gateway/tangying_robot_gateway/plugin_backend.py)、[能力目标指南](../../docs/guides/unified-capability-goals.md)。下一章把工具边界应用到Agent协作。
 
 ## 5.9 分层习题
 

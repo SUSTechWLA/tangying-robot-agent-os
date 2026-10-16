@@ -1,0 +1,21 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "run-config.json": "fb0fc00e0307acca1d1ff8b8db79f5397863f13b793feff26f8c9183c93c23e2",
+    "response-00001.json": "74d020fe1653178700588b0abb003cba84b5d430ba932ebd4c54eb310c938823",
+    "fault-injection.jsonl": "954c449ae74429cafb8d486a73fc9e6fa0cd6e7451d77f8d86d29664d8137eb3",
+    "report.json": "83ede56dd0d21a41f119ef80c8a53285a844333ff6c319959488dab31671430c"
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/v1/robot/services",
+      "file": "response-00001.json"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/tasks",
+      "file": "response-00002.json"
+    }
+  ]
+}

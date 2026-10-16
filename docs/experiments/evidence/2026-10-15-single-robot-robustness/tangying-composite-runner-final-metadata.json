@@ -1,0 +1,19 @@
+{
+  "baseCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "files": {
+    "edge/agent/runner.go": "94e62782b4c134aecfd38a7e407f59a30edd381333fabd0fb7856d1ae473f3bc",
+    "edge/agent/composite_recovery_test.go": "67e0643e96e77076d64c1f26ec5da94625bdceb8fd397b98b699bafdefb12cb8"
+  },
+  "commands": [
+    "go test ./edge/agent -run '^TestAuthorizedCompositeChild' -count=1 -json -timeout=60s",
+    "go test ./edge/agent -count=1 -json -timeout=180s",
+    "go test -race ./edge/agent -run 'TestAuthorizedCompositeChild|TestUnknownPhysicalStep|TestRecoverySafety|TestRunnerRestartDoesNotRepeatCompletedPick|TestRunnerKeepsNeverDispatchedNavigationRetryable|TestCancelledRunner' -count=1 -json -timeout=120s"
+  ],
+  "evidenceType": "SQLite and recording robot contract regression. This is not a Gazebo result.",
+  "outcomes": {
+    "packageTopLevelPasses": 75,
+    "packageWithSubtestsPasses": 146,
+    "targetedRaceTopLevelPasses": 6,
+    "targetedRaceWithSubtestsPasses": 16
+  }
+}

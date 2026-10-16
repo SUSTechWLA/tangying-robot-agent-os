@@ -213,6 +213,14 @@ func (r *Runner) CheckRecovery(ctx context.Context, taskID string) error {
 			return r.CapabilityRecovery(ctx, task)
 		}
 	}
+	return r.checkStepRecovery(ctx, taskID)
+}
+
+// checkStepRecovery guards physical steps for the concrete legacy execution.
+// Its caller may already be inside an authorized capability child while the
+// task service still holds that child's parent envelope. Reading the parent
+// again here would confuse a live dispatch with interrupted parent recovery.
+func (r *Runner) checkStepRecovery(ctx context.Context, taskID string) error {
 	runs, err := r.ExecutionHistory(ctx, taskID)
 	if err != nil {
 		return err
@@ -255,7 +263,7 @@ func (r *Runner) RunControlled(ctx context.Context, task *tasks.Task, control Ru
 		return result, err
 	}
 	if _, ok := r.store.(middleware.ExecutionReader); ok {
-		if err := r.CheckRecovery(ctx, task.ID); err != nil {
+		if err := r.checkStepRecovery(ctx, task.ID); err != nil {
 			return result, err
 		}
 	}

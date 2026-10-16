@@ -1,0 +1,9 @@
+{
+  "type": "test_setup_failure",
+  "test": "TestDelegatedCancellationStopsOwnedOperationBeforeCloudTerminalState",
+  "observed": "RECOVERABLE_FAILURE",
+  "original_expectation": "CANCELLED",
+  "raw_output": "=== RUN   TestDelegatedCancellationStopsOwnedOperationBeforeCloudTerminalState\n2026/10/15 01:14:18 edge-worker heterogeneous-unit: cancel requested but no command is running\n    objective_test.go:282: cancel state=RECOVERABLE_FAILURE\n--- FAIL: TestDelegatedCancellationStopsOwnedOperationBeforeCloudTerminalState (0.02s)\n",
+  "cause": "The fixture initially injected cancellation after provider start, before the durable operation receipt; a stop conclusion was not yet established.",
+  "correction": "Wait for the durable CAPABILITY_PROGRESS event for the owned-stop case. Unknown dispatch and lost verification remain separate refusal tests."
+}

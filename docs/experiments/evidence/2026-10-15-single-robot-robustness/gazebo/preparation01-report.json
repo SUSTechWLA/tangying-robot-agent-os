@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "long-horizon.acceptance.v1",
+  "request": "运行整机标定，然后按家庭巡检路线完成SLAM建图并启用新地图，最后读取当前地图和导航定位状态。",
+  "passed": true,
+  "physicalHardwareTested": false,
+  "automaticTaskRecoveryObserved": false,
+  "expectedArrivals": 0,
+  "requireManipulation": false,
+  "pause": {
+    "requestedAfterTool": null,
+    "requestedSeconds": 0,
+    "initiator": "acceptance_operator",
+    "resumed": false
+  },
+  "taskId": "task-160df157e20201affd7ee5d7",
+  "planSource": "llm",
+  "tools": [
+    "calibration.run",
+    "mapping.build",
+    "mapping.status",
+    "navigation.status"
+  ],
+  "collaboration": {
+    "eventAgents": [],
+    "opsEventCount": 0,
+    "collaborationObserved": false,
+    "automaticInvestigationVerified": false,
+    "automaticVerifiedActionIds": [],
+    "automaticTaskRecoveryObserved": false,
+    "automaticallyRecoveredStepIds": [],
+    "verifiedReadRecoveryChains": [],
+    "policyRecoveryConfirmedStepIds": [],
+    "interpretation": "Configuration is not participation; verified diagnostic reads do not prove task repair."
+  },
+  "verifiedCapabilities": 4,
+  "verifiedChildSteps": 0,
+  "verifiedArrivals": [],
+  "manipulation": {},
+  "childEvidence": [],
+  "verifiedCompositeOutcomes": [],
+  "state": "SUCCEEDED",
+  "elapsedSeconds": 493.2945934170275
+}

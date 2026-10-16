@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "long-horizon.revalidation.v2",
+  "passed": false,
+  "revalidatedAt": "2026-10-15T14:59:41.288667+00:00",
+  "evidenceDirectory": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/single-robot-robustness-20261015-gazebo-002/preparation01",
+  "validatorSha256": "d532a96b8c3b8994ecd6b55f4d3a45e207050117f1c613dcc7e413fc5eb163d9",
+  "executionValidatorSha256": "4ac563f356100a110659667f6f5f3fadd2d25e3e8f0668597893ec65d490f0a0",
+  "physicalHardwareTested": false,
+  "checks": {
+    "manifest": true,
+    "frozenPlanAndLedger": true,
+    "observationBytes": true
+  },
+  "errors": [
+    {
+      "type": "AssertionError",
+      "message": "no complete versioned recovery protocol chain was verified"
+    }
+  ],
+  "requirements": {
+    "expectedArrivals": 0,
+    "requireManipulation": false,
+    "requiredSource": "llm",
+    "requireAutoRecovery": false,
+    "pauseSeconds": 0,
+    "requireFault": false,
+    "requireManagedContext": true,
+    "requireModelContext": true,
+    "requireProtocol": true
+  },
+  "originalManifestSha256": "1945d1a2a6b147d11fcea01e1f8d5f856b747df11055e4b1969bf8959c9367f0",
+  "verifiedFiles": 480,
+  "verifiedBytes": 203203311,
+  "taskId": "task-160df157e20201affd7ee5d7",
+  "state": "SUCCEEDED",
+  "ledger": {
+    "eventCount": 51,
+    "taskSnapshotsVerified": 465,
+    "revisionHistoryAvailable": true,
+    "revisionCount": 1
+  },
+  "observations": {
+    "observationCount": 0,
+    "imageCount": 0
+  },
+  "execution": {
+    "verifiedCapabilities": 4,
+    "verifiedChildSteps": 0,
+    "verifiedArrivals": [],
+    "manipulation": {},
+    "childEvidence": [],
+    "verifiedCompositeOutcomes": []
+  },
+  "collaboration": {
+    "eventAgents": [],
+    "opsEventCount": 0,
+    "collaborationObserved": false,
+    "automaticInvestigationVerified": false,
+    "automaticVerifiedActionIds": [],
+    "automaticTaskRecoveryObserved": false,
+    "automaticallyRecoveredStepIds": [],
+    "verifiedReadRecoveryChains": [],
+    "policyRecoveryConfirmedStepIds": [],
+    "interpretation": "Configuration is not participation; verified diagnostic reads do not prove task repair."
+  },
+  "pause": {
+    "requiredSeconds": 0,
+    "observed": false
+  },
+  "fault": {
+    "observed": false
+  }
+}

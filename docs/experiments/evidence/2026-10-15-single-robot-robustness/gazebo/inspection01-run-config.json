@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "long-horizon.run.v2",
+  "request": "执行时先读取导航状态；从客厅出发，巡检卧室和卫生间，最后回到客厅；然后从客厅出发，去厨房巡检，再回到客厅；每次导航都确认抵达并取得新鲜RGB-D观测；最后读取并报告当前地图和导航定位状态。",
+  "baseUrl": "http://127.0.0.1:8927",
+  "declaredSourceCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "runnerSha256": "4ac563f356100a110659667f6f5f3fadd2d25e3e8f0668597893ec65d490f0a0",
+  "requirements": {
+    "requiredSource": "llm",
+    "expectedArrivals": 5,
+    "requireManipulation": false,
+    "expectedHomeTransfers": null,
+    "expectedSemanticRoute": null,
+    "requireCollaboration": true,
+    "requireAutoInvestigation": true,
+    "requireAutoRecovery": true,
+    "pauseAfterTool": null,
+    "pauseSeconds": 0
+  },
+  "timing": {
+    "timeoutSeconds": 1800.0,
+    "settleSeconds": 10,
+    "pollInterval": 1
+  },
+  "collectRevisions": true,
+  "faultLogSource": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/single-robot-robustness-20261015-gazebo-002/faults.jsonl"
+}

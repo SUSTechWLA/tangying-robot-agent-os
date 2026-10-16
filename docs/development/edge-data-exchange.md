@@ -2,7 +2,7 @@
 
 [开发导航](README.md) · [模块化边界](../architecture/modular-extensibility.md) · [长程协作](../architecture/long-horizon-collaboration.md)
 
-`edge-exchange` 是可独立部署的边缘数据伴随进程。Local Agent、Fleet Worker 的本地业务通过 loopback API 发布数据；另一台边缘 Agent 或云端同事实现相同 HTTP 合同即可收发。它不依赖机器人 Runtime、不拥有运动租约，也不把收到的数据直接灌入任务上下文、地图、任务完成状态。当前任务命令、批准和执行回执仍走原有 Local Agent / Fleet 协议。
+`edge-exchange` 是可独立部署的边缘数据伴随进程。Local Agent、Fleet Worker 的本地业务通过 loopback API 发布数据；另一台边缘 Agent 或云端同事实现相同 HTTP 合同即可收发。它不依赖机器人 Runtime、不拥有运动租约，也不把收到的数据直接灌入任务上下文、地图、任务完成状态。任务控制走 Local Agent / Fleet 的批准、claim/fence 和执行回执协议；新增[目标委托](../guides/delegated-edge-goals.md)仍从受控 API 创建并批准合同，exchange 消息不能直接变成 Host 的执行依据。
 
 这让单个执行 Agent 能独立保持执行权，同时与其他 Agent 交换有身份、时效、空间版本和回溯依据的数据。程序名称为 `edge-exchange`，合同版本为 `agent.data.v1`；新协议没有冒充现有 Fleet 云端已经实现的接口。
 

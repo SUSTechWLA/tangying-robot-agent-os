@@ -4,6 +4,8 @@
 
 当前操作对应 `v0.3.0`，按 `git clone --branch v0.3.0` 获取准确版本。本文末保留 2026-09-08 的 RGB-D 软件仿真任务、暂停重启、未知动作阻断与历史图像记录；本次离桌导航与长暂停的实际结果见 [v0.3.0 发布记录](../releases/v0.3.0.md)。模块存在、接口可调用、仿真成功和真实设备上线是不同层次的证据。
 
+现行分层目标路径另见[共享 Edge Host 架构](../architecture/hierarchical-edge-objectives.md)和[目标运维](../operations/delegated-goal-operations.md)：Local/Worker 都可在批准粗目标内细化，复合 `robot.task` 继续复用本页的 Runner/Runtime 闭环。本文固定工位/v0.3.0 与后续日期型实验段落保留原身份，不能直接视为今天所有目标通道的启动和恢复步骤。
+
 本路线使用双 RGB-D、可选 RTAB-Map/Nav2 和命令原始观测。导航接线、坐标、建图/定位模式与实际验收边界见 [RTAB-Map 导航](rtabmap-navigation.md)。默认 `make rgbd-start` 是已经就位的固定工位；移动入口 `make navigation-start NAVIGATION_ARGS='--build --mode mapping'` 将底盘初始化在世界坐标 `Y=-0.60 m`，目标 `Y=0.05 m`，名义接近位移约 65 cm。固定工位任务不作为这段导航的成功证据。
 
 ## 先沿这一条链读代码

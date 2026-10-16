@@ -1,5 +1,16 @@
 # 分布式异常与快速排障手册
 
+## 目标 Host 的恢复与交接
+
+新目标接入按[目标指南](../guides/delegated-edge-goals.md)保留父 Task、批准包络、claim、边缘 SQLite 与子账本。先判断是“已验证但待上报”“明确无效果失败”“未知物理效果”还是“完成条件读确认待定”，再选择补传、受控重规划、对账或人工输入。不能删除 `edge-goal/edge-child`、换目标 ID、提高 maxExecutions 或重置预算来清告警。
+
+- 子完成/父确认窗口：仅完整绑定的 StepCompleted 与 CAPABILITY_VERIFIED 同时存在才自动补认，核对当前目录 mutatesWorld 与批准；否则不重发动作。
+- 完成只读暂时不可用：全目标最多两次持久重读，消耗 maxReads；读确认落盘中断保持待定，重启不额外重读。
+- 本地已验证/远端响应丢失：仅补传原证据和父 completion；执行期限过后也不得新派动作。
+- 原父 claim 无效、目录漂移、权限拒绝或未知效果：停止/对账；Fleet 模式没有因断网自动离线继续权。
+
+完整故障样本和未通过尝试见[单机鲁棒性实验](../experiments/2026-10-15-single-robot-robustness.md)。
+
 ## 1. 排障总原则
 
 先保证人和设备安全，再恢复一致性，最后恢复吞吐。任何时候都遵守安全不变量：旧 revision 不覆盖新 revision；旧 fencing token 不驱动物理资源；观测不新鲜不判成功；软件急停不替代实体急停；不要手工改 Task 历史、World revision、source sequence、custody token、Harness evidence 或签名摘要。

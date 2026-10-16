@@ -1,0 +1,22 @@
+{
+  "baselineCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "baselineHost": "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-host-baseline-plw80si6/host.go",
+  "overlay": "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-host-baseline-plw80si6/overlay.json",
+  "overlayHostSha256": "d78c8c44beca8bc8dfef39046308ab1d67dbb2e65bbfdc4a500c0394731b1c46",
+  "newTest": "internal/edgeagent/recovery_test.go:TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement",
+  "newTestSha256": "46c42cb7f5f1213732781b619e942d36182b249de5a1ab74def9d12ef3da976a",
+  "command": [
+    "go",
+    "test",
+    "-overlay",
+    "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-host-baseline-plw80si6/overlay.json",
+    "./internal/edgeagent",
+    "-run",
+    "^TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement$",
+    "-count=1",
+    "-json",
+    "-timeout=30s"
+  ],
+  "exitCode": 1,
+  "purpose": "Baseline host source from commit plus new regression test; no Gazebo or real model/hardware."
+}

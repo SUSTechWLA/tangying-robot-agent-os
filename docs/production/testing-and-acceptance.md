@@ -1,6 +1,6 @@
 # 测试、签名验收与发布检查
 
-2026-09-25 云端 Server 与 Orin Edge 升级有独立的[云边软件验收记录](cloud-edge-upgrade-acceptance.md)和[角色 Harness / Docker 验收记录](agent-harness-docker-acceptance.md)；最新生产判断与现场证据字段见[2026-09-26 就绪审计](field-readiness-2026-09-26.md)。其中的 `make test`、角色工具隔离、Compose 配置和 arm64 构建只构成软件候选证据；Orin 量化模型、GPU 大模型服务、真实机器人安全和目标规模机群容量仍需按目标环境单独签字。原始设计与失败记录保留在[云边升级规范](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)及[Harness / Docker 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
+2026-09-25 云端 Server 与 Orin Edge 升级有独立的[云边软件验收记录](cloud-edge-upgrade-acceptance.md)和[角色 Harness / Docker 验收记录](agent-harness-docker-acceptance.md)；该阶段生产判断与现场证据字段见[2026-09-26 就绪审计](field-readiness-2026-09-26.md)。其中的 `make test`、角色工具隔离、Compose 配置和 arm64 构建只构成软件候选证据；Orin 量化模型、GPU 大模型服务、真实机器人安全和目标规模机群容量仍需按目标环境单独签字。原始设计与失败记录保留在[云边升级规范](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)及[Harness / Docker 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)。
 
 单机器人 RGB-D 验收使用 `.venv/bin/pytest -q tests/e2e/test_rgbd_recovery.py`，会在独立端口启动相机仿真、HTTP/gRPC Agent 和 SQLite，测试工具边界暂停/只重启 Agent/同任务继续，以及动作中崩溃后的未知结果阻断。保留可读证据时运行 `.venv/bin/python scripts/run_rgbd_acceptance.py --output 新目录`；负向增加 `--scenario unknown-outcome`。不连接真实设备，不能用于实机性能或急停认证。
 
@@ -9,6 +9,12 @@
 Gazebo Harmonic 后端的静态合同检查使用 `PYTHONPATH=robot/ros2_ws/src/tangying_navigation .venv/bin/pytest -q robot/ros2_ws/src/tangying_navigation/test/test_launch_config.py`；容器内可用 `make gazebo-house-start GAZEBO_HOUSE_ARGS='--build --mode mapping'` 启动真实 RGB-D/odom/cmd_vel bridge。没有完成五房间受控探索和自然语言路线的逐段新观测前，不能标记为 `SIMULATION_GO`。
 
 v0.2.0 的真实 ROS 导航验收（历史记录，脚本仍可运行）先启动 `make navigation-start NAVIGATION_ARGS='--build --mode mapping'`，等待地图就绪，再运行 `.venv/bin/python scripts/run_navigation_acceptance.py --output 新目录`。它明确创建并批准一条本地 MuJoCo 双物体任务，要求从距操作位至少 60 厘米的位置出发，校验 18 个唯一步骤、六次物理工具各执行一次、全部历史图像哈希、抵达后新观测、真实导航位移与三帧稳定放置。`--pause-seconds 65` 在首个导航工具边界暂停后继续；只读重观测产生额外事件是正常恢复行为，不计为重复物理执行。脚本不重置现场或删除 journal；下一次演示先在任务结束且未持物时显式重启仿真。建图／已保存地图定位、暂停和故障分别留独立输出目录，结果见 v0.2.0 发布记录；当前版本的闭环契约验收见 [v0.3.0 发布记录](../releases/v0.3.0.md)。
+
+## 最新目标与长程回归
+
+按[单机鲁棒性协议](../experiments/2026-10-15-single-robot-robustness-protocol.md)使用全新输出目录保存 Go JSONL、任务/步骤 CSV、环境和源文件哈希；有源代码漂移的批次保留但排除主结果。主保留批次、128 次子能力写链、故障注入及新旧 API 的 Gazebo 样本见[完整报告](../experiments/2026-10-15-single-robot-robustness.md)。软件夹具、真实模型仿真与硬件分开统计，不混成一个成功率。
+
+日常 Go 回归使用 `make test-go` 中维护的包清单；不要用 `go test ./...` 扫描 `artifacts` 的历史代码快照。目标重点包为 `internal/edgeagent`、`edge/worker`、`edge/agent`、`fleet/coordinator`、`core/objective` 和 `console`；race 检查和长链耗时分别记录，不能把插桩开销解释成控制器性能。文档/书籍变更再运行 `make book-check`、文档合同和出版校验，不把文档同步记为一次新物理实验。
 
 ## 1. 测试矩阵
 

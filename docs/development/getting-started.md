@@ -1,8 +1,8 @@
 # 开发者快速上手
 
-目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。核对日期：2026-10-14。当前入门使用 **Gazebo 家庭场景**；本页后半保留的 `v0.3.0` 固定工位与离桌导航命令只供历史回归。按模块找代码和测试请从[开发与升级导航](README.md)开始，购机用户另读[实机接入指南](../guides/hardware-agent-integration.md)。
+目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。核对日期：2026-10-16。当前入门使用 **Gazebo 家庭场景**；本页后半保留的 `v0.3.0` 固定工位与离桌导航命令只供历史回归。按模块找代码和测试请从[开发与升级导航](README.md)开始，购机用户另读[实机接入指南](../guides/hardware-agent-integration.md)。
 
-正式软件版本见 [v0.7.0 发布记录](../releases/v0.7.0.md)，后续功能以当前检出的提交、[变更日志](../../CHANGELOG.md)和相应实验报告为准。书籍数字版 `2.1.0` 是独立出版版本，案例源码固定到 `9e5aebae`；阅读书籍不意味着本地工作分支已经包含或发布其后的全部改动。开始前记录 `git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`，不要为跟随本文切换或覆盖正在工作的分支。
+正式软件版本见 [v0.7.0 发布记录](../releases/v0.7.0.md)，后续功能以当前检出的提交、[变更日志](../../CHANGELOG.md)和相应实验报告为准。书籍数字版 `2.2.0` 是独立出版版本，实现复核固定到 `821659df`；阅读书籍不意味着本地工作分支已经包含或发布其后的全部改动。开始前记录 `git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`，不要为跟随本文切换或覆盖正在工作的分支。
 
 ## 环境与第一次运行
 
@@ -78,10 +78,12 @@ make navigation-status
 先读[开发原则与代码地图](principles.md)，再沿以下路径阅读：
 
 1. `web/console_ui.js` 管展示与导航；`web/app.js` 调 API。Local API 在 `console/server.go`，Fleet 在 `fleet/server.go`。
-2. 当前统一目标由 `internal/capabilityagent` 读取能力目录并校验、冻结提案；`agent/`、`orchestration/` 与 `skills/manipulation` 保留意图和复合任务路径；`tasks/` 管任务、审批、版本和事件。
-3. Local 由 `internal/localapp` 与 `edge/agent` 执行；Fleet 由 `fleet/coordinator` 与 `edge/worker` 协作。
+2. 先识别入口：`POST /v1/objectives` 保存并等待批准粗目标合同；原 `/v1/tasks` 与现有 UI 表单仍先规划、再冻结批准。两条路径不能混用预算与审批假设。
+3. Local 的 `internal/localapp` 或 Fleet 的 `edge/worker` 装配共享 `internal/edgeagent.Host`。Host 调用 `internal/capabilityagent` 规划、验证子计划，使用持久 Task/Ops/Recovery 逻辑推进；`edge/agent` 继续承担复合机器人闭环，`tasks/` 管批准与不可变版本。
 4. `edge/runtime` 定义语义命令，`edge/robotclient` 映射到 `proto/robot/v1/robot.proto`。
 5. Python `service.py → SafetySupervisor → RobotBackend` 校验并执行；仿真世界返回观测，Fleet 的 `core/harness` 复核后置条件。
+
+推荐先阅读[目标委托接入](../guides/delegated-edge-goals.md)，沿 `core/objective/contract.go → tasks/objective.go → internal/edgeagent/host.go` 追踪权限包络、子计划、检查点和完成核验，再比较 `internal/localapp` 与 `edge/worker` 的入口装配。模型调用在本机或云端不改变边缘的生命周期职责；Local 的事件式 `agentruntime` 与 Host 的监督逻辑也不是同一开关。
 
 任务成功、Runtime 终态、世界观测和 UI 展示各有不同权威，排障用 task/revision/step/command/observation ID 对齐，不改事件来修补显示。
 
@@ -125,6 +127,7 @@ make robocasa-handoff
 | Web 展示 | `make test-web`；布局/交互改动补浏览器验证 |
 | ROS 导航与 Nav2 控制器插件 | 在已构建并加载 `robot/ros2_ws/install/setup.sh` 的 ROS Jazzy 工作区执行 `colcon test --packages-select tangying_navigation tangying_dwb_critics --return-code-on-test-failure`、`colcon test-result --verbose`；Linux CI 同样执行。导航节点测试需要真实 `rclpy`，不能把无 ROS 主机上的跳过记录当作通过 |
 | 文档 | `.venv/bin/python -m pytest -q tests/docs/test_production_docs.py` |
+| 目标委托与长步骤链 | `go test ./core/objective ./tasks ./internal/edgeagent ./edge/worker ./fleet/coordinator`；并发/持久化改动补相关 `-race`，实际实验用[鲁棒性协议](../experiments/2026-10-15-single-robot-robustness-protocol.md)的新目录 |
 | 移动闭环与恢复 | [`run_navigation_acceptance.py`](../../scripts/run_navigation_acceptance.py) 检查现有导航仿真；长暂停使用新现场与 `--pause-seconds 65` |
 | 安装脚本 | `make install-check` |
 | 多机器人恢复 | `make fleet-chaos`；RoboCasa 用 `make test-robocasa-faults` |

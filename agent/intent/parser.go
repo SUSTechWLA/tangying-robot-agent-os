@@ -53,7 +53,7 @@ var (
 	homeRoomPattern       = regexp.MustCompile(`客厅|卧室|卫生间|厕所|厨房|走廊`)
 	homeMovementTarget    = regexp.MustCompile(`(?:移动到|前往|返回|回到|去)(客厅|卧室|卫生间|厕所|厨房|走廊)`)
 	homeRoutePrefix       = regexp.MustCompile(`^(?:回到|返回|回|前往|去|从|到|巡检|巡查|检查|确认)(?:客厅|卧室|卫生间|厕所|厨房|走廊)(?:(?:和|及|、|与)(?:客厅|卧室|卫生间|厕所|厨房|走廊))*(?:出发)?`)
-	homeInspectionSuffix  = regexp.MustCompile(`^(?:确认|检查)(?:一下)?环境$`)
+	homeInspectionSuffix  = regexp.MustCompile(`^(?:(?:确认|检查)(?:一下)?环境|巡检|巡查)$`)
 	homeReturnStart       = regexp.MustCompile(`^(?:最后)?(?:回到|返回)(?:出发点|起点|原地)$`)
 )
 

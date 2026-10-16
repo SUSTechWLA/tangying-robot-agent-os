@@ -1,5 +1,7 @@
 # LLM 编排能力、指标与提升方法
 
+当前系统有两种编排入口。新接入优先按[目标委托合同](hierarchical-edge-objectives.md)创建粗粒度目标，批准后由 Local/Worker 共享 Host 在边缘生成有界子计划；现有 UI、MCP 草案工具和 `/v1/tasks` 继续在审批前冻结完整能力计划。本页下述 `orchestration.Planner` 是保留的旧执行图路线，不是所有目标必经的云端规划器。
+
 ## 编排边界
 
 ```text
@@ -7,7 +9,7 @@
   -> agent intent parser（完整已知指令优先 deterministic，其余表达可选 LLM；歧义要求澄清）
   -> orchestration.Planner（LLM 可选，deterministic 兜底）
   -> taskgraph.TaskPlan（能力技能图模板）
-  -> Local Agent 落地实体并生成 approval/deadline/lease/idempotency
+  -> Local Agent / Worker 的确定性执行层落地实体并绑定 approval/deadline/lease/idempotency
   -> Robot Runtime capability check + Safety Supervisor
 ```
 

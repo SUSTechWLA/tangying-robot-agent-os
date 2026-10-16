@@ -84,3 +84,7 @@ HTTP 客户端校验 TLS 证书和主机名、禁用环境代理和重定向；�
 测试使用官方 `ClientSession` 启动真实 stdio 服务进程，完成 initialize、tools/list、tools/call；独立本地 HTTP fixture 核对 Authorization、草稿边界、路径注入、额外批准参数、重定向、响应大小、非有限数值、错误脱敏、请求限流、超时不重试和急停优先。真实本地 HTTPS fixture 另验证默认不信任私有 CA、显式 CA 后成功、错误 CA／主机名拒绝，以及无效 CA 配置启动失败且不泄漏路径和 token。fixture 没有驱动真实硬件，这些协议测试不构成实机验收证据。
 
 官方 SDK 维护线与接口文档：[Python SDK v1 文档](https://py.sdk.modelcontextprotocol.io/v1/)、[官方 Python SDK](https://github.com/modelcontextprotocol/python-sdk/tree/v1.x)。当前选择固定 `<2` 防止后续安装无意切换主版本；升级 SDK 大版本应重新运行协议测试。
+
+## 与目标委托通道的关系
+
+这里的 `create_task` 仍调用 `/v1/tasks` 并在批准前冻结能力计划，不会自动改走边缘自主目标。新 `/v1/objectives` 的目标包络和审批由[目标接入指南](../../docs/guides/delegated-edge-goals.md)说明；当前 MCP 工具没有创建或批准该包络的接口。外部 Agent 发来的对话或数据不取得机器人执行权。

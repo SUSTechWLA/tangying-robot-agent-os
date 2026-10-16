@@ -2,7 +2,7 @@
 
 ## 1. 约定
 
-云端 Fleet 默认 HTTPS；Local Brain 默认 loopback HTTP。JSON 使用 UTF-8。操作员接口使用 `Authorization: Bearer <JWT>`；机器人 HTTP 数据面使用 `X-Robot-ID` 与 `X-Device-Token` 独立设备凭证；FleetGateway gRPC 使用 mTLS。幂等由各接口显式实现：revision 提议/确认使用 JSON 中的 UUID `idempotencyKey`，Runtime 使用 command 身份、fingerprint 与 journal。通用 `Idempotency-Key` HTTP 头不会自动让所有写接口幂等；当前创建/审批请求发生不确定结果时先查询任务，不盲目重发。资源写入还要满足 fencing 约束。
+云端 Fleet 默认 HTTPS；Local Brain 默认 loopback HTTP。JSON 使用 UTF-8。操作员接口使用 `Authorization: Bearer <JWT>`；机器人 HTTP 数据面使用 `X-Robot-ID` 与 `X-Device-Token` 独立设备凭证；FleetGateway gRPC 使用 mTLS。幂等由各接口显式实现：revision 提议/确认使用 JSON 中的 UUID `idempotencyKey`；新增目标创建要求 JSON `idempotencyKey`，按调用者绑定不可变包络；Runtime 使用 command 身份、fingerprint 与 journal。通用 `Idempotency-Key` HTTP 头不会自动让所有写接口幂等；旧任务创建/审批请求发生不确定结果时先查询任务，不盲目重发。资源写入还要满足 fencing 约束。
 
 通用错误体：
 
@@ -17,6 +17,8 @@
 `GET /v1/tasks/{id}/experience` 当前是无 `cursor` 的完整任务展示快照，同一 revision/aggregateVersion 下进展仍会变化。结合 Task.state 显示终态，不把 `updateStatus=ACTIVE` 当作 RUNNING；完整字段与刷新规则见[数据契约](data-contracts.md#taskexperience-完整快照)。
 
 ## 2. Fleet HTTP API
+
+目标委托新增 `GET /v1/devices/{id}/goal-catalog`（operator，返回规范化目标目录）和 `POST /v1/objectives`（operator，创建未批准父目标）。Local 也提供 `POST /v1/objectives`，使用 Console session；`GET /v1/robot/services` 增加 `goalCatalogRevision/goalCapabilities`。完整合同与拒绝码见[目标接入指南](../guides/delegated-edge-goals.md)。这些接口不自动审批，不替换原 `/v1/tasks`。现有 UI 自然语言表单、系统任务/MCP 草案工具继续使用旧冻结计划入口；采用边缘持续编排须显式调用新目标 API。`goalCapabilities` 为按工具名索引的对象，目标目录摘要与 Runtime 低层目录摘要不可互换。
 
 外部 Agent 可使用[官方 SDK 的 MCP stdio 桥接](../../robot/mcp/README.md)调用同一 Fleet API。8 个工具是 `list_robots`、`get_robot_capabilities`、`observe_world`、`list_tasks`、`create_task`、`get_task`、`cancel_task`、`emergency_stop`；工具输入和结果有 JSON Schema。`create_task` 仅创建 `approved=false` 的提议，用户在控制台审批。MCP 结果中的 `retryable` 属于桥接协议，不是本页 Fleet 通用错误体的新字段。
 

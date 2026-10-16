@@ -1,5 +1,7 @@
 # LLM 驱动的执行：让模型在执行过程中选工具与编排
 
+阅读范围（2026-10-16）：本页聚焦旧意图/执行图与动作策略。新目标模式由 Local/Worker 的共享 Host 在批准包络内持续编排；其职责、预算和恢复边界见[分层目标](hierarchical-edge-objectives.md)，不能把下述流程理解成所有任务都由云端预列工具。
+
 本文回答两件事：**今天每一步是谁在决定**，以及**要改成"执行过程中由 LLM 根据 harness 选择工具调用与编排"需要动什么、不能动什么**。
 
 配套阅读：[多 Agent 运行时](multi-agent-runtime.md)、[恢复 Agent](recovery-agent.md)、[生命周期对象](lifecycle-objects.md)。

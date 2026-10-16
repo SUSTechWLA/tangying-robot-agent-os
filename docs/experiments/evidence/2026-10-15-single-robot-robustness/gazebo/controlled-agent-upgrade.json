@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-10-15T14:59:16.917656+00:00",
+  "worldRestarted": false,
+  "runtimeRestarted": false,
+  "mapReplaced": false,
+  "taskDatabasePreserved": true,
+  "terminalTasks": [
+    {
+      "id": "task-160df157e20201affd7ee5d7",
+      "state": "SUCCEEDED"
+    }
+  ],
+  "oldPID": 68702,
+  "oldCommandWithoutSecrets": "artifacts/experiments/single-robot-robustness-20261015-gazebo-001/bin/local-agent --config /Users/wanglian/Library/Application Support/TangyingRobotAgent/local.env --dev-insecure --robot-safety-profile desktop_standard --listen 127.0.0.1:8927 --robot 127.0.0.1:50462 --data-dir /Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/single-robot-robustness-20261015-gazebo-002/agent",
+  "oldBinarySha256": "da3280d7dd4cd726fb73c0c2c002892b4c8d0e78ab838682ecd0ef28f5756a5d",
+  "newBinarySha256": "037e580659394c8066079c3097c2802f71bfb2f87c7b98348e6231a9e6b72b93",
+  "shutdown": "SIGINT own process after no active tasks",
+  "databaseSha256BeforeRestart": "b631923bd29c979b4fa2b6f4ba2081b164c0d250cb72ec638af4230f1bf25329"
+}

@@ -10,14 +10,16 @@
 
 Agent是带输入、状态、工具范围和决策规则的角色，可以由模型或确定性程序实现。划分依据应是权限、上下文、证据责任和失效隔离，不是为了增加模型数量。
 
-| Local角色 | 当前责任 | 不持有的权力 |
+| 逻辑角色 | 当前责任 | 不持有的权力 |
 | --- | --- | --- |
 | task | 推进获批任务、执行与取证 | 绕过Runtime/审批 |
 | ops | 读事件与摘要、异常分类和根因假设 | 直接改机器人/任务终态 |
 | recovery | 从目录提出调查/恢复计划 | 自行执行恢复 |
 | executor/verifier | 受控执行、独立复验与记录 | 用提案替代授权 |
 
-当前Ops/Recovery主要是确定性角色；Fleet Worker也不天然装配这套Local拓扑。模型调用阶段、进程和角色是不同维度。
+Local 的既有 `agentruntime` 用事件总线连接这些角色。新增目标通道由 Local 和 Worker 共用 `edgeagent.Host`：Task 复用能力 Planner，Ops 从持久子回执形成 finding，RecoveryPolicy 提出 `REPLAN_REMAINING`、`RECONCILE` 或 `STOP`，Host 再检查权限、预算和未知结果。默认 Ops/Recovery 是确定性组件，没有机器人命令端口；替换建议策略也不能绕过 Host。
+
+两套接线的职责相通，但 Worker 没有原样装入 Local 的整套事件总线，逻辑角色也不是跨机器远程 Agent 宿主。模型调用阶段、进程和角色是不同维度。
 
 ## 6.2 事件是受约束的消息
 
@@ -56,6 +58,12 @@ correlation目前按任务检索，不足以区分一次命令。causation指直
 一次 navigation.status 只读查询失败后，Task 发布原失败，Ops 提取故障和派发阶段，Recovery 提出调查计划，executor 重新读取，verifier 核查结果。原等待器只在持久来源、完整身份和真实复验都满足时继续原命令。
 
 设两个机器人均在任务 T 中执行相同工具，只有 taskId/topic 的事件会把 A 的恢复用在 B 上。增加 robot、revision、step、command 仍需检查原因链；只声明这些字段而不在消费者验证，不能防止串线。协议设计最终必须落到发布口、落盘和消费条件。
+
+### 目标宿主的协作记录
+
+目标通道把子计划绑定、执行事件、诊断与建议分别记录为 `EDGE_PLAN_CREATED`、`EDGE_CHILD_EVENT`、`EDGE_OPS_FINDING`、`EDGE_RECOVERY_DECISION`。父目标、代数、子任务和步骤身份连接它们；最终 `CAPABILITY_VERIFIED` 关联完整目标证明。收到诊断事件不会直接触发电机，Host 读取持久事实后决定下一步。
+
+例如第5站主路明确未准入，Ops 可确认没有效果，Recovery 建议剩余路线，Task 在原grant中重规划；前4站的完成事实、次数与预算保留。若第5站写回执丢失，Ops 标记未知，任何建议都不能将它转成可重试。这个分支差异正是多角色协作需要确定性边界的原因。
 
 ## 6.6 有界通讯的容量与生命周期
 

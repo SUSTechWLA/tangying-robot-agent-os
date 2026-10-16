@@ -85,7 +85,10 @@ def slug(title: str) -> str:
 def load_manifest(book: Path = BOOK) -> tuple[dict, list[dict]]:
     manifest = json.loads((book / "edition.json").read_text())
     date.fromisoformat(manifest["date"])
-    if not re.fullmatch(r"[0-9a-f]{40}", manifest["source_snapshot"]):
+    for key in ("source_snapshot", "documentation_snapshot"):
+        if key in manifest and not re.fullmatch(r"[0-9a-f]{40}", manifest[key]):
+            raise ValueError(f"{key} must be a complete Git commit")
+    if "source_snapshot" not in manifest:
         raise ValueError("source_snapshot must be a complete Git commit")
     if len(manifest["sources"]) != len(set(manifest["sources"])):
         raise ValueError("duplicate source in edition.json")
@@ -186,10 +189,18 @@ def repo_tree(manifest: dict) -> set[str]:
     return files
 
 
+def link_snapshot(manifest: dict, relative: str) -> str:
+    # Code and its accompanying documentation can be reviewed in separate commits.
+    # Older editions retain their original single-snapshot contract.
+    if relative.startswith("docs/") or relative.endswith(".md"):
+        return manifest.get("documentation_snapshot", manifest["source_snapshot"])
+    return manifest["source_snapshot"]
+
+
 def source_url(manifest: dict, relative: str, directory: bool = False) -> str:
     return (
         f"{manifest['repository']}/{'tree' if directory else 'blob'}/"
-        f"{manifest['source_snapshot']}/{quote(relative, safe='/')}"
+        f"{link_snapshot(manifest, relative)}/{quote(relative, safe='/')}"
     )
 
 
@@ -219,7 +230,7 @@ def resolve_link(href: str, doc: dict, docs: list[dict], manifest: dict, mode: s
     if not target.is_relative_to(ROOT) or not target.exists():
         raise ValueError(f"broken local link in {doc['relative']}: {href}")
     relative = target.relative_to(ROOT).as_posix()
-    tree = repo_tree_cached(manifest)
+    tree = repo_tree_cached(manifest, relative)
     key = relative + ("/" if target.is_dir() else "")
     if key not in tree:
         raise ValueError(f"repository link is not in frozen snapshot: {relative}")
@@ -231,10 +242,10 @@ def resolve_link(href: str, doc: dict, docs: list[dict], manifest: dict, mode: s
 _TREE_CACHE: dict[str, set[str]] = {}
 
 
-def repo_tree_cached(manifest: dict) -> set[str]:
-    commit = manifest["source_snapshot"]
+def repo_tree_cached(manifest: dict, relative: str = "") -> set[str]:
+    commit = link_snapshot(manifest, relative)
     if commit not in _TREE_CACHE:
-        _TREE_CACHE[commit] = repo_tree(manifest)
+        _TREE_CACHE[commit] = repo_tree({**manifest, "source_snapshot": commit})
     return _TREE_CACHE[commit]
 
 

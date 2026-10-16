@@ -1,10 +1,12 @@
 # 部署、运维与现场交付导航
 
+核对日期：2026-10-16，实现参考 `821659df`。目标委托的部署、持久状态、续跑判断与升级顺序集中见[目标运维](delegated-goal-operations.md)。
+
 本页按实际工作顺序组织已有文档，供部署人员、值班人员和设备集成人员查阅。需要学习架构或查研究证据时，返回[文档总入口](../README.md)或[实验索引](../experiments/README.md)。具体命令、参数和限制保留在各专题原文，避免多处复制后产生版本漂移。
 
 无人车、足式与无人机统一按 ROS 2 接入的最新设备侧流程见[边缘 Agent 实机测试部署](edge-field-testing.md)，包括单机长任务、配置指纹、数据通信、云端交接及状态文件迁移；本轮软件验证见[升级记录](../development/2026-10-13-edge-field-candidate.md)。
 
-当前已有 Gazebo 仿真中的任务闭环证据，包括[点云语义五站巡检与一次只读故障自动恢复](../experiments/2026-10-13-semantic-execution.md)。这项实验使用人工语义标注、二维地面导航和到位验证，不能作为真机、开放词汇感知或多机器人现场协作的验收。安装完成、服务存活、离线检查通过与真实硬件放行是不同结论；实机仍需设备适配、现场测试和负责人签署。
+最新[单机器人鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)保留真实模型规划超时、Host 首次失败及修复后同原句新任务的证据，并与软件长步骤链分开。当前已有 Gazebo 仿真中的任务闭环证据，包括[点云语义五站巡检与一次只读故障自动恢复](../experiments/2026-10-13-semantic-execution.md)。这项实验使用人工语义标注、二维地面导航和到位验证，不能作为真机、开放词汇感知或多机器人现场协作的验收。安装完成、服务存活、离线检查通过与真实硬件放行是不同结论；实机仍需设备适配、现场测试和负责人签署。
 
 ## 1. 环境准备：先选验证环境，再安装
 
@@ -18,7 +20,7 @@
 
 ## 2. 部署角色：明确谁持有任务与动作权限
 
-先读[部署目标与代码归属](deployment.md)，再选择下面的一条部署路线。同一 Runtime 的 Local Agent 与 Fleet Worker 不应同时成为任务控制端；Orin 的两种模式也应择一。云端负责计划与调度，实际动作仍经过机器人侧执行与安全门禁。
+先读[部署目标与代码归属](deployment.md)，再选择下面的一条部署路线。同一 Runtime 的 Local Agent 与 Fleet Worker 不应同时成为任务控制端；Orin 的两种模式也应择一。云端负责粗目标、机群分工与批准，Local/Worker 共享 Edge Host 在授权内编排子任务并验证；旧冻结计划模式继续兼容，实际动作经过机器人侧执行与安全门禁。
 
 | 部署位置 | 安装与配置入口 | 后续查阅 |
 | --- | --- | --- |
@@ -49,7 +51,7 @@
 | 日常问题 | 查阅入口 |
 | --- | --- |
 | 进程在线，但现在能否接任务 | [可用性自检](../architecture/readiness.md)；`healthz` 不能替代机器人、地图和观测就绪判断 |
-| 启用 Task / Ops / Recovery 协作 | [Agent 运行时配置](agent-runtime-config.md)；启用名单不等于已经参与某次任务，要检查该任务的事件证据 |
+| 启用 Task / Ops / Recovery 协作 | [Agent 运行时配置](agent-runtime-config.md)区分 Local 事件总线与共享 Host 的逻辑角色；按任务因果事件核对实际参与 |
 | 云边模型、凭据与阶段路由 | [配置与安全](../production/configuration-and-security.md)、[统一能力目标](../guides/unified-capability-goals.md) |
 | 接入抓放策略模型 | [学习型策略工具](../production/policy-tools.md)；区分语言规划和设备专属动作策略 |
 | 任务很长，历史多、需要继续执行 | [长程协作与上下文](../architecture/long-horizon-collaboration.md)、[单机器人闭环与恢复](../development/single-robot-loop.md) |
@@ -63,6 +65,7 @@
 | 有健康响应，却没有可执行任务 | [可用性自检](../architecture/readiness.md)、[分布式排障](../production/operations-and-failures.md) | 进程存活与执行就绪是否混淆 |
 | `grounding absent`／目标有歧义 | [分布式排障](../production/operations-and-failures.md)、[统一能力目标](../guides/unified-capability-goals.md) | 请求是否完整、观测是否新鲜、目标和场景是否匹配 |
 | 定位过期、地图不匹配、语义版本冲突 | [点云语义指南](../guides/semantic-point-cloud.md)、[语义执行协议](../architecture/semantic-execution-protocol.md) | 实际地图、坐标、标定与冻结计划的版本；不要只改时间戳或强行沿用旧候选 |
+| 目标待定、完成读取中断或结果未送达 | [目标运维状态表](delegated-goal-operations.md#3-按持久事实判断能否继续) | 区分可补认的已验证步骤、未知写入、只读完成重试和仅重传证明 |
 | Agent 重启后任务中断 | [单机器人闭环与恢复](../development/single-robot-loop.md)、[分布式排障](../production/operations-and-failures.md) | 已确认步骤、可继续检查点和未知物理结果 |
 | `PHYSICAL_OUTCOME_UNKNOWN`／`EXECUTION_OUTCOME_UNKNOWN` | [分布式排障](../production/operations-and-failures.md)、[Sim2Real 停止与恢复](../sim2real/README.md) | 命令是否已经可能产生物理效果；先对账，不能因超时自动重放 |
 | 没有 Ops 诊断或恢复建议 | [Agent 运行时配置](agent-runtime-config.md) | 角色是否启用、事件是否发布、恢复是否被未知结果阻断 |
@@ -76,7 +79,7 @@
 | 工作阶段 | 入口 | 应留下的交付物 |
 | --- | --- | --- |
 | 评估变更与兼容性 | [部署拓扑的升级与回滚](../production/deployment-and-capacity.md)、[数据契约](../production/data-contracts.md) | 代码、镜像、协议、目录、模型、地图与标定版本，以及受影响测试范围 |
-| 冻结派发与备份 | [分布式故障与灾难恢复](../production/operations-and-failures.md)、[Gazebo 数据与资源](../guides/gazebo-default.md) | 关联的任务库／事件／World、Runtime journal 索引及事件目录、地图与标定；凭据按私有配置管理 |
+| 冻结派发与备份 | [分布式故障与灾难恢复](../production/operations-and-failures.md)、[Gazebo 数据与资源](../guides/gazebo-default.md) | 关联的任务库／事件／World、完整 edge-context/edge-goal/edge-child 聚合、Runtime journal、地图与标定；SQLite 一致性备份，凭据按私有配置管理 |
 | 验证候选并发布 | [测试与验收](../production/testing-and-acceptance.md)、[家庭发布清单](release-checklist.md) | 本次构建的测试结果、任务证据、失败处理、限制和回滚版本 |
 | 新设备的现场集成 | [Sim2Real 上手与接入包](../sim2real/README.md)、[首次动作检查](../install/xlerobot-experiment.md) | 本设备配置、标定、观测、策略、停止测试和逐次任务记录 |
 | 判断能否放行 | [生产就绪门禁](production-readiness.md)、[物理安全检查](safety-checklist.md) | 离线前置条件与实测现场结论分开，现场负责人签署限定范围 |

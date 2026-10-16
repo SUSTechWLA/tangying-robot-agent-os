@@ -1,5 +1,7 @@
 # 从零开始快速上手
 
+当前任务入口：现有控制台自然语言表单和 `/v1/tasks` 在批准前冻结能力计划；需要云端只下粗目标、边缘按进度编排时，使用[目标委托 API](../guides/delegated-edge-goals.md)。两种模式复用 Runtime、安全和证据闭环，Local/Worker 共用 Edge Host；新 API 不会自动替换页面入口。
+
 先按[开发者快速上手](../development/getting-started.md)准备工作区；购机用户从[Sim2Real 上手](../sim2real/README.md)开始。本页汇总服务器端、用户端、机器人仿真与机器人实机的入口。
 
 ## 1. 准备环境

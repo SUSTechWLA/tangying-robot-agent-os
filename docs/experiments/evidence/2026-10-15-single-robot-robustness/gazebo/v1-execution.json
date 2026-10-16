@@ -1,0 +1,9 @@
+{
+  "recordedAt": "2026-10-15T15:22:49.031822+00:00",
+  "script": "v1.py",
+  "sha256": "7230f47126458cd5a1a1e85cf4cf6afb6107859da88d7a2a2a9f1d0254f3cbe5",
+  "inputManifestSha256": "2086ae69dc5aa623ae16fbd6662011d159ad18af58d40f40c2d30340b7f85795",
+  "output": "host-inspection01-independent.json",
+  "outputSha256": "f2cda20c460ba3ae4a89524251e3081a297949589b4339286bdefea473760232",
+  "outcome": "REJECTED_FAILED_TASK_AFTER_RAW_INTEGRITY_CHECKS"
+}

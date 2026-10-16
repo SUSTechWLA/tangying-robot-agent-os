@@ -10,9 +10,17 @@
 - [ ] `pytest -q tests/install/test_navigation_stack.py robot/ros2_ws/src/tangying_navigation/test/test_launch_config.py` 通过，确认 `--scene home` 同时传递到仿真、Compose、launch，并使用家庭地图路径。
 - [ ] `make test-web` 通过；用户模式不显示底层动作输入，开发诊断仍可按 task/revision/step/command/observation 定位。
 
+## 目标委托与持久恢复
+
+- [ ] Local/Worker 只选择一个控制入口，GOAL 模型与设备目录配置正确；原 UI `/v1/tasks` 冻结路径与新 `/v1/objectives` 分别验收。
+- [ ] 目标合同的工具/参数/效果、机器人、目录、完成条件、期限和分层预算均有业务依据；v1 不宣称共享物品/区域授权。
+- [ ] `go test ./core/objective ./internal/edgeagent ./edge/worker ./fleet/coordinator` 通过；恢复/并发改动补相应 race 检查。
+- [ ] 保留任务库和 `edge-context/edge-goal/edge-child`、Runtime journal、pin 与原始证据的一致性备份；升级不创建空执行库。
+- [ ] 分别验证：完整证据补认不重发、已完成结果只补传、完成读重试跨重启不增加额度、未知写入与父 claim 失效停止。操作表见[目标运维](delegated-goal-operations.md)。
+
 ## 家庭仿真
 
-- [ ] 启动 `bash scripts/home-slam-stack.sh restart --sim-port 51051 --agent-port 8878`，确认健康状态、头部/底盘相机和 `scene_revision=home-4room-rgbd-v1`。
+- [ ] 当前 Gazebo 从[默认引擎指南](../guides/gazebo-default.md)启动并核对真实 scene/resource revision、容器/二进制与地图；默认 `make home-furnished` 工作台是 8897。旧 `home-slam-stack.sh` 仅按其历史后端单独验收。
 - [ ] 用“从客厅出发，去厨房确认一下环境”创建任务，检查 `observe_scene → navigation.navigate → verify_arrival` 顺序和同次底盘证据。
 - [ ] 用“巡检卧室和卫生间，最后回到客厅”检查三段路线、回到起点标记和每段独立 checkpoint。
 - [ ] 在工具边界暂停、重启 Local Agent、显式继续；确认已完成导航不重复发送，未确认的物理结果保持阻断。

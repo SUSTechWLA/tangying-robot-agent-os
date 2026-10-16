@@ -1,0 +1,25 @@
+{
+  "recordedAt": "2026-10-15T15:25:47.885508+00:00",
+  "oldPID": 77270,
+  "newBinary": "f8b150b77d0f49b29763866c861c42a4a3d55618527592bbd143b49c32414368",
+  "oldBinary": "760bffdc1b9280dd06d8a4e8abd05ec333fb30fff4e2514110484eb3bf34d1b3",
+  "worldRestarted": false,
+  "runtimeRestarted": false,
+  "taskDatabasePreserved": true,
+  "mapsPreserved": true,
+  "failedHost01CheckpointPreserved": true,
+  "terminalTasks": [
+    {
+      "id": "task-160df157e20201affd7ee5d7",
+      "state": "SUCCEEDED"
+    },
+    {
+      "id": "task-2e3c9aa3ef08e9fdefa41071",
+      "state": "SUCCEEDED"
+    },
+    {
+      "id": "task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "state": "RECOVERABLE_FAILURE"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # 一句话到机器人执行：沿一条真实任务看完整闭环
 
+范围：下面逐阶段案例保留原任务和代码证据，使用 `/v1/tasks` 冻结计划通道。最新架构还提供[目标委托](delegated-edge-goals.md)：批准粗目标后，由 Local/Worker 共享 Host 在边缘持续编排。新旧路径的 2026-10-15 任务与全部失败见[完整实验记录](../experiments/2026-10-15-single-robot-robustness.md)。
+
 本文是阅读当前系统的入口。示例来自 2026-09-28 的 **Local Agent + Gazebo `home_furnished` + XLeRobot** 实验，任务 `task-62e0c7e11385ae4d11c76461` 最终 `SUCCEEDED`。模型为当次配置的 `deepseek-flash`；这里解释已保存的轨迹，不承诺再次运行会生成逐字相同的计划。原始任务文件留在实验机，入库的[报告](../experiments/2026-09-28-complex-model-led-goals.md)和[带 SHA-256 的清单](../experiments/2026-09-28-complex-model-led-goals.json)记录其位置和结论。
 
 > 请重新按已注册的家庭巡检路线完成 SLAM 建图，保存并启用新地图，核对新地图上的卧室语义地点可导航，然后前往卧室确认到位并报告新地图版本和定位状态。

@@ -15,7 +15,8 @@
 | Task/Revision | 创建、批准、改版、状态 | 活动执行定义与不可变历史 |
 | Planner/Harness | 模型循环、目录与参数约束 | 决策输入/候选/拒绝记录 |
 | Coordinator | 认领、顺序、资源与收尾 | claim、owner/fence、意图状态 |
-| Edge Worker | 本机物料化、执行与完成上报 | 本机checkpoint和回执 |
+| Local / Edge Worker | 本地入口，或云端任务接入、父claim续租与回执 | 各自入口状态、设备身份与完成交付 |
+| 共享 Edge Host | 包络内规划、监督、子计划执行与目标验证 | 父检查点、子账本、持久预算与进度证明 |
 | Robot Runtime | 命令准入、设备调用、观测/停止 | 命令journal、实际设备身份 |
 | World/Verifier | 来源投影与后置条件 | 带采集身份的事实和判定 |
 
@@ -24,17 +25,15 @@
 ## 2.2 两种部署与同一边界
 
 ```text
-Local：浏览器 → Local Agent + SQLite → Robot Runtime → Backend
-                         └─ Task/Ops/Recovery
-
-Fleet：浏览器 → Fleet API → Task/Coordinator/EventLog/Outbox
-                                     │ 世界与资源
-                           每机器人 Edge Worker + 执行库
-                                     │
-                                Robot Runtime → Backend
+Local：本地目标API → Local Agent ─────────┐
+                                        ├→ Edge Host → Executor → Runtime → Backend
+Fleet：云端目标/批准 → Coordinator       │    │ Task / Ops / Recovery
+                     → claim → Worker ──┘    └ 父检查点 + 子计划账本
+                                  │
+                     父claim续租 / 子证明 / completion → 云端
 ```
 
-Local管理一台机器人；Fleet管理机群。两者共用能力与Runtime语义，不自动提供双主切换。同一Runtime切换控制端前应停止旧派发、闭合命令与持物状态，再建立新身份和资源权限。
+Local管理一台机器人；Fleet管理机群。两者共用 `internal/edgeagent.Host`，新增 `POST /v1/objectives` 将粗目标与授权包络保存为未批准的 `edge.goal` 父节点。批准后才允许本机读取现场事实、分代规划并验证；旧 `/v1/tasks` 仍接收创建时冻结的能力计划，现有自然语言页面仍走旧通道。两种通道共用 Runtime 语义，不自动提供双主切换。同一Runtime切换控制端前应停止旧派发、闭合命令与持物状态，再建立新身份和资源权限。
 
 原始SDK/ROS类型不进入任务层。底层差异由Backend转换，任务层关心“导航/抓取/验证”及其效果，而不是特定机器人有多少关节。
 
@@ -52,7 +51,7 @@ Local管理一台机器人；Fleet管理机群。两者共用能力与Runtime语
 
 ## 2.5 用演进事件检验架构
 
-从固定句式任务到能力目标，关键变化是目录、冻结计划和验证契约，不是提示词变长。增加Ops/Recovery后，需要发布权限和完整因果绑定；长历史增长后，需要无损归档和预算；加入机群后，需要claim、检查点和完成回执。
+从固定句式任务到能力计划，关键变化是目录、冻结计划和验证契约。目标委托再把批准对象改为不变的权限包络，允许边缘在包络内产生多个有独立身份的子计划；父目标不因重规划而扩权。增加Ops/Recovery后，需要发布权限和完整因果绑定；长历史增长后，需要无损归档和持久预算；加入机群后，需要claim、检查点和完成回执。
 
 每次扩展都应回答：新增了哪个权威对象？旧消费者是否兼容？哪种中断会留下未知结果？有哪些跨存储窗口尚未闭合？旧统计和源码片段已保留在版本档案，正文按当前边界解释。
 
@@ -70,7 +69,8 @@ Local管理一台机器人；Fleet管理机群。两者共用能力与Runtime语
 | --- | --- | --- |
 | 用户→任务服务 | 目标、草案、批准或取消 | 操作者与版本；取消不等于实体停止 |
 | Planner→任务服务 | 候选计划和拒绝 trace | 完整目标覆盖；候选无执行权 |
-| 协调器→边缘 | 唤醒、claim/Basis | 当前权威与设备/资源绑定 |
+| 协调器→边缘 | 唤醒、父目标/冻结计划、claim/Basis | 当前权威、目标包络与设备/资源绑定 |
+| Host→子计划 | 约束目录、现场观测、进度和诊断 | 不扩张grant；已确认效果不超额重复 |
 | 执行器→Runtime | 具体命令 | command、期限、目录、安全与资源 |
 | Runtime/观测→验证 | 回执与采集来源 | 作用域、基线、frame、后置条件 |
 | 事实→控制台/Agent | 查询与事件投影 | 投影不成为独立终态来源 |

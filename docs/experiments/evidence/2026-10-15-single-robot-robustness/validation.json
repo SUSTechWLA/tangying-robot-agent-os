@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "robot.robustness.validation.v1",
+  "recordedAt": "2026-10-15T15:40:18.575891+00:00",
+  "sourceSetDigest": "218cce6f735d42945e1199ac505b496dc291d35c472a94983531b550416d063a",
+  "checks": [
+    {
+      "command": "make test-go",
+      "exitCode": 0,
+      "output": "maintained-go-tests-final3.log",
+      "scope": "Maintained Makefile package list; unchanged cached packages included"
+    },
+    {
+      "command": "run_edge_robustness_campaign.py --output <new directory>",
+      "exitCode": 0,
+      "output": "final-campaign-04/summary.json",
+      "topLevelTests": 27,
+      "includingSubtests": 58,
+      "taskRecords": 23,
+      "serviceCallRecords": 980
+    },
+    {
+      "command": "Host fault regressions, ordinary and race",
+      "exitCode": 0,
+      "outputs": [
+        "tangying-host-final2-tests.jsonl",
+        "tangying-host-final2-race.jsonl"
+      ],
+      "topLevelTests": 21,
+      "includingSubtests": 44
+    },
+    {
+      "command": "Runner full package and focused race after actual Gazebo integration fix",
+      "exitCode": 0,
+      "outputs": [
+        "tangying-composite-runner-package.jsonl",
+        "tangying-composite-runner-race.jsonl"
+      ],
+      "fullPackageIncludingSubtests": 146,
+      "raceIncludingSubtests": 16
+    },
+    {
+      "command": "Focused race across agent, intent, edge Host/Worker, coordinator, objective, console and tasks",
+      "exitCode": 0,
+      "output": "integration-race-tests-final.log",
+      "note": "Selected fault/contract tests; final Runner change additionally covered by the separate focused race above"
+    },
+    {
+      "command": "pytest tests/docs tests/book tests/install/test_edge_robustness_campaign.py tests/install/test_long_horizon_eval.py",
+      "exitCode": 0,
+      "passed": 126,
+      "output": "python-final-tests.log"
+    },
+    {
+      "command": "go test ./tests/docs",
+      "exitCode": 0,
+      "output": "go-docs-tests-final.log"
+    },
+    {
+      "command": "make lint",
+      "exitCode": 0,
+      "output": "lint-final.log"
+    },
+    {
+      "command": "make book-check",
+      "exitCode": 0,
+      "sections": 31,
+      "output": "book-check-final.log"
+    },
+    {
+      "command": "go build ./cmd/local-agent ./cmd/edge-worker ./cmd/fleet-control-plane",
+      "exitCode": 0,
+      "output": "build-final2.log"
+    }
+  ],
+  "interpretation": "Software contract and actual Gazebo observations are separate evidence classes; no physical robot tested."
+}

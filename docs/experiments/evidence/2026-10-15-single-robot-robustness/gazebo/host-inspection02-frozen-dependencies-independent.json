@@ -1,0 +1,217 @@
+{
+  "schemaVersion": "research.delegated-gazebo.validation.v1",
+  "passed": true,
+  "networkAccess": false,
+  "robotActions": false,
+  "rawFilesRewritten": false,
+  "approvalBasis": "Parent objective grants authorize an edge-generated child plan; the derived projection is not a separately human-approved plan",
+  "projection": "Keep original parent task command/observation identity; use durable child plan and events, prefix only child capability step IDs with child ID to match their actual legacy command step namespace; no physical observations or command evidence changed.",
+  "rawFilesVerified": 287,
+  "rawBytesVerified": 16955159,
+  "taskId": "task-goal-e36db22fbb376a726a98a81ad3b45189",
+  "state": "SUCCEEDED",
+  "maxArrivalPoseSpanM": 8.068002793859145,
+  "actualTravelledM": null,
+  "displacementInterpretation": "largest planar separation of retained command-bound arrival poses; not traveled odometry distance or SLAM absolute accuracy",
+  "verifiedCapabilities": 4,
+  "verifiedChildSteps": 10,
+  "verifiedArrivals": [
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_00",
+      "positionErrorM": 0.00047670729082968714,
+      "yawErrorRad": 0.028504650843086177
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_01",
+      "positionErrorM": 0.0029359160675119173,
+      "yawErrorRad": 0.01354412386238657
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_02",
+      "positionErrorM": 0.0024522421854594576,
+      "yawErrorRad": 0.02780219919342186
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_03",
+      "positionErrorM": 0.003145353236983084,
+      "yawErrorRad": 0.02849978929871888
+    }
+  ],
+  "manipulation": {},
+  "childEvidence": [
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-observe",
+      "tool": "observe_scene",
+      "captureId": "gazebo-home_furnished/head-rgbd-1218100000000-1792077978231",
+      "observationId": "8505bb7647f9b9ce20b4adcfad04c2f1d062b9de28dc47cfdf78d5de2f40c9b2"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-pre_position",
+      "tool": "navigation.pre_position",
+      "captureId": "gazebo-home_furnished/head-rgbd-1218800000000-1792077979785",
+      "observationId": "ec278702fe00e5f92a8ed999ddfd29b73ee351cb10ffbb5f793e2ce9e087133e"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-navigate_00",
+      "tool": "navigation.navigate",
+      "captureId": "gazebo-home_furnished/head-rgbd-1219400000000-1792077981274",
+      "observationId": "e3cb6b5bf363cbff36febdf873c9f2def925e7b7041962b7354bfd4b7ddb9cc9"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_00",
+      "tool": "verify_arrival",
+      "captureId": "gazebo-home_furnished/head-rgbd-1219700000000-1792077981978",
+      "observationId": "d86da25b46f2b0828313b20bcc2c15751048cf29f4db5a038b4968546dfb2e55"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-navigate_01",
+      "tool": "navigation.navigate",
+      "captureId": "gazebo-home_furnished/head-rgbd-1255900000000-1792078054924",
+      "observationId": "0b917d06c9257b4208867409557a1958ab44fcf50719e9c92d40dd17546378ff"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_01",
+      "tool": "verify_arrival",
+      "captureId": "gazebo-home_furnished/head-rgbd-1256300000000-1792078055589",
+      "observationId": "cc8fdc9870c836168c97722bde117732e1f1907b7bd8dd8211dc9a48b004a737"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-navigate_02",
+      "tool": "navigation.navigate",
+      "captureId": "gazebo-home_furnished/head-rgbd-1278700000000-1792078099818",
+      "observationId": "82a274fa5fb49307329569e3cbd90522586deae4187a38b6ae4b03ea863970d8"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_02",
+      "tool": "verify_arrival",
+      "captureId": "gazebo-home_furnished/head-rgbd-1279100000000-1792078100480",
+      "observationId": "1eb02bda54f478477a12677f0e0f6284b945c3af5fef0aa3dc51b8d7983bae14"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-navigate_03",
+      "tool": "navigation.navigate",
+      "captureId": "gazebo-home_furnished/head-rgbd-1327700000000-1792078197060",
+      "observationId": "0de3f9e8b9c835840893e0a4955e25c258927b35300ad44d93670dc4dcff172c"
+    },
+    {
+      "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_03",
+      "tool": "verify_arrival",
+      "captureId": "gazebo-home_furnished/head-rgbd-1328000000000-1792078197723",
+      "observationId": "1275fca6d3e565351300821185f0b57c10ad20535914cfab268edc3fe909a870"
+    }
+  ],
+  "verifiedCompositeOutcomes": [
+    {
+      "capabilityStepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02",
+      "rooms": [
+        {
+          "room": "living_room",
+          "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_00"
+        },
+        {
+          "room": "bedroom",
+          "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_01"
+        },
+        {
+          "room": "bathroom",
+          "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_02"
+        },
+        {
+          "room": "living_room",
+          "stepId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1-rev-1-cap-02-verify_arrival_03"
+        }
+      ],
+      "transfers": []
+    }
+  ],
+  "childId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1",
+  "completionProof": {
+    "checks": [
+      {
+        "check": {
+          "arguments": {},
+          "equals": "scan-73e5d48169a5",
+          "path": [
+            "mapId"
+          ],
+          "tool": "navigation.status"
+        },
+        "satisfied": true,
+        "value": "scan-73e5d48169a5"
+      },
+      {
+        "check": {
+          "arguments": {},
+          "equals": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076",
+          "path": [
+            "mapRevision"
+          ],
+          "tool": "navigation.status"
+        },
+        "satisfied": true,
+        "value": "830264795090367ed40379d1106d3d0eefd2a47690b07b4258c7ff32468fc076"
+      },
+      {
+        "check": {
+          "arguments": {},
+          "equals": "localized",
+          "path": [
+            "localizationState"
+          ],
+          "tool": "navigation.status"
+        },
+        "satisfied": true,
+        "value": "localized"
+      }
+    ],
+    "completed": [
+      {
+        "binding": "305fda2a7c9ce0ef67126687c867b82b98454cf07903cb87699903485f277d56",
+        "childId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1",
+        "effectBinding": "82ec35600b982b6e3a491222e0f3918122dd9eef2e5246b6f20527fc2a23eabe",
+        "mutates": false,
+        "stepId": "rev-1-cap-01",
+        "tool": "navigation.status"
+      },
+      {
+        "binding": "b549ad09e2416f83de5dbb2a306098637f15baa0b7debcdf443d7d80d4f06581",
+        "childId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1",
+        "effectBinding": "cf386ed5c57ae9e3f3c89c98d9fe8cb93b088036440145facf8564b413730c5b",
+        "mutates": true,
+        "stepId": "rev-1-cap-02",
+        "tool": "robot.task"
+      },
+      {
+        "binding": "305fda2a7c9ce0ef67126687c867b82b98454cf07903cb87699903485f277d56",
+        "childId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1",
+        "effectBinding": "82ec35600b982b6e3a491222e0f3918122dd9eef2e5246b6f20527fc2a23eabe",
+        "mutates": false,
+        "stepId": "rev-1-cap-03",
+        "tool": "navigation.status"
+      },
+      {
+        "binding": "d3d3130da9d00054c4dffa00899e0b5bcd99ee1d45e924455c515f6ab6f159d8",
+        "childId": "task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1",
+        "effectBinding": "13287374060489ac43d1dcbd65c83ea9f884931ef6d5186b1a768c7efb033797",
+        "mutates": false,
+        "stepId": "rev-1-cap-04",
+        "tool": "mapping.status"
+      }
+    ],
+    "generation": 1,
+    "objectiveDigest": "b6148be391cd45d464a54deb4454a2166caa267286959a322b0dbcaaa65b1a95",
+    "reads": 8,
+    "startedAt": "2026-10-15T15:25:58.603374Z",
+    "steps": 4,
+    "verifiedAt": "2026-10-15T15:29:58.402468Z"
+  },
+  "routeRooms": [
+    [
+      "living_room",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ]
+  ],
+  "actualModelInputSnapshots": 4
+}

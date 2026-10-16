@@ -2,12 +2,13 @@
 
 ## A.1 先追职责，再追调用
 
-本版代码复核为 9e5aebae。包名是导航入口，接口和行为以该快照为准；正文中的目录链接在导出时固定到它。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
+本版代码复核为 821659df。包名是导航入口，接口和行为以该快照为准；源码文件/目录链接在导出时固定到它；配套文档另固定到本轮文档快照，见出版说明。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
 
 | 问题 | 先读入口 | 再查对象 | 对应章 |
 | --- | --- | --- | --- |
-| 实际装配了什么？ | `cmd/local-agent/main.go`、`cmd/local-agent/agentruntime.go`、`cmd/fleet-control-plane/main.go` | 路由、数据库、角色与发布口 | 2、6、9、17 |
-| 目标如何成为获批内容？ | `tasks/`、`internal/capabilityagent/` | TaskRevision、active revision、规划 trace | 7、14 |
+| 实际装配了什么？ | `cmd/local-agent/main.go`、`cmd/local-agent/agentruntime.go`、`cmd/edge-worker/main.go`、`cmd/fleet-control-plane/main.go` | 路由、数据库、角色与发布口 | 2、6、9、17 |
+| 目标如何成为获批内容？ | `core/objective/contract.go`、`tasks/objective.go`、`tasks/` | 未批准 edge.goal 包络、批准摘要、兼容冻结计划 | 7、14、17 |
+| 边缘怎样自主细化目标？ | `internal/edgeagent/host.go`、`internal/capabilityagent/planner.go`、`internal/edgeagent/supervision.go` | 共享 Host、Task/Ops/Recovery、子计划与剩余额度 | 6、7、9、17 |
 | 什么工具对模型可见？ | `core/capability/`、`core/skills/`、`internal/agentharness/` | Schema、effects、目录与角色 | 5、16 |
 | 如何判定物理完成？ | `core/closedloop/`、`core/harness/` | gate、evaluator、证据基线 | 3、4 |
 | 世界事实来自哪里？ | `core/worldmodel/`、`fleet/worldhub/` | 来源、序号、实体与版本 | 4、17 |
@@ -15,6 +16,7 @@
 | 只读恢复凭什么继续？ | `internal/autorecovery/`、`internal/recoveryexec/` | 原失败、异常、计划、执行/复验 | 6、11、19 |
 | 上下文如何保存与裁剪？ | `core/agentcontext/`、`internal/actionloop/`、`tasks/` | guard、冷制品、分页、请求 SHA | 18 |
 | 云边执行依据是什么？ | `core/contextcontract/basis.go`、`fleet/coordinator/` | claim、批准摘要、resource/fence | 8、17 |
+| Host 恢复如何区分已确认与未知？ | `internal/edgeagent/recovery.go`、`completion.go`、对应测试 | 双重绑定证据、EDGE_STEP_RECOVERED、持久读重试 | 8、11、18 |
 | 重启为何不能重做动作？ | `edge/worker/context.go`、`fleet/coordinator/completion.go`、`fleet/coordinator/finalization.go` | checkpoint、receipt、pending、outbox | 8、17 |
 | 如何接入新本体？ | `robot/gateway/tangying_robot_gateway/plugin_backend.py`、`robot/gateway/tangying_robot_gateway/` | Profile、Backend、观测、停止、journal | 5、10 |
 
@@ -36,7 +38,7 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 建议同时打开组合根、接口、实现和相关测试。按以下顺序记笔记：输入从哪里来；哪些字段由受信层生成；哪个存储权威保存版本；动作前校验什么；动作后读什么证据；失败在哪层分类；回放能恢复哪些事实。
 
 ```text
-目标/批准 → 执行定义 → command/Basis → journal/checkpoint
+目标合同/批准 → Host 计划/子能力 → command/Basis → journal/checkpoint
              ↓                         ↓
          模型 trace                 世界/物理验证
              └──────── TaskEvent/回放 ───┘
@@ -55,3 +57,9 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 | 新上下文视图 | 权威来源、guard、作用域、完整冷归档、预算与实际请求 |
 
 项目源码会继续演进。若在更新的 main 开发，先比较上述契约和迁移记录，再运行匹配版本的测试。旧版规模统计和长源码保存在[出版说明](../front/01-publication-notes.md)所列档案中，不能称为当前统计。
+
+## A.4 最小阅读闭环：两种入口、同一执行核心
+
+先读 `console/objective.go` 与 `fleet/objective.go` 的创建/幂等边界，再读 `internal/edgeagent/host.go` 的持久准入和循环、`internal/capabilityagent/planner.go` 的模型规划与 Host 的进度视图、`supervision.go` 的只读诊断及恢复提案。文件是否存在与名称以代码快照为准；通过 Local 与 Worker 的调用处检查它们如何向同一个 Host 提供 Runtime、存储和权限校验。
+
+测试阅读顺序：`host_test.go` 的授权/配额 → `recovery_test.go` 的已验证提交窗口与未知写 → `completion_test.go` 的持久读重试 → `campaign_test.go` 的连续任务。`edge/agent/runner.go` 的内部 legacy 路径仍检查物理 STARTED 历史，不能把绕开递归父 Pending 解释为关闭全局恢复守卫。

@@ -1,21 +1,23 @@
 # 边缘 Worker 的持久接收、运行契约与退出语义
 
-本文说明 Fleet 模式下单个边缘 Worker 的可靠性实现、部署配置和故障测试。适用代码为 `cmd/edge-worker`、`edge/worker`、`edge/tasksource` 与 `edge/cloudclient`。Local Brain 使用另一入口；两种模式不能同时控制同一个 Runtime。本文记录的软件验证不等于无人机、无人车或足式机器人已经完成实机验收。
+本文说明 Fleet 模式下单个边缘 Worker 的可靠性实现、部署配置和故障测试。适用代码为 `cmd/edge-worker`、`edge/worker`、`edge/tasksource` 与 `edge/cloudclient`。Local Agent 使用另一部署入口；两者通过共享 `internal/edgeagent.Host` 处理粗目标，不能同时控制同一个 Runtime。目标合同与操作见[分层架构](../architecture/hierarchical-edge-objectives.md)和[目标运维](../operations/delegated-goal-operations.md)。本文记录的软件验证不等于无人机、无人车或足式机器人已经完成实机验收。
 
 ## 1. 任务通知与执行授权分开持久化
 
-通知只携带 task ID，表示需要向云端查询。它不能直接授权运动。Worker 使用同一个 SQLite 日志中的两个独立聚合：
+通知只携带 task ID，表示需要向云端查询。它不能直接授权运动。Worker 使用同一个 SQLite 日志中的独立聚合：
 
 | 聚合 | 保存内容 | 恢复含义 |
 | --- | --- | --- |
 | `edge-notification/<robot digest>` | `edge.notification.v1`、robot ID、当前 task ID | 重启后先处理已接收通知，再拉取下一条 |
 | `edge-context/<task and robot digest>` | 审批、任务版本、claim、命令、目录、资源与 fencing token，以及执行阶段 | 决定是否可以首次执行、仅重传完成通知，或必须核对未知结果 |
+| `edge-goal/<task>/<revision>` | 目标合同绑定、子计划代数、待定步骤、累计预算和目标完成读状态 | 在原 claim 内从安全检查点继续；重启不重置额度 |
+| `edge-child/<childId>` | 不可变子计划、完整模型输入、步骤事件和验证回执 | 审核已完成效果与补认依据，不依赖消息重放 |
 
 每次接收通知都会原子提交聚合状态、事件和 checkpoint，写入 `TASK_NOTIFICATION_ACCEPTED`。任务处理返回成功后写入 `TASK_NOTIFICATION_FINISHED` 并清空当前通知。事件保留 task ID，便于串联接收与处理历史。数据库写入失败时不继续查询执行，也不发送支持延迟确认的传输 ACK。
 
 原先固定重试 60 次后放弃通知的行为已移除。云端暂时不可访问时，Worker 保留当前通知，按间隔重试控制面查询，进程重启后继续读取同一条持久通知。此重试不绕过执行 checkpoint：
 
-- `ACCEPTED` 表示已经跨过写入先于执行的边界；如果缺少后续完成证据，再次收到同一 claim 会返回 `ErrHandoffUncertain`，不会重放物理动作。
+- `ACCEPTED` 表示已经跨过写入先于执行的边界。旧冻结计划缺少后续完成证据时再次收到同一 claim 返回 `ErrHandoffUncertain`；目标通道可在 `CanResumeGoal` 确认无在途动作后进入共享 Host，但实际运行仍验证当前批准、目录、预算和原 claim。完整子账本允许补认已验证步骤，不能据此重放未知动作。
 - `EXECUTED` 只重发准确绑定的云端完成确认。
 - `COMPLETED` 不重复执行。
 
@@ -87,7 +89,15 @@ Worker 返回前会等待 telemetry 和 claim-renewal goroutine 退出，再由�
 
 新版本会拒绝以前被忽略的错误 duration、未知任务源和非法 world pose。升级前检查环境文件，备份数据库及契约文件，并保持 robot ID、stream、group 不变。Go 嵌入调用 `Worker.Run` 现在必须提供 robot identity、source、cloud、Runtime 和支持原子上下文写入的 execution store。
 
-## 6. 可回溯验证
+## 6. 目标通道的续跑与结果同步
+
+2026-10-15 起，首次接受与重启续跑共用失败上报路径；未知效果在有界独立报告 context 中上报原 claim，任务取消不产生新的执行权限。父 claim 在整个目标期间持续续租，失去租约后停止，没有离线继续授权。
+
+子步骤完成但父确认丢失时，Host 要求独立 `StepCompleted` 与完整身份绑定的 `CAPABILITY_VERIFIED`，复核当前目录和副作用分类后补记 `EDGE_STEP_RECOVERED`；缺证据、错配或后续失败仍阻断。全目标最终读取的瞬态错误只使用整个目标共享的两次持久只读重试，已验证结果提交失败只补传子计划/证明与完成回执。`CompletionReadPending` 未完整确认时须复核，不因重启获得额外读取。
+
+模型进度投影保留完成计数/摘要与最近 8 条确认调用；完整历史仍由子账本参与额度检查。`maxSteps` 统计子能力调用，一次 `robot.task` 可包含多个低层步骤；`maxReads` 统计 Host 业务读，不能当作所有传感器调用次数。最新实现与分项数据见[鲁棒性记录](2026-10-15-single-robot-robustness.md)及[实验报告](../experiments/2026-10-15-single-robot-robustness.md)。
+
+## 7. 可回溯验证
 
 新增回归覆盖如下真实边界：
 

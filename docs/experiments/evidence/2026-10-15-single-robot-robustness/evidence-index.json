@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "robot.robustness.evidence-index.v1",
+  "baselineCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "primarySoftwareRun": "final-campaign-04",
+  "primarySoftwareMetrics": "software-metrics.json",
+  "actualGazeboIndex": "gazebo/summary.json",
+  "validation": "validation.json",
+  "runs": [
+    {
+      "path": "final-campaign",
+      "classification": "EXCLUDED_SOURCE_CHANGED_DURING_RUN",
+      "goTestsPassed": true,
+      "note": "Independent review fixes arrived during execution"
+    },
+    {
+      "path": "final-campaign-02",
+      "classification": "EXCLUDED_SOURCE_CHANGED_DURING_RUN",
+      "goTestsPassed": true,
+      "note": "Inspection grammar fix arrived during execution"
+    },
+    {
+      "path": "final-campaign-03",
+      "classification": "PASSED_EARLIER_SOURCE",
+      "goTestsPassed": true,
+      "note": "Preceded the actual Local composite integration fix; not pooled into final-version samples"
+    },
+    {
+      "path": "final-campaign-04",
+      "classification": "PRIMARY_PASSED_SOURCE_STABLE",
+      "goTestsPassed": true
+    }
+  ],
+  "preservedFailures": {
+    "workerFailureAfterRestart": [
+      "worker-attempt01.jsonl",
+      "worker-attempt02.jsonl"
+    ],
+    "verifiedCheckpointAcknowledgement": [
+      "host-baseline-failure.jsonl",
+      "host-baseline-metadata.json",
+      "baseline-host.go.txt"
+    ],
+    "completionReadTransient": [
+      "tangying-completion-before-fix.jsonl"
+    ],
+    "reviewMutationAndRetryCrash": [
+      "tangying-host-review-before.jsonl",
+      "tangying-host-review-before-metadata.json",
+      "review-before-source"
+    ],
+    "inspectionGrammar": [
+      "inspection-parser-before.jsonl"
+    ],
+    "actualCompositeIntegration": [
+      "gazebo/host-inspection01-terminal-task.json",
+      "tangying-composite-runner-before.jsonl",
+      "tangying-composite-runner-before-metadata.json",
+      "composite-before-source"
+    ],
+    "actualPlanningTimeout": [
+      "gazebo/inspection01-report.json",
+      "gazebo/planning-attempt-adb3213caa1c9f65ef7883053e28fbc0.json"
+    ],
+    "environmentMapMismatch": [
+      "gazebo/environment-attempt001-failed.json"
+    ]
+  },
+  "toolingNotes": [
+    {
+      "path": "tangying-host-robustness-fixed.jsonl",
+      "classification": "TEST_PROCESS_TIMEOUT_CONFIGURATION",
+      "note": "120-second test timeout accidentally included full long campaign; not a robot failure"
+    },
+    {
+      "path": "build.log",
+      "classification": "COMMAND_PATH_ERROR",
+      "note": "Initial fleet-cloud target did not exist; corrected fleet-control-plane build succeeded in build-final2.log"
+    },
+    {
+      "classification": "MANIFEST_VALIDATOR_SCHEMA_ADAPTATION",
+      "note": "Root initial comparison treated {sha256,bytes} entries as strings; after schema adaptation all selected Gazebo hashes and sizes matched; no data changed"
+    },
+    {
+      "classification": "KEY_PATTERN_SCANNER_FALSE_POSITIVE",
+      "note": "Task IDs split at Go Output boundaries mimicked an sk prefix; reassembly removed all candidates; no credentials found"
+    }
+  ],
+  "notes": [
+    "Early campaign-attempt files are exploratory and must not inherit a later source identity.",
+    "Frozen .go snapshots use .txt to avoid accidental compilation.",
+    "Large Gazebo image/map/binary/database artifacts remain local; see gazebo/raw-evidence-index.json.",
+    "No aggregate reliability success rate computed from different case types or implementations."
+  ]
+}

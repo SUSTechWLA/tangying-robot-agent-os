@@ -1,0 +1,16 @@
+{
+  "recordedAt": "2026-10-15T15:09:06.788480+00:00",
+  "oldPID": 72875,
+  "newBinary": "760bffdc1b9280dd06d8a4e8abd05ec333fb30fff4e2514110484eb3bf34d1b3",
+  "oldBinary": "037e580659394c8066079c3097c2802f71bfb2f87c7b98348e6231a9e6b72b93",
+  "worldRestarted": false,
+  "runtimeRestarted": false,
+  "taskDatabasePreserved": true,
+  "mapsPreserved": true,
+  "terminalTasks": [
+    {
+      "id": "task-160df157e20201affd7ee5d7",
+      "state": "SUCCEEDED"
+    }
+  ]
+}

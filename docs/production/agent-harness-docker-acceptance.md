@@ -1,5 +1,7 @@
 # 角色 Harness 与统一 Docker 镜像：软件验收记录
 
+证据范围：本页各轮次、测试数和二进制摘要保持其原始版本。当前目标 Host、恢复与上下文实现见[最新架构](../architecture/hierarchical-edge-objectives.md)；`821659df` 的软件与 Gazebo 任务结果、全部失败和可重验清单见[2026-10-15 鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)，不能用旧验收表替代新设备放行。
+
 日期：2026-09-25。设计依据：[本轮 ADR](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)；上一轮规范和结果见[云边 ADR](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)及[上一轮记录](cloud-edge-upgrade-acceptance.md)。本页随本轮 commit 保留；后续实机认证须另建含设备、镜像和模型哈希的记录。
 
 ## 本轮软件证据

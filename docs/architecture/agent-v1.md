@@ -1,5 +1,7 @@
 # V1 Agent 与 Sim2Real 契约
 
+阅读范围（2026-10-16）：本页保留早期 Agent V1 的意图/执行图契约。当前还有[分层目标通道](hierarchical-edge-objectives.md)，由 Local/Worker 共用 Host 在批准包络内编排；总览与入口选择见[完整架构](../production/architecture.md)。
+
 V1 的硬约束是：Agent 能力必须先通过 MuJoCo 闭环，再允许连接 XLeRobot。联网主形态是 Fleet + Edge + Runtime；Local Brain 是独立离线形态。默认 XLeRobot 路径为 ROS2-free direct backend，ROS 2 为可选兼容路径。
 
 ## Agent

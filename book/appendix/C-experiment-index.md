@@ -54,7 +54,7 @@
 
 记录：问题/假设；代码与书籍版次；设备/场景/模型/种子；配置/数据 SHA；统计单位与分母；独立判据；故障点；完整原输出；介入和排除；结果与不确定性；覆盖范围；原制品及摘要索引。新记录另存，并和旧实验比较，不覆盖旧报告。
 
-## C.5 边缘与空间增量的证据索引
+## C.7 边缘与空间增量的证据索引
 
 | 记录 | 已验证的范围 | 原始数据与限制 |
 | --- | --- | --- |
@@ -64,3 +64,20 @@
 | [空间逐段路径](../../docs/experiments/2026-10-14-spatial-navigation-paths.csv) | 33 段 task/command/plan/map/deployment/到达观测关联 | geometricLengthM 不是实体里程或速度 |
 
 Git 保留 JSON/CSV 与摘要，原始实验目录在本机。缺原图、数据库或二进制时只说明摘要检查范围。[产物清理记录](../../docs/development/2026-10-14-artifact-cleanup.json)逐文件登记临时删除，实验原始数据和失败仍保留。
+
+## C.8 分层目标与单机器人长程，2026-10-15
+
+来源：[架构验收](../../docs/experiments/2026-10-15-hierarchical-edge-objectives.md)、[预定实验方案](../../docs/experiments/2026-10-15-single-robot-robustness-protocol.md)、[完整鲁棒性报告](../../docs/experiments/2026-10-15-single-robot-robustness.md)。软件原始输出与实际 Gazebo 分开保存，master manifest 固定 160 份文件、21,543,481 字节；`.gitattributes` 保留原 CSV CRLF，不修改其字节。
+
+| 证据单位 | 结果与身份 | 可支持的结论与限制 |
+| --- | --- | --- |
+| final-campaign-04 软件夹具 | 27 项顶层测试/含子测试 58 项通过，23 条任务和 980 条调用/步骤记录 | 规定故障与持久分支；脚本规划/工具，不是实际 LLM 或实体控制 |
+| 同一个持久软件机器人五项任务 | 32/48/64/96/128 次确认写，共 368 次；6 次明确拒绝后重规划，0 次重复开始 | 目标跨度、剩余规划和配额保持；不把五项任务当独立机器人样本 |
+| 12 项完成收据丢响应任务 | 每项 1 次开始、0 次重复，6 次提交前/6 次提交后丢失 | HTTP 客户端应用边界注入，不是公网/TCP 故障覆盖 |
+| Gazebo preparation01 | 4 能力，493.295 秒 Harness，建图回执 23.47155 米 | 建图 Provider 统计；Agent 逐内部建图动作独立 RGB-D 未验收 |
+| Gazebo inspection01/02 | 先创建规划超时、0 运动；修复后原句成功，528.093 秒 Harness | 成功含 7 能力、18 子步骤、5 次跨房移动与一次只读故障自动恢复 |
+| Gazebo host-inspection01/02 | 先父 Pending 误判、0 物理派发；修复后同一精确目标的新任务成功 | Host02 4 子能力、10 子步骤、250.158 秒 Harness；父/子账本及新鲜 RGB-D 独立复验 |
+
+Gazebo 仅一个移动机器人和 episode 1016；世界/Runtime 未重置，Agent 在任务边界更新，失败任务保留。五条尝试实际涉及四个二进制 SHA，不能混算 3/5 成功率。Host02 的地图身份/定位谓词并非巡检证明的全部，独立核验还检查房间顺序、命令、到位和命令后采集。到位残差相对任务目标，不是 SLAM 绝对精度；巡检实走里程未测。
+
+[Gazebo 证据与冻结重验说明](../../docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)列出原任务、二进制、模型、失败和原大制品位置。缺本地图像/数据库时只能检查分发范围。本版整理已有记录，没有新增仿真运动、抓放、无人机、足式或实机证据。软件 `sourceChangedDuringRun=true` 的旧尝试继续保留但不作最终代码证据；最终来源摘要以 final-campaign-04 原记录为准。

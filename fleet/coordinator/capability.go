@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/objective"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -107,13 +108,16 @@ func (c *Coordinator) verifyCapabilityNode(ctx context.Context, task *tasks.Task
 		if !ok || len(evidence) == 0 {
 			return ErrIntentUnverifiable
 		}
+		if call.Tool == objective.Tool {
+			return verifyDelegatedGoal(task, node, evidence)
+		}
 		return nil
 	}
 	return fmt.Errorf("%w: provider verification event missing", ErrIntentUnverifiable)
 }
 
 func (c *Coordinator) validateCapabilityEvent(ctx context.Context, state *taskState, event tasks.TaskEvent) error {
-	if !strings.HasPrefix(event.Type, "CAPABILITY_") {
+	if !strings.HasPrefix(event.Type, "CAPABILITY_") && !strings.HasPrefix(event.Type, "EDGE_") {
 		return nil
 	}
 	task, err := c.service.Get(ctx, state.taskID)
@@ -137,6 +141,9 @@ func (c *Coordinator) validateCapabilityEvent(ctx context.Context, state *taskSt
 		}
 		if n.Status != StatusRunning || event.Payload["robotId"] != n.Claimed || event.Payload["leaseCommandId"] != n.CommandID || event.Payload["catalogRevision"] != task.Plan.Capabilities.CatalogRevision || event.Payload["callBinding"] != capability.Fingerprint(task.Plan.Capabilities.Calls[n.Index]) {
 			return ErrIntentIdentityConflict
+		}
+		if strings.HasPrefix(event.Type, "EDGE_") {
+			return validateDelegatedEvent(task, n, event)
 		}
 		return nil
 	}

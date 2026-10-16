@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "research.frozen-verification-dependencies.v1",
+  "recordedAt": "2026-10-15T15:37:00.593334+00:00",
+  "files": {
+    "evaluate_long_horizon.py": {
+      "sha256": "b05d325616e69017c29a78ffd8a2f921a505b951c0832c260a0a40d7f60daee9",
+      "bytes": 52323
+    },
+    "revalidate_long_horizon.py": {
+      "sha256": "d532a96b8c3b8994ecd6b55f4d3a45e207050117f1c613dcc7e413fc5eb163d9",
+      "bytes": 32792
+    },
+    "console_session.py": {
+      "sha256": "d5c342911fb3d760deb3499bd14f77539d7a2953f7c1335e9ae25c3a6c856577",
+      "bytes": 8710
+    },
+    "semantic_execution_evidence.py": {
+      "sha256": "69824a5af6499486a005dff29b10ad4ca8748f43646bf4a5f815fc136bcfc365",
+      "bytes": 18007
+    }
+  },
+  "verifierSha256": "7230f47126458cd5a1a1e85cf4cf6afb6107859da88d7a2a2a9f1d0254f3cbe5",
+  "pythonOptimizeRequired": 0,
+  "executionInstructions": "Copy this directory to scratch/scripts and frozen verifier plus wrapper to scratch root; copy the completed raw run to scratch/host-inspection02; run wrapper from scratch."
+}

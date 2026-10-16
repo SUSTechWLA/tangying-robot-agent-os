@@ -4,22 +4,22 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **232 份 Markdown** 与 **41 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **242 份 Markdown** 与 **208 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
 | 分类 | 文档数 | 阅读原则 |
 | --- | ---: | --- |
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
-| [使用指南](#catalog-guides) | 14 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
-| [架构与协议](#catalog-architecture) | 28 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 94 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
-| [部署与运维流程](#catalog-operations) | 10 | 查角色、启动、故障、升级及放行条件。 |
+| [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
+| [架构与协议](#catalog-architecture) | 29 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
+| [开发参考与演进记录](#catalog-development) | 97 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [部署与运维流程](#catalog-operations) | 11 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 29 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 33 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -44,6 +44,7 @@
 
 | 文档 | 文件 | 类型 |
 | --- | --- | --- |
+| [云端与本地目标委托接入指南](guides/delegated-edge-goals.md) | `guides/delegated-edge-goals.md` | 操作 / 接口参考 |
 | [装修家庭场景与完整任务验收](guides/furnished-home-demo.md) | `guides/furnished-home-demo.md` | 操作 / 接口参考 |
 | [Gazebo：XLeRobot 同源完整家庭](guides/gazebo-default.md) | `guides/gazebo-default.md` | 操作 / 接口参考 |
 | [Gazebo 家庭场景操作](guides/gazebo-house-operations.md) | `guides/gazebo-house-operations.md` | 操作 / 接口参考 |
@@ -74,6 +75,7 @@
 | [分布式 AgentOS：实现范围与成熟度](architecture/distributed-agentos.md) | `architecture/distributed-agentos.md` | 架构 / 协议 / 设计参考 |
 | [Fleet 云端控制平面（分布式 AgentOS 部署画像）](architecture/fleet-cloud.md) | `architecture/fleet-cloud.md` | 架构 / 协议 / 设计参考 |
 | [早期 Fleet 论文闭环实验档案](architecture/fleet-paper-loop.md) | `architecture/fleet-paper-loop.md` | 架构 / 协议 / 设计参考 |
+| [分层目标委托：云端目标与统一边缘 Agent](architecture/hierarchical-edge-objectives.md) | `architecture/hierarchical-edge-objectives.md` | 架构 / 协议 / 设计参考 |
 | [生命周期对象：一次家庭任务里到底有几种"东西"在各自走状态](architecture/lifecycle-objects.md) | `architecture/lifecycle-objects.md` | 架构 / 协议 / 设计参考 |
 | [LLM 驱动的执行：让模型在执行过程中选工具与编排](architecture/llm-driven-execution.md) | `architecture/llm-driven-execution.md` | 架构 / 协议 / 设计参考 |
 | [长程任务、多 Agent 通讯与异构机器人协作](architecture/long-horizon-collaboration.md) | `architecture/long-horizon-collaboration.md` | 架构 / 协议 / 设计参考 |
@@ -169,6 +171,9 @@
 | [产物治理、当前文档与书籍 2.1.0 更新计划](development/2026-10-14-maintenance-and-book-plan.md) | `development/2026-10-14-maintenance-and-book-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [总 README 新手导览更新](development/2026-10-14-readme-onboarding.md) | `development/2026-10-14-readme-onboarding.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2D、地形与 3D 空间导航升级记录](development/2026-10-14-spatial-navigation-plan.md) | `development/2026-10-14-spatial-navigation-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-15 分层目标委托与统一边缘核心升级记录](development/2026-10-15-hierarchical-edge-objectives.md) | `development/2026-10-15-hierarchical-edge-objectives.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [单机器人长程鲁棒性与实验留存](development/2026-10-15-single-robot-robustness.md) | `development/2026-10-15-single-robot-robustness.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [最新分层架构、全套参考文档与书籍 2.2.0 审校](development/2026-10-16-architecture-book-refresh.md) | `development/2026-10-16-architecture-book-refresh.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -210,6 +215,7 @@
 | [部署、运维与现场交付导航](operations/README.md) | `operations/README.md` | 导航 / 维护 |
 | [Agent 运行时配置](operations/agent-runtime-config.md) | `operations/agent-runtime-config.md` | 操作 / 接口参考 |
 | [产物清理、保留与实验复核](operations/artifact-retention.md) | `operations/artifact-retention.md` | 操作 / 接口参考 |
+| [目标委托的部署、续跑与升级](operations/delegated-goal-operations.md) | `operations/delegated-goal-operations.md` | 操作 / 接口参考 |
 | [部署目标与代码归属](operations/deployment.md) | `operations/deployment.md` | 操作 / 接口参考 |
 | [边缘 Agent 实机测试部署](operations/edge-field-testing.md) | `operations/edge-field-testing.md` | 操作 / 接口参考 |
 | [全新部署：新机器 / 新机器人 / 新云服务器](operations/fresh-deployment.md) | `operations/fresh-deployment.md` | 操作 / 接口参考 |
@@ -318,7 +324,11 @@
 | [当前系统评估与追加任务实验协议](experiments/2026-10-13-system-evaluation-protocol.md) | `experiments/2026-10-13-system-evaluation-protocol.md` | 实验协议 / 预登记 |
 | [当前系统评估与追加任务实验](experiments/2026-10-13-system-evaluation.md) | `experiments/2026-10-13-system-evaluation.md` | 实验 / 验收记录 |
 | [2D、地形与 3D 空间导航实验](experiments/2026-10-14-spatial-navigation.md) | `experiments/2026-10-14-spatial-navigation.md` | 实验 / 验收记录 |
+| [2026-10-15 分层目标委托与边缘重规划功能实验](experiments/2026-10-15-hierarchical-edge-objectives.md) | `experiments/2026-10-15-hierarchical-edge-objectives.md` | 实验 / 验收记录 |
+| [单机器人长程鲁棒性增量实验协议（2026-10-15）](experiments/2026-10-15-single-robot-robustness-protocol.md) | `experiments/2026-10-15-single-robot-robustness-protocol.md` | 实验 / 验收记录 |
+| [单机器人长程执行、故障恢复与研究证据（2026-10-15）](experiments/2026-10-15-single-robot-robustness.md) | `experiments/2026-10-15-single-robot-robustness.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
+| [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [长程 Gazebo 自然语言任务验收脚本](experiments/long-horizon-harness.md) | `experiments/long-horizon-harness.md` | 验收工具说明 |
 
 <a id="catalog-releases"></a>
@@ -375,6 +385,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-13-modular-extensibility.validation.json](development/2026-10-13-modular-extensibility.validation.json) | JSON | `development` |
 | [2026-10-14-artifact-cleanup.json](development/2026-10-14-artifact-cleanup.json) | JSON | `development` |
 | [2026-10-14-book-and-maintenance-review.json](development/2026-10-14-book-and-maintenance-review.json) | JSON | `development` |
+| [2026-10-16-architecture-book-refresh.json](development/2026-10-16-architecture-book-refresh.json) | JSON | `development` |
 | [2026-09-27-capability-goal-acceptance.json](experiments/2026-09-27-capability-goal-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json) | JSON | `experiments` |
@@ -400,6 +411,172 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [comparison.svg](experiments/assets/2026-09-21-grounded-verification/comparison.svg) | SVG | `experiments/assets/2026-09-21-grounded-verification` |
 | [2026-10-13-semantic-execution.png](experiments/assets/2026-10-13-semantic-execution.png) | PNG | `experiments/assets` |
 | [2026-10-13-semantic-execution.svg](experiments/assets/2026-10-13-semantic-execution.svg) | SVG | `experiments/assets` |
+| [debug-attempt01.json](experiments/evidence/2026-10-15-hierarchical-edge/debug-attempt01.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [debug-attempt02.json](experiments/evidence/2026-10-15-hierarchical-edge/debug-attempt02.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [functional-tests.jsonl](experiments/evidence/2026-10-15-hierarchical-edge/functional-tests.jsonl) | JSONL | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [manifest.json](experiments/evidence/2026-10-15-hierarchical-edge/manifest.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [tangying-hierarchical-go-tests.log](experiments/evidence/2026-10-15-hierarchical-edge/tangying-hierarchical-go-tests.log) | LOG | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [tangying-hierarchical-race-tests.log](experiments/evidence/2026-10-15-hierarchical-edge/tangying-hierarchical-race-tests.log) | LOG | `experiments/evidence/2026-10-15-hierarchical-edge` |
+| [baseline-host.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/baseline-host.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [baseline-regression-recovery_test.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/baseline-regression-recovery_test.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [book-check-final.log](experiments/evidence/2026-10-15-single-robot-robustness/book-check-final.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [book-check.log](experiments/evidence/2026-10-15-single-robot-robustness/book-check.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [build-final.log](experiments/evidence/2026-10-15-single-robot-robustness/build-final.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [build-final2.log](experiments/evidence/2026-10-15-single-robot-robustness/build-final2.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [build.log](experiments/evidence/2026-10-15-single-robot-robustness/build.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-attempt01.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/campaign-attempt01.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-attempt02.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/campaign-attempt02.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-attempt03-reopen.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/campaign-attempt03-reopen.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-attempt04-boundaries.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/campaign-attempt04-boundaries.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-review-final-parser.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/campaign-review-final-parser.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-review-final-targeted.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/campaign-review-final-targeted.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-review-planning-config.log](experiments/evidence/2026-10-15-single-robot-robustness/campaign-review-planning-config.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [campaign-review-planning-timeout.log](experiments/evidence/2026-10-15-single-robot-robustness/campaign-review-planning-timeout.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [composite_recovery_test.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/composite-before-source/composite_recovery_test.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/composite-before-source` |
+| [runner.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/composite-before-source/runner.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/composite-before-source` |
+| [evidence-index.json](experiments/evidence/2026-10-15-single-robot-robustness/evidence-index.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign/manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign` |
+| [records.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign/records.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign` |
+| [run.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign/run.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign` |
+| [summary.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign/summary.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign` |
+| [tasks.csv](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign/tasks.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign` |
+| [test-events.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign/test-events.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign` |
+| [manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02/manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02` |
+| [records.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02/records.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02` |
+| [run.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02/run.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02` |
+| [summary.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02/summary.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02` |
+| [tasks.csv](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02/tasks.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02` |
+| [test-events.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02/test-events.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-02` |
+| [manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03/manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03` |
+| [records.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03/records.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03` |
+| [run.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03/run.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03` |
+| [summary.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03/summary.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03` |
+| [tasks.csv](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03/tasks.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03` |
+| [test-events.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03/test-events.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-03` |
+| [manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04` |
+| [records.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/records.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04` |
+| [run.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/run.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04` |
+| [summary.json](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/summary.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04` |
+| [tasks.csv](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/tasks.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04` |
+| [test-events.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04/test-events.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/final-campaign-04` |
+| [agent-build-final2.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/agent-build-final2.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [agent-build-final3.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/agent-build-final3.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [agent-build-upgrade.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/agent-build-upgrade.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [arrivals.csv](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/arrivals.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [controlled-agent-upgrade.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/controlled-agent-upgrade.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [controlled-final-agent-update.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/controlled-final-agent-update.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [controlled-final3-agent-update.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/controlled-final3-agent-update.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [delegated-capabilities.csv](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/delegated-capabilities.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [environment-attempt001-failed.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/environment-attempt001-failed.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [environment-inventory.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/environment-inventory.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [fault-recovery-chain.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/fault-recovery-chain.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [faults.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/faults.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [frozen-export_research_index.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-export_research_index.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [frozen-revalidate_host_inspection.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-revalidate_host_inspection.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [frozen-revalidation-execution.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-revalidation-execution.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [frozen-run_host_inspection.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-run_host_inspection.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [console_session.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies/console_session.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies` |
+| [evaluate_long_horizon.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies/evaluate_long_horizon.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies` |
+| [frozen-dependencies.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies/frozen-dependencies.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies` |
+| [revalidate_long_horizon.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies/revalidate_long_horizon.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies` |
+| [semantic_execution_evidence.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies/semantic_execution_evidence.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/frozen-verification-dependencies` |
+| [handoff.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/handoff.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-durable-state-00.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-durable-state-00.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-durable-state-01.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-durable-state-01.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-durable-state-index.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-durable-state-index.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-independent.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-independent.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-preregistration.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-preregistration.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-report.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-report.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection01-terminal-task.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection01-terminal-task.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-durable-state-00.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-durable-state-00.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-durable-state-01.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-durable-state-01.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-durable-state-index.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-durable-state-index.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-frozen-dependencies-independent.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-frozen-dependencies-independent.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-independent.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-independent.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-preregistration.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-preregistration.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-report.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-report.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host-inspection02-terminal-task.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host-inspection02-terminal-task.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [host01-pre-update-reconciliation.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/host01-pre-update-reconciliation.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection-preregistration.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection-preregistration.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection01-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection01-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection01-report.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection01-report.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection01-run-config.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection01-run-config.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection02-independent.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection02-independent.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection02-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection02-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection02-report.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection02-report.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection02-run-config.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection02-run-config.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [inspection02-terminal-task.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/inspection02-terminal-task.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [model-routes-before.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/model-routes-before.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [planning-attempt-adb3213caa1c9f65ef7883053e28fbc0.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/planning-attempt-adb3213caa1c9f65ef7883053e28fbc0.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [preparation01-independent-no-fault.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/preparation01-independent-no-fault.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [preparation01-independent.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/preparation01-independent.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [preparation01-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/preparation01-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [preparation01-report.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/preparation01-report.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [preparation01-run-config.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/preparation01-run-config.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [preparation01-terminal-task.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/preparation01-terminal-task.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [raw-evidence-index.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/raw-evidence-index.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [redaction-check.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/redaction-check.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [source-provenance-before-preparation.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/source-provenance-before-preparation.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [steps.csv](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/steps.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [summary.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/summary.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [supplemental-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/supplemental-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [tasks.csv](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/tasks.csv) | CSV | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [v1-execution.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/v1-execution.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [v2-execution.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/v2-execution.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [verification-provenance.json](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/verification-provenance.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [verify_frozen_host.py](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/verify_frozen_host.py) | PY | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo` |
+| [go-docs-publication.log](experiments/evidence/2026-10-15-single-robot-robustness/go-docs-publication.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [go-docs-tests-final.log](experiments/evidence/2026-10-15-single-robot-robustness/go-docs-tests-final.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [go-docs-tests.log](experiments/evidence/2026-10-15-single-robot-robustness/go-docs-tests.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [host-baseline-failure.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/host-baseline-failure.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [host-baseline-metadata.json](experiments/evidence/2026-10-15-single-robot-robustness/host-baseline-metadata.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [inspection-parser-after.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/inspection-parser-after.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [inspection-parser-before.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/inspection-parser-before.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [integration-race-tests-final.log](experiments/evidence/2026-10-15-single-robot-robustness/integration-race-tests-final.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [integration-race-tests.log](experiments/evidence/2026-10-15-single-robot-robustness/integration-race-tests.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [lint-final.log](experiments/evidence/2026-10-15-single-robot-robustness/lint-final.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [lint.log](experiments/evidence/2026-10-15-single-robot-robustness/lint.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [maintained-go-tests-final.log](experiments/evidence/2026-10-15-single-robot-robustness/maintained-go-tests-final.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [maintained-go-tests-final2.log](experiments/evidence/2026-10-15-single-robot-robustness/maintained-go-tests-final2.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [maintained-go-tests-final3.log](experiments/evidence/2026-10-15-single-robot-robustness/maintained-go-tests-final3.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [maintained-go-tests.log](experiments/evidence/2026-10-15-single-robot-robustness/maintained-go-tests.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [master-manifest.json](experiments/evidence/2026-10-15-single-robot-robustness/master-manifest.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [python-docs-book-tests.log](experiments/evidence/2026-10-15-single-robot-robustness/python-docs-book-tests.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [python-docs-publication.log](experiments/evidence/2026-10-15-single-robot-robustness/python-docs-publication.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [python-final-tests.log](experiments/evidence/2026-10-15-single-robot-robustness/python-final-tests.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [python-harness-tests.log](experiments/evidence/2026-10-15-single-robot-robustness/python-harness-tests.log) | LOG | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [completion.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/review-before-source/completion.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/review-before-source` |
+| [completion_test.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/review-before-source/completion_test.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/review-before-source` |
+| [host.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/review-before-source/host.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/review-before-source` |
+| [journal.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/review-before-source/journal.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/review-before-source` |
+| [recovery.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/review-before-source/recovery.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/review-before-source` |
+| [recovery_test.go.txt](experiments/evidence/2026-10-15-single-robot-robustness/review-before-source/recovery_test.go.txt) | TXT | `experiments/evidence/2026-10-15-single-robot-robustness/review-before-source` |
+| [software-metrics.json](experiments/evidence/2026-10-15-single-robot-robustness/software-metrics.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-completion-after-fix.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-completion-after-fix.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-completion-before-fix.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-completion-before-fix.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-composite-runner-after.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-composite-runner-after.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-composite-runner-before-metadata.json](experiments/evidence/2026-10-15-single-robot-robustness/tangying-composite-runner-before-metadata.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-composite-runner-before.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-composite-runner-before.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-composite-runner-final-metadata.json](experiments/evidence/2026-10-15-single-robot-robustness/tangying-composite-runner-final-metadata.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-composite-runner-package.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-composite-runner-package.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-composite-runner-race.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-composite-runner-race.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-final-metadata.json](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-final-metadata.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-final-race.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-final-race.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-final-tests.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-final-tests.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-final2-metadata.json](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-final2-metadata.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-final2-race.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-final2-race.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-final2-tests.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-final2-tests.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-review-after.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-review-after.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-review-before-metadata.json](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-review-before-metadata.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-review-before.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-review-before.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [tangying-host-robustness-fixed.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/tangying-host-robustness-fixed.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [validation.json](experiments/evidence/2026-10-15-single-robot-robustness/validation.json) | JSON | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [worker-attempt01.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/worker-attempt01.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [worker-attempt02.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/worker-attempt02.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [worker-fixed01.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/worker-fixed01.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
 | [task-replay-desktop.png](frontend/assets/console-ux-20260927/task-replay-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-desktop.png](frontend/assets/console-ux-20260927/workspace-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-mobile.png](frontend/assets/console-ux-20260927/workspace-mobile.png) | PNG | `frontend/assets/console-ux-20260927` |

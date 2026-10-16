@@ -1,11 +1,13 @@
 # XLeRobot 生产就绪判定
 
-当前 V1 是仿真与集成候选版，没有已完成的实机生产验收。云端 Server/Orin Edge 的当前放行判断和现场证据模板见[2026-09-26 生产就绪审计](../production/field-readiness-2026-09-26.md)；原单机器人范围见[V1 当前状态](../production/v1-release-status.md)。购机用户从[Sim2Real 上手](../sim2real/README.md)开始。
+当前软件具备分层目标、单机持久恢复、云边交接和 ROS 2 异构/空间合同，参考实现 `821659df`；仍是仿真与集成候选，没有已完成的实机生产验收。[10-15 鲁棒性结果](../experiments/2026-10-15-single-robot-robustness.md)是软件与 Gazebo 证据，目标执行按[目标运维](delegated-goal-operations.md)部署。云端 Server/Orin Edge 的当前放行判断和现场证据模板见[2026-09-26 生产就绪审计](../production/field-readiness-2026-09-26.md)；原单机器人范围见[V1 当前状态](../production/v1-release-status.md)。购机用户从[Sim2Real 上手](../sim2real/README.md)开始。
 
 ## 哪些结果可以证明什么
 
 | 结果 | 证明范围 |
 | --- | --- |
+| 目标委托/长步骤链软件测试通过 | 对应确定性合同、持久预算、恢复和回执故障；不代表模型规划质量或实机成功率 |
+| Gazebo/ROS 2 任务与新鲜观测通过 | 对应场景、二进制、模型及验证器下的仿真行为；不证明飞行、步态、硬件停止或长期可靠性 |
 | MuJoCo / RoboCasa 测试通过 | 对应代码版本和限定仿真场景的行为 |
 | `robot-agent doctor robot-pi` | 无动作配置、文件、证书与驱动兼容预检 |
 | Runtime `READY` | 当前软件能力检查状态，不是现场动作许可 |

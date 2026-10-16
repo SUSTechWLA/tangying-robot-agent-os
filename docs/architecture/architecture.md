@@ -1,10 +1,10 @@
 # 当前系统架构
 
-> 本页保留架构演进背景。当前生产交付的模块边界、数据流和一致性模型见[完整系统架构](../production/architecture.md)。
+> 本页保留架构演进背景，2026-10-16 更新目标入口。当前交付的模块边界、数据流和一致性模型见[完整系统架构](../production/architecture.md)；新接入按[分层目标委托](hierarchical-edge-objectives.md)选择目标包络或旧冻结计划路径。
 
 当前单机器人移动主线已提供 [双 RGB-D / RTAB-Map / Nav2 接入](../development/rtabmap-navigation.md)。地图、导航、动作策略与 Agent 分层；页面的观测点云是局部相机测量，独立“导航地图”展示 SLAM 结果，二者不能混称全知环境。
 
-**当前开发交付以 README 的本地单机器人工作台为主入口；Fleet 为可选的多机器人部署形态。单台机器人必须只有一个执行调度权威。历史云端架构见 production 文档，本轮实现和剩余接入条件见[系统审查与升级](../development/2026-09-13-system-audit.md)。**
+**当前开发交付以 README 的本地单机器人工作台为主入口；Fleet 为可选的多机器人部署形态。单台机器人必须只有一个执行调度权威。云边当前架构见 production 文档，早期实现和剩余接入条件见[系统审查与升级](../development/2026-09-13-system-audit.md)。**
 
 本页描述当前实现。完整决策与故障语义见[本次分层设计规范](../superpowers/specs/2026-08-18-layered-runtime-middleware-design.md)，与此前的[本地优先规范](../superpowers/specs/2026-08-18-local-first-runtime-design.md)一起保留为长期设计资产，不因后续重构而删除。当时的实施清单不随发布分发。
 
@@ -18,14 +18,15 @@ World/Harness 的设计依据保留在[分布式设计](../superpowers/specs/202
        - 自然语言 Agent、持久任务图、单写 leader、Outbox
        - Tool Catalog + Observation Registry + WorldHub
        - MySQL / Redis（生产）或内存适配器（测试）
-       -> mTLS Fleet Link -> Edge Worker（每台机器人）
-            -> Robot Runtime（MuJoCo / XLeRobot direct / ROS 2）
+       -> mTLS Fleet Link + HTTP 数据面 -> Edge Worker（每台机器人）
+            -> 共享 Edge Host（获批目标的规划/诊断/恢复）
+            -> 能力执行器/闭环 Runner -> Robot Runtime（MuJoCo / XLeRobot direct / ROS 2）
                  -> Safety Supervisor -> 驱动、执行器、传感器
 
-无网络：Local Console -> Local Brain + SQLite -> 同一个 Robot Runtime
+独立单机：Local Console/API -> Local Agent + SQLite -> 同一 Edge Host/执行器 -> Robot Runtime
 ```
 
-云端是联网机器人的任务与世界状态权威。任何跨机器人推进都要求新鲜、稳定、可追溯的 `WorldSnapshot` 证据，并使用资源 fencing token 阻止旧协调器或迟到命令。Local Brain 不参与云端一致性域，但复用同一快照与 Runtime 契约。
+云端是联网机器人的父任务、批准、分配与共享世界权威；边缘拥有授权范围内的子计划和实际执行检查点。模型服务在本机或云端并不改变这一生命周期归属。独立 Local 可使用本机模型离线运行；Fleet 目标不会因断网自动取得离线继续权。任何跨机器人推进都要求新鲜、稳定、可追溯的 `WorldSnapshot` 证据，并使用资源 fencing token 阻止旧协调器或迟到命令。Local Brain 不参与云端一致性域，但复用同一快照与 Runtime 契约。
 
 仿真部署保持同一边界，只替换 Robot Runtime 的后端：
 

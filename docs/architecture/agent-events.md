@@ -1,5 +1,7 @@
 # Agent 事件规范
 
+2026-10-16 范围说明：本页的 `agent.event.v1` 与 Local 事件运行时相关。共享目标 Host 把 `EDGE_PLAN_CREATED`、`EDGE_CHILD_EVENT`、`EDGE_OPS_FINDING`、`EDGE_RECOVERY_DECISION`、`EDGE_STEP_RECOVERED` 与最终能力验证写入父/子持久账本，经 Worker 上报；这些不是把 Local EventBus 暴露为网络总线。字段和授权关系见[目标架构](hierarchical-edge-objectives.md)及[数据合同](../production/data-contracts.md)。
+
 事件词表固定在 `core/agentcontract/event.go`。订阅一个词表里没有的 topic 会在启动时报错，而不是静默地永远收不到——拼错的订阅在运行期表现为"这个 Agent 看起来健康但从不报告"。
 
 ## topic 与命名空间

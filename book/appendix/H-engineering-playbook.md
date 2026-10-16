@@ -110,6 +110,23 @@
 
 记录：robot/Profile/commissioning；代码与两端 ROS IDL；mapId/mapRevision、worldFrameRevision、calibrationRevision；注册来源与实际光心；模式、分辨率/容量、bodyHalfExtents/margin、地形支撑/坡度/阶差；定位来源/质量/年龄；部署 SHA；控制器匹配摘要；单命令 planId 与到达观测；停止和动态控制证据。
 
-流程：外部配准与原测量校验 → 新目录发布不可变地图包 → 重放/摘要校验 → 独立部署/控制器配置 → 无动作定位/就绪检查 → 几何正反例 → 小范围受控实际运动 → 独立到达/停止 → 長程与故障。未知空间、lost/stale、摘要冲突或旧批准阻塞受影响操作。
+流程：外部配准与原测量校验 → 新目录发布不可变地图包 → 重放/摘要校验 → 独立部署/控制器配置 → 无动作定位/就绪检查 → 几何正反例 → 小范围受控实际运动 → 独立到达/停止 → 长程与故障。未知空间、lost/stale、摘要冲突或旧批准阻塞受影响操作。
 
 轮式曲率、足端/步态、飞行动力学与动态障碍交由设备方案验证。参考书的底盘/旋翼包络和软件到达容差不能直接当厂商验收值。日志、地图和原始失败按 [产物规则](../../docs/operations/artifact-retention.md)保存。
+
+## H.10 目标委托上线与异常处理记录
+
+触发：从冻结能力计划切换为边缘自主细化。先在同一明确 robot 上选择 Local 或 Worker 入口，核对模型阶段、Runtime pin、目标目录与存储，不启动两个执行所有者。保留旧 `/v1/tasks` 兼容路线，界面入口是否支持目标包络须单独确认。
+
+记录模板：原句/idempotencyKey；robot/目录 SHA；grants/参数域/次数/effects；资源 v1=`robot`；completion 读谓词；总期限/maxPlans/maxSteps/maxReads；批准版本与 claim；edge-goal 检查点和 edge-child 的固定计划/追加式账本；计划/模型输入/诊断；物理 journal 与独立验证；上报 proof/pending；允许/禁止续跑及决定者。
+
+| 现场状态 | 处理与准入 |
+| --- | --- |
+| 明确 REJECTED、无效果 | 查拒绝依据，Host 只能在剩余权限/预算内重规划 |
+| 物理结果未知 | 停止依赖派发，保存原 ID 与 journal，禁止换任务 ID 掩盖可能效果 |
+| 子能力已完成、父记账中断 | 仅完整 StepCompleted+绑定验证及当前授权通过才补记账；无再次派发 |
+| 完成读 Unavailable/DeadlineExceeded | 只按持久有界预算重读；确认落盘中断则审查，不扩大总期限 |
+| 已验证、云端上报失败 | 仅补传原 proof；换 claim 或新任务不继承旧执行权 |
+| 取消、期限或 claim 失效 | 停止新增执行，设备停止/保持按 Runtime 控制合同核验 |
+
+升级备份同时覆盖任务库、Host 父/子状态、模型输入制品、claim/completion、Runtime journal、地图/标定与目录。恢复一个旧父检查点不能回滚已经发生的物理效果。现场继续依据可回查事实和授权，不依据聊天摘要或重启后 healthz。

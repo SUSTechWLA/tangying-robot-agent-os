@@ -4,6 +4,8 @@
 
 同一个仓库同时包含云端、机器人端、Orin NX 和开发机的代码。本页是**唯一的归属判据**：要装到某台机器上的东西，在哪个目录、由谁启动、看哪份配置，都在这里。
 
+当前分层目标实现参考 `821659df`（2026-10-16）。Local/Worker 都通过共享 Edge Host 自主细化获批目标；配置和数据升级按[目标运维](delegated-goal-operations.md)核对，旧任务计划入口仍兼容。
+
 部署前先明确一件事：**云端与机器人端是两项独立的放行结论**。云端部署成功不代表机器人可以动；机器人端软件安装成功也不代表现场已验收。实机动作仍需负责人完成[发布检查清单](release-checklist.md)与现场制动、标定、监护验收。
 
 ## 1. 四个运行位置
@@ -38,7 +40,8 @@ Go 与 Python 的包路径是模块内部接口（`go.mod` 模块路径 + 跨语
 | `fleet/worldhub/` | 云端 + 本地 | 共享世界状态（云端控制面与单机 Agent 都用） |
 | `edge/` | 机器人端 + 本地 | 执行循环：`agent`（闭环步进）、`runtime`（命令校验与执行）、`robotclient`、`worker`、`cloudclient`（连云端）、`policy`（策略契约与 Provider） |
 | `agent/` | 共享运行时 | Harness Agent：理解、编排、完成判定 |
-| `agentruntime/` | 本地单机 | 多 Agent 运行时：事件总线、注册表、编排器、权限门控、只读观察 Agent、只提议的恢复 Agent。由 `cmd/local-agent` 托管（`cmd/edge-worker` 未接入） |
+| `agentruntime/` | 本地单机 | 原本地多 Agent 运行时：事件总线、注册表和观察/恢复角色；Worker 不直接托管该总线，目标通道在共享 Edge Host 内提供确定性诊断/恢复组件 |
+| `internal/edgeagent/`、`core/objective/` | Local + Worker / 云边合同 | 共享目标宿主、子计划/检查点、Ops/Recovery 监督与目标权限包络，详见[分层架构](../architecture/hierarchical-edge-objectives.md) |
 | `orchestration/`、`tasks/`、`skills/` | 共享运行时 | 任务模型与状态机、技能与工具实现 |
 | `core/` | 共享运行时 | 闭环门禁、世界模型、观测、遥测等不依赖具体基础设施的契约 |
 | `middleware/` | 共享运行时 | 存储与消息适配（memory、sqlite） |
@@ -79,7 +82,7 @@ make fleet-build              # 构建 bin/fleet-control-plane 与 bin/edge-work
 ./scripts/fleet-up.sh down
 ```
 
-生产 `.env`、证书与白名单不进入 Git（`.gitignore` 已覆盖）。云端只下发命令与租约，**不直接驱动硬件**；`emergency_stop` 一类动作始终由机器人端执行。
+生产 `.env`、证书与白名单不进入 Git（`.gitignore` 已覆盖）。云端下发获批目标合同（或兼容旧计划）与租约；边缘在授权内规划、执行和核验，云端**不直接驱动硬件**；`emergency_stop` 一类动作始终由机器人端执行。
 
 ## 4. 机器人端：装了哪些进程
 
@@ -117,7 +120,7 @@ make rgbd-start           # 构建并启动仿真 + Local Agent（固定工位�
 
 Orin NX 生产候选单元和两份配置放在 `deploy/edge-orin/`；`make edge-orin-build` 交叉编译 Linux arm64 的 Local Agent 与 Fleet Worker。无运动预检、切换及回滚见 [Orin NX 安装](../install/edge-orin.md)。
 
-云端 Compose 与 Orin Compose 共用根目录 `Dockerfile.agent` 的多架构镜像，按 `server`、`edge`、`worker` 启动不同角色；系统任务入口仅在 Server 的 `AGENT_SYSTEM_*` 模型配置后启用。两种 Harness 的工具/权限与软件验收见[角色规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[本轮记录](../production/agent-harness-docker-acceptance.md)。
+云端 Compose 与 Orin Compose 共用根目录 `Dockerfile.agent` 的多架构镜像，按 `server`、`edge`、`worker` 启动不同角色；系统任务入口仅在 Server 的 `AGENT_SYSTEM_*` 模型配置后启用；该旧系统工具创建冻结草案，尚不会自动创建新目标合同。Worker 的粗目标编排另配置 `AGENT_GOAL_*`，模型端点位置不改变边缘生命周期职责。两种 Harness 的工具/权限与软件验收见[角色规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[本轮记录](../production/agent-harness-docker-acceptance.md)。
 
 ## 6. 一次启动全部组件
 
@@ -135,7 +138,7 @@ Orin NX 生产候选单元和两份配置放在 `deploy/edge-orin/`；`make edge
 
 | 端口 | 归属 | 用途 |
 | --- | --- | --- |
-| `8787` | 本地单机 | 工作台控制台与 HTTP API |
+| `8787` / `8897` | 本地单机 | 默认 sim-stack / home-furnished 工作台与 HTTP API；独立实验端口以运行清单为准 |
 | `50051` | 仿真 | MuJoCo gRPC 适配器 |
 | `18790` / `18791` | 机器人端 | 导航栈 / Gazebo 家庭场景容器 |
 | `443` / `8444` | 云端 | 控制面 HTTPS + mTLS / gRPC 透传 |

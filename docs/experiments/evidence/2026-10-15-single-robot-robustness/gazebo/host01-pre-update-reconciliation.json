@@ -1,0 +1,24 @@
+{
+  "recordedAt": "2026-10-15T15:25:10.794930+00:00",
+  "failedTaskId": "task-goal-3f22762c2b7d41ec21d8f637931365a7",
+  "failedTaskUnmodified": true,
+  "failedCheckpointUnmodified": true,
+  "tasks": [
+    {
+      "id": "task-160df157e20201affd7ee5d7",
+      "state": "SUCCEEDED"
+    },
+    {
+      "id": "task-2e3c9aa3ef08e9fdefa41071",
+      "state": "SUCCEEDED"
+    },
+    {
+      "id": "task-goal-3f22762c2b7d41ec21d8f637931365a7",
+      "state": "RECOVERABLE_FAILURE"
+    }
+  ],
+  "runtimeCommandJournalSha256": "3682d162c3d6aef6f7db36148dc731d49df871f70c224918bd2e942623237192",
+  "runtimeCommandJournalHasFailedTaskId": false,
+  "runtimeAdapter": "gazebo",
+  "reasonSafeToRunIndependentNewTask": "Failed child callback was rejected by in-process recovery guard before any physical substep; no matching command ID is present in runtime journal; old failed task is retained without resume."
+}

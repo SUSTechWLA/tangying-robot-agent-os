@@ -18,7 +18,7 @@
 | 资源与执行权 | coordinator、live claim、租约/fence | 生成有效授权token |
 | 决策上下文 | 从上述来源构建的managed projection | 成为第二个独立任务状态源 |
 
-中心持有批准定义和协调状态，边缘持有本机checkpoint与回执；同进程Agent订阅事件并读取持久来源。各模型视图可以不同，但作用域和事实来源必须可核对。
+Fleet中心持有批准定义与父claim，边缘Host持有父检查点及不可变子计划；Local部署把任务权威和Host保存在本机SQLite。逻辑Agent通过已装配的调用/事件读取同一持久来源。各模型视图可以不同，但作用域和事实来源必须可核对，不能把相同聊天摘要作为一致性协议。
 
 ## 18.2 从完整历史生成精确阶段记忆
 
@@ -46,6 +46,14 @@
 
 **为什么不能把所有动作历史都标guard？** 每条guard都必须留在热层，长历史会使必要状态膨胀。正确做法是将完整历史外置，热层按命令保存精确未决边界与来源引用。相反，不能为了缩短输入把unknown或冲突删掉。
 
+### 父目标与每代进度的两个层次
+
+目标Host保存 `edge-goal/<task>/<revision>`：原合同摘要、首次接受时间、代数、能力/业务读计数、完整确认效果、当前子计划与Pending状态。子计划以 `edge-child/<childId>` 保存具体调用、输入上下文和完整trace；代数变化不修改父TaskRevision或授权哈希。
+
+下一代Planner看到原goal、completion、完成总数/摘要、最近8项确认调用和当前诊断。这一进度JSON最多8,000字节，过大时拒绝继续；它是GOAL模型上下文中的一部分，不能等同于下面32KiB模型正文上限。完整效果账本不截断，所有确认历史仍参与同工具/业务参数的次数检查。修改旧观测元数据不能生成新额度。
+
+因此模型可能不再看到第一站的完整细节，Host仍能阻止它超额重复第一站。若新路线确实需要回访，应在最初grant中明确次数；模型不能用摘要说明来修改授权。上下文一致性的目标是同一权威和可追溯事实，不是让所有Agent持有完全相同文本。
+
 ## 18.4 预算保护的是实际请求
 
 | 默认配置 | 值 | 保护对象 |
@@ -57,7 +65,7 @@
 
 输入字节不是供应商真实token计量。部署者要根据具体模型窗口留余量。必要状态或工具schema仍超预算时，在模型/物理请求之前拒绝；不是自动提高上限，也不是截用户硬约束。
 
-GOAL规划有10轮、6次provider读取、3次提案和16 calls上限。actionloop等循环有自己的轮数/权限边界，不能把GOAL预算当作整个系统无限续跑的参数。当前没有自动生成无限任务阶段的调度器。
+一次GOAL规划有10轮、6次provider读取、3次提案和16 calls上限。父目标另有最多8代、128次子能力调用、4,096次Host业务读取与原期限；其他actionloop、复合Runner和控制循环各自有边界。持久预留防止重启恢复额度，不能将任何一层的预算当全系统动作/读取总数。当前没有无限任务阶段调度器。
 
 ## 18.5 context_read怎样避免跨域串线
 
@@ -89,6 +97,8 @@ context_read是内部只读工具，不进入待批准的机器人工具序列�
 | Runtime目录/Profile变化 | 拒绝，重新配置/登记/规划/批准 |
 | 世界来源、坐标或时效错误 | 等合格新证据或停止 |
 | completed旧结果遇到新revision | 仅按精确不可变receipt确认旧结果 |
+| 父Pending但子账本有独立完成与完整验证 | 核对当前权威/目录和全部身份后补认原效果，不重放 |
+| 完成读已预留但确认提交中断 | 保留复核状态，不因重启多读或重规划 |
 | 必保留状态超预算 | 拒绝模型调用，缩小明确阶段 |
 
 没有“最后一个Agent说的为准”规则。权威对象、身份和证据决定接受与拒绝，不以消息到达顺序覆盖物理未知。
@@ -112,6 +122,8 @@ context_read是内部只读工具，不进入待批准的机器人工具序列�
 5. 最新业务结果归档后，实际请求是否仍在预算内？
 6. 落盘关闭/重开能否还原实际模型输入？
 
+对目标Host再检查：给模型的最近8项之外是否仍核对全部效果；重建后代数/读取额度是否连续；已确认子动作的父落盘失败能否补认而不重放；未知写、损坏验证和权限撤销能否始终停止。2026-10-15软件campaign记录最长2,634字节进度投影，但这不证明任意模型都能依靠它完成128步任务。
+
 附录F提供相应测试与观察方式。压缩率高不等于一致性强，关键是哪些状态绝不允许改变。
 
 ### 空间身份进入上下文后的跨域一致性
@@ -132,7 +144,7 @@ context_read是内部只读工具，不进入待批准的机器人工具序列�
 
 ## 18.10 小结与源码路线
 
-路线：[ContextForRevisions](../../tasks/context.go)→[命令记忆](../../tasks/context_memory.go)→[managed projection](../../core/agentcontext/managed.go)→[回查](../../internal/actionloop/context_read.go)→[规划trace](../../internal/capabilityagent/planner.go)。真实故障与数字见[预算修复](../../docs/development/2026-10-10-context-budget-recovery.md)。
+路线先从[目标检查点](../../internal/edgeagent/journal.go)与[Host进度投影](../../internal/edgeagent/host.go)区分父/子状态，再看：[ContextForRevisions](../../tasks/context.go)→[命令记忆](../../tasks/context_memory.go)→[managed projection](../../core/agentcontext/managed.go)→[回查](../../internal/actionloop/context_read.go)→[规划trace](../../internal/capabilityagent/planner.go)。真实故障与数字见[预算修复](../../docs/development/2026-10-10-context-budget-recovery.md)。
 
 完整权威来源、有界模型视图与执行Basis分工不同。中心/边缘不必保存相同聊天，必须核对身份与依据；压缩和分页不改变未知、冲突和批准权。必要状态超预算仍拒绝，不保证无界持续规划。
 

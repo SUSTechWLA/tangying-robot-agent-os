@@ -1,6 +1,8 @@
 # 研究与论文资料导航
 
-本页按“研究问题 → 方法与实现 → 实验与失败 → 数据复核 → 下一轮实验”组织资料，供选题、写论文、设计对照和复现实验使用。核对日期：2026-10-13。各次增量的实验记录单独索引，不重新核定历史结果。
+单机器人长程鲁棒性的新数据入口：[协议](../experiments/2026-10-15-single-robot-robustness-protocol.md)、[报告](../experiments/2026-10-15-single-robot-robustness.md)及[实现](../development/2026-10-15-single-robot-robustness.md)。软件任务/HTTP 故障案例与实际 Gazebo 单独计数；使用带 sourceTestOutcome 和 durationScope 的 CSV，不把重复回放或版本变更混为独立实机样本。
+
+本页按“研究问题 → 方法与实现 → 实验与失败 → 数据复核 → 下一轮实验”组织资料，供选题、写论文、设计对照和复现实验使用。核对日期：2026-10-16。各次增量的实验记录单独索引，不重新核定历史结果。
 
 第一次阅读可先看[书籍第 12 章：评测与训练](../../book/chapters/ch12-evaluation-training.md)，再选择下表中的研究问题。查全量实验记录用[实验目录](../experiments/README.md)，查教学案例用[书籍附录 C](../../book/appendix/C-experiment-index.md)，查系统日常使用与升级用[文档总入口](../README.md)。
 
@@ -8,6 +10,7 @@
 
 | 研究问题 | 方法与实现入口 | 对应实验与阅读重点 |
 | --- | --- | --- |
+| 粗目标委托如何保持边缘自治与权限一致？ | [分层目标合同](../architecture/hierarchical-edge-objectives.md)、[目标 API](../guides/delegated-edge-goals.md)、[教材第17章](../../book/chapters/ch17-cloud-edge-agent-harness.md) | [目标功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)、[鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)：区分云端授权、边缘模型建议、Host 预算与逐步验证 |
 | 自然语言计划为何可能“执行成功但目标错误”？ | [统一能力目标](../guides/unified-capability-goals.md)、[闭环契约](../../book/chapters/ch03-closed-loop-contract.md) | [10-13 系统评价](../experiments/2026-10-13-system-evaluation.md)：L01 多做一轮抓放；单命令幂等与用户语义正确是不同问题 |
 | 多 Agent 如何定位故障，并有限度地继续任务？ | [长程协作架构](../architecture/long-horizon-collaboration.md)、[Agent 事件](../architecture/agent-events.md)、[恢复 Agent](../architecture/recovery-agent.md) | [10-10 长程实验](../experiments/2026-10-10-long-horizon-protocol.md)、[10-13 五站巡检](../experiments/2026-10-13-semantic-execution.md)：核对完整恢复因果链与原命令重试次数 |
 | 长上下文如何保持事实、身份与版本一致？ | [书籍第 18 章](../../book/chapters/ch18-long-horizon-context.md)、[上下文实现记录](../development/2026-10-09-long-horizon-context.md) | [上下文表达对照](../experiments/2026-09-21-agent-context-evaluation.md)与最新长程实测分开读；区分信息完整性、表达形式、预算压缩和实际归档回读 |
@@ -33,6 +36,8 @@
 
 | 主题与来源 | 证据类型和核对过的事实 | 可支撑的论断 | 引用时必须同时带出的限制 |
 | --- | --- | --- | --- |
+| [10-15 软件长步骤链与回执故障](../experiments/2026-10-15-single-robot-robustness.md) | 固定源码的 final-campaign-04：23 条 task、980 条含读/拒绝的 step；五个连续目标 32/48/64/96/128 次写，368 次确认写与 6 次准入前拒绝 | 完成前缀保留、128 次能力预算边界、有限进度投影和回执丢失不重放 | 确定性合同设备，不是机器人运动或模型规划成功率；58 个含子测试结果不是 58 次独立任务 |
+| [10-15 Gazebo 粗目标与冻结任务](../experiments/2026-10-15-single-robot-robustness.md) | 同一 Runtime episode 的五个不同类型/版本案例；inspection02 只读故障后完成，host-inspection01 零动作失败，修复后同原句新目标 host-inspection02 完成（239.846 秒执行、4 子能力、10 物理/验证子步骤） | 真实 GOAL 模型、共享 Host 与既有 Runner 接通，保留失败、修复和独立路线/观测复验 | 四个二进制版本，规划超时也保留；不能计算统一 3/5 成功率、速度提升或实机可靠性，无飞行/步态/本轮抓放 |
 | [10-13 边缘 ROS 2 与持久执行](../experiments/2026-10-13-edge-field-candidate.md) | 实际 ROS 2 DDS/gRPC 记录式控制器、MuJoCo 暂停恢复/未知结果与双 Worker 交接、两进程数据交换、真实 Redis | 单 Agent 持久恢复、不同 Profile 接线、数据连续性与失败拒绝边界 | 没有实体设备、实际飞行/步态或公网实验；不同阶段修复后复验不能混成同版本成功率 |
 | [10-13 系统评价](../experiments/2026-10-13-system-evaluation.md) | 9 项请求/任务；含批准前条件错误、实际 Gazebo 执行、边界拒绝与软件回归 | Task 自报成功仍需独立语义验收；转发前只读故障可经多角色链有界恢复 | L01 验收失败，修复后只追加短程 P01；不同任务不能混成一个成功率，完整 L01 未重跑 |
 | [10-13 点云语义层](../experiments/2026-10-13-semantic-point-cloud.md) | 71,980 点历史 Gazebo 地图；12 个软件判据通过；没有新运动任务 | 标注、查询、版本冲突、过期和篡改可形成可追溯服务契约 | 受控时钟和记录位姿；人工选区，不是开放词汇识别、全图理解或实际导航成功 |
@@ -42,12 +47,13 @@
 | [09-21 接地验证](../experiments/2026-09-21-grounded-verification.md) | 150 个 Gazebo 任务实例、210 条动作轨迹；九组共享轨迹回放 | 对独立真值的验证准确性、假确认与 UNKNOWN 权衡 | 九组不是九套在线运行；任务成功率/恢复成本部分为回放估计；不能宣称 GVF 全面优于 LLM |
 | [09-20 语义地图表达](../experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md) | 静态审计、真值栅格对照、自然语言测试与仿真闭环并存 | 地图完整性会改变不同语义表达方案的适用性 | 完整地图上的优势在欠巡检图上反转；分节引用，不把静态审计当现场测量 |
 
-最新五站实验的 `arrival` 仅证明到达观察位并取得新鲜观测，`semanticConfirmed=false`。`object` 还需要注册检测类别、几何关联、来源与新鲜度支持的唯一目标复核；接口和单元测试不构成此次任务对象识别的实测结果。候选路径长度不是实走里程，到位误差不是 SLAM 绝对精度。
+10-13 五站实验的 `arrival` 仅证明到达观察位并取得新鲜观测，`semanticConfirmed=false`。`object` 还需要注册检测类别、几何关联、来源与新鲜度支持的唯一目标复核；接口和单元测试不构成此次任务对象识别的实测结果。候选路径长度不是实走里程，到位误差不是 SLAM 绝对精度。
 
 ## 3. 数据、版本和回溯入口
 
 | 要找的内容 | 入口 | 使用方法 |
 | --- | --- | --- |
+| 最新长步骤链和目标仿真 | [报告](../experiments/2026-10-15-single-robot-robustness.md) · [协议](../experiments/2026-10-15-single-robot-robustness-protocol.md) · [证据索引](../experiments/evidence/2026-10-15-single-robot-robustness/evidence-index.json) · [总 manifest](../experiments/evidence/2026-10-15-single-robot-robustness/master-manifest.json) | 主软件样本用源码稳定的 final-campaign-04；其他轮保留排除理由。Gazebo 按各行二进制 SHA、任务/episode 与独立验收引用 |
 | 系统评价逐项结果 | [报告](../experiments/2026-10-13-system-evaluation.md) · [协议及修正](../experiments/2026-10-13-system-evaluation-protocol.md) · [JSON](../experiments/2026-10-13-system-evaluation.json) · [CSV](../experiments/2026-10-13-system-evaluation.csv) | 同时保留 R01/N01 条件错误、L01 失败与 P01 新复验，按任务 ID 引用 |
 | 点云历史回放 | [报告](../experiments/2026-10-13-semantic-point-cloud.md) · [JSON](../experiments/2026-10-13-semantic-point-cloud.json) · [CSV](../experiments/2026-10-13-semantic-point-cloud.csv) | 区分主回放与最终前端补充审查；软件案例不计入机器人任务分母 |
 | 点云到执行 | [报告](../experiments/2026-10-13-semantic-execution.md) · [JSON](../experiments/2026-10-13-semantic-execution.json) · [尝试 CSV](../experiments/2026-10-13-semantic-execution.csv) · [逐站 CSV](../experiments/2026-10-13-semantic-execution-visits.csv) | 分别引用 P01/E02/E03 与 N01/N02；局部规划性能复播另计，不混成系统加速比 |
@@ -57,7 +63,7 @@
 
 原始任务包通常包括原句与预算、草案和批准计划、不可变 revision、所有尝试、事件账本、命令回执、动作后观测/图像、模型请求、上下文投影、故障日志、`report.json` 和 SHA-256 `manifest.json`；实际内容取决于任务到达的阶段。创建失败应保留规划 attempt 与 HTTP 原响应，不能因为没有 task ID 就从试验记录中消失。
 
-**源码仓库不是完整数据集。** 三份 10-13 报告的原始图像、数据库、地图与证据归档主要在本地；报告给出了本地路径、摘要及范围。只有 Git 报告时可以审阅结论，不能宣称已独立重验像素或数据库。正式发表前另行托管可共享数据、冻结检验器和源码快照，保留报告中的 SHA；删除凭据和敏感信息应形成明确的数据发布版本。
+**源码仓库不是完整数据集。** 10-13 与 10-15 的大体积原始图像、数据库、地图和二进制主要在本地；报告给出了路径、摘要及范围。10-15 Git 证据包含冻结日志、任务/步骤 CSV、检验器及清单，并不包含所有相机原始像素。只有 Git 报告时可以审阅结论，不能宣称已独立重验像素或数据库。正式发表前另行托管可共享数据、冻结检验器和源码快照，保留报告中的 SHA；删除凭据和敏感信息应形成明确的数据发布版本。
 
 一次复核按以下顺序进行：
 
@@ -65,7 +71,7 @@
 2. 获取报告指向的原始包，验证归档及逐文件摘要；缺文件就记录缺证据，不凭表格重建“原始数据”。
 3. 用冻结检验器写入新的输出文件，保留原报告和 manifest；区分文件一致性、执行证据一致性与判据正确性。五站验收没有 HMAC 私钥，明确记录 `signatureIndependentlyVerified=false`。
 4. 核对分母、失败/超时/取消/拒绝/人工介入、复位条件及预算。修复后的新任务、新实现和新 episode 必须另记，不能覆盖原失败。
-5. 最后生成论文表格。空值与未测量保持原意；工程单测数、模型调用数、子步骤数、独立任务数和独立场景数分别报告。
+5. 最后生成论文表格。空值与未测量保持原意；工程单测数、模型调用数、Host 能力调用、复合物理/验证步骤、观测、独立任务和独立场景分别报告。CSV 的 `durationScope` 决定是测试函数、Host.Run、批准到完成还是 Harness 全程；不要用不同起止点相减得到加速比。
 
 ## 4. 评测与后训练资料的阅读顺序
 
@@ -90,6 +96,8 @@
 | 故障与版本变化 | 注入位置、次数、是否产生副作用、是否丢回执、地图/语义/坐标更新、网络与进程重启的具体时点 |
 | 数据与分析 | 原始文件、哈希、模型请求、动作/观测/恢复因果链；配对/随机化、排除理由与不确定性报告 |
 | 保存与发表 | 不覆盖的输出路径、冻结验收器、数据托管位置、凭据排除与共享许可 |
+
+长程上下文的当前机制可直接以[2.2.0 教材](../../book/README.md)、目标 Host 与鲁棒性证据交叉阅读：模型进度只保留摘要/计数和最近 8 条确认调用，完整子账本仍决定额度与恢复；这不是任意跨域记忆自动一致，也没有在此次实验中比较压缩算法的因果效果。
 
 建议优先补齐三类证据：固定同一实现后的多场景重复五站实验；明确区分 `arrival` 与 `object` 的对象语义复核对照；上下文压缩、真实归档回读与跨版本冲突的独立故障切片。实体机器人与异构机群另立实验，不与当前单机器人仿真拼接为同一个成功率。小时级/天级持续任务也需要新的预算与暴露量指标，不能从五站任务外推。
 

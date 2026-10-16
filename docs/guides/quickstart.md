@@ -1,5 +1,7 @@
 # 仿真开发快速上手
 
+当前任务入口：现有控制台自然语言表单和 `/v1/tasks` 在批准前冻结能力计划；需要云端只下粗目标、边缘按进度编排时，使用[目标委托 API](../guides/delegated-edge-goals.md)。两种模式复用 Runtime、安全和证据闭环，Local/Worker 共用 Edge Host；新 API 不会自动替换页面入口。
+
 > 本页是轻量仿真入口。新开发者先看[开发者快速上手](../development/getting-started.md)与[开发原则](../development/principles.md)。云端 Fleet、Local Brain、RoboCasa、用户端和机器人实机的统一步骤见[生产快速上手](../production/quickstart.md)。
 
 当前默认引擎已切换到 Gazebo，使用 [Gazebo 默认引擎指南](gazebo-default.md)。以下保留的完整抓取任务是 **MuJoCo 历史回归**，需先执行 `export SIM_STACK_ENGINE=mujoco`；不属于 Gazebo 抓取验收。

@@ -31,6 +31,38 @@ def test_shared_evidence_transport_authenticates_creation_and_cancellation(monke
         assert request.get_header("Origin") == "http://127.0.0.1:8897"
 
 
+def test_planning_timeout_only_changes_task_creation_http_wait(monkeypatch, tmp_path):
+    sent = []
+    monkeypatch.setattr(suite, "resolve_token", lambda **_: "unit-session-token")
+
+    def opened(request, *, timeout):
+        sent.append((request.get_method(), request.full_url, timeout))
+        return io.BytesIO(b'{}')
+
+    monkeypatch.setattr(suite, "urlopen", opened)
+    api = suite.EvidenceAPI("http://127.0.0.1:8897", tmp_path, planning_timeout=600)
+    api("/v1/tasks", {"request": "read status"})
+    api("/v1/tasks")
+    api("/v1/tasks/test/approve", {})
+    api("/v1/tasks/test")
+    assert [timeout for _, _, timeout in sent] == [600, 45, 120, 45]
+
+
+@pytest.mark.parametrize("value", [0, -1, 901, float("nan"), float("inf")])
+def test_planning_timeout_rejects_unbounded_or_invalid_values(tmp_path, value):
+    with pytest.raises(AssertionError, match="planning HTTP timeout"):
+        suite.EvidenceAPI("http://127.0.0.1:8897", tmp_path, planning_timeout=value)
+
+
+def test_execution_configuration_records_separate_planning_wait(tmp_path, monkeypatch):
+    install_api(monkeypatch, scenario())
+    result = run(tmp_path, planning_timeout=600, timeout=17)
+    assert result["passed"]
+    config = json.loads((tmp_path / "run/run-config.json").read_text())
+    assert config["timing"]["planningTimeoutSeconds"] == 600
+    assert config["timing"]["timeoutSeconds"] == 17
+
+
 def event(kind, step="", **payload):
     return {"type": kind, "stepId": step, "payload": payload}
 

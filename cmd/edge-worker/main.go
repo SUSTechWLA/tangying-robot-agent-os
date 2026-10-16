@@ -53,6 +53,9 @@ func main() {
 }
 
 func checkDeploymentConfig() error {
+	if _, err := edgeGoalPlanner(); err != nil {
+		return err
+	}
 	if _, err := readRuntimeOptions(); err != nil {
 		return err
 	}
@@ -285,7 +288,12 @@ func runMode(admitRuntimeContract bool) error {
 		return fmt.Errorf("durable capability execution: %w", err)
 	}
 	defer goalStore.Close()
+	goalPlanner, err := edgeGoalPlanner()
+	if err != nil {
+		return err
+	}
 	workerInstance := worker.New(worker.Config{
+		GoalPlanner:             goalPlanner,
 		ExecutionStore:          goalStore,
 		RobotID:                 robotID,
 		Adapter:                 adapter,

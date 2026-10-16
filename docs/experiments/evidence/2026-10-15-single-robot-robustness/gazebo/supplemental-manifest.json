@@ -1,0 +1,70 @@
+{
+  "algorithm": "sha256",
+  "schemaVersion": "research.export-supplement.v1",
+  "recordedAt": "2026-10-15T15:39:54.760478+00:00",
+  "primaryManifestSha256": "ff74f015f6939259e05ed4818ad4a614addf95b73820e6c78a9c062ac69946b7",
+  "originalManifestUnchanged": true,
+  "additionalFiles": {
+    "README.md": {
+      "sha256": "77fd953d2f76c578e9a4e104d780ae89d6909c94d845d3409582867bb385f239",
+      "bytes": 5830
+    },
+    "delegated-capabilities.csv": {
+      "sha256": "c255aab63a51189d6da18ba7f678fb65ffa82d84fdca5537bc166b56ee3b1adf",
+      "bytes": 2051
+    },
+    "frozen-revalidation-execution.json": {
+      "sha256": "9febcc56aae932ceb73700f646b59776c053d21079ec5c3146e7474cc1019293",
+      "bytes": 952
+    },
+    "frozen-verification-dependencies/console_session.py": {
+      "sha256": "d5c342911fb3d760deb3499bd14f77539d7a2953f7c1335e9ae25c3a6c856577",
+      "bytes": 8710
+    },
+    "frozen-verification-dependencies/evaluate_long_horizon.py": {
+      "sha256": "b05d325616e69017c29a78ffd8a2f921a505b951c0832c260a0a40d7f60daee9",
+      "bytes": 52323
+    },
+    "frozen-verification-dependencies/frozen-dependencies.json": {
+      "sha256": "67ea9ce06f14eada1111e71dda248ac8da39017475a8eb0967fa564c58e2b747",
+      "bytes": 1045
+    },
+    "frozen-verification-dependencies/revalidate_long_horizon.py": {
+      "sha256": "d532a96b8c3b8994ecd6b55f4d3a45e207050117f1c613dcc7e413fc5eb163d9",
+      "bytes": 32792
+    },
+    "frozen-verification-dependencies/semantic_execution_evidence.py": {
+      "sha256": "69824a5af6499486a005dff29b10ad4ca8748f43646bf4a5f815fc136bcfc365",
+      "bytes": 18007
+    },
+    "handoff.json": {
+      "sha256": "6d9cfa79e82757888db31c3593a52a66b00a96fb52b563fe6e8c5902d2f0ea82",
+      "bytes": 7043
+    },
+    "host-inspection02-frozen-dependencies-independent.json": {
+      "sha256": "5bb9b7721efd0debfe2d405ce52f474f00497234cf83f0aff7cd58126a92fe35",
+      "bytes": 8837
+    },
+    "redaction-check.json": {
+      "sha256": "eb24263f7851193c923367beb7c8070158cdd504ded05f169d14fbc765a0a395",
+      "bytes": 378
+    },
+    "v1-execution.json": {
+      "sha256": "85a5a90a7bc174846bbc02c7c0cd43317d49e7a74f70361b784330db6ad241c0",
+      "bytes": 449
+    },
+    "v2-execution.json": {
+      "sha256": "2eda8db47dc81cbb68e6fcfae0b8976ef0af0915c9e1b60cf67523d7e283703f",
+      "bytes": 559
+    },
+    "verification-provenance.json": {
+      "sha256": "174c2fe8aabfb46ea76b716af56084764088c557f7f4b40f646fc81f9c38cee0",
+      "bytes": 1443
+    },
+    "verify_frozen_host.py": {
+      "sha256": "2cb2a48170b1f1b09f1b6941b14d0b10e7702997bb5edeb08f15f7d0746b066c",
+      "bytes": 961
+    }
+  },
+  "manifestDoesNotHashItself": true
+}

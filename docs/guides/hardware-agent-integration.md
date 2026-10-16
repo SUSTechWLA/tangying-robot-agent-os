@@ -1,5 +1,7 @@
 # 实机接入 AgentOS：原理、异构机构与完整交付流程
 
+2026-10-16 当前接入：先选择[分层目标](../architecture/hierarchical-edge-objectives.md)或旧冻结计划模式。Local/Worker 共用 Edge Host 在单机器人上规划、执行、诊断和有界恢复；Fleet 只批准目标/授权并管理父 claim 与共享资源。ROS 2 的 UGV/UAV/legged Profile 与 2D/地形/3D 通道见[异构移动](../development/heterogeneous-mobility.md)、[空间导航](../development/spatial-navigation.md)，仍须对目标设备分别验收定位、控制器和停止。
+
 2026-09-27 统一目标入口已升级：标定、自动 SLAM 与导航可通过同一 Task API 下发，自动建图使用 mapping.build；完整契约、审批/恢复、云边委托、逐阶段模型配置和旧入口迁移见[统一目标指南](unified-capability-goals.md)，实测范围见[本轮报告](../experiments/2026-09-27-capability-goal-closure.md)。原手动服务步骤继续用于明确调试操作。
 
 初始核对日期：2026-09-27；2026-10-05 增补 [Local Policy 与真机就绪修补](../development/2026-10-05-physical-robot-integration.md)。历史接口核对基线：`7b34d52abbbd73c333ddd5566f85a6f3b17d59c6`。本页面向设备集成、算法与部署人员，是当前接入操作指南；核对依据和本轮验证见[修订记录](../development/2026-09-27-hardware-integration-guide-review.md)。
@@ -15,7 +17,8 @@
         ↓
 同一 Agent 决策内核 + 角色 Harness + 可配置模型
         ↓ 任务计划、能力约束、实体绑定、版本与授权
-Local Agent 或 Fleet → Edge Worker（二选一作为任务权威）
+Local Agent 或 Fleet → Edge Worker（二选一接入，任务权威分别为本地/Fleet）
+        ↓ 同一 Edge Host：授权内子规划、Ops、Recovery、执行器
         ↓ robot.v1 gRPC / mTLS
 Robot Runtime：目录、参数、安全、租约、去重、停止与持久回执
         ↓ 本地可信 Backend / 型号适配器
@@ -65,8 +68,8 @@ Profile 要点：
 
 | 形态 | 机器人端 | 系统端 | 适合的开始方式 |
 | --- | --- | --- | --- |
-| 单机自治 | Local Agent + 一个 Runtime + 本地驱动 | 可选云端 Assist | 一台设备的观察、已验收内部规划技能或配置 HTTP Policy 的抓放 |
-| 云端机群 | Edge Worker + 一个 Runtime + 本地驱动/策略 | Fleet + Server Harness + MySQL/Redis | 云端任务管理，或使用现有 Worker HTTP 动作策略链 |
+| 单机自治 | Local Agent + 共享 Host + Runtime + 本地驱动 | 可选远端 GOAL / 只读 Assist | 单机器人目标编排、观察、已验收导航与内部规划技能、HTTP Policy 抓放 |
+| 云端机群 | Worker + 同一 Host + Runtime + 本地驱动/策略 | Fleet + Server Harness + MySQL/Redis | Fleet 批准粗目标/包络、边缘自编排；兼容已有冻结步骤及 HTTP Policy 动作链 |
 
 两者共享 Agent 内核和 Runtime 协议，任务存储及控制权不同。**同一机器人只运行一个任务权威**。共享文件锁只保护同机同一 Runtime 地址；跨主机或地址别名还需运维控制唯一写者。Local Agent 调用云端 Assist 仍是单机自治，Assist 不获得该机器人的派单权限。
 

@@ -17,8 +17,8 @@ from scripts import build_book as book
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 31  # three front sections, 19 chapters, nine appendices
-    assert manifest["edition"] == "2.1.0"
-    assert manifest["source_snapshot"] == "9e5aebaec9199aa93d86e4561858ba5ef1fa5b82"
+    assert manifest["edition"] == "2.2.0"
+    assert manifest["source_snapshot"] == "821659dfd6782927d02924916ced5474a8142d74"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -44,6 +44,36 @@ def test_missing_chapter_cannot_silently_disappear(tmp_path):
     )
     with pytest.raises(ValueError, match="include every publication source"):
         book.load_manifest(root)
+
+
+def test_documentation_links_advance_without_repinning_implementation():
+    manifest, documents = book.load_manifest()
+    doc = documents[0]
+    docs_url = book.resolve_link("../../docs/production/architecture.md", doc, documents, manifest, "html")
+    code_url = book.resolve_link("../../internal/edgeagent/host.go", doc, documents, manifest, "html")
+    assert f"/{manifest['documentation_snapshot']}/docs/" in docs_url
+    assert f"/{manifest['source_snapshot']}/internal/" in code_url
+    # The new edition archive exists only in the documentation snapshot. Checking
+    # a union of both trees would silently allow a link to the wrong commit.
+    archive = "../editions/2.1.0/README.md"
+    assert f"/{manifest['documentation_snapshot']}/book/" in book.resolve_link(
+        archive, doc, documents, manifest, "html"
+    )
+    legacy = {k: v for k, v in manifest.items() if k != "documentation_snapshot"}
+    assert f"/{legacy['source_snapshot']}/docs/" in book.resolve_link(
+        "../../docs/production/architecture.md", doc, documents, legacy, "html"
+    )
+    with pytest.raises(ValueError, match="not in frozen snapshot"):
+        book.resolve_link(archive, doc, documents, legacy, "html")
+
+
+@pytest.mark.parametrize("snapshot", ["main", "d88158ad"])
+def test_documentation_snapshot_cannot_float_with_a_branch(tmp_path, snapshot):
+    manifest, _ = book.load_manifest()
+    manifest["documentation_snapshot"] = snapshot
+    (tmp_path / "edition.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="documentation_snapshot must be a complete Git commit"):
+        book.load_manifest(tmp_path)
 
 
 def test_broken_fences_and_links_fail_before_release():
@@ -256,11 +286,12 @@ def test_1_2_0_content_and_original_generator_are_exactly_recoverable():
         assert (archive / name).read_bytes() == original
 
 
-def test_2_0_0_sources_and_generator_are_exactly_recoverable():
-    archive = book.ROOT / "book/editions/2.0.0"
+@pytest.mark.parametrize("edition", ["2.0.0", "2.1.0"])
+def test_textbook_sources_and_generator_are_exactly_recoverable(edition):
+    archive = book.ROOT / "book/editions" / edition
     identity = json.loads((archive / "source-manifest.json").read_text())
     manifest = json.loads((archive / "edition.json").read_text())
-    assert identity["edition"] == manifest["edition"] == "2.0.0"
+    assert identity["edition"] == manifest["edition"] == edition
     assert identity["code_snapshot"] == manifest["source_snapshot"]
     assert len(identity["sources"]) == 31
     assert set(identity["sources"]) == set(manifest["sources"])

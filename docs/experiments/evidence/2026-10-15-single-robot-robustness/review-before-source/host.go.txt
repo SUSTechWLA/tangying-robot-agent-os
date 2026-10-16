@@ -1,0 +1,567 @@
+// Package edgeagent hosts the same goal planner and verified executor for local
+// input and cloud delegation. Transport does not decide a robot's child plan.
+package edgeagent
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/objective"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
+)
+
+type Host struct {
+	*capabilityagent.Executor
+	Planner   *capabilityagent.Planner
+	Recovery  RecoveryPolicy
+	mu        sync.Mutex // one execution authority per configured robot host
+	plannerMu sync.RWMutex
+}
+
+var ErrReportPending = errors.New("verified edge goal result pending delivery")
+
+func (h *Host) SetPlanner(p *capabilityagent.Planner) {
+	h.plannerMu.Lock()
+	defer h.plannerMu.Unlock()
+	h.Planner = p
+}
+func (h *Host) planner() *capabilityagent.Planner {
+	h.plannerMu.RLock()
+	defer h.plannerMu.RUnlock()
+	return h.Planner
+}
+func (h *Host) PlanGoal(ctx context.Context, goal string) (orchestration.Bundle, bool, error) {
+	p := h.planner()
+	if p == nil {
+		return orchestration.Bundle{}, false, fmt.Errorf("edge goal planner not configured")
+	}
+	return p.PlanGoal(ctx, goal)
+}
+func Contract(task *tasks.Task) (objective.Contract, bool, error) {
+	if task == nil || task.Plan == nil || task.Plan.Capabilities == nil {
+		return objective.Contract{}, false, nil
+	}
+	for _, call := range task.Plan.Capabilities.Calls {
+		if call.Tool == objective.Tool {
+			if len(task.Plan.Capabilities.Calls) != 1 {
+				return objective.Contract{}, true, fmt.Errorf("delegation must be a single parent node")
+			}
+			c, err := objective.Decode(call)
+			return c, true, err
+		}
+	}
+	return objective.Contract{}, false, nil
+}
+func (h *Host) Run(ctx context.Context, task *tasks.Task, before func(context.Context) error, legacy capabilityagent.Legacy) ([]string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	c, delegated, err := Contract(task)
+	if err != nil {
+		return nil, err
+	}
+	if !delegated {
+		return h.Executor.Run(ctx, task, before, legacy)
+	}
+	return h.runGoal(ctx, task, c, before, legacy)
+}
+func (h *Host) CheckRecovery(ctx context.Context, task *tasks.Task) error {
+	c, delegated, err := Contract(task)
+	if err != nil {
+		return err
+	}
+	if !delegated {
+		return h.Executor.CheckRecovery(ctx, task)
+	}
+	store, ok := h.Store.(eventstore.Store)
+	if !ok {
+		return fmt.Errorf("atomic edge goal journal required")
+	}
+	s, found, err := store.LoadState(ctx, goalKey(task))
+	if err != nil || !found {
+		return err
+	}
+	var cp checkpoint
+	if err = json.Unmarshal(s.Data, &cp); err != nil {
+		return err
+	}
+	if cp.Version != objective.Version || cp.ObjectiveDigest != capability.Fingerprint(c) {
+		return fmt.Errorf("goal checkpoint mismatch")
+	}
+	if cp.Pending {
+		_, confirmed, err := confirmedPending(ctx, store, task, cp)
+		if err != nil {
+			return fmt.Errorf("%w: interrupted child evidence unavailable: %v", capabilityagent.ErrOutcomeUnknown, err)
+		}
+		if !confirmed {
+			return fmt.Errorf("%w: interrupted child requires reconciliation", capabilityagent.ErrOutcomeUnknown)
+		}
+	}
+	return nil
+}
+func goalKey(task *tasks.Task) string {
+	return fmt.Sprintf("edge-goal/%s/%d", task.ID, task.CurrentRevision)
+}
+
+func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contract, before func(context.Context) error, legacy capabilityagent.Legacy) ([]string, error) {
+	basePlanner := h.planner()
+	if !task.Approved || task.Plan.Capabilities.RobotID != c.RobotID || task.Plan.Capabilities.CatalogRevision != c.CatalogRevision || basePlanner == nil {
+		return nil, fmt.Errorf("approved bound objective and edge planner required")
+	}
+	store, ok := h.Store.(eventstore.Store)
+	if !ok || h.Tasks == nil {
+		return nil, fmt.Errorf("durable edge goal journal and event sink required")
+	}
+	state, found, err := store.LoadState(ctx, goalKey(task))
+	if err != nil {
+		return nil, err
+	}
+	cp := checkpoint{Version: objective.Version, ObjectiveDigest: capability.Fingerprint(c), StartedAt: time.Now().UTC()}
+	if found {
+		if err = json.Unmarshal(state.Data, &cp); err != nil {
+			return nil, err
+		}
+		if cp.Version != objective.Version || cp.ObjectiveDigest != capability.Fingerprint(c) {
+			return nil, fmt.Errorf("objective checkpoint binding changed")
+		}
+	}
+	var recovered *completedCall
+	if cp.Pending {
+		done, confirmed, err := confirmedPending(ctx, store, task, cp)
+		if err != nil {
+			return nil, fmt.Errorf("%w: interrupted child evidence unavailable: %v", capabilityagent.ErrOutcomeUnknown, err)
+		}
+		if !confirmed {
+			return nil, fmt.Errorf("%w: child dispatch interrupted", capabilityagent.ErrOutcomeUnknown)
+		}
+		recovered = &done
+	}
+	deadline := cp.StartedAt.Add(time.Duration(c.Budget.TimeoutSeconds) * time.Second)
+	if c.ExpiresAt.Before(deadline) {
+		deadline = c.ExpiresAt
+	}
+	// A verified result can be retransmitted after its work deadline. It still
+	// needs current parent authority; expiry never permits another action.
+	if cp.Complete {
+		deadline = time.Time{}
+	}
+	var cancel context.CancelFunc
+	if deadline.IsZero() {
+		ctx, cancel = context.WithCancel(ctx)
+	} else {
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+	}
+	defer cancel()
+	save := func(kind string) error {
+		if err := commit(ctx, store, goalKey(task), state.Version, cp, kind, task.ID, map[string]any{"objectiveDigest": cp.ObjectiveDigest, "generation": cp.Generation, "steps": cp.Steps, "reads": cp.Reads, "completionRetries": cp.CompletionRetries, "completionBlocked": cp.CompletionBlocked}); err != nil {
+			return err
+		}
+		state.Version++
+		return nil
+	}
+	if !found {
+		if err = save("EDGE_GOAL_ACCEPTED"); err != nil {
+			return nil, err
+		}
+	}
+	checkAuthority := func(ctx context.Context) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if before != nil {
+			if err := before(ctx); err != nil {
+				return err
+			}
+		}
+		current, err := h.Tasks.Get(ctx, task.ID)
+		if err != nil {
+			return err
+		}
+		if !current.Approved || current.CurrentRevision != task.CurrentRevision || capability.Fingerprint(current.Plan) != capability.Fingerprint(task.Plan) || current.State == taskgraph.StateCancelled || current.State == taskgraph.StateFailed {
+			return fmt.Errorf("objective authority changed or cancelled")
+		}
+		robot, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
+		if err != nil {
+			return err
+		}
+		return c.ValidateCatalog(robot, entries)
+	}
+	if err = checkAuthority(ctx); err != nil {
+		return nil, err
+	}
+	if recovered != nil {
+		cp.Completed = append(cp.Completed, *recovered)
+		cp.Index++
+		cp.Pending = false
+		if err = save("EDGE_STEP_RECOVERED"); err != nil {
+			return nil, err
+		}
+	}
+	if cp.Complete {
+		return h.finishGoal(ctx, task, c, cp.Proof)
+	}
+	_, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
+	if err != nil {
+		return nil, err
+	}
+	events := childEvents{store: store, parent: h.Tasks, parentID: task.ID}
+	provider := scopedProvider{Provider: h.Provider, contract: c, catalog: entries, before: checkAuthority, read: func() error {
+		if cp.Reads >= c.Budget.MaxReads {
+			return fmt.Errorf("%w: objective read budget exhausted", capabilityagent.ErrNeedsInput)
+		}
+		cp.Reads++
+		return save("EDGE_READ_RESERVED")
+	}}
+	for {
+		if err = checkAuthority(ctx); err != nil {
+			return nil, err
+		}
+		if cp.ChildID == "" {
+			if cp.Generation >= c.Budget.MaxPlans {
+				return nil, fmt.Errorf("%w: objective plan budget exhausted", capabilityagent.ErrNeedsInput)
+			}
+			cp.Generation++
+			if err = save("EDGE_PLANNING_RESERVED"); err != nil {
+				return nil, err
+			}
+			planner := *basePlanner
+			planner.Provider = provider
+			planner.Grants = map[string]map[string]any{}
+			for _, g := range c.Grants {
+				planner.Grants[g.Tool] = g.Arguments
+			}
+			goal := c.Goal
+			recent := cp.Completed
+			if len(recent) > 8 {
+				recent = recent[len(recent)-8:]
+			}
+			progress, _ := json.Marshal(map[string]any{"completion": c.Completion, "completedCount": len(cp.Completed), "completedDigest": capability.Fingerprint(cp.Completed), "recentCompleted": recent, "diagnosis": cp.Diagnosis})
+			if len(progress) > 8000 {
+				return nil, fmt.Errorf("%w: objective evidence projection requires smaller checks", capabilityagent.ErrNeedsInput)
+			}
+			planner.Progress = string(progress)
+			bundle, handled, planErr := planner.PlanGoal(ctx, goal)
+			if planErr != nil || !handled || bundle.Capabilities == nil {
+				return nil, fmt.Errorf("edge planning failed: %v", planErr)
+			}
+			plan := bundle.Capabilities
+			if len(plan.Calls) == 0 || cp.Steps+len(plan.Calls) > c.Budget.MaxSteps {
+				return nil, fmt.Errorf("objective step budget exceeded")
+			}
+			seen := map[string]int{}
+			for _, call := range plan.Calls {
+				m, ok := entries[call.Tool]
+				if !ok {
+					return nil, fmt.Errorf("unavailable child tool")
+				}
+				if err = c.Authorize(call, m); err != nil {
+					return nil, err
+				}
+				binding := capability.Fingerprint(call)
+				effect := objective.EffectKey(call)
+				if m.MutatesWorld {
+					used := 0
+					for _, done := range cp.Completed {
+						if done.Mutates && (done.EffectBinding == effect || done.Binding == binding) {
+							used++
+						}
+					}
+					seen[effect]++
+					if used+seen[effect] > c.ExecutionLimit(call.Tool) {
+						return nil, fmt.Errorf("replan repeats confirmed write beyond approved quota")
+					}
+				}
+			}
+			cp.ChildID = fmt.Sprintf("%s-edge-r%d-p%d", task.ID, task.CurrentRevision, cp.Generation)
+			cp.Index = 0
+			cp.PlanDigest = objective.PlanDigest(plan)
+			child := *task
+			child.ID = cp.ChildID
+			child.Request = goal
+			child.Plan = &bundle
+			child.Events = nil
+			if err = commit(ctx, store, "edge-child/"+cp.ChildID, 0, child, "EDGE_PLAN_CREATED", task.ID, map[string]any{"plan": plan, "objectiveDigest": cp.ObjectiveDigest}); err != nil {
+				return nil, err
+			}
+			if err = save("EDGE_PLAN_BOUND"); err != nil {
+				return nil, err
+			}
+			if _, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_PLAN_CREATED", Payload: map[string]any{"role": "task", "childId": cp.ChildID, "parentRevision": task.CurrentRevision, "objectiveDigest": cp.ObjectiveDigest, "planDigest": cp.PlanDigest, "generation": cp.Generation, "calls": plan.Calls}}); err != nil {
+				return nil, err
+			}
+		}
+		child, err := events.Get(ctx, cp.ChildID)
+		if err != nil {
+			return nil, err
+		}
+		if child.Plan == nil || child.Plan.Capabilities == nil || objective.PlanDigest(child.Plan.Capabilities) != cp.PlanDigest {
+			return nil, fmt.Errorf("child plan digest changed")
+		}
+		for cp.Index < len(child.Plan.Capabilities.Calls) {
+			call := child.Plan.Capabilities.Calls[cp.Index]
+			minimumReads := len(c.Completion)
+			if m := entries[call.Tool]; m.Contract.Verification != nil {
+				minimumReads++
+			}
+			if cp.Reads+minimumReads > c.Budget.MaxReads {
+				return nil, fmt.Errorf("%w: read budget cannot cover completion verification", capabilityagent.ErrNeedsInput)
+			}
+			if cp.Steps >= c.Budget.MaxSteps {
+				return nil, fmt.Errorf("objective step budget exhausted")
+			}
+			cp.Steps++
+			cp.Pending = true
+			if err = save("EDGE_STEP_RESERVED"); err != nil {
+				return nil, err
+			}
+			executor := *h.Executor
+			executor.Provider = provider
+			executor.Tasks = events
+			executor.StartIndex = cp.Index
+			executor.EndIndex = cp.Index + 1
+			executor.RequireOperationLease = true
+			// A delegated child's diagnosis belongs to its own durable journal.
+			executor.RecoverRead = nil
+			var childLegacy capabilityagent.Legacy
+			if legacy != nil {
+				childLegacy = func(ctx context.Context, call capability.Call, prefix string) error {
+					return legacy(ctx, call, child.ID+"-"+prefix)
+				}
+			}
+			_, runErr := executor.Run(ctx, child, checkAuthority, childLegacy)
+			if runErr != nil {
+				latest, _ := events.Get(context.WithoutCancel(ctx), cp.ChildID)
+				finding := (Ops{}).Diagnose(latest, fmt.Sprintf("rev-%d-cap-%02d", child.CurrentRevision, cp.Index+1), runErr)
+				findingID := fmt.Sprintf("%s/ops/%d/%d", task.ID, cp.Generation, cp.Index)
+				persistCtx, done := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+				_, recordErr := h.Tasks.AppendEvent(persistCtx, task.ID, tasks.TaskEvent{Type: "EDGE_OPS_FINDING", Payload: map[string]any{"role": "ops", "findingId": findingID, "finding": finding, "objectiveDigest": cp.ObjectiveDigest}})
+				done()
+				if recordErr != nil {
+					return nil, fmt.Errorf("%w: diagnosis persistence failed: %v", capabilityagent.ErrOutcomeUnknown, recordErr)
+				}
+				recovery := h.Recovery
+				if recovery == nil {
+					recovery = BoundedRecovery{}
+				}
+				decision, policyErr := recovery.Propose(ctx, finding)
+				if policyErr != nil {
+					if finding.Unknown {
+						return nil, fmt.Errorf("%w: recovery proposal failed: %v", capabilityagent.ErrOutcomeUnknown, policyErr)
+					}
+					return nil, policyErr
+				}
+				if !finding.CanReplan || decision != "REPLAN_REMAINING" {
+					if finding.Unknown {
+						return nil, fmt.Errorf("%w: %w", capabilityagent.ErrOutcomeUnknown, runErr)
+					}
+					return nil, runErr
+				}
+				cp.Pending = false
+				cp.Diagnosis = map[string]any{"tool": call.Tool, "arguments": call.Arguments, "reason": runErr.Error(), "effectsKnownAbsent": true}
+				failedChild := cp.ChildID
+				cp.ChildID = ""
+				if err = save("EDGE_REPLAN_REQUIRED"); err != nil {
+					return nil, err
+				}
+				_, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_RECOVERY_DECISION", Payload: map[string]any{"role": "recovery", "diagnosedBy": "ops", "causationId": findingID, "childId": failedChild, "tool": call.Tool, "decision": decision, "reason": runErr.Error(), "objectiveDigest": cp.ObjectiveDigest}})
+				if err != nil {
+					return nil, err
+				}
+				break
+			}
+			cp.Completed = append(cp.Completed, completedCall{ChildID: cp.ChildID, StepID: fmt.Sprintf("rev-%d-cap-%02d", child.CurrentRevision, cp.Index+1), Binding: capability.Fingerprint(call), EffectBinding: objective.EffectKey(call), Tool: call.Tool, Mutates: entries[call.Tool].MutatesWorld})
+			cp.Pending = false
+			cp.Index++
+			if err = save("EDGE_STEP_CONFIRMED"); err != nil {
+				return nil, err
+			}
+		}
+		if cp.ChildID == "" {
+			continue
+		}
+		proofs, satisfied, err := h.completion(ctx, task, c, provider, &cp, save)
+		if err != nil {
+			return nil, err
+		}
+		if satisfied {
+			cp.Complete = true
+			cp.Proof = map[string]any{"objectiveDigest": cp.ObjectiveDigest, "generation": cp.Generation, "completed": cp.Completed, "checks": proofs, "startedAt": cp.StartedAt, "verifiedAt": time.Now().UTC(), "steps": cp.Steps, "reads": cp.Reads}
+			if err = save("EDGE_GOAL_VERIFIED"); err != nil {
+				return nil, err
+			}
+			return h.finishGoal(ctx, task, c, cp.Proof)
+		}
+		cp.ChildID = ""
+		cp.Diagnosis = map[string]any{"checks": proofs, "reason": "completion conditions not yet satisfied"}
+		if err = save("EDGE_POSTCONDITION_REPLAN"); err != nil {
+			return nil, err
+		}
+		if _, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_RECOVERY_DECISION", Payload: map[string]any{"role": "recovery", "diagnosedBy": "ops", "decision": "REPLAN_REMAINING", "checks": proofs, "objectiveDigest": cp.ObjectiveDigest}}); err != nil {
+			return nil, err
+		}
+	}
+}
+
+func safeToReplan(task *tasks.Task, step string, cause error) bool {
+	if task == nil || errors.Is(cause, capabilityagent.ErrOutcomeUnknown) || errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+		return false
+	}
+	for i := len(task.Events) - 1; i >= 0; i-- {
+		e := task.Events[i]
+		if e.StepID == step && e.Type == "CAPABILITY_FAILED" {
+			return e.Payload["outcomeUnknown"] == false && (e.Payload["mutatesWorld"] == false || e.Payload["rejected"] == true)
+		}
+	}
+	return false
+}
+func failureUnknown(task *tasks.Task, step string) bool {
+	if task == nil {
+		return true
+	}
+	for i := len(task.Events) - 1; i >= 0; i-- {
+		e := task.Events[i]
+		if e.StepID == step && e.Type == "CAPABILITY_STOP_CONFIRMED" {
+			return false
+		}
+	}
+	for i := len(task.Events) - 1; i >= 0; i-- {
+		e := task.Events[i]
+		if e.StepID == step && e.Type == "CAPABILITY_FAILED" {
+			return e.Payload["outcomeUnknown"] == true
+		}
+	}
+	return true
+}
+func (h *Host) reportGoal(ctx context.Context, task *tasks.Task, c objective.Contract, proof map[string]any) ([]string, error) {
+	// Re-deliver child declarations and verification from the local journal. A
+	// lost advisory event must not force replay of an already completed action.
+	store, ok := h.Store.(eventstore.Store)
+	if !ok {
+		return nil, fmt.Errorf("goal journal unavailable")
+	}
+	wire, _ := json.Marshal(proof["completed"])
+	var completed []completedCall
+	if err := json.Unmarshal(wire, &completed); err != nil {
+		return nil, err
+	}
+	declared := map[string]bool{}
+	for _, done := range completed {
+		child, err := (childEvents{store: store}).Get(ctx, done.ChildID)
+		if err != nil {
+			return nil, err
+		}
+		if !declared[done.ChildID] {
+			declared[done.ChildID] = true
+			_, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_PLAN_CREATED", Payload: map[string]any{"role": "task", "childId": child.ID, "parentRevision": task.CurrentRevision, "objectiveDigest": capability.Fingerprint(c), "planDigest": objective.PlanDigest(child.Plan.Capabilities), "calls": child.Plan.Capabilities.Calls}})
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, e := range child.Events {
+			if e.Type == "CAPABILITY_VERIFIED" && e.StepID == done.StepID {
+				_, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_CHILD_EVENT", Payload: map[string]any{"role": "task", "childId": child.ID, "childStepId": e.StepID, "kind": e.Type, "detail": e.Payload, "eventDigest": capability.Fingerprint(e)}})
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	step := fmt.Sprintf("rev-%d-cap-%02d", task.CurrentRevision, 1)
+	if _, err := h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "CAPABILITY_VERIFIED", StepID: step, Payload: map[string]any{"tool": objective.Tool, "evidence": proof}}); err != nil {
+		return nil, err
+	}
+	return []string{step}, nil
+}
+func (h *Host) finishGoal(ctx context.Context, task *tasks.Task, c objective.Contract, proof map[string]any) ([]string, error) {
+	steps, err := h.reportGoal(ctx, task, c, proof)
+	if err != nil {
+		return steps, fmt.Errorf("%w: %v", ErrReportPending, err)
+	}
+	return steps, nil
+}
+
+type scopedProvider struct {
+	capabilityagent.Provider
+	contract objective.Contract
+	catalog  map[string]capability.Manifest
+	before   func(context.Context) error
+	read     func() error
+}
+
+func (p scopedProvider) CallService(ctx context.Context, q *robotv1.ServiceRequest) (*robotv1.ServiceResponse, error) {
+	if q == nil || q.RobotId != p.contract.RobotID {
+		return nil, fmt.Errorf("objective service identity mismatch")
+	}
+	args := q.Parameters.AsMap()
+	m, exists := p.catalog[q.Name]
+	owned, stop := capability.OwnedStopFromContext(ctx)
+	if stop && (q.Name == owned.CancelService || q.Name == owned.StatusService) && owned.Allows(ctx, q.RobotId, q.Name, q.RequestId, q.OperationId, q.OperationOwnerId, q.OperationLeaseMs, len(args)) {
+		return p.Provider.CallService(ctx, q)
+	}
+	if err := p.before(ctx); err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("service absent from pinned objective catalog")
+	}
+	if err := p.contract.Authorize(capability.Call{Tool: q.Name, Arguments: args}, m); err != nil {
+		derived := false
+		if !m.MutatesWorld && len(args) == 0 {
+			for _, grant := range p.contract.Grants {
+				parent := p.catalog[grant.Tool]
+				if parent.Contract.Verification != nil && parent.Contract.Verification.Service == q.Name {
+					derived = true
+				}
+				if parent.Contract.Operation != nil && parent.Contract.Operation.StatusService == q.Name {
+					derived = true
+				}
+			}
+		}
+		if !derived {
+			return nil, err
+		}
+	}
+	if !m.MutatesWorld {
+		if err := p.read(); err != nil {
+			return nil, err
+		}
+	}
+	return p.Provider.CallService(ctx, q)
+}
+
+// Ensure the host keeps the exact legacy execution port used by both callers.
+var _ tasks.GoalPlanner = (*Host)(nil)
+
+// CanResumeGoal permits re-entry only at an explicitly durable no-inflight
+// checkpoint. The transport must separately renew the original parent claim.
+func CanResumeGoal(ctx context.Context, store eventstore.Store, task *tasks.Task) (bool, error) {
+	c, delegated, err := Contract(task)
+	if err != nil || !delegated {
+		return false, err
+	}
+	s, found, err := store.LoadState(ctx, goalKey(task))
+	if err != nil || !found {
+		return false, err
+	}
+	var cp checkpoint
+	if err = json.Unmarshal(s.Data, &cp); err != nil {
+		return false, err
+	}
+	if cp.Version != objective.Version || cp.ObjectiveDigest != capability.Fingerprint(c) {
+		return false, fmt.Errorf("goal checkpoint mismatch")
+	}
+	if !cp.Pending {
+		return true, nil
+	}
+	_, confirmed, err := confirmedPending(ctx, store, task, cp)
+	return confirmed, err
+}

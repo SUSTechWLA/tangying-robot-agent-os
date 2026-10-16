@@ -1,0 +1,508 @@
+{
+  "schemaVersion": "long-horizon.revalidation.v2",
+  "passed": true,
+  "revalidatedAt": "2026-10-15T15:19:23.951959+00:00",
+  "evidenceDirectory": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/single-robot-robustness-20261015-gazebo-002/inspection02",
+  "validatorSha256": "d532a96b8c3b8994ecd6b55f4d3a45e207050117f1c613dcc7e413fc5eb163d9",
+  "executionValidatorSha256": "b05d325616e69017c29a78ffd8a2f921a505b951c0832c260a0a40d7f60daee9",
+  "physicalHardwareTested": false,
+  "checks": {
+    "manifest": true,
+    "frozenPlanAndLedger": true,
+    "observationBytes": true,
+    "execution": true,
+    "collaboration": true,
+    "pause": true,
+    "fault": true,
+    "protocol": true,
+    "context": true
+  },
+  "errors": [],
+  "requirements": {
+    "expectedArrivals": 5,
+    "requireManipulation": false,
+    "requiredSource": "llm",
+    "requireAutoRecovery": true,
+    "pauseSeconds": 0,
+    "requireFault": true,
+    "requireManagedContext": true,
+    "requireModelContext": true,
+    "requireProtocol": true
+  },
+  "originalManifestSha256": "45554931eb0e730dd1390f94257535f2a428a6923649e95ec7339235011d900f",
+  "verifiedFiles": 519,
+  "verifiedBytes": 433521317,
+  "taskId": "task-2e3c9aa3ef08e9fdefa41071",
+  "state": "SUCCEEDED",
+  "ledger": {
+    "eventCount": 207,
+    "taskSnapshotsVerified": 447,
+    "revisionHistoryAvailable": true,
+    "revisionCount": 1
+  },
+  "observations": {
+    "observationCount": 20,
+    "imageCount": 36
+  },
+  "execution": {
+    "verifiedCapabilities": 7,
+    "verifiedChildSteps": 18,
+    "verifiedArrivals": [
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_00",
+        "positionErrorM": 0.002374240111310192,
+        "yawErrorRad": 0.015796862716210835
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_01",
+        "positionErrorM": 0.0008450116591780069,
+        "yawErrorRad": 0.02813031058345516
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_02",
+        "positionErrorM": 0.004603846310525466,
+        "yawErrorRad": 0.027545876340866027
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_03",
+        "positionErrorM": 0.00280200203319799,
+        "yawErrorRad": 0.01568646897774073
+      },
+      {
+        "stepId": "rev-1-cap-04-verify_arrival_00",
+        "positionErrorM": 0.0028020020332061722,
+        "yawErrorRad": 0.02762603102229999
+      },
+      {
+        "stepId": "rev-1-cap-04-verify_arrival_01",
+        "positionErrorM": 0.0013392638714613176,
+        "yawErrorRad": 0.027741998752251806
+      },
+      {
+        "stepId": "rev-1-cap-04-verify_arrival_02",
+        "positionErrorM": 0.00047670729082968714,
+        "yawErrorRad": 0.028504650843086177
+      }
+    ],
+    "manipulation": {},
+    "childEvidence": [
+      {
+        "stepId": "rev-1-cap-02-observe",
+        "tool": "observe_scene",
+        "captureId": "gazebo-home_furnished/head-rgbd-744700000000-1792077032647",
+        "observationId": "a7720a487fed3f90cdc124dc3620a6ee92f5de867fe1b59825a0fe8deca4270b"
+      },
+      {
+        "stepId": "rev-1-cap-02-pre_position",
+        "tool": "navigation.pre_position",
+        "captureId": "gazebo-home_furnished/head-rgbd-747100000000-1792077036691",
+        "observationId": "2c6020a3328de121ca6138a180bb7d83ccf5d277186d8f00e4de22133cb66a05"
+      },
+      {
+        "stepId": "rev-1-cap-02-navigate_00",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-748300000000-1792077038950",
+        "observationId": "5e8b44cbdccc013c1139be9782d8cf05905bb23e34151daea529e132ef58e0b1"
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_00",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-748600000000-1792077039462",
+        "observationId": "34685da193129973840a947167cf6b42742083290e84ccb18983d0ccd120eb35"
+      },
+      {
+        "stepId": "rev-1-cap-02-navigate_01",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-788800000000-1792077138356",
+        "observationId": "444a4debe29e7b02fae0b01d52ae59d00bd5b3b596fdc9f4e9eadd208369ab3d"
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_01",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-789200000000-1792077139247",
+        "observationId": "52184939385154f1dc5e71e4134e47af8d77a83d83b0eb889350680a32ec86f1"
+      },
+      {
+        "stepId": "rev-1-cap-02-navigate_02",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-810400000000-1792077184678",
+        "observationId": "6b0e77293cd087c30d4f3e59ab02ee0861c5a7229779e26f9ef3b0ecbb496ea7"
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_02",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-810900000000-1792077185602",
+        "observationId": "fb6cd419880fe087e55801c35067bb069ad92686303f37ada52392318f37f7b4"
+      },
+      {
+        "stepId": "rev-1-cap-02-navigate_03",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-856400000000-1792077293060",
+        "observationId": "4bfaafe2519a6f9dc9ae79f343c59cb84fa2d08165274b736f40a1f8b0dda4e3"
+      },
+      {
+        "stepId": "rev-1-cap-02-verify_arrival_03",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-857100000000-1792077295247",
+        "observationId": "790c7b13794751217f607e5767d1f7f470ea861f3fce4230c0ea84ec5158662e"
+      },
+      {
+        "stepId": "rev-1-cap-04-observe",
+        "tool": "observe_scene",
+        "captureId": "gazebo-home_furnished/head-rgbd-858400000000-1792077298875",
+        "observationId": "a0fd7e2e035a6c30d2acd95953ada05ef7e311e132ab58db863c53b740985a7d"
+      },
+      {
+        "stepId": "rev-1-cap-04-pre_position",
+        "tool": "navigation.pre_position",
+        "captureId": "gazebo-home_furnished/head-rgbd-861800000000-1792077307999",
+        "observationId": "759d0ea958980893b98e9d48c493ce77310277880993793e2f9720f6bf1b90c2"
+      },
+      {
+        "stepId": "rev-1-cap-04-navigate_00",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-864700000000-1792077315656",
+        "observationId": "79b2ef98677ebbaabf9fcefa53c4827416cd33c1caed7cab895b3e340d99da7d"
+      },
+      {
+        "stepId": "rev-1-cap-04-verify_arrival_00",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-865400000000-1792077317609",
+        "observationId": "81f488e6f97d798fe751785a0d6656d8678523303930be1e6da0f0e443c01596"
+      },
+      {
+        "stepId": "rev-1-cap-04-navigate_01",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-904800000000-1792077415322",
+        "observationId": "4e368025c38f4d19121b91130114607dd0bde644cba4ea0fa314d4d7fba4bc10"
+      },
+      {
+        "stepId": "rev-1-cap-04-verify_arrival_01",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-905500000000-1792077416542",
+        "observationId": "cfd97a2b41c7fb21b6ad5823a2fd2d9baf055ae3cd18cb79482badad616009cd"
+      },
+      {
+        "stepId": "rev-1-cap-04-navigate_02",
+        "tool": "navigation.navigate",
+        "captureId": "gazebo-home_furnished/head-rgbd-942800000000-1792077477457",
+        "observationId": "7a9364f2bc0f9a853bec3894dd235518047e1775e94e7625cfc84bb6db7c3470"
+      },
+      {
+        "stepId": "rev-1-cap-04-verify_arrival_02",
+        "tool": "verify_arrival",
+        "captureId": "gazebo-home_furnished/head-rgbd-943200000000-1792077478156",
+        "observationId": "a13f648ab41becb2ee73e6a2a6c4fe28f98a775424d101c56f09b27232644fb9"
+      }
+    ],
+    "verifiedCompositeOutcomes": [
+      {
+        "capabilityStepId": "rev-1-cap-02",
+        "rooms": [
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-02-verify_arrival_00"
+          },
+          {
+            "room": "bedroom",
+            "stepId": "rev-1-cap-02-verify_arrival_01"
+          },
+          {
+            "room": "bathroom",
+            "stepId": "rev-1-cap-02-verify_arrival_02"
+          },
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-02-verify_arrival_03"
+          }
+        ],
+        "transfers": []
+      },
+      {
+        "capabilityStepId": "rev-1-cap-04",
+        "rooms": [
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-04-verify_arrival_00"
+          },
+          {
+            "room": "kitchen",
+            "stepId": "rev-1-cap-04-verify_arrival_01"
+          },
+          {
+            "room": "living_room",
+            "stepId": "rev-1-cap-04-verify_arrival_02"
+          }
+        ],
+        "transfers": []
+      }
+    ]
+  },
+  "collaboration": {
+    "eventAgents": [
+      "ops",
+      "orchestrator",
+      "recovery",
+      "recovery-executor"
+    ],
+    "opsEventCount": 6,
+    "collaborationObserved": true,
+    "automaticInvestigationVerified": true,
+    "automaticVerifiedActionIds": [
+      "execution.read-history"
+    ],
+    "automaticTaskRecoveryObserved": true,
+    "automaticallyRecoveredStepIds": [
+      "rev-1-cap-01"
+    ],
+    "verifiedReadRecoveryChains": [
+      {
+        "taskId": "task-2e3c9aa3ef08e9fdefa41071",
+        "stepId": "rev-1-cap-01",
+        "tool": "navigation.status",
+        "commandId": "task-2e3c9aa3ef08e9fdefa41071/rev-1-cap-01",
+        "planId": "plan-trail-task-2e3c9aa3ef08e9fdefa41071-ANOMALY_ACTION_FAILED@navigation.status/step/rev-1-cap-01/1792077031656590000",
+        "eventIndices": [
+          8,
+          11,
+          12,
+          15,
+          18,
+          19,
+          20,
+          24
+        ],
+        "retryCount": 1
+      }
+    ],
+    "policyRecoveryConfirmedStepIds": [],
+    "interpretation": "Configuration is not participation; verified diagnostic reads do not prove task repair."
+  },
+  "pause": {
+    "requiredSeconds": 0,
+    "observed": false
+  },
+  "fault": {
+    "observed": true,
+    "count": 1,
+    "fault": {
+      "event": "fault_injected",
+      "time_utc": "2026-10-15T15:10:30.867099+00:00",
+      "monotonic_ns": 431316038037750,
+      "service": "navigation.status",
+      "request_id": "task-2e3c9aa3ef08e9fdefa41071/rev-1-cap-01",
+      "injection_number": 1,
+      "fail_count": 1,
+      "grpc_status": "UNAVAILABLE",
+      "forwarded": false
+    },
+    "recoveryPlanId": "plan-trail-task-2e3c9aa3ef08e9fdefa41071-ANOMALY_ACTION_FAILED@navigation.status/step/rev-1-cap-01/1792077031656590000"
+  },
+  "protocol": {
+    "versionedEventCount": 29,
+    "versions": [
+      "agent.event.v1"
+    ],
+    "verifiedRecoveryBindings": [
+      {
+        "taskId": "task-2e3c9aa3ef08e9fdefa41071",
+        "taskRevision": 1,
+        "robotId": "gazebo-home_furnished",
+        "stepId": "rev-1-cap-01",
+        "commandId": "task-2e3c9aa3ef08e9fdefa41071/rev-1-cap-01",
+        "sourceEventId": "task-2e3c9aa3ef08e9fdefa41071#14",
+        "anomalyEventId": "evt-bc9c9286-5d25-478a-a7e9-d76fe31625d8",
+        "planEventId": "evt-dfe6654d-a1c2-4424-b9b2-4d6b28b06ab3",
+        "executionEventId": "evt-a42e0d2a-e4e9-45bd-a234-1e8df8aa3049"
+      }
+    ],
+    "legacyEventsAcceptedForHistoricalReplay": false
+  },
+  "context": {
+    "managedContextCount": 7,
+    "modelRequestCount": 5,
+    "compactedContextCount": 2,
+    "displayLossy": false,
+    "verifiedContextReadPages": 0,
+    "contexts": [
+      {
+        "path": [
+          "plan",
+          "capabilities",
+          "planningTrace",
+          0,
+          "context"
+        ],
+        "sha256": "3b0451d5d30105a85de81acf34a43bd4ee65ef7cf8daa74edda465b989411d50",
+        "stage": "planning",
+        "scope": {
+          "task_id": "",
+          "robot_id": "gazebo-home_furnished",
+          "plan_revision": 0
+        },
+        "inputBytes": 12342,
+        "archiveCount": 0,
+        "archivedRecords": 0,
+        "archivedAttempts": 0,
+        "modelRequestVerified": true,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      },
+      {
+        "path": [
+          "plan",
+          "capabilities",
+          "planningTrace",
+          1,
+          "context"
+        ],
+        "sha256": "f2fd3c85f842e68901553ded805dde7ad3a5e336260e54079e106fd8acd61bc4",
+        "stage": "planning",
+        "scope": {
+          "task_id": "",
+          "robot_id": "gazebo-home_furnished",
+          "plan_revision": 0
+        },
+        "inputBytes": 13422,
+        "archiveCount": 0,
+        "archivedRecords": 0,
+        "archivedAttempts": 0,
+        "modelRequestVerified": true,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      },
+      {
+        "path": [
+          "plan",
+          "capabilities",
+          "planningTrace",
+          2,
+          "context"
+        ],
+        "sha256": "2d87860087e2c80bcbdb2cc2977ca9a8cde08d5e47759f3f926ad318328ddc8c",
+        "stage": "planning",
+        "scope": {
+          "task_id": "",
+          "robot_id": "gazebo-home_furnished",
+          "plan_revision": 0
+        },
+        "inputBytes": 20665,
+        "archiveCount": 0,
+        "archivedRecords": 0,
+        "archivedAttempts": 0,
+        "modelRequestVerified": true,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      },
+      {
+        "path": [
+          "plan",
+          "capabilities",
+          "planningTrace",
+          3,
+          "context"
+        ],
+        "sha256": "ba8a50202b900594be279b714e97980c8283748fcf4f1a5bc8101e38b23e0579",
+        "stage": "planning",
+        "scope": {
+          "task_id": "",
+          "robot_id": "gazebo-home_furnished",
+          "plan_revision": 0
+        },
+        "inputBytes": 22509,
+        "archiveCount": 0,
+        "archivedRecords": 0,
+        "archivedAttempts": 0,
+        "modelRequestVerified": true,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      },
+      {
+        "path": [
+          "plan",
+          "capabilities",
+          "planningTrace",
+          4,
+          "context"
+        ],
+        "sha256": "694def614be305d3546b0b4e516aebc96f28fb5e235498634e421ee520a55587",
+        "stage": "planning",
+        "scope": {
+          "task_id": "",
+          "robot_id": "gazebo-home_furnished",
+          "plan_revision": 0
+        },
+        "inputBytes": 23180,
+        "archiveCount": 0,
+        "archivedRecords": 0,
+        "archivedAttempts": 0,
+        "modelRequestVerified": true,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      },
+      {
+        "path": [
+          "events",
+          19,
+          "payload",
+          "decision_rounds",
+          0,
+          "context"
+        ],
+        "sha256": "0c5e83ed680cbc952ad0e3dc90f37e065dc9ee6fcdf165d6574b564655b63fc7",
+        "stage": "recovery",
+        "scope": {
+          "plan_revision": 1,
+          "robot_id": "gazebo-home_furnished",
+          "task_id": "task-2e3c9aa3ef08e9fdefa41071"
+        },
+        "inputBytes": 32356,
+        "archiveCount": 1,
+        "archivedRecords": 21,
+        "archivedAttempts": 0,
+        "modelRequestVerified": false,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      },
+      {
+        "path": [
+          "events",
+          19,
+          "payload",
+          "decision_rounds",
+          1,
+          "context"
+        ],
+        "sha256": "76b02789887209e39f71983f3cef5b299607644f44802172887c85c3ae9a59a5",
+        "stage": "recovery",
+        "scope": {
+          "plan_revision": 1,
+          "robot_id": "gazebo-home_furnished",
+          "task_id": "task-2e3c9aa3ef08e9fdefa41071"
+        },
+        "inputBytes": 12962,
+        "archiveCount": 1,
+        "archivedRecords": 23,
+        "archivedAttempts": 0,
+        "modelRequestVerified": false,
+        "displayLossy": false,
+        "lossyArchiveDisplays": [],
+        "modelRequestDisplayLossy": false,
+        "sourcePreimageVerified": false
+      }
+    ],
+    "interpretation": "A source hash without its preimage is an identity, not independent proof of complete source retention."
+  }
+}

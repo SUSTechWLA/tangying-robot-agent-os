@@ -1,0 +1,83 @@
+go test ./agent/... ./agentruntime/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/agent	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/context-render	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-worker	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/fleet-control-plane	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent	3.959s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/nl-eval	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/robot-agent	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/training-export	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/capability	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/exchangecontract	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/guard	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/harness	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/objective	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/observation	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/skills	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/core/trace	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/tasksource	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker	6.221s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/eventlog	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/fusion	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/gateway	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/lease	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/mysql	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/queue	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/redis	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent	260.655s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/pairing	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/robotagent	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/middleware	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration/eval	(cached)
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration/handoff	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	(cached)
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/architecture	6.311s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/tests/contract/faults_probe	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/tests/contract/heterogeneous_runtime_probe	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/tests/contract/runtime_client_probe	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/web	(cached)

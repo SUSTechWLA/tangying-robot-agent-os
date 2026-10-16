@@ -1,0 +1,17 @@
+{
+  "source": "read-only SQLite transaction of this task's exact child/checkpoint aggregates",
+  "states": [
+    {
+      "aggregateId": "edge-child/task-goal-e36db22fbb376a726a98a81ad3b45189-edge-r1-p1",
+      "version": 23,
+      "file": "durable-state-00.json",
+      "sha256": "97a0126895df5df2a36d31e5d0f03db299556f124a76beab66f1836b1a56abee"
+    },
+    {
+      "aggregateId": "edge-goal/task-goal-e36db22fbb376a726a98a81ad3b45189/1",
+      "version": 26,
+      "file": "durable-state-01.json",
+      "sha256": "7c84f5e8edfa112439827e744cc906cd58bc9d80918a428d30f70d13df15ec64"
+    }
+  ]
+}

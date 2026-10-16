@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "research.verifier-provenance.v1",
+  "versions": {
+    "v1-execution.json": {
+      "recordedAt": "2026-10-15T15:22:49.031822+00:00",
+      "script": "v1.py",
+      "sha256": "7230f47126458cd5a1a1e85cf4cf6afb6107859da88d7a2a2a9f1d0254f3cbe5",
+      "inputManifestSha256": "2086ae69dc5aa623ae16fbd6662011d159ad18af58d40f40c2d30340b7f85795",
+      "output": "host-inspection01-independent.json",
+      "outputSha256": "f2cda20c460ba3ae4a89524251e3081a297949589b4339286bdefea473760232",
+      "outcome": "REJECTED_FAILED_TASK_AFTER_RAW_INTEGRITY_CHECKS"
+    },
+    "v2-execution.json": {
+      "recordedAt": "2026-10-15T15:32:06.169075+00:00",
+      "script": "v2.py",
+      "sha256": "7230f47126458cd5a1a1e85cf4cf6afb6107859da88d7a2a2a9f1d0254f3cbe5",
+      "inputManifestSha256": "256d112fb54b2f6e29a3dab79921f0e49e55da5f152e4a0c22da0a96809d109c",
+      "output": "host-inspection02-independent.json",
+      "outputSha256": "5bb9b7721efd0debfe2d405ce52f474f00497234cf83f0aff7cd58126a92fe35",
+      "outcome": "PASSED_WITH_ALL_RAW_BYTES_UNCHANGED",
+      "pythonOptimizeFlag": 0,
+      "sharedValidatorSha256": "b05d325616e69017c29a78ffd8a2f921a505b951c0832c260a0a40d7f60daee9"
+    }
+  },
+  "frozenDependencyRetest": "frozen-revalidation-execution.json",
+  "originalReportsUnchanged": true,
+  "assertionsRequired": true,
+  "supportedEntryPoint": "verify_frozen_host.py; refuses optimized Python before importing verifier"
+}

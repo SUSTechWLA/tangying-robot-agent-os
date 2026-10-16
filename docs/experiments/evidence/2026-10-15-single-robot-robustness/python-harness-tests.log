@@ -1,0 +1,24 @@
+........................................................................ [ 92%]
+......                                                                   [100%]
+============================= slowest 20 durations =============================
+0.02s call     tests/install/test_long_horizon_eval.py::test_pause_resume_exceeds_sixty_seconds_and_is_operator_attributed
+0.01s call     tests/install/test_long_horizon_eval.py::test_optional_run_provenance_revisions_and_fault_log_are_retained
+0.01s call     tests/install/test_long_horizon_eval.py::test_collects_late_collaboration_without_claiming_read_only_repair
+0.01s call     tests/install/test_long_horizon_eval.py::test_success_saves_raw_immutable_evidence_and_checks_every_step
+0.01s call     tests/install/test_long_horizon_eval.py::test_execution_configuration_records_separate_planning_wait
+0.01s call     tests/install/test_long_horizon_eval.py::test_exact_transfer_budget_checks_real_dispatches_after_verification
+0.01s call     tests/install/test_long_horizon_eval.py::test_failed_task_retained_and_never_resumed
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[physical_replay-duplicate confirmations]
+0.01s call     tests/install/test_long_horizon_eval.py::test_missing_requested_fault_log_retains_task_and_fails
+0.01s call     tests/install/test_long_horizon_eval.py::test_non_camera_context_snapshot_does_not_invent_required_images
+0.01s call     tests/install/test_long_horizon_eval.py::test_strict_automatic_read_recovery_accepts_only_linked_chain_and_success
+0.01s call     tests/install/test_long_horizon_eval.py::test_configuration_is_not_agent_collaboration
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[pose-outside commanded]
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[duplicate-duplicate capability]
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[unstable-stable verification]
+0.01s call     tests/install/test_long_horizon_eval.py::test_expected_arrivals_are_an_outcome_requirement
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[capture-pinned command]
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[destination-placement relation]
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[receipt-receipt and verification]
+0.01s call     tests/install/test_long_horizon_eval.py::test_false_success_is_rejected_and_originals_retained[provider-binding differs]
+78 passed in 0.40s

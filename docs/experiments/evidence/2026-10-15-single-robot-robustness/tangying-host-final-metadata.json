@@ -1,0 +1,16 @@
+{
+  "baseCommit": "0d36aa127ad2132857775241478ac7689478e783",
+  "files": {
+    "internal/edgeagent/host.go": "9b1ab01d95bbd5544da7e851bcb3546c5c62ed822d69b86e632cd653dff265a3",
+    "internal/edgeagent/journal.go": "db96f3c26c02396c8f25ec0cdde0e0e6d320bb861a6c24fc740e136efc194811",
+    "internal/edgeagent/recovery.go": "749b195f3be5fa5179694ee4d07f5fe772f31b9c5a4d7129de59887c87a3ce00",
+    "internal/edgeagent/recovery_test.go": "8822cc4bbce684022b39444224ac26d18c979395826b249a9e28b5560d3de2bc",
+    "internal/edgeagent/completion.go": "e4f56f8ba586256403f5aa7abdadbb37994d7df0fe6c3db4316ecbe03d244877",
+    "internal/edgeagent/completion_test.go": "497815480da52f52164080013d48d1651242817b6cab9cd2f17870d21839104e"
+  },
+  "evidenceType": "scripted capability contract + SQLite fault injection; no physical simulation/model-quality claim",
+  "commands": [
+    "go test ./internal/edgeagent ./core/objective -run ^(TestDelegated|TestObjective) -count=1 -json -timeout=60s",
+    "go test -race ./internal/edgeagent ./core/objective -run ^(TestDelegated|TestObjective) -count=1 -json -timeout=120s"
+  ]
+}
