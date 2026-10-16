@@ -58,6 +58,13 @@
     "lint": {
       "passed": true,
       "log": "artifacts/maintenance/20261016-architecture-book/lint.log"
+    },
+    "localFragments": {
+      "markdownSources": 107,
+      "references": 168,
+      "legacyBrokenAnchorsCorrected": 2,
+      "verification": "Confirmed exact heading IDs with GitHub rendered Markdown; preserved source text, corrected links only",
+      "log": "artifacts/maintenance/20261016-architecture-book/fragment-audit.json"
     }
   },
   "publicationSha256": {
@@ -119,7 +126,7 @@
     "docs/architecture/architecture.md": "172b2eb2887e18e1efe84ac79c563d23ef0680f1deb99d4f443d1482fc78e89f",
     "docs/architecture/distributed-agentos.md": "d112dab423f9b553dcac06bdf11750494f51bdc87a817e23ff927d2506421b63",
     "docs/architecture/hierarchical-edge-objectives.md": "915fcfab4bd340b7777ffac3dd3a69e3e685dd6e3aa3d30a97ce995c66390695",
-    "docs/architecture/lifecycle-objects.md": "0ae31a2f525789b7d7f18e12b22712efd07d21f623f3b6dadd47095502cad982",
+    "docs/architecture/lifecycle-objects.md": "a8686c543a9ffab2a21474bfc1cc631b735f8b0ae0b7b50153bf25c3932f9c93",
     "docs/architecture/llm-driven-execution.md": "643304e0fed1d34450f53928ded242bf9a1cee477ed43d945f72f232a5b2b6cc",
     "docs/architecture/long-horizon-collaboration.md": "8c6093fb62fec1598d8e05de3cc79d1b320e1d404168aa23b848f92a0185f498",
     "docs/architecture/modular-extensibility.md": "7a794ef574286a888307dc9d063ac055b9b410714abaf548791a2fb9c47c2c3a",
