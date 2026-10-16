@@ -1,0 +1,109 @@
+{
+  "artifacts": {
+    "cloud": {
+      "bytes": 943640,
+      "href": "cloud/lod4.bin",
+      "sha256": "91a3294779e1d01067d22285de9e503b97fd4506ee577f1c47fa4e1521857beb"
+    },
+    "cloud_lod_0": {
+      "bytes": 5000,
+      "href": "cloud/lod0.bin",
+      "sha256": "b9fc8753124f2bab2d314e7ee686bc819a5d299625e240ff4b1d68a129c13d98"
+    },
+    "cloud_lod_1": {
+      "bytes": 18950,
+      "href": "cloud/lod1.bin",
+      "sha256": "f34db8f7be9a218efac9f6af20bbc7dfc1493442f18133bd4be00e01be124468"
+    },
+    "cloud_lod_2": {
+      "bytes": 74615,
+      "href": "cloud/lod2.bin",
+      "sha256": "c4cd8a1d3f6f6489341ba83c6623fd12f47f63d7595cfb31fabbe4f1ce0053f3"
+    },
+    "cloud_lod_3": {
+      "bytes": 276095,
+      "href": "cloud/lod3.bin",
+      "sha256": "4f4126f16fa07d964bf2a7a82df8ea0b756c9d61bcf83ee799927b4effaa297e"
+    },
+    "cloud_lod_4": {
+      "bytes": 943640,
+      "href": "cloud/lod4.bin",
+      "sha256": "91a3294779e1d01067d22285de9e503b97fd4506ee577f1c47fa4e1521857beb"
+    },
+    "grid": {
+      "bytes": 1208,
+      "href": "grid/occupancy.png",
+      "sha256": "a4d184cd78d94da7960ad7a010bcf4e3633517201017b8c842ffcd6154ed397c"
+    },
+    "navigation": {
+      "bytes": 209,
+      "href": "navigation/map.yaml",
+      "sha256": "8fbef34de61d8560ab254c8088b7301b44de7bf34fa6ad59b98e268fc57cfbeb"
+    },
+    "navigation_grid": {
+      "bytes": 38819,
+      "href": "navigation/map.pgm",
+      "sha256": "8ba0b4e70a69fda682c5368107b90ed67f4f61c6de817988c4d68cf2af86bcc9"
+    },
+    "navigation_metadata": {
+      "bytes": 183,
+      "href": "navigation/source.json",
+      "sha256": "d266199e2c8910ef983f1d88c755fbe08e9645c9304a300e988cbf84e238cbca"
+    },
+    "objects": {
+      "bytes": 293,
+      "href": "objects.json",
+      "sha256": "467f25c7626b832b173d127aecc31555e42fd3b2eb33b359a6c66d18682dc25b"
+    },
+    "semantics": {
+      "bytes": 5493,
+      "href": "semantics.json",
+      "sha256": "78813942409a93b4041b3fe2f64979009785bfd9c596fadb54c32f696849f11e"
+    },
+    "slam_keyframes": {
+      "bytes": 2393608,
+      "href": "slam-keyframes.json",
+      "sha256": "39243e43c70026d698f7bb864d1b213b8c416faf95c32fa4f0fd39f88fbe4363"
+    },
+    "slam_session": {
+      "bytes": 277860,
+      "href": "slam-session.json",
+      "sha256": "bc38d50ae07d057b63de36ba4381d45e6683264ae38b02e73e85d5074895f7c6"
+    },
+    "trajectory": {
+      "bytes": 7882,
+      "href": "trajectory.geojson",
+      "sha256": "c140a2797f1415f7b3b98c64554a2da26ad3bceae54de9078826c239dd15b49b"
+    }
+  },
+  "bounds": {
+    "max": [
+      4.426435470581055,
+      8.425811767578125,
+      1.5778179168701172
+    ],
+    "min": [
+      -4.429358959197998,
+      -2.4289627075195312,
+      0.0005855066701769829
+    ]
+  },
+  "calibrationRevision": "6e4fbe3b5f286a3affaea8da201ce5ed5e0948a61d5597bdf4773219505f78ee",
+  "createdAtUnixMs": 1792169130083,
+  "floors": [
+    {
+      "id": "ground",
+      "zMax": 1.6778179168701173,
+      "zMin": -0.09941449332982302
+    }
+  ],
+  "frameId": "map",
+  "hash": "3ad7a696ac562554659602ea0345af0718b34436568da323d19a5df6c36cf516",
+  "lodLevels": 5,
+  "mapId": "scan-1c45121a6905",
+  "mode": "mapping",
+  "pointCount": 62908,
+  "robotId": "gazebo-firstscan-20261017-001",
+  "schemaVersion": "map.manifest.v1",
+  "source": "rgbd_slam"
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "exploration.validation.v1",
+  "fullGate": {
+    "command": "env GOMAXPROCS=2 bash -c 'make build && make lint && make generate-check && make test'",
+    "exitCode": 0,
+    "logSha256": "d09640740dc8e618b9e8d2f67226dd3226591735a278570f890d1492ac545311",
+    "go": "maintained Makefile package list passed",
+    "pythonMainPassed": 3515,
+    "pythonBoundaryPassed": 2,
+    "pythonSkipped": 40,
+    "pythonWarnings": 20,
+    "webPassed": 517
+  },
+  "targetedRegression": {
+    "passed": 266,
+    "note": "subset/overlap with full suite; do not add totals"
+  },
+  "bookAndDocs": {
+    "command": ".venv-book/bin/python -m pytest -q -o addopts='' tests/book tests/docs",
+    "passed": 52,
+    "goDocsCommand": "go test ./tests/docs",
+    "goDocsPassed": true,
+    "bookCheck": "31 fixed publication sections unchanged"
+  },
+  "physicalScope": "4 separately frozen Gazebo single-leg Runtime scans; no new hardware or nonzero-anchor continuation run",
+  "archiveScope": "full immutable runtime/map packages plus command-stop journal; large observer/ROS/database files local"
+}

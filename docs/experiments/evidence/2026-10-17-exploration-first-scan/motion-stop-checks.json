@@ -1,0 +1,74 @@
+[
+  {
+    "run": "001",
+    "operationId": "1c45121a690543939d8ede7d2ab8d2ee",
+    "journalSha256": "e24ca9258defb0945440f1eb0f3d6c973fc2fdee74fe6311214bebc53b9889ca",
+    "journalRows": 114,
+    "endedSteps": 114,
+    "outcomes": {
+      "STEP_COMPLETE": 114
+    },
+    "allEndedStepsConfirmedZeroCommandPublished": true,
+    "lastStep": {
+      "outcomeCode": "STEP_COMPLETE",
+      "finalZeroPublished": true,
+      "zeroPublishedCount": 1,
+      "nonzeroPublishedPulseCount": 68
+    },
+    "scope": "ROS command publication acknowledgement; not an independent wheel-velocity measurement"
+  },
+  {
+    "run": "002",
+    "operationId": "96f3c4bdaf2b480dac98f9c0f511bb47",
+    "journalSha256": "022514cb19f5a300441060e5d3dd581115aaab3e93f1b11cc3cdb8f3c285d889",
+    "journalRows": 95,
+    "endedSteps": 95,
+    "outcomes": {
+      "STEP_COMPLETE": 95
+    },
+    "allEndedStepsConfirmedZeroCommandPublished": true,
+    "lastStep": {
+      "outcomeCode": "STEP_COMPLETE",
+      "finalZeroPublished": true,
+      "zeroPublishedCount": 1,
+      "nonzeroPublishedPulseCount": 0
+    },
+    "scope": "ROS command publication acknowledgement; not an independent wheel-velocity measurement"
+  },
+  {
+    "run": "003",
+    "operationId": "6988e30968454209beb1534c86282f45",
+    "journalSha256": "4c85cb9dac7bbaa4558614969a4ec1391aa64d843de209d2a8a2dd9e017fee96",
+    "journalRows": 78,
+    "endedSteps": 78,
+    "outcomes": {
+      "STEP_COMPLETE": 78
+    },
+    "allEndedStepsConfirmedZeroCommandPublished": true,
+    "lastStep": {
+      "outcomeCode": "STEP_COMPLETE",
+      "finalZeroPublished": true,
+      "zeroPublishedCount": 1,
+      "nonzeroPublishedPulseCount": 11
+    },
+    "scope": "ROS command publication acknowledgement; not an independent wheel-velocity measurement"
+  },
+  {
+    "run": "004",
+    "operationId": "d438ab8bb4204a32bed11a38a4c17440",
+    "journalSha256": "12085e9963fb5a15e49262dc9c987af054f5acf087d5df297946ebfb99c0aef3",
+    "journalRows": 94,
+    "endedSteps": 94,
+    "outcomes": {
+      "STEP_COMPLETE": 94
+    },
+    "allEndedStepsConfirmedZeroCommandPublished": true,
+    "lastStep": {
+      "outcomeCode": "STEP_COMPLETE",
+      "finalZeroPublished": true,
+      "zeroPublishedCount": 1,
+      "nonzeroPublishedPulseCount": 7
+    },
+    "scope": "ROS command publication acknowledgement; not an independent wheel-velocity measurement"
+  }
+]

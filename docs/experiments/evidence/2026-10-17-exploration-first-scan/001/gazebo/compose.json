@@ -1,0 +1,23 @@
+{
+  "services": {
+    "gazebo-house": {
+      "image": "sha256:c7ad7cea987aba8308699ed3226531cd597d58fb99221dee616f2086e68b4a67",
+      "init": true,
+      "env_file": [
+        "./private.env"
+      ],
+      "ports": [
+        "127.0.0.1:18971:18790",
+        "127.0.0.1:50571:50071"
+      ],
+      "volumes": [
+        "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-001/gazebo/maps:/data/maps",
+        "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/sim-assets:/assets:ro",
+        "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-001/source/robot/gateway/tangying_robot_gateway:/opt/tangying-gateway/tangying_robot_gateway:ro",
+        "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-001/source/python/tangying_robot_proto:/opt/tangying-proto/tangying_robot_proto:ro"
+      ],
+      "stop_signal": "SIGINT",
+      "stop_grace_period": "60s"
+    }
+  }
+}

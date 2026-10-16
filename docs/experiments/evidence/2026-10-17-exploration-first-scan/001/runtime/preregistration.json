@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "exploration.first-scan.acceptance.v1",
+  "passed": false,
+  "scope": "gazebo_runtime_mapping_build_explore",
+  "physicalCertification": false,
+  "naturalLanguageHostTest": false,
+  "wholeEnvironmentCoverage": false,
+  "coverageGroundTruth": "not_measured",
+  "startedAtUnixMs": 1792168843316,
+  "runtime": "127.0.0.1:50571",
+  "parameters": {
+    "mode": "explore",
+    "name": "first-scene-exploration",
+    "maxTravelM": 8.0,
+    "maxLegs": 1
+  },
+  "gitHead": "980e8b4d8d7fd357341d7862b7cb79b34a711392",
+  "gitStatus": " M README.md\n M \"artifacts/marketing/shorts/S04-\\346\\257\\217\\344\\270\\200\\346\\255\\245\\351\\203\\275\\347\\225\\231\\350\\203\\275\\347\\277\\273\\346\\227\\247\\350\\264\\246\\347\\232\\204\\350\\257\\201\\346\\215\\256.md\"\n M \"artifacts/marketing/\\350\\256\\262\\344\\273\\200\\344\\271\\210-\\347\\237\\255\\346\\226\\207\\350\\277\\236\\350\\275\\275\\350\\256\\241\\345\\210\\222.md\"\n M robot/gateway/tangying_robot_gateway/exploration.py\n M robot/gateway/tangying_robot_gateway/robot_workflow.py\n M robot/gateway/tangying_robot_gateway/survey.py\n M robot/gateway/tests/test_exploration.py\n M robot/gateway/tests/test_robot_services.py\n M robot/gateway/tests/test_survey.py\n?? docs/development/2026-10-17-exploration-first-scan.md\n?? docs/experiments/2026-10-17-exploration-first-scan-protocol.md\n?? scripts/validate_exploration_first_scan.py\n?? tests/scripts/\n",
+  "dirtyPatchSha256": "64a5b58caa580f0264284d7650c827e0aa7c06d03ea6f32240787c6d7d820134",
+  "sourceRoot": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-001/source",
+  "sourceSetSha256": "06d3bb3fc9c62b5976f088125a04392e428db773576d52526d401066e6e2da2c",
+  "mapRoot": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-001/gazebo/maps/home_furnished/workflow",
+  "operationLeaseMs": 30000,
+  "timeoutS": 900.0,
+  "pythonVersion": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "externalEnvironmentProvenance": "cb14ca232f16d1fbe14db3d1af6bd3b9c1060a1283c95f3cd59d5bdf6052c71b"
+}

@@ -1,0 +1,6 @@
+# Preserve exact bytes covered by the first-scan data/figure provenance.
+2026-10-17-exploration-first-scan.csv -text whitespace=cr-at-eol
+assets/2026-10-17-exploration-first-scan*/* -text
+assets/2026-10-17-exploration-first-scan*/registered-odometry.csv whitespace=cr-at-eol
+# Matplotlib emits valid SVG path whitespace; keep its hashed output intact.
+assets/2026-10-17-exploration-first-scan*/first-scan.svg whitespace=-blank-at-eol,-blank-at-eof

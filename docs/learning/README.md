@@ -1,5 +1,7 @@
 # 学习路线：从系统全貌到可检查实践
 
+首次进入未知环境时，补读[探索学习补充](../../book/updates/2026-10-17-exploration-first-scan.md)与[当前操作指南](../guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索)：区分初始观察、前沿规划、局部控制、地图发布与全环境覆盖。
+
 当前教材为[数字版 2.2.0](../../book/README.md)，实现复核固定到 `821659df`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
 
 [返回文档导航](../README.md) · [开发升级](../development/README.md) · [部署运维](../operations/README.md) · [研究论文](../research/README.md)

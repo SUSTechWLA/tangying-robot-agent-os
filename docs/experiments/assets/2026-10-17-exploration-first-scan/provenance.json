@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "research.firstscan-figure.v1",
+  "inputs": {
+    "artifacts/experiments/exploration-first-scan-20261017-001/evidence/attempt-001/final-state.json": "e15090b8545c9767dd179f97e117ad0cbe868be8de10185dcb2f15e23bc5f652",
+    "artifacts/experiments/exploration-first-scan-20261017-001/evidence/attempt-001/map-package/slam-session.json": "bc38d50ae07d057b63de36ba4381d45e6683264ae38b02e73e85d5074895f7c6",
+    "artifacts/experiments/exploration-first-scan-20261017-002/evidence/attempt-001/final-state.json": "7aeb4d2445cffa8bf1714c03b72e9977dad2120a1d950c0cd74b561b26f70872",
+    "artifacts/experiments/exploration-first-scan-20261017-002/evidence/attempt-001/map-package/slam-session.json": "6f9f035648bd9dd6d06bab288b4ed3b58c6d270fd212aa152e27ccd147f101f4",
+    "artifacts/experiments/exploration-first-scan-20261017-003/evidence/attempt-001/final-state.json": "5ef6dd8aefe356f3ff9395fad7f80e14ee7bfb5187af33a4e209f9aaa553174d",
+    "artifacts/experiments/exploration-first-scan-20261017-003/evidence/attempt-001/map-package/slam-session.json": "68b97810b9bb4dcef06db15c2ce0df04d6ddef96ea90c2ddb9397d7dcd3ed5e1"
+  },
+  "scriptSha256": "a9ff1edde3e8c74b69c56686cc7bbfb89ba4a005b4fb296172466846bcff5034",
+  "matplotlibVersion": "3.10.8",
+  "numpyVersion": "2.4.6",
+  "units": {
+    "distance": "metres",
+    "yaw": "radians"
+  },
+  "scope": "registered keyframe odometry, not scene coverage or continuous ground truth",
+  "yawThresholdRad": 6.283185307179586,
+  "files": {
+    "first-scan.png": "775b3e2af33b763ba34b7bcb2d2e46a935cd37ff5fab67a2b5d97e02daf91aaa",
+    "first-scan.svg": "cbfd7999d9d97f09577e7ec6eebcc50c68392d24776d24755afa015b00cf7523",
+    "registered-odometry.csv": "406c39fe47028556449936665fe75f5167dbca79c260ab26fc541297bb81e680"
+  }
+}

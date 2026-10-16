@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **242 份 Markdown** 与 **208 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **246 份 Markdown** 与 **374 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 29 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 97 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 98 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 11 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 33 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 36 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -174,6 +174,7 @@
 | [2026-10-15 分层目标委托与统一边缘核心升级记录](development/2026-10-15-hierarchical-edge-objectives.md) | `development/2026-10-15-hierarchical-edge-objectives.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [单机器人长程鲁棒性与实验留存](development/2026-10-15-single-robot-robustness.md) | `development/2026-10-15-single-robot-robustness.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [最新分层架构、全套参考文档与书籍 2.2.0 审校](development/2026-10-16-architecture-book-refresh.md) | `development/2026-10-16-architecture-book-refresh.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [首次进入未知场景的探索扫描升级记录](development/2026-10-17-exploration-first-scan.md) | `development/2026-10-17-exploration-first-scan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -327,8 +328,11 @@
 | [2026-10-15 分层目标委托与边缘重规划功能实验](experiments/2026-10-15-hierarchical-edge-objectives.md) | `experiments/2026-10-15-hierarchical-edge-objectives.md` | 实验 / 验收记录 |
 | [单机器人长程鲁棒性增量实验协议（2026-10-15）](experiments/2026-10-15-single-robot-robustness-protocol.md) | `experiments/2026-10-15-single-robot-robustness-protocol.md` | 实验 / 验收记录 |
 | [单机器人长程执行、故障恢复与研究证据（2026-10-15）](experiments/2026-10-15-single-robot-robustness.md) | `experiments/2026-10-15-single-robot-robustness.md` | 实验 / 验收记录 |
+| [首次未知场景探索扫描：预登记与验收协议](experiments/2026-10-17-exploration-first-scan-protocol.md) | `experiments/2026-10-17-exploration-first-scan-protocol.md` | 实验 / 验收记录 |
+| [首次未知场景探索：Gazebo 工程实验记录](experiments/2026-10-17-exploration-first-scan.md) | `experiments/2026-10-17-exploration-first-scan.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
+| [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
 | [长程 Gazebo 自然语言任务验收脚本](experiments/long-horizon-harness.md) | `experiments/long-horizon-harness.md` | 验收工具说明 |
 
 <a id="catalog-releases"></a>
@@ -405,12 +409,23 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-14-spatial-navigation-paths.csv](experiments/2026-10-14-spatial-navigation-paths.csv) | CSV | `experiments` |
 | [2026-10-14-spatial-navigation.csv](experiments/2026-10-14-spatial-navigation.csv) | CSV | `experiments` |
 | [2026-10-14-spatial-navigation.json](experiments/2026-10-14-spatial-navigation.json) | JSON | `experiments` |
+| [2026-10-17-exploration-first-scan.csv](experiments/2026-10-17-exploration-first-scan.csv) | CSV | `experiments` |
+| [2026-10-17-exploration-first-scan.json](experiments/2026-10-17-exploration-first-scan.json) | JSON | `experiments` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [comparison.svg](experiments/assets/2026-09-21-grounded-verification/comparison.svg) | SVG | `experiments/assets/2026-09-21-grounded-verification` |
 | [2026-10-13-semantic-execution.png](experiments/assets/2026-10-13-semantic-execution.png) | PNG | `experiments/assets` |
 | [2026-10-13-semantic-execution.svg](experiments/assets/2026-10-13-semantic-execution.svg) | SVG | `experiments/assets` |
+| [first-scan.png](experiments/assets/2026-10-17-exploration-first-scan/first-scan.png) | PNG | `experiments/assets/2026-10-17-exploration-first-scan` |
+| [first-scan.svg](experiments/assets/2026-10-17-exploration-first-scan/first-scan.svg) | SVG | `experiments/assets/2026-10-17-exploration-first-scan` |
+| [plot-source.py](experiments/assets/2026-10-17-exploration-first-scan/plot-source.py) | PY | `experiments/assets/2026-10-17-exploration-first-scan` |
+| [provenance.json](experiments/assets/2026-10-17-exploration-first-scan/provenance.json) | JSON | `experiments/assets/2026-10-17-exploration-first-scan` |
+| [registered-odometry.csv](experiments/assets/2026-10-17-exploration-first-scan/registered-odometry.csv) | CSV | `experiments/assets/2026-10-17-exploration-first-scan` |
+| [first-scan.png](experiments/assets/2026-10-17-exploration-first-scan-four-runs/first-scan.png) | PNG | `experiments/assets/2026-10-17-exploration-first-scan-four-runs` |
+| [first-scan.svg](experiments/assets/2026-10-17-exploration-first-scan-four-runs/first-scan.svg) | SVG | `experiments/assets/2026-10-17-exploration-first-scan-four-runs` |
+| [provenance.json](experiments/assets/2026-10-17-exploration-first-scan-four-runs/provenance.json) | JSON | `experiments/assets/2026-10-17-exploration-first-scan-four-runs` |
+| [registered-odometry.csv](experiments/assets/2026-10-17-exploration-first-scan-four-runs/registered-odometry.csv) | CSV | `experiments/assets/2026-10-17-exploration-first-scan-four-runs` |
 | [debug-attempt01.json](experiments/evidence/2026-10-15-hierarchical-edge/debug-attempt01.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
 | [debug-attempt02.json](experiments/evidence/2026-10-15-hierarchical-edge/debug-attempt02.json) | JSON | `experiments/evidence/2026-10-15-hierarchical-edge` |
 | [functional-tests.jsonl](experiments/evidence/2026-10-15-hierarchical-edge/functional-tests.jsonl) | JSONL | `experiments/evidence/2026-10-15-hierarchical-edge` |
@@ -577,6 +592,161 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [worker-attempt01.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/worker-attempt01.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
 | [worker-attempt02.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/worker-attempt02.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
 | [worker-fixed01.jsonl](experiments/evidence/2026-10-15-single-robot-robustness/worker-fixed01.jsonl) | JSONL | `experiments/evidence/2026-10-15-single-robot-robustness` |
+| [bounded-steps.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/001/bounded-steps.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/001` |
+| [environment-postrun.json](experiments/evidence/2026-10-17-exploration-first-scan/001/environment-postrun.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001` |
+| [environment-preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/001/environment-preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001` |
+| [external-raw.json](experiments/evidence/2026-10-17-exploration-first-scan/001/external-raw.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001` |
+| [compose.json](experiments/evidence/2026-10-17-exploration-first-scan/001/gazebo/compose.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/gazebo` |
+| [calls.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/calls.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [environment.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/environment.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [final-state.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/final-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [initial-state.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/initial-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [map-artifact-checks.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-artifact-checks.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [lod0.bin](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud/lod0.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud` |
+| [lod1.bin](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud/lod1.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud` |
+| [lod2.bin](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud/lod2.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud` |
+| [lod3.bin](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud/lod3.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud` |
+| [lod4.bin](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud/lod4.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/cloud` |
+| [occupancy.png](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/grid/occupancy.png) | PNG | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/grid` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package` |
+| [map.pgm](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/navigation/map.pgm) | PGM | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/navigation` |
+| [map.yaml](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/navigation/map.yaml) | YAML | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/navigation` |
+| [source.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/navigation/source.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/navigation` |
+| [objects.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/objects.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package` |
+| [semantics.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/semantics.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package` |
+| [slam-keyframes.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/slam-keyframes.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package` |
+| [slam-session.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/slam-session.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package` |
+| [trajectory.geojson](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package/trajectory.geojson) | GEOJSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/map-package` |
+| [navigation-final.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/navigation-final.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [progress.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/progress.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [report.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/report.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [runtime-info.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/runtime-info.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [service-catalog.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/service-catalog.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [source-after.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/source-after.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [source-before.json](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/source-before.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/001/runtime/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/001/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/001/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/001` |
+| [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/001/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/001` |
+| [bounded-steps.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/002/bounded-steps.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/002` |
+| [environment-postrun.json](experiments/evidence/2026-10-17-exploration-first-scan/002/environment-postrun.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002` |
+| [environment-preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/002/environment-preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002` |
+| [external-raw.json](experiments/evidence/2026-10-17-exploration-first-scan/002/external-raw.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002` |
+| [compose.json](experiments/evidence/2026-10-17-exploration-first-scan/002/gazebo/compose.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/gazebo` |
+| [calls.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/calls.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [environment.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/environment.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [final-state.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/final-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [initial-state.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/initial-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [map-artifact-checks.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-artifact-checks.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [lod0.bin](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud/lod0.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud` |
+| [lod1.bin](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud/lod1.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud` |
+| [lod2.bin](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud/lod2.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud` |
+| [lod3.bin](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud/lod3.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud` |
+| [lod4.bin](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud/lod4.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/cloud` |
+| [occupancy.png](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/grid/occupancy.png) | PNG | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/grid` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package` |
+| [map.pgm](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/navigation/map.pgm) | PGM | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/navigation` |
+| [map.yaml](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/navigation/map.yaml) | YAML | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/navigation` |
+| [source.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/navigation/source.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/navigation` |
+| [objects.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/objects.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package` |
+| [semantics.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/semantics.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package` |
+| [slam-keyframes.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/slam-keyframes.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package` |
+| [slam-session.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/slam-session.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package` |
+| [trajectory.geojson](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package/trajectory.geojson) | GEOJSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/map-package` |
+| [navigation-final.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/navigation-final.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [progress.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/progress.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [report.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/report.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [runtime-info.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/runtime-info.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [service-catalog.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/service-catalog.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [source-after.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/source-after.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [source-before.json](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/source-before.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/002/runtime/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/002/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/002/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/002` |
+| [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/002/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/002` |
+| [bounded-steps.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/003/bounded-steps.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/003` |
+| [environment-postrun.json](experiments/evidence/2026-10-17-exploration-first-scan/003/environment-postrun.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003` |
+| [environment-preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/003/environment-preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003` |
+| [external-raw.json](experiments/evidence/2026-10-17-exploration-first-scan/003/external-raw.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003` |
+| [compose.json](experiments/evidence/2026-10-17-exploration-first-scan/003/gazebo/compose.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/gazebo` |
+| [calls.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/calls.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [environment.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/environment.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [final-state.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/final-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [initial-state.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/initial-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [map-artifact-checks.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-artifact-checks.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [lod0.bin](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud/lod0.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud` |
+| [lod1.bin](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud/lod1.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud` |
+| [lod2.bin](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud/lod2.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud` |
+| [lod3.bin](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud/lod3.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud` |
+| [lod4.bin](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud/lod4.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/cloud` |
+| [occupancy.png](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/grid/occupancy.png) | PNG | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/grid` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package` |
+| [map.pgm](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/navigation/map.pgm) | PGM | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/navigation` |
+| [map.yaml](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/navigation/map.yaml) | YAML | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/navigation` |
+| [source.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/navigation/source.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/navigation` |
+| [objects.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/objects.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package` |
+| [semantics.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/semantics.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package` |
+| [slam-keyframes.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/slam-keyframes.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package` |
+| [slam-session.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/slam-session.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package` |
+| [trajectory.geojson](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package/trajectory.geojson) | GEOJSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/map-package` |
+| [navigation-final.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/navigation-final.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [progress.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/progress.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [report.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/report.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [runtime-info.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/runtime-info.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [service-catalog.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/service-catalog.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [source-after.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/source-after.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [source-before.json](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/source-before.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/003/runtime/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/003/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/003/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/003` |
+| [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/003/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/003` |
+| [bounded-steps.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/004/bounded-steps.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/004` |
+| [environment-postrun.json](experiments/evidence/2026-10-17-exploration-first-scan/004/environment-postrun.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004` |
+| [environment-preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/004/environment-preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004` |
+| [external-raw.json](experiments/evidence/2026-10-17-exploration-first-scan/004/external-raw.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004` |
+| [compose.json](experiments/evidence/2026-10-17-exploration-first-scan/004/gazebo/compose.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/gazebo` |
+| [calls.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/calls.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [environment.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/environment.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [final-state.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/final-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [initial-state.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/initial-state.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [map-artifact-checks.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-artifact-checks.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [lod0.bin](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud/lod0.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud` |
+| [lod1.bin](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud/lod1.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud` |
+| [lod2.bin](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud/lod2.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud` |
+| [lod3.bin](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud/lod3.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud` |
+| [lod4.bin](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud/lod4.bin) | BIN | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/cloud` |
+| [occupancy.png](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/grid/occupancy.png) | PNG | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/grid` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package` |
+| [map.pgm](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/navigation/map.pgm) | PGM | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/navigation` |
+| [map.yaml](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/navigation/map.yaml) | YAML | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/navigation` |
+| [source.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/navigation/source.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/navigation` |
+| [objects.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/objects.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package` |
+| [semantics.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/semantics.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package` |
+| [slam-keyframes.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/slam-keyframes.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package` |
+| [slam-session.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/slam-session.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package` |
+| [trajectory.geojson](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package/trajectory.geojson) | GEOJSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/map-package` |
+| [navigation-final.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/navigation-final.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [preregistration.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/preregistration.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [progress.jsonl](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/progress.jsonl) | JSONL | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [report.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/report.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [runtime-info.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/runtime-info.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [service-catalog.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/service-catalog.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [source-after.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/source-after.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [source-before.json](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/source-before.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/004/runtime/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/004/runtime` |
+| [source-dirty.patch](experiments/evidence/2026-10-17-exploration-first-scan/004/source-dirty.patch) | PATCH | `experiments/evidence/2026-10-17-exploration-first-scan/004` |
+| [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/004/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/004` |
+| [environment-restored.json](experiments/evidence/2026-10-17-exploration-first-scan/environment-restored.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan` |
+| [manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan` |
+| [motion-stop-checks.json](experiments/evidence/2026-10-17-exploration-first-scan/motion-stop-checks.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan` |
+| [full-gate.log](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/full-gate.log) | LOG | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
+| [patch-from-004.diff](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/patch-from-004.diff) | DIFF | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
+| [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
+| [validation.json](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/validation.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
 | [task-replay-desktop.png](frontend/assets/console-ux-20260927/task-replay-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-desktop.png](frontend/assets/console-ux-20260927/workspace-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-mobile.png](frontend/assets/console-ux-20260927/workspace-mobile.png) | PNG | `frontend/assets/console-ux-20260927` |

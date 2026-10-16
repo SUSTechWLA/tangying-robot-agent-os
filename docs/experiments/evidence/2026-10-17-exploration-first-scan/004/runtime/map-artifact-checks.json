@@ -1,0 +1,92 @@
+[
+  {
+    "role": "cloud",
+    "href": "cloud/lod4.bin",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "cloud_lod_0",
+    "href": "cloud/lod0.bin",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "cloud_lod_1",
+    "href": "cloud/lod1.bin",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "cloud_lod_2",
+    "href": "cloud/lod2.bin",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "cloud_lod_3",
+    "href": "cloud/lod3.bin",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "cloud_lod_4",
+    "href": "cloud/lod4.bin",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "grid",
+    "href": "grid/occupancy.png",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "navigation",
+    "href": "navigation/map.yaml",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "navigation_grid",
+    "href": "navigation/map.pgm",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "navigation_metadata",
+    "href": "navigation/source.json",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "objects",
+    "href": "objects.json",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "semantics",
+    "href": "semantics.json",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "slam_keyframes",
+    "href": "slam-keyframes.json",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "slam_session",
+    "href": "slam-session.json",
+    "ok": true,
+    "reason": "ok"
+  },
+  {
+    "role": "trajectory",
+    "href": "trajectory.geojson",
+    "ok": true,
+    "reason": "ok"
+  }
+]

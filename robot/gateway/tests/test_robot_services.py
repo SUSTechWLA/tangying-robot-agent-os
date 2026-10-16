@@ -943,15 +943,16 @@ def test_exploration_reports_a_travel_budget_rather_than_claiming_completion(tmp
 
 def test_a_refused_step_is_routed_around_instead_of_ending_the_survey(tmp_path):
     world = _ExplorationWorld(workarea=40.0)
-    # Refuse whatever the first chosen step is; the survey must not die on it.
+    # Refuse the first translation, separately from the optional initial turn.
     workflow = _explore_workflow(tmp_path, world)
     original = workflow._move_and_sample
     refusals = []
 
     def refuse_one(goal, *, bounded, fatal=True):
-        refusals.append((round(goal[0], 3), round(goal[1], 3)))
-        if len(refusals) == 1:
-            world.pose[0] += 0.5  # stand elsewhere so the refused target stays behind
+        translating = math.dist(goal[:2], world.pose[:2]) > 1e-3
+        if translating:
+            refusals.append((round(goal[0], 3), round(goal[1], 3)))
+        if translating and len(refusals) == 1:
             from tangying_robot_gateway.service_registry import ServiceError
             raise ServiceError("NAV_MODEL_COLLISION", "reference driver model predicts contact")
         original(goal, bounded=bounded, fatal=fatal)
@@ -1622,3 +1623,287 @@ def test_sensor_refusal_is_not_spatial_obstacle_evidence():
     with pytest.raises(SurveyRefusal) as caught:
         driver.drive_step([1, 2], [], [])
     assert caught.value.at == (1., 2.)
+
+
+def test_valid_keyframe_resets_depth_loss_streak_but_preserves_total(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.calibration_revision = workflow.calibration_get()["revision"]
+    original = workflow.slam.add
+    fail = [True]
+
+    def occasionally_starved(observation):
+        if fail[0]:
+            raise InsufficientDepthError("no measured depth")
+        return original(observation)
+
+    workflow.slam.add = occasionally_starved
+    workflow._sample()
+    workflow._sample()
+    assert workflow._depth_starved == 2
+    fail[0] = False
+    workflow._sample()
+    assert workflow._depth_starved == 0
+    fail[0] = True
+    workflow._sample()
+    assert workflow._depth_starved == 1
+    assert workflow.status()["scanEvidence"]["depthRejectedFrames"] == 3
+
+
+def test_new_mapping_session_resets_scan_diagnostics(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow._spawn = lambda _callback: None
+    workflow._depth_starved = 25
+    workflow._depth_rejected = 40
+    workflow._scan_evidence["looks"].append({"old": True})
+    workflow.start({"mode": "manual"})
+    evidence = workflow.status()["scanEvidence"]
+    assert evidence["consecutiveInsufficientDepth"] == 0
+    assert evidence["depthRejectedFrames"] == 0
+    assert evidence["looks"] == []
+    workflow.cancel({})
+
+
+def test_initial_scan_can_change_view_before_first_usable_depth_frame(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    pose = [0., 0., .035, 1., 0., 0., 0.]
+    workflow._current_pose = lambda: list(pose)
+    workflow._live_grid = lambda: (None, None)
+    angles = []
+
+    def turn(delta, _base):
+        angles.append(delta)
+        yaw = 2*math.atan2(pose[6], pose[3])+delta
+        pose[3], pose[6] = math.cos(yaw/2), math.sin(yaw/2)
+
+    workflow._turn_by = turn
+    workflow._look_around(None)
+    evidence = workflow.status()["scanEvidence"]["looks"][0]
+    assert 12 <= len(angles) <= 32 and max(angles) <= .5
+    assert evidence["completedSweeps"] == 4
+    assert abs(evidence["measuredYawTravelRad"]-2*math.pi) <= .10
+    assert evidence["acceptedFrameDelta"] == 0
+    assert evidence["coverageClaim"] == "not_measured"
+    assert evidence["status"] == "bounded_sweep_finished"
+
+
+def test_cancelled_initial_scan_issues_no_turn(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    moves = []
+    workflow._turn_by = lambda *_: moves.append(True)
+    workflow._cancel.set()
+    with pytest.raises(ServiceError):
+        workflow._look_around(None)
+    assert not moves
+
+
+def test_initial_scan_honors_frame_reserve_before_turning(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.slam.estimator.frames = [object()]*(workflow.slam.max_frames-80)
+    moves = []
+    workflow._turn_by = lambda *_: moves.append(True)
+    workflow._look_around(None)
+    assert not moves
+    assert workflow.status()["scanEvidence"]["looks"][0]["status"] == "frame_budget"
+
+
+def test_initial_scan_does_not_count_requested_turn_as_measured_rotation(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    moves = []
+    workflow._turn_by = lambda *_: moves.append(True)
+    workflow._look_around(None)
+    evidence = workflow.status()["scanEvidence"]["looks"][0]
+    assert len(moves) == 2
+    assert evidence["measuredYawTravelRad"] == 0
+    assert evidence["completedSweeps"] == 0
+    assert evidence["status"] == "no_yaw_progress"
+
+
+@pytest.mark.parametrize("code", ["LOCALIZATION_LOST", "EMERGENCY_STOP", "ROBOT_BUSY",
+                                 "MOTION_FAILED", "UNKNOWN_DRIVER_FAULT"])
+def test_exploration_never_converts_nonspatial_faults_to_obstacle_evidence(tmp_path, code):
+    workflow, _ = workflow_fixture(tmp_path)
+
+    def failed(*_args, **_kwargs):
+        raise ServiceError(code, "must stop")
+
+    workflow._drive_step = failed
+    with pytest.raises(ServiceError) as error:
+        workflow._survey_driver().drive_step([1, 2], [], [], remaining_m=2.)
+    assert error.value.code == code
+
+
+def test_published_map_retains_exploration_stop_and_scan_evidence(tmp_path):
+    import json
+
+    workflow, _ = workflow_fixture(tmp_path)
+    stamp = int(time.time()*1000)-100
+    workflow.capture = lambda: frame(stamp=stamp)
+    workflow.start({"mode": "manual", "name": "test-only measured fixture"})
+    workflow._worker.join(2)
+    for index, x in enumerate((.2, .4), 1):
+        workflow.capture = lambda x=x, index=index: frame(x, stamp+index)
+        workflow._sample()
+    # Publication-port test: fixture RGB-D has no parallax; this registration
+    # marker stands in for an accepted provider result, never a sim measurement.
+    workflow.slam.estimator.registrations = [{"kind": "unit-test-provider"}]
+    workflow._exploration = {"leg": 1, "stopReason": "travel_budget"}
+    workflow._scan_evidence["looks"].append({"phase": "initial_scan", "coverageClaim": "not_measured"})
+    workflow._build()
+    session = json.loads((tmp_path/workflow.map_id/"slam-session.json").read_text())
+    evidence = session["exploration"]
+    assert evidence["finalLeg"]["stopReason"] == "travel_budget"
+    assert evidence["wholeSceneCoverage"] == "not_measured"
+    assert evidence["frontiersExhausted"] is False
+    assert evidence["looks"][0]["phase"] == "initial_scan"
+    assert workflow.state == "completed"
+    assert "travel_budget" in workflow.message
+
+
+def test_initial_scan_closes_measured_yaw_tolerance_without_accumulating_blind_sector(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    pose = [0., 0., .035, 1., 0., 0., 0.]
+    workflow._current_pose = lambda: list(pose)
+    workflow._live_grid = lambda: (None, None)
+    commands = []
+
+    def undershooting_turn(delta, _base):
+        commands.append(delta)
+        # A real driver's arrival tolerance is not exact target attainment.
+        yaw = 2*math.atan2(pose[6], pose[3])+.75*delta
+        pose[3], pose[6] = math.cos(yaw/2), math.sin(yaw/2)
+
+    workflow._turn_by = undershooting_turn
+    workflow._look_around(None)
+    evidence = workflow.status()["scanEvidence"]["looks"][0]
+    assert 2*math.pi-.10 <= evidence["measuredYawAdvanceRad"] <= 2*math.pi+.10
+    assert evidence["rotationResidualRad"] <= .10
+    assert evidence["completedSweeps"] == 4
+    assert evidence["commandCount"] == len(commands) <= 32
+    assert max(commands) <= .5
+
+
+def test_initial_scan_does_not_treat_reverse_yaw_as_coverage_progress(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    pose = [0., 0., .035, 1., 0., 0., 0.]
+    workflow._current_pose = lambda: list(pose)
+    workflow._live_grid = lambda: (None, None)
+
+    def wrong_direction(delta, _base):
+        yaw = 2*math.atan2(pose[6], pose[3])-delta
+        pose[3], pose[6] = math.cos(yaw/2), math.sin(yaw/2)
+
+    workflow._turn_by = wrong_direction
+    workflow._look_around(None)
+    evidence = workflow.status()["scanEvidence"]["looks"][0]
+    assert evidence["status"] == "no_yaw_progress"
+    assert evidence["completedSweeps"] == 0
+    assert evidence["measuredYawAdvanceRad"] < 0
+    assert evidence["measuredYawTravelRad"] > 0
+
+
+def test_leg_boundary_keeps_cancellation_and_releases_resource_if_lease_expires_during_reserve(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    original_reserve = workflow.reserve
+    cancellation = workflow._cancel
+    sampled = []
+
+    def expire_while_reserving():
+        token = original_reserve()
+        workflow._expire_operation_lease()
+        return token
+
+    workflow.reserve = expire_while_reserving
+    workflow._sample = lambda: sampled.append(True)
+    with pytest.raises(ServiceError) as error:
+        workflow._open_leg(2)
+    assert error.value.code == "CANCELLED"
+    assert workflow._cancel is cancellation and cancellation.is_set()
+    assert workflow._user_cancel is True
+    assert owner[0] is None and workflow._reservation is None
+    assert not sampled
+
+
+def test_leg_boundary_cannot_rearm_expired_lease_before_watchdog_runs(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow._operation_deadline = time.monotonic()-1
+    workflow._sample = lambda: pytest.fail("expired operation must not acquire a view")
+    with pytest.raises(ServiceError) as error:
+        workflow._open_leg(2)
+    assert error.value.code == "CANCELLED"
+    assert workflow._user_cancel and workflow._cancel.is_set()
+    assert owner[0] is None
+
+
+def test_successful_leg_boundary_preserves_operation_event_and_identity(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.map_id = "scan-unit-test-base"
+    workflow.operation_id = "same-authorized-operation"
+    workflow._leg_anchor = [0., 0., 0.]
+    workflow._sample = lambda: None
+    cancellation = workflow._cancel
+    workflow._open_leg(2)
+    assert workflow._cancel is cancellation and not cancellation.is_set()
+    assert workflow.operation_id == "same-authorized-operation"
+    assert workflow._base_map_id == "scan-unit-test-base"
+    assert not workflow._initial_scan_pending
+    workflow._release_session()
+    assert owner[0] is None
+
+
+def test_initial_scan_feedback_escapes_driver_arrival_deadband(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    pose = [0., 0., .035, 1., 0., 0., 0.]
+    workflow._current_pose = lambda: list(pose)
+    workflow._live_grid = lambda: (None, None)
+    commands = []
+
+    def driver_with_deadband(delta, _base):
+        commands.append(delta)
+        achieved = max(0., delta-.11)
+        yaw = 2*math.atan2(pose[6], pose[3])+achieved
+        pose[3], pose[6] = math.cos(yaw/2), math.sin(yaw/2)
+
+    workflow._turn_by = driver_with_deadband
+    workflow._look_around(None)
+    evidence = workflow.status()["scanEvidence"]["looks"][0]
+    assert evidence["status"] == "bounded_sweep_finished"
+    assert evidence["completedSweeps"] == 4
+    assert 2*math.pi-.10 <= evidence["measuredYawAdvanceRad"] <= 2*math.pi+.10
+    assert .2 <= min(commands) <= max(commands) <= .5
+    assert len(commands) <= 32
+
+
+@pytest.mark.parametrize("anchor", [[10., 20., 0.], [10., 20., math.pi/2], [-3., 2., -1.1]])
+def test_continuation_transforms_bounded_map_waypoint_to_driver_world_once(tmp_path, anchor):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow._base_anchor = anchor
+    base = [1., 2., .035, 1., 0., 0., 0.]
+    planning = compose(np.array(anchor), np.array([1., 2., 0.]))
+    goal = compose(np.array(anchor), np.array([2., 2., 0.]))
+    issued = []
+    workflow._move_and_sample = lambda goal, **kwargs: issued.append(goal)
+    assert workflow._drive_step(goal[:2], base, planning, remaining_m=2.)
+    assert len(issued) == 1
+    assert issued[0][:3] == pytest.approx([1.5, 2., .035])
+    yaw = 2*math.atan2(issued[0][6], issued[0][3])
+    assert math.atan2(math.sin(yaw), math.cos(yaw)) == pytest.approx(0., abs=1e-10)
+    assert math.dist(issued[0][:2], base[:2]) <= .5+1e-10
+
+
+@pytest.mark.parametrize("anchor", [[10., 20., 0.], [10., 20., math.pi/2]])
+def test_continuation_unknown_fraction_queries_use_map_coordinates(tmp_path, anchor):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow._base_anchor = anchor
+    workflow._current_pose = lambda: [1., 2., .035, 1., 0., 0., 0.]
+    queries = []
+
+    class KnownMap:
+        @staticmethod
+        def unknown_fraction(x, y, radius):
+            queries.append((x, y, radius))
+            return 0.
+
+    workflow._look_around(KnownMap())
+    expected = compose(np.array(anchor), np.array([1., 2., 0.]))
+    assert queries[0][:2] == pytest.approx(expected[:2])
+    assert workflow.status()["scanEvidence"]["looks"][0]["status"] == "sufficient_local_evidence"

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "research.firstscan-figure.v1",
+  "inputs": {
+    "artifacts/experiments/exploration-first-scan-20261017-001/evidence/attempt-001/final-state.json": "e15090b8545c9767dd179f97e117ad0cbe868be8de10185dcb2f15e23bc5f652",
+    "artifacts/experiments/exploration-first-scan-20261017-001/evidence/attempt-001/map-package/slam-session.json": "bc38d50ae07d057b63de36ba4381d45e6683264ae38b02e73e85d5074895f7c6",
+    "artifacts/experiments/exploration-first-scan-20261017-002/evidence/attempt-001/final-state.json": "7aeb4d2445cffa8bf1714c03b72e9977dad2120a1d950c0cd74b561b26f70872",
+    "artifacts/experiments/exploration-first-scan-20261017-002/evidence/attempt-001/map-package/slam-session.json": "6f9f035648bd9dd6d06bab288b4ed3b58c6d270fd212aa152e27ccd147f101f4",
+    "artifacts/experiments/exploration-first-scan-20261017-003/evidence/attempt-001/final-state.json": "5ef6dd8aefe356f3ff9395fad7f80e14ee7bfb5187af33a4e209f9aaa553174d",
+    "artifacts/experiments/exploration-first-scan-20261017-003/evidence/attempt-001/map-package/slam-session.json": "68b97810b9bb4dcef06db15c2ce0df04d6ddef96ea90c2ddb9397d7dcd3ed5e1",
+    "artifacts/experiments/exploration-first-scan-20261017-004/evidence/attempt-001/final-state.json": "3e3a62a5b9d267c889db3925ac2f1885d60d1c6f97f3dcafe1add372434b119a",
+    "artifacts/experiments/exploration-first-scan-20261017-004/evidence/attempt-001/map-package/slam-session.json": "469cad7f9beb6f906b5a8c6d31046837fa39629593e03f366cd30ec73f2926ce"
+  },
+  "scriptSha256": "981787668375e12040c048485d501f5ff97a977206580ba1d9e3095aa4dceaae",
+  "matplotlibVersion": "3.10.8",
+  "numpyVersion": "2.4.6",
+  "units": {
+    "distance": "metres",
+    "yaw": "radians"
+  },
+  "scope": "registered keyframe odometry, not scene coverage or continuous ground truth",
+  "yawThresholdRad": 6.283185307179586,
+  "files": {
+    "first-scan.png": "a9d4c3dd33d0870b49ef83f982a286cc5b637d4101e2f050c832315d3b7282fd",
+    "first-scan.svg": "9770e2708c6a14c3d26d40e96f5020cefd3600a7115c9717dbe8a8fe9106d255",
+    "registered-odometry.csv": "0a72febd183b942bf84d2d1d3d9b36858eb9dcfbced4a34fe590d98e233371a5"
+  }
+}

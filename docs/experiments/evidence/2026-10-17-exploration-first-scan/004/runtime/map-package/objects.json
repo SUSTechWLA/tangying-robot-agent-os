@@ -1,0 +1,11 @@
+{
+  "associationGateM": 0.12,
+  "calibrationRevision": "53e6b9025884903f51516382a492864ab22a228ed6fb6acf1c9d74ebcd2575e8",
+  "entityPolls": 108,
+  "frameId": "map",
+  "mapId": "scan-d438ab8bb420",
+  "maxAgeMs": 86400000,
+  "objects": [],
+  "schemaVersion": "map.objects.v1",
+  "sightings": 0
+}

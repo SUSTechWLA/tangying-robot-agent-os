@@ -1,0 +1,12 @@
+{
+  "artifacts/experiments/exploration-first-scan-20261017-004/trajectory-observer.jsonl": {
+    "bytes": 62227715,
+    "sha256": "4fa94aae4090336308309365f149e34546076d48a11ab9792a177b745084df03",
+    "tracked": false
+  },
+  "artifacts/experiments/exploration-first-scan-20261017-004/gazebo/container.log": {
+    "bytes": 543265,
+    "sha256": "b28b11283ea97331efd5fe6d04441559dd8c0cf47c3b9b8451825bc3293a7acf",
+    "tracked": false
+  }
+}

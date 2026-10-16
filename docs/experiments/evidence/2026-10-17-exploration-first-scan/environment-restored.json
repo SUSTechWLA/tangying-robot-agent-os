@@ -1,0 +1,16 @@
+{
+  "mapping.status": {
+    "state": "completed",
+    "mapId": "scan-73e5d48169a5",
+    "ready": null,
+    "mode": null,
+    "localizationState": null
+  },
+  "navigation.status": {
+    "state": null,
+    "mapId": "scan-73e5d48169a5",
+    "ready": true,
+    "mode": "localization",
+    "localizationState": "localized"
+  }
+}
