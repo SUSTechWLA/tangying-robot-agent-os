@@ -11,9 +11,12 @@
 Local Agent只控制一台Runtime，用SQLite保存目标、版本、事件、决策与执行信息，在同进程装配Task/Ops/Recovery。简化机群协调不应简化未知结果、审批或证据。
 
 ```text
-用户目标 → Task/Revision/批准 → 能力执行器 → Runtime
-              │ SQLite                │ 观测与journal
-              └─ EventBus → Ops/Recovery → 调查/复验
+粗目标 /v1/objectives ─┐
+                      ├→ Task/Revision/批准 → Edge Host
+冻结计划 /v1/tasks ────┘                       │ 能力执行器
+                                              ↓
+           SQLite父/子账本 ← 验证/观测/journal ← Runtime
+           Local EventBus → 既有Ops/Recovery调查
 ```
 
 初学者先从这一形态观察系统全貌，再研究Fleet。没有云中心不等于所有状态都可放内存。
@@ -21,6 +24,8 @@ Local Agent只控制一台Runtime，用SQLite保存目标、版本、事件、�
 ## 9.2 哪些内容必须持久化
 
 目标与批准内容、命令身份/状态、unknown/冲突、恢复预算、完整因果链和实际模型请求，是跨重启判断需要的事实。临时UI缓存或一次模型摘要不具备同等权威。
+
+目标通道还必须保存父目标预算、当前代数、Pending状态、完成读取预留与子计划全量账本。模型只见最近8项完成，不表示磁盘只保存8项；重启应从同一数据库恢复原事实。
 
 SQLite提供数据库事务/隔离语义；它们不延伸到外部执行器。WAL下的读快照与写串行仍应按具体连接/事务理解，而非“单机无并发问题”。[SQLite隔离说明](https://www.sqlite.org/isolation.html)
 
@@ -36,7 +41,7 @@ curl --fail --silent http://127.0.0.1:8897/v1/readiness
 
 这是开发仿真入口，需要对应依赖及Docker。已有服务承载任务时先核对并复用，不重复启动。healthz是进程存活；Runtime ready与Console readiness涉及不同范围；批准和现场使能又是另外的条件。
 
-先查看设备目录、地图/标定与历史，再提交适用目标，在工作台核对草案和审批。敏感模型配置保存在私有文件，不能通过日志展示key。
+先查看设备目录、地图/标定与历史，再选择入口：工作台自然语言表单创建冻结能力计划；目标委托通过显式 `/v1/objectives` API提交合同，并使用既有任务批准路由。目标合同需绑定真实 `goalCatalogRevision`、工具/参数/次数、只读完成条件、预算和期限，详见[接口指南](../../docs/guides/delegated-edge-goals.md)。不要将旧表单成功解析理解为新Host已经启用。敏感模型配置保存在私有文件，不能通过日志展示key。
 
 ## 9.4 重启、备份与回放
 

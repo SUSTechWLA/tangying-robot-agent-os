@@ -1,5 +1,7 @@
 # 阿里云 Fleet 部署
 
+当前目标通道参考 `821659df`：云端批准粗目标，Local 或 Worker 共享 Edge Host 在工具/参数包络内细化，Runtime 负责动作准入、控制与证据。原工作台表单仍用冻结计划；接入见[目标指南](../guides/delegated-edge-goals.md)，状态保留、续跑和升级见[目标运维](../operations/delegated-goal-operations.md)。Local 与 Worker 不同时控制同一 Runtime。
+
 当前云端画像是 `deploy/cloud/docker-compose.yml`：MySQL、Redis、Fleet 与 nginx。当前 V1 仍需现场和生产环境验收，见[V1 状态](../production/v1-release-status.md)。旧 Cloud/PostgreSQL 安装不适用。
 
 ## 1. 准备主机

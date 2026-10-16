@@ -1,6 +1,6 @@
 # 模块化与扩展性：云端大脑、边缘 Agent 与异构机器人
 
-2026-10-15 增量：[目标委托与统一边缘宿主](hierarchical-edge-objectives.md)已接入 Local/Worker；云端给批准包络，边缘产生子计划并受控重规划。下述早期评价中的两条部署路径现在共用目标核心；Local 原事件总线未整体迁入 Worker，跨机通用调度和离线继续仍未实现。接口见[目标指南](../guides/delegated-edge-goals.md)，实测边界见[报告](../experiments/2026-10-15-hierarchical-edge-objectives.md)。
+2026-10-16 以 `821659df` 同步：[目标委托与统一边缘宿主](hierarchical-edge-objectives.md)已接入 Local/Worker；云端给批准包络，边缘产生子计划并受控重规划。下述早期评价中的两条部署路径现在共用目标核心；Local 原事件总线未整体迁入 Worker，跨机通用调度和离线继续仍未实现。接口见[目标指南](../guides/delegated-edge-goals.md)，实测边界见[报告](../experiments/2026-10-15-hierarchical-edge-objectives.md)。
 
 评估更新：2026-10-14；初次拆分起点为 `f5869138b81e6f8e71ba94d4925706bd1f3572bb`，本轮变化及测试见[实施记录](../development/2026-10-13-modular-extensibility.md)。后续边缘与空间增量见 [ROS 2 边缘升级](../development/2026-10-13-edge-field-candidate.md)和[空间导航实验](../experiments/2026-10-14-spatial-navigation.md)。本文是当前实现评估和后续建设路线，不是新的真机或大规模集群验收报告。
 
@@ -20,13 +20,13 @@
 
 | 维度 | 已有实现与证据 | 仍需完成 |
 | --- | --- | --- |
-| 云端大脑 + 边缘 Agent | Fleet 审批/任务/协调及只读 Cloud Assist；Worker 执行、日志、回执；Local Brain 可独立运行。见 `fleet/`、`edge/worker/`、`internal/localapp/` | Cloud Assist 尚非独立云端多 Agent 宿主；动态迁移推理、自动主控切换、无限离线执行均未实现；同一 Runtime 不能同时接受 Local 与 Fleet 两个控制者 |
+| 云端大脑 + 边缘 Agent | Fleet 批准目标/包络并协调共享资源；Local/Worker 共用 Edge Host，在边缘规划、诊断、受控重规划和验证；Worker 管 claim/回执，Local 可独立运行 | Cloud Assist 尚非独立云端多 Agent 宿主；动态迁移推理、自动主控切换、无限离线执行均未实现；同一 Runtime 不能同时接受 Local 与 Fleet 两个控制者 |
 | 多 Agent 通信 | Task/Ops/Recovery 使用带身份、任务修订和因果链的事件；恢复检查持久账本；独立 edge-exchange 提供持久 inbox/outbox、认证、去重、回执与有界 advisory 数据交换 | EventBus 是进程内有界通知，不是可靠网络消息总线；Ops/Recovery 主要为规则与目录逻辑；内存 Ledger/Beads 不是分布式知识库 |
 | 云边任务一致性 | `execution.context.v1`、CAS 检查点、短 lease/fence、`context.completion.v2` 收尾；中断后重发完成回执而非重做动作 | 多主一致性、所有外部副作用的原子 fencing、多存储故障恢复与大规模压测尚未完成 |
 | 异构机器人 | `robot.profile.v1`、`scene.reconstruction.v1`、PluginBackend；机械臂与移动传感平台合同测试；ROS 2 UGV/UAV/legged Profile、完整定位、路径身份与独立到达验证 | 新型号必须实现驱动、停止、反馈、感知与标定；通用工具仍是白名单；目录不自动生成厂商动作实现 |
 | 多机器人合作 | 显式 robot ID、有序意图、资源监护权和已有双机交接路径 | Task 的单 Adapter、单能力计划绑定单机器人；还没有通用异构 DAG 分配、竞价、自动替补和跨机持物转移协议 |
 | SLAM 与地图 | Dense 平面 RGB-D Provider、RTAB-Map/Nav2、SE3 注册测量采集/体素地图包、地形与三维几何规划、点云语义和版本绑定导航 | LiDAR/视觉惯性位姿估计仍由外部算法与适配器提供；动态避障/跟踪、跨机器人融合、实机飞行/步态和通用异构调度仍需验证 |
-| 长程任务与上下文 | 确定性阶段投影、热约束、冷归档、带身份的 grounding 检查点和只读故障恢复；已有五站 Gazebo 工程案例 | 单次成功不能给出可靠性概率；真机长期运行、断网故障矩阵、异构合作和开放词汇识别需新实验 |
+| 长程任务与上下文 | 确定性阶段投影、热约束/冷归档、Host 完整子账本与有界进度、持久读/写额度、只读故障恢复；软件 32–128 次写链和新旧路径 Gazebo 案例分别留证 | 单次成功不能给出可靠性概率；真机长期运行、断网故障矩阵、异构合作和开放词汇识别需新实验 |
 
 证据入口：[长程协作实现](long-horizon-collaboration.md)、[异构适配器](../development/robot-adapters.md)、[语义执行协议](semantic-execution-protocol.md)、[五站任务及全部失败](../experiments/2026-10-13-semantic-execution.md)。接口测试、算法测试、仿真、真机分别评价。
 
@@ -57,7 +57,7 @@ flowchart TB
 
 | 模块 | 唯一负责的事实或决定 | 输入 → 输出 | 不应承担 |
 | --- | --- | --- | --- |
-| 目标规划 / 云端大脑 | 提出目标分解、候选计划、重规划建议 | 用户意图、有限上下文、能力目录 → 待验证方案 | 签发自己的批准、编造观测、直接控制电机 |
+| 云端大脑 / 边缘 Task | 云端提出全局目标与分工；边缘在批准包络内形成子计划 | 用户目标/授权、本机目录与有限观测 → 经 Host 校验的子计划 | 签发自己的批准、编造观测、直接控制电机 |
 | 任务 / 协调器 | 已批准任务修订、分配、claim、资源监护权 | 验证后的计划和账本 → 执行授权与完成收尾 | 将通知送达当作物理完成 |
 | 边缘执行器 | 当前授权内的步骤进度、局部 grounding、诊断结果 | 执行上下文、当前能力与观测 → Runtime 命令和检查点 | 修改云端批准内容、在未知结果后盲重试 |
 | Runtime / Safety / Journal | 命令接纳、幂等身份、设备停止与实际结果 | 有效语义命令 → 设备动作和终态证据 | 任务级合作规划与云端模型选择 |
@@ -146,7 +146,7 @@ Local Agent/Worker 已将完整 Runtime Profile、目录、设备与安全配置
 
 依赖方向由 `tests/architecture` 检查。合同测试证明接口互通；故障恢复测试证明既定条件下不重复派发；算法/仿真/真机实验再证明具体任务能力。部署记录、原始失败和不可用能力必须留下，不能以隐藏失败或静默降级换取“可扩展”的表象。
 
-## 9. 当前空间通道的边界
+## 10. 当前空间通道的边界
 
 [空间建图](../development/spatial-mapping.md)保存外部已注册测量，射线认证 free、端点 occupied、其余 unknown；它不重新估计 SLAM 轨迹。[空间导航](../development/spatial-navigation.md)对连续线段检查包络，地图、策略和定位条件进入不可变部署摘要。空中要求完整 SE3，地面使用单层支撑/坡度/阶差，足端与步态由控制器处理；未知空间、错误版本和 stale/lost 定位拒绝执行。
 

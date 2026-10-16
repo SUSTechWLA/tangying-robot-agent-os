@@ -1,8 +1,8 @@
 # 多 Agent 运行时
 
-2026-10-11 按 v0.7.0 核对。新增功能、通讯三条通道、上下文一致性及 Fleet 多机器人协作的完整说明见[长程协作实现导读](long-horizon-collaboration.md)；本页说明 Local Agent 的运行时角色，不能据此推断每个 Fleet Worker 都装配相同角色。
+2026-10-16 按 `821659df` 核对。本页说明 Local 的 `agentruntime` 事件运行时；Local 与 Worker 的新增目标通道同时复用[Edge Host](hierarchical-edge-objectives.md)中的 Task 规划、Ops 诊断与 Recovery 建议。两套机制共享任务事实与执行器，但 Worker 没有复制 Local 的整个事件总线拓扑。通讯、上下文一致性及多机器人协作见[长程协作实现导读](long-horizon-collaboration.md)。
 
-Agent 层是可扩展多 Agent 运行时。**当前启用三个 Agent**：
+Local 的事件运行时默认启用三个 Agent：
 
 | 配置名 | 实现 | 职责 | 权限 |
 | --- | --- | --- | --- |
@@ -20,6 +20,12 @@ Agent 层是可扩展多 Agent 运行时。**当前启用三个 Agent**：
 `eval`、`experience`、`escalation` 目前**只有接口与扩展点，没有实现**，见[如何新增一个 Agent](../development/adding-an-agent.md)。
 
 恢复 Agent 的完整设计、计划字段说明与轨迹读法：[恢复 Agent](recovery-agent.md)。
+
+## 目标通道中的共享边缘团队
+
+`POST /v1/objectives` 的批准对象是目标包络，Local/Worker 都把其 `edge.goal` 节点交给 `internal/edgeagent.Host`。Host 的 Task 角色使用本机能力和授权语义读取生成有界子计划；`Ops` 读取持久子步骤结果；`RecoveryPolicy`（默认 `BoundedRecovery`）提出是否重规划的建议。Host 最终检查目录、工具包络、原批准、预算和未知效果，再交给同一能力执行器。扩展 RecoveryPolicy 不会获得 Runtime 端口或扩大权限。
+
+这里的 `EDGE_OPS_FINDING` / `EDGE_RECOVERY_DECISION` 是父任务账本中的目标监督事件，与 Local 事件运行时的 `ops.*` 通知协议职责不同。它们不能互相伪造执行事实，也不要求每个逻辑角色各调用一个 LLM。目标完成条件的瞬态读取最多共用两次持久重试，旧冻结能力计划中的监督读取恢复仍按原一次重读合同处理。见[两条接入路径](../guides/delegated-edge-goals.md)及[鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)。
 
 ## 一句话设计取舍
 

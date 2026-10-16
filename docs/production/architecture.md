@@ -1,14 +1,14 @@
 # 完整系统架构
 
-2026-10-11 按 v0.7.0 核对：统一 Task API 已支持 GOAL 能力规划，将标定读取、SLAM、地图启用、语义导航及抓放组合为一份获批计划。指定 Gazebo 家庭长程任务已经[完成实测](../experiments/2026-10-10-long-horizon-protocol.md)。新增通讯、上下文与协作机制见[长程协作实现导读](../architecture/long-horizon-collaboration.md)，参数及审批规则见[统一目标指南](../guides/unified-capability-goals.md)；2026-09-27 升级前问题保留在[历史审计](../development/2026-09-27-agent-capability-architecture-review.md)。
+2026-10-16 按实现提交 `821659df` 核对，软件发布版本仍为 v0.7.0。[新增目标 API](../guides/delegated-edge-goals.md)批准粗目标及工具/参数/预算包络，由 Local/Worker 共用的 Edge Host 在边缘生成、监督和验证子计划；原 `/v1/tasks` 与现有 UI/MCP 草案工具仍在审批前冻结完整能力序列。[完整长程说明](../architecture/long-horizon-collaboration.md)整合通讯、上下文、协作和[2026-10-15 实验](../experiments/2026-10-15-single-robot-robustness.md)，历史报告保留各自代码及证据边界。
 
-**当前软件部署形态：云端 Server Agent 管机群系统任务，Orin NX Edge Agent 管一台机器人；Fleet Worker 接收云端派单并在机器人侧核验。** 单机器人首版的受限工位与 Local Agent 路线仍保留。角色工具、模型与镜像边界见[Harness 升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[软件验收](agent-harness-docker-acceptance.md)。单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。环境信息只来自机载 RGB-D；关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
+**当前软件部署形态：云端 Server Agent 管全局目标与机群协作；Local Agent 和 Fleet Worker 是单机器人边缘 Agent 的两种接入方式，共用目标规划、诊断、受控恢复与执行核心。** 单机器人首版的受限工位与 Local Agent 路线仍保留。角色工具、模型与镜像边界见[Harness 升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[软件验收](agent-harness-docker-acceptance.md)。单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。家庭 RGB-D 参考路线的环境信息来自机载 RGB-D；严格异构路线由 Profile 声明传感器及规范观测，空间通道可接外部已注册三维测量。关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
 
 移动版本在 Runtime 后增加独立的 [RTAB-Map / Nav2 导航服务](../development/rtabmap-navigation.md)：双 RGB-D 与本体里程计进入 ROS，RTAB-Map 维护地图和定位，Nav2 规划并输出带时间戳速度。Runtime 保有唯一实际速度执行通道及停止检查；Agent 继续通过相同 `navigation.navigate` 工具获取结果和原始观测。相机画面和已观测导航地图由控制台只读展示，页面刷新不控制机器人执行。后续多机器人须为各自的 odom、传感器、导航命令和驱动保留身份隔离，并显式建立共同地图变换，不能直接拼接多个局部 odom。
 
 ## 1. 目标、创新点与非目标
 
-Tangying Robot AgentOS 是云端优先的分布式机器人 AgentOS。机器人完成硬件、感知、策略与安全集成后，云端 Fleet 接收自然语言，生成有版本的多机器人任务图，将动作下发到机器人侧工具，并持续接收机器人和环境观测。Harness Agent 不相信“工具调用成功”这一单一信号，而是基于权威 WorldModel、观测来源、时间新鲜度、坐标变换版本与资源 fencing 判断物理后置条件。这种“任务版本 + 工具活动 + 环境事实 + Harness 裁决”的闭环，是当前系统相对普通机器人遥控台的核心创新点。
+Tangying Robot AgentOS 采用云端全局协调、边缘单机器人自治、Runtime 本机安全控制的分层架构。机器人完成硬件、感知、策略与安全集成后，Fleet 可批准目标包络并分配给 Worker，由边缘选择工具、编排和核验；也兼容中心冻结计划后的逐项派发。Local 使用同一目标核心独立运行。Harness Agent 不相信“工具调用成功”这一单一信号，而是基于权威 WorldModel、观测来源、时间新鲜度、坐标变换版本与资源 fencing 判断物理后置条件。这种“任务版本 + 工具活动 + 环境事实 + Harness 裁决”的闭环，是当前系统相对普通机器人遥控台的核心创新点。
 
 非目标：本系统不会用软件急停替代实体急停；不会把仿真模型当作未经标定的实机真值；不会在观测陈旧、资源冲突或证据缺失时猜测成功；不会承诺单机开发栈已经具备跨地域生产 HA。
 
@@ -26,21 +26,23 @@ Browser Console ─HTTPS/JWT/WS─> Fleet API
                                   │
                          mTLS FleetGateway gRPC
                          ┌────────┴────────┐
-                     Edge robot-1      Edge robot-2 ...N
-                         │ mTLS gRPC        │
+                     Worker robot-1    Worker robot-2 ...N
+                         │                │
+                     Edge Host        Edge Host
+                         │ 能力执行器 / mTLS gRPC
                     Robot Runtime      Robot Runtime
                          │                │
                     实机或仿真工具      实机或仿真工具
 
-Orin NX 单机自治（可离线）
-Browser Console ─loopback HTTP─> Local Agent + Edge Harness + SQLite
+Orin NX 单机自治（本机模型和依赖可用时可离线）
+Browser Console/API ─loopback HTTP─> Local Agent + 同一 Edge Host + SQLite
                                       │
                              同一 RobotRuntime gRPC
                                       │
                              实机或 MuJoCo
 ```
 
-云端与本地共享 `robot.v1` Runtime、工具目录、Observation 契约、`world.snapshot.v1` 和任务体验模型；`internal/agentharness` 用同一决策循环装配不同角色。Server 只看到机群只读查询与待审批草案工具；Edge 只看到单机器人读、本地和受审批的物理写工具。云端的 `AGENT_SYSTEM_*` 与意图/规划、边缘的意图/规划/恢复模型分别配置；边缘可通过受限 Assist 凭据调用云端只读推理。云端使用多进程、多机器人、事件/Outbox/lease 协调；Local Brain 在 Orin 或开发机以 SQLite 和单进程队列完成单机闭环。`local-agent` 与 `edge-worker` 不可同时控制同一 Runtime。云端与 Orin 的 Compose 均从 `Dockerfile.agent` 构建；Orin 的 `edge`/`fleet` profile 互斥。
+云端与本地共享 `robot.v1` Runtime、工具目录、Observation 契约、`world.snapshot.v1` 和任务体验模型；`internal/edgeagent.Host` 还统一批准目标的规划、检查点、监督和完成验证。Worker 不再要求云端预列目标的所有工具调用，但也未继承 Local 全部 `agentruntime` 总线。`internal/agentharness` 用同一决策循环装配不同角色。Server 只看到机群只读查询与待审批草案工具；Edge 只看到单机器人读、本地和受审批的物理写工具。云端的 `AGENT_SYSTEM_*` 与意图/规划、边缘的意图/规划/恢复模型分别配置；边缘可通过受限 Assist 凭据调用云端只读推理。云端使用多进程、多机器人、事件/Outbox/lease 协调；Local Brain 在 Orin 或开发机以 SQLite 和单进程队列完成单机闭环。`local-agent` 与 `edge-worker` 不可同时控制同一 Runtime。云端与 Orin 的 Compose 均从 `Dockerfile.agent` 构建；Orin 的 `edge`/`fleet` profile 互斥。
 
 ## 3. 模块职责
 
@@ -61,7 +63,8 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 | Resource custody | `fleet/coordinator/`, `worldmodel/` | 维护方块等独占资源 owner 与 fencing token | token 只能单调增加；旧持有者不能以旧命令继续写入 |
 | Fleet API | `fleet/` | 操作员 HTTP/WS、设备数据面、任务工作面 | 操作员 JWT 与设备凭证分离；WS 使用一次性 ticket |
 | FleetGateway | `fleet/gateway/`, `proto/fleet/v1` | Edge 注册、心跳、状态、观测和服务端命令 | 公网通道只允许 mTLS；robot ID 与证书/注册身份绑定 |
-| Edge Worker | `edge/` | 连接 Fleet 与单台 Runtime，执行工具、上报观测和结果 | 网络重连、lease、幂等、catalog revision 和 safety profile |
+| Edge Host | `internal/edgeagent/` | Task 生成子计划、Ops 读账本诊断、RecoveryPolicy 建议，Host 校验后调用执行器 | 原目标批准固定、完整历史检查额度、持久预算、未知效果禁止重放 |
+| Edge Worker / Local | `edge/worker/`、`internal/localapp/` | 两种入口承载同一 Host；Worker 接 Fleet/claim/回执，Local 接本地 API/事件运行时 | 单一 Runtime 控制者；网络租约、SQLite 检查点、目录与安全合同 |
 | Robot Runtime | `edge/runtime/`, `robot/gateway/`, `proto/robot/v1` | 统一工具执行、观测流、取消、急停 | 仿真/实机只替换 Adapter；命令需 deadline、幂等键、fencing |
 | Tool Registry | Runtime/Fleet 注册目录 | 描述工具名、用途、安全参数、输入输出和可用性 | UI 展示人话；Agent 只调用本 revision 已注册工具 |
 | Observation Registry | `core/observation/`, Fleet 注册 | 描述传感器/场景源、schema、frame、频率、新鲜度预算 | Harness 在运行前知道“应观察什么、多久算过期” |
@@ -72,7 +75,19 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 
 ## 4. 权威数据流
 
-### 4.1 创建与执行
+### 4.1 目标委托路径
+
+批准由操作员通过任务服务完成；云端/边缘模型只能提议，不能自批或扩权。
+
+1. 操作员从目标目录获得 `catalogRevision`，提交带 `idempotencyKey` 的 `robot.objective.v1`。服务端校验机器人、工具/参数包络、效果、`resources=["robot"]`、全部只读完成条件及预算，创建未批准的单个 `edge.goal` 父节点。改合同复用键返回 409；设备凭据不能创建或批准。
+2. 使用原任务审批入口批准父包络。Fleet 协调器分配父 claim，Worker 在目标全生命周期续租；Local 由本地任务权威准入。同一 Runtime 只接受一种入口。
+3. Host 读取本机目录和授权语义状态，Task 产生最多 16 calls 的子计划，验证后保存子计划到独立的 `edge-child/<childId>` 聚合（计划固定、事件只追加）。每次规划、读取和步骤在工作前预留预算；子计划变化不改变父授权摘要。
+4. 执行器使用原确定性命令身份、安全、短 lease、grounding 和物理闭环。Ops 从账本诊断；RecoveryPolicy 仅对可证明无效果的失败提出重规划建议。Host 拒绝越权、预算耗尽及未知物理效果。
+5. 全部子动作确认且所有完成条件精确成立后，保存目标已验证结果，再补传已申报子计划、逐步验证和父完成回执。云端按原 claim、时间、配额、目录与设备证据核验；回传失败只重发证据，不重做动作。
+
+合同 v1 的上限为 8 代计划、128 次子能力调用、4,096 次 Host 业务读取和 86,400 秒。复合 `robot.task` 内物理步骤、相机帧、控制周期另有计量与限制；完成谓词中的固定地图身份本身不能证明路线已经走完。详见[目标架构](../architecture/hierarchical-edge-objectives.md)。
+
+### 4.2 兼容冻结计划路径
 
 1. 用户提交自然语言；Task Service 创建 revision 1，Task 初态 `READY`、`approved=false`。
 
@@ -84,7 +99,7 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 6. Harness Agent 从 WorldSnapshot 取证。只有后置条件满足才把步骤标为 `SATISFIED`，随后资源 custody 以新 fencing token 转给下一机器人。
 7. 全部步骤满足且最终环境 owner 正确后，任务进入 `SUCCEEDED`。
 
-### 4.2 运行中更新
+### 4.3 兼容任务的运行中更新
 
 1. 用户输入“最后放到右侧蓝色垫子上”；服务端基于当前 revision 生成 revision 2 预览。
 2. `changeSet` 标明保留步骤、变更步骤与取消步骤；用户确认时必须提交 `expectedCurrentRevision` 和 UUID `idempotencyKey`。
@@ -92,15 +107,20 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 4. 到达工具边界、资源安全释放点或明确可取消点后，Coordinator 激活 revision 2；旧 revision 后续事件不会覆盖新事实。
 5. Console 的更新轨道持续显示“已理解 → 等待安全动作 → 新版本已启用”，刷新后仍可由 API 重建。
 
-### 4.3 恢复
+目标 API 本版没有已批准包络的原地修改入口。改变工具、效果或资源权限应先停止并对账旧目标，再创建并批准新目标，不能把兼容任务的改版界面理解成可以扩大一个执行中目标的权限。
+
+### 4.4 恢复
 
 持久化配置下，Task/EventLog/Outbox 用存储恢复投影，Edge 重新注册目录。WorldHub 设置 `FLEET_WORLD_SNAPSHOT_PATH` 时保存单主 checkpoint 和源序列，恢复后只接受更新的证据；未设置时使用内存世界。重启后 delta 环形缓存不恢复，客户端需要 REST resync。Coordinator 必须取得有效 leader lease 与资源 token 才能继续。任何无法证明身份、顺序、地图版本或资源所有权的工作都保持等待/失败关闭。
+
+Host 检查点和完整子账本必须保留。已完成子步骤的独立 StepCompleted 与完整 CAPABILITY_VERIFIED 同时存在时，可重验当前授权/目录后补认父确认；其他 pending/未知状态停止对账。完成条件瞬态读取全目标最多两次持久重试；读确认落盘被中断则要求输入。完成报告 pending 只补传证明，失去原 claim 不能继续动作，也没有自动离线授权。
 
 ## 5. 数据所有权与一致性
 
 | 数据 | 权威写者 | 一致性 |
 | --- | --- | --- |
 | Task/Revision/领域事件 | Task Service 单聚合提交 | revision/aggregate version CAS；历史不可改 |
+| 边缘子计划/检查点/完整回执 | 共享 Host + 边缘 SQLite | 原子 CAS；预算跨代/重启累积，模型进度摘要不是权威 |
 | 可执行队列 | Outbox → Redis Stream | 至少一次投递；消费者幂等 |
 | leader/device/resource lease | Coordinator/Fleet | 有期限；续租失败停止新动作 |
 | tool/observation catalog | Edge 注册，Fleet 记录 | revision 精确匹配；漂移时拒绝命令 |

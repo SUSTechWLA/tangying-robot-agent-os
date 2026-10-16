@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **240 份 Markdown** 与 **207 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **242 份 Markdown** 与 **208 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,8 +13,8 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 29 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 96 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
-| [部署与运维流程](#catalog-operations) | 10 | 查角色、启动、故障、升级及放行条件。 |
+| [开发参考与演进记录](#catalog-development) | 97 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [部署与运维流程](#catalog-operations) | 11 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
@@ -173,6 +173,7 @@
 | [2D、地形与 3D 空间导航升级记录](development/2026-10-14-spatial-navigation-plan.md) | `development/2026-10-14-spatial-navigation-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-15 分层目标委托与统一边缘核心升级记录](development/2026-10-15-hierarchical-edge-objectives.md) | `development/2026-10-15-hierarchical-edge-objectives.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [单机器人长程鲁棒性与实验留存](development/2026-10-15-single-robot-robustness.md) | `development/2026-10-15-single-robot-robustness.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [最新分层架构、全套参考文档与书籍 2.2.0 审校](development/2026-10-16-architecture-book-refresh.md) | `development/2026-10-16-architecture-book-refresh.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -214,6 +215,7 @@
 | [部署、运维与现场交付导航](operations/README.md) | `operations/README.md` | 导航 / 维护 |
 | [Agent 运行时配置](operations/agent-runtime-config.md) | `operations/agent-runtime-config.md` | 操作 / 接口参考 |
 | [产物清理、保留与实验复核](operations/artifact-retention.md) | `operations/artifact-retention.md` | 操作 / 接口参考 |
+| [目标委托的部署、续跑与升级](operations/delegated-goal-operations.md) | `operations/delegated-goal-operations.md` | 操作 / 接口参考 |
 | [部署目标与代码归属](operations/deployment.md) | `operations/deployment.md` | 操作 / 接口参考 |
 | [边缘 Agent 实机测试部署](operations/edge-field-testing.md) | `operations/edge-field-testing.md` | 操作 / 接口参考 |
 | [全新部署：新机器 / 新机器人 / 新云服务器](operations/fresh-deployment.md) | `operations/fresh-deployment.md` | 操作 / 接口参考 |
@@ -383,6 +385,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-13-modular-extensibility.validation.json](development/2026-10-13-modular-extensibility.validation.json) | JSON | `development` |
 | [2026-10-14-artifact-cleanup.json](development/2026-10-14-artifact-cleanup.json) | JSON | `development` |
 | [2026-10-14-book-and-maintenance-review.json](development/2026-10-14-book-and-maintenance-review.json) | JSON | `development` |
+| [2026-10-16-architecture-book-refresh.json](development/2026-10-16-architecture-book-refresh.json) | JSON | `development` |
 | [2026-09-27-capability-goal-acceptance.json](experiments/2026-09-27-capability-goal-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json) | JSON | `experiments` |

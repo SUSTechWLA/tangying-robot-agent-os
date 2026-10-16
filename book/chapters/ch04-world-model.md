@@ -79,7 +79,7 @@ A与B必须对同物料和共同坐标达成可核对解释；物体在交接区
 
 当前点云语义层以实际点集合和三维选区建立标注，保存几何 mapRevision、独立 semanticRevision、annotationId、来源与过期状态。写入使用 CAS，不能覆盖另一个编辑者的版本。标签回答“哪一部分可能是什么”，不会证明附近空间可通行或机器人已到达。
 
-任务冻结目标顺序和重复访问；边缘每到一站才读取新 semantic.plan，保存本阶段 grounding 身份和候选。原 semantic.plan 仍生成二维地面观察候选，签名执行绑定不自动延伸到任意三维标签。空间通道可以执行完整 XYZ 目标，但三维语义候选到飞行观察姿态的联合合同仍需补充。见 [点云语义](../../docs/guides/semantic-point-cloud.md)与[语义执行](../../docs/architecture/semantic-execution-protocol.md)。
+冻结计划通道在批准内容中固定目标顺序和重复访问；目标委托通道固定权限包络，再把各代具体路线保存在子计划中。两者执行到一站时都要读取适用的新 semantic.plan，保存本阶段 grounding 身份和候选；模型进度摘要不能代替当前语义修订或到达事实。原 semantic.plan 仍生成二维地面观察候选，签名执行绑定不自动延伸到任意三维标签。空间通道可以执行完整 XYZ 目标，但三维语义候选到飞行观察姿态的联合合同仍需补充。见 [点云语义](../../docs/guides/semantic-point-cloud.md)与[语义执行](../../docs/architecture/semantic-execution-protocol.md)。
 
 ### 两种建图合同并存
 

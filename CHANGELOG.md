@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 发布独立书籍 2.2.0，将云端粗目标授权、Local/Worker 共享 Host、边缘规划/诊断/恢复、分层预算与上下文写入正文；同步架构、API、部署和学习资料，新增实验 11/12 并归档 2.1.0 完整来源。引用 2026-10-15 软件与实际 Gazebo 全部尝试，保留失败和证据范围。[变更审校](docs/development/2026-10-16-architecture-book-refresh.md)。
+
 - 增强单机器人长程恢复：统一续跑后的云端失败上报，恢复有完整子账本证明的已确认动作，增加完成条件瞬态读取的持久有界恢复；未知效果、证据错配、取消、期限和预算仍拒绝继续。新增连续 32–128 动作 campaign、云边丢包/重建矩阵与研究证据采集器；见[实施记录](docs/development/2026-10-15-single-robot-robustness.md)。
 
 - 新增[分层目标委托](docs/architecture/hierarchical-edge-objectives.md)：云端批准目标与工具/参数/效果包络，Local 与 Worker 共用 Edge Host 生成子计划、诊断并在安全范围内重规划；新增目标 API、能力目录摘要、持久检查点及云端子计划/完成证据核验。11 站合同任务完成一次拒绝后的剩余规划，未知写结果禁止重放；[实施记录](docs/development/2026-10-15-hierarchical-edge-objectives.md)与[测试报告](docs/experiments/2026-10-15-hierarchical-edge-objectives.md)区分软件证据和未做的实机验收。

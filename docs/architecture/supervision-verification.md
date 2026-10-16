@@ -1,5 +1,7 @@
 # 监督 Agent：故障矩阵与可回溯验证
 
+阅读范围（2026-10-16）：本页保留早期设计/场景的结构与例子；最新规范以[分层目标架构](../architecture/hierarchical-edge-objectives.md)和[完整系统架构](../production/architecture.md)为准。Local/Worker 现共用目标 Host，但 Local 原事件总线没有整体迁入 Worker；历史“未接入 Worker”仅指该旧总线方案，不表示 Worker 没有目标规划、Ops/Recovery 或持久子账本。
+
 这份文档回答一个问题：**任务执行中出问题，监督 agent 到底有没有用。**
 
 > 想知道它**怎么工作**、边界在哪，看[Review Agent 运行原理](review-agent.md)；
@@ -304,9 +306,9 @@ Python 侧的 `fault_remedy.py` 是**执行引擎**（决定该不该跑一个�
 | --- | --- |
 | 审批队列与超时 | `ApprovalID` 现在是个字符串，没有对象、没有超时（见[生命周期对象](lifecycle-objects.md)第五节） |
 | 跨进程的 finding 去重 | 冷却表在内存里，重启后重置 |
-| 舰队级监督 | 监督 agent 只在本地单机接线；`edge-worker`（云端路线）尚未接 |
+| 跨任务舰队级监督 | Worker 目标 Host 已有本机子账本 Ops/Recovery；Local 原总线的跨任务扫描与统一舰队发现索引仍未迁入 |
 
-最后一条是最实际的缺口。下面的步骤是查证过的，不是估计：
+下述为早期把 Local 总线整体迁往 Worker 的备选设计；当前实现选择了共享目标 Host，不能按这段旧接线评估 Worker 的现有能力。
 
 ### 舰队级监督的落地步骤
 
@@ -315,7 +317,7 @@ Python 侧的 `fault_remedy.py` 是**执行引擎**（决定该不该跑一个�
 **三处要改**：
 
 1. **`AgentRuntime` 的 sink 签名**（`agentruntime/bus.go`）。当前是 `func(ctx, tasks.TaskEvent) error`，绑定了本地账本类型。放宽成与 `Cloud.AppendEvent` 同形的接口，两种宿主就都能接。这是纯接口放宽，本地路径不变。
-2. **`OpsAgent.History` 需要一个分布式任务索引**。它现在依赖 `tasks.Service.List`，而 `edge/worker` **没有本地任务账本**（已查证：`edge/worker/worker.go` 只有上报，没有 `tasks.Service`）。所以云端路线需要一个新的 RPC：返回"哪些任务异常结束"。**这是唯一真正的新接口**，也是这一步的主要工作量。
+2. **`OpsAgent.History` 需要一个分布式任务索引**。它现在依赖 `tasks.Service.List`，早期 Worker 没有同形本地任务服务；当前目标通道已保存 `edge-child` 聚合与 Host 检查点，但这不等于舰队全量任务索引。若迁移跨任务扫描仍需设计明确的分布式索引，不能直接用本机子账本替代全机群查询。
 3. **生命周期装配**。`workerInstance.Run(ctx)` 是阻塞的，监督运行时必须是并列的 goroutine，并随 ctx 一起收尾；否则它会拖住 worker 的退出。这个模式在 `cmd/local-agent` 已经跑通，可以照搬。
 
 **为什么没有顺手做完**：第 2 步要新增云端 RPC，而本环境没有可跑的云服务器与舰队栈（`docker compose` 那套需要真实部署），因此**无法验证**。在不能验证的地方留下一段看起来能跑的新接口，比诚实地留着不做更糟——这个仓库的既有约定是"结论要有证据"。

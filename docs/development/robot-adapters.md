@@ -244,11 +244,15 @@ Fleet 的 `FLEET_ROBOTS`、`FLEET_DEVICE_CREDENTIALS` 及设备 mTLS 证书必�
 
 `EDGE_TELEMETRY_INTERVAL` 默认 2 秒；应根据各来源的 maxAgeMs、实际采样率及多源轮询周期设置，使新鲜采集能及时上报。不能修改旧帧采集时间来消除 stale。
 
-如果 profile 声明了 `manipulation.pick/place` 且实际能力目录输入含 `action_chunk`，当前 Edge Worker 启动会要求策略 provider；不能用上面的 disabled 配置跳过。需要 `EDGE_POLICY_MODE=http`、`EDGE_POLICY_ENDPOINT` 和与真实 modelId、adapter、标定、关节及动作限值相容的策略服务。仓库的 deterministic 策略只允许既有 MuJoCo/RoboCasa 仿真 adapter，不是任意新机器人或真实型号的通用动作生成器。策略契约见[策略与工具](../production/policy-tools.md)。该 HTTP Policy 装配在 Fleet Worker，Local Agent 不会自动装配同一 Provider。
+如果 profile 声明了 `manipulation.pick/place` 且实际能力目录输入含 `action_chunk`，当前 Edge Worker 启动会要求策略 provider；不能用上面的 disabled 配置跳过。需要 `EDGE_POLICY_MODE=http`、`EDGE_POLICY_ENDPOINT` 和与真实 modelId、adapter、标定、关节及动作限值相容的策略服务。仓库的 deterministic 策略只允许既有 MuJoCo/RoboCasa 仿真 adapter，不是任意新机器人或真实型号的通用动作生成器。策略契约见[策略与工具](../production/policy-tools.md)。当前 Local Agent 也在 `cmd/local-agent/policy.go` 装配同一策略契约，使用独立的 `LOCAL_POLICY_MODE=http`、`LOCAL_POLICY_ENDPOINT`、`LOCAL_POLICY_ROBOT_MODEL`、`LOCAL_POLICY_TRANSFORM_REVISION` 与 `LOCAL_POLICY_CALIBRATION_REVISION`，并由 Runner 在动作前调用。它不会继承 `EDGE_POLICY_*` 或自动启用；需要真实新鲜重建和关节测量，模型/标定/变换身份匹配，推理后重新核对 Runtime 与有效期。目录不含 `action_chunk` 的内部规划工具不会附加外部轨迹。
 
 契约允许通过 `internallyPlannedTools` 明确声明 pick/place/recover 由 Backend 负责规划；内部规划 pick/place 必须有目标引用，且不接受调用者的关节轨迹，`arm.move` 仍要求动作块。当前通用 `PluginBackend.capabilities()` 按公共 schema 展示参数，仍含 `action_chunk`，因此仅增加 Profile 字段不会改变 Worker 的策略要求。需要内部规划时须实现匹配的可信 Backend 目录、规划、执行、限幅、停止与验证，并增加跨语言测试。已有 Gazebo Backend 展示了这条路线，其仿真夹具不等于实机驱动。
 
 涉及 Fleet 物料资源的命令还需要独立可信的 owner/fencing token 同步。现有 `RobotRuntimeService.register_resource` 是本地方法，会将授权写入 Runtime journal；通用 `run_plugin serve` 没有资源授权 RPC 或自动同步器。未完成这部分集成时，带 resourceId 的命令会以 `RESOURCE_GRANT_REQUIRED` 拒绝。接入方需在自有 Runtime 宿主中，将经过认证的协调器授权送入该方法，验证 owner/token 单调性及撤销/重启行为；不能从收到的动作命令自行授予同一个 token。下面的七步协议测试不带共享资源授权，不等于 Fleet custody 全链路验收。
+
+## 目标委托复用设备能力
+
+新 `POST /v1/objectives` 由批准合同限定机器人、目标目录、工具/参数包络、效果、完成条件和预算。Local/Worker 的共享 Host 在该包络内细化；Runtime/适配器的准入、观测、控制与停止职责不变。模型规划不能通过设备类型或 Profile 声明绕过限值。接入与备份见[目标指南](../guides/delegated-edge-goals.md)和[目标运维](../operations/delegated-goal-operations.md)。
 
 ## 通过相同 MCP 提交任务
 

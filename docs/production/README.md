@@ -4,9 +4,9 @@
 
 [2026-09-26 生产就绪审计与实机交接](field-readiness-2026-09-26.md)和 [V1 状态](v1-release-status.md)记录对应阶段的验证边界；[2026-09-05 评估](v1-assessment-2026-09-05.md)保留为历史审计快照。历史发布证据不自动覆盖后续代码改动；离线前置检查通过不等于实机生产就绪。
 
-原有单机及仿真内容记录其对应版本；2026-09-25 云边升级的当前实现、部署和证据分别见[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Orin NX 安装](../install/edge-orin.md)、[软件验收](agent-harness-docker-acceptance.md)。新开发应从[开发者上手](../development/getting-started.md)进入，再按[源码与文档对应关系](../development/principles.md#文档与变更一起更新)定位模块。
+当前目标与子计划边界见[完整架构](architecture.md)、[分层目标](../architecture/hierarchical-edge-objectives.md)和[目标接入指南](../guides/delegated-edge-goals.md)。原有单机及仿真内容记录其对应版本；2026-09-25 云边升级的历史设计、部署和证据分别见[角色 Harness 规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)、[Orin NX 安装](../install/edge-orin.md)、[软件验收](agent-harness-docker-acceptance.md)。新开发应从[开发者上手](../development/getting-started.md)进入，再按[源码与文档对应关系](../development/principles.md#文档与变更一起更新)定位模块。
 
-本目录说明当前实现、操作方式与生产前置条件；其中 HA、细粒度 RBAC、容量和现场验收要求不等于已经交付。Tangying 的核心价值是把自然语言任务、分布式多机器人协调、工具执行、环境观测与 Harness Agent 验证放入同一条可审计链：命令返回成功不等于任务成功，只有权威世界状态满足后置条件才会完成任务。当前提供云端 Fleet 系统任务 Agent、Orin NX 单机 Agent 与云端派单的 Edge Worker；三者复用 Agent 镜像，按角色限制工具和模型路由。云端与单机的任务权威不同，不能同时控制同一 Runtime。
+本目录说明当前实现、操作方式与生产前置条件；其中 HA、细粒度 RBAC、容量和现场验收要求不等于已经交付。Tangying 的核心价值是把自然语言任务、分布式多机器人协调、工具执行、环境观测与 Harness Agent 验证放入同一条可审计链：命令返回成功不等于任务成功，只有权威世界状态满足后置条件才会完成任务。当前提供云端 Fleet 系统任务 Agent，以及 Local/Worker 两种边缘入口；两者共用 Edge Host 完成获批目标的本机规划、执行、诊断与有界恢复。统一 Agent 镜像按角色限制工具和模型路由。云端与单机的任务权威不同，不能同时控制同一 Runtime。
 
 单机器人首版从[用户流程与上线准备](single-robot-v1.md)开始；开发与真实相机接入见[RGB-D 闭环](../development/single-robot-loop.md)和[ROS 2](../development/ros2-rgbd.md)。
 

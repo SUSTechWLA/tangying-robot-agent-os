@@ -13,7 +13,10 @@
 5. **重试以物理结果为边界。** 队列可以至少一次交付，物理动作不能重复。先查 command fingerprint、Runtime journal 与世界事实；未知执行结果进入对账。重启不解除急停锁存。
 6. **版本与身份不能倒退。** task/world revision、source sequence、catalog revision、fencing token 各有作用域；不通过重置数字或编辑历史解决冲突。持久化只覆盖已实现的单主范围。
 7. **界面只呈现可信状态。** 常用任务流程保持简洁，诊断按需展开。隐藏开发按钮不是服务端权限控制；断线、未知提交结果、急停和视觉降级必须对用户可见。
-8. **证据与结论绑定版本和环境。** 单元测试、仿真闭环、历史签名包、现场记录是不同证据。报告实际通过与跳过项；接口可调用、离线 READY 和默认参数都不是生产认证。
+8. **粗目标批准不等于任意动作授权。** `core/objective` 固定目标权限；共享 `internal/edgeagent.Host` 只在工具/参数/效果包络、持久预算、期限和原 claim 内细化。模型进度摘要不替代完整账本，诊断/恢复建议不拥有执行端口。未知写入停止对账，确认补认与结果补传不能重新发动作。
+9. **证据与结论绑定版本和环境。** 单元测试、仿真闭环、历史签名包、现场记录是不同证据。报告实际通过与跳过项；接口可调用、离线 READY 和默认参数都不是生产认证。
+
+现行目标路径见[分层架构](../architecture/hierarchical-edge-objectives.md)，旧 `/v1/tasks` / UI 冻结路径仍兼容。设备数据交换属于独立数据面，不给消息附加批准或运动权限。
 
 单机器人 RGB-D 入口与逐层阅读顺序见[闭环开发指南](single-robot-loop.md)；关键新增模块是通用 `rgbd.py`、参考 `rgbd_runtime.py`、Local 恢复、任务证据接口与 SQLite 存储。任务恢复是控制流程继续，历史重建/预览是可审计记录，不代表能凭深度预览无损重跑感知算法。
 
@@ -26,6 +29,8 @@
 | `cmd/robot-agent`、`internal/robotagent` | CLI、角色生命周期、预检、仿真/Sim2Real 工具分派 |
 | `cmd/local-agent`、`internal/localapp` | Local Brain 装配、依赖注入、恢复与工作队列 |
 | `agent`、`orchestration`、`skills/manipulation` | 意图、计划守卫、能力模板 |
+| `core/objective`、`tasks/objective.go` | 粗目标合同、创建幂等、批准包络与虚拟 `edge.goal` 父节点 |
+| `internal/edgeagent` | Local/Worker 共用目标宿主，子计划/检查点、额度预留、Ops/Recovery、确认补认与全目标完成 |
 | `tasks`、`core/taskgraph` | Task、Revision、更新 CAS、安全点和事件投影 |
 | `core/fleetcontract`、`core/eventstore`、`orchestration/handoff` | 云边共享值、原子存储端口、任务执行摘要与校验；不依赖 Fleet 实现 |
 | `edge/tasksource` | Redis 取任务通知适配器；在入口组装给 Worker |

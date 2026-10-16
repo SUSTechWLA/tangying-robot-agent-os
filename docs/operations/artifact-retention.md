@@ -8,7 +8,7 @@ artifacts 混合了运行状态、实验原始证据、可再生成的输出和�
 
 | 产物 | 处理原则 |
 | --- | --- |
-| Task/SQLite、Runtime journal、claim/checkpoint/pin | 保存执行与未知状态；升级不能通过清空数据库消除拒绝 |
+| Task/SQLite、Runtime journal、claim/checkpoint/pin | 保存执行与未知状态；目标委托须连同 `edge-goal/*`、`edge-child/*`、通知与 outbox 完整备份，升级不能通过清空数据库消除拒绝 |
 | 地图、RTAB-Map 数据库、注册测量、标定 | 保留地图/空间版本和底层测量；重新建图不是恢复同一次实验 |
 | 实验图像、请求、观测、控制器日志、失败目录、二进制 | 按实验 manifest 保留，校验原始字节与摘要；失败不因后来成功而删除 |
 | 原始证据压缩包 | 先验证可解包和逐文件摘要；单独 SHA 清单不能替代内容，未公开包不能称为公开数据集 |
@@ -24,6 +24,12 @@ artifacts 混合了运行状态、实验原始证据、可再生成的输出和�
 清理前 artifacts 约 31 GB，主要空间来自保留的地图与长程实验。完成删除 **27 个文件、366,420,050 个逻辑字节（349.45 MiB）**，包含未引用的 scratch 输出和已被 `bin/local-agent` 取代的旧根目录 CLI。逻辑大小不等同于文件系统实际回收量，APFS 克隆、压缩与分配粒度会影响后者。
 
 scratch 中 `audit-dataset/` 被历史审查报告引用，继续保留。所有原始实验、成功/失败目录、地图、任务历史、Runtime journal、既有出版包及用户正在修改的宣传资料保持。删除前检查 Git 跟踪及 lsof 打开文件，清单逐文件记录大小和 SHA：[清理记录](../development/2026-10-14-artifact-cleanup.json)。
+
+## 目标委托与新实验保留
+
+按[目标运维](delegated-goal-operations.md)做 SQLite 一致性备份；活动数据库仅复制 `.db` 会遗漏 WAL 或跨组件在途事实。模型只看到的最近 8 条确认调用与摘要不是完整执行历史，不能替代子账本、完整规划输入和 Runtime 原始证据。
+
+[10-15 鲁棒性证据](../experiments/evidence/2026-10-15-single-robot-robustness/master-manifest.json)区分 Git 中的冻结日志/检验器与本地大体积图像、地图、数据库和二进制。保留失败与排除原因；受 manifest 约束的 CSV 原始换行和字节不能为了格式化而改写。书籍 2.2.0 使用新输出目录，旧 2.1.0 出版包与版次来源保留。
 
 ## 后续操作
 

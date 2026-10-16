@@ -26,7 +26,9 @@
 
 根因假设要引用证据和缺失信息。规则置信度或模型解释不是测量；诊断成功不能代替业务目标后置条件。
 
-## 11.3 有界只读恢复
+## 11.3 两种接线中的有界恢复
+
+以下是Local既有事件运行时的只读调查路径；不能把它的“一次原command重读”直接套到所有Host完成条件上。
 
 ```text
 持久恢复请求 + 原只读失败
@@ -42,6 +44,10 @@
 
 原只读故障和调查读取都不会制造物理重放权。bounded_write按审批与目录规则处理，never_automatic禁止自动执行，unknown不因更换错误分类而解除。
 
+目标 Host 的 Ops 读取子任务持久失败，RecoveryPolicy 提出建议，宿主复核后处置。明确 `REJECTED` 且未准入、或无副作用的读取失败可生成剩余计划；未知写不得重规划或重放。其 finding/decision 记录在父任务，可从代数追到原子步骤。
+
+目标全部动作确认后，完成条件的 gRPC `Unavailable` / `DeadlineExceeded` 允许全目标最多两次持久瞬态重试。它只重读完成条件，不重规划、不重发动作；每次消耗原业务读预算，检查当前权威与原期限。PermissionDenied、取消、总期限超时不重试。每次读取先写 `CompletionReadPending`；若读结果确认或耗尽提交中断，重建宿主要求复核，不能多拿两次额度。
+
 ## 11.4 长历史下的调查
 
 先读取有界摘要定位，再回查完整来源。大详情归档，热guard保留unknown/冲突/硬约束。context_read是历史工具，不是对机器人的独立复验。
@@ -56,7 +62,9 @@
 
 ## 11.6 已验证案例与未覆盖范围
 
-19分钟任务的一次navigation.status只读UNAVAILABLE经过完整链后原命令重读并完成原任务。暂停由操作员发起，抓放失败修复需要后续新运行验证；这些事实不构成自主物理维修或无限故障恢复。
+2026-10-10的19分钟任务，以及2026-10-15的inspection02，分别记录一次执行期navigation.status只读UNAVAILABLE，经Local完整调查/复验链原命令重读后完成。Host最终完成条件的两次持久重读主要由软件故障矩阵验证，不冒充这两条Gazebo轨迹发生了相同故障。
+
+最新Host01还在运动前发现Local复合Runner递归进入父恢复的装配缺陷；保留失败和Pending，先只读确认零派发，修复选定legacy路径的物理账本检查后，用新任务Host02验证。它是开发修复后复验，不是Agent在运行中自行修改源码。历史19分钟任务的暂停由操作员发起，抓放修复也需后续新运行；这些事实不构成自主物理维修或无限故障恢复。
 
 ## 11.7 诊断状态的演进与可解释界面
 
@@ -77,7 +85,7 @@
 
 ## 11.8 小结与阅读
 
-源码见[Ops](../../agentruntime/opsagent.go)、[恢复绑定](../../agentruntime/recovery_binding.go)、[只读放行](../../cmd/local-agent/read_recovery.go)和[复验](../../internal/recoveryexec/verify_read.go)。流程模板在附录H。
+源码见[Host监督](../../internal/edgeagent/supervision.go)、[完成条件恢复](../../internal/edgeagent/completion.go)、[已确认效果恢复](../../internal/edgeagent/recovery.go)、[Ops](../../agentruntime/opsagent.go)、[恢复绑定](../../agentruntime/recovery_binding.go)、[只读放行](../../cmd/local-agent/read_recovery.go)和[复验](../../internal/recoveryexec/verify_read.go)。流程模板在附录H。
 
 ## 11.9 分层习题
 

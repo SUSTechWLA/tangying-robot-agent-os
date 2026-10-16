@@ -1,6 +1,6 @@
 # 长程任务、多 Agent 通讯与异构机器人协作
 
-核对日期：2026-10-11。实现基线为正式版本 v0.7.0，提交 `30df0602f3baaab6cb75644e9051b919248c53af`。本文说明当前实现如何工作；逐轮故障与修复见[长程验收报告](../experiments/2026-10-10-long-horizon-protocol.md)，发布身份与附件见[v0.7.0 发布记录](../releases/v0.7.0.md)。
+核对日期：2026-10-16，实现基线 `821659df`；软件发布版本仍为 v0.7.0，书籍版次与软件版本独立。本文整合[分层目标委托](hierarchical-edge-objectives.md)与[单机鲁棒性升级](../development/2026-10-15-single-robot-robustness.md)。2026-10-10 的长程样本、v0.7.0 发布证据与最新 2026-10-15 实验分别保留，不把旧结果重新解释成新代码验收。
 
 系统把长目标拆成可审批、可验证、可回溯的步骤，用确定性状态和执行身份连接规划、监督、恢复与机器人控制。能够自动继续的条件是：授权仍有效、上下文一致、机器人具备对应能力，而且已有证据证明继续安全。条件不成立时系统停止并要求对账。当前已验证指定家庭场景的单机器人长程任务，以及独立的双机器人交接流程；尚未证明任意异构机群都能自主完成任意长任务。
 
@@ -8,7 +8,7 @@
 
 | 功能 | 实现方式 | 主要入口 |
 | --- | --- | --- |
-| 一个目标编排多个能力 | GOAL 规划器读取注册能力和结构化状态，产出经校验、冻结、审批的能力调用序列 | [能力规划器](../../internal/capabilityagent/planner.go)、[统一目标指南](../guides/unified-capability-goals.md) |
+| 粗目标在边缘持续编排 | 批准固定目标/授权/预算，Local 与 Worker 共享 Host 在包络内生成、验证和持久化子计划；旧任务入口仍在审批前冻结整份计划 | [目标宿主](../../internal/edgeagent/host.go)、[目标指南](../guides/delegated-edge-goals.md) |
 | Agent 消息有完整身份 | v1 信封、注册身份绑定的发布口、topic 权限、UUID、同 ID 内容冲突检测 | [事件契约](../../core/agentcontract/event.go)、[发布门禁](../../agentruntime/publisher_policy.go) |
 | 只读故障自动诊断并续跑 | 原失败、Ops 异常、Recovery 计划、执行器独立复验组成持久因果链；满足条件后原命令最多重读一次 | [读取恢复](../../internal/capabilityagent/read_recovery.go)、[交互协议](../development/2026-10-10-agent-interaction-protocol.md) |
 | 长历史仍可用于决策 | 从完整账本和不可变 revision 生成阶段记忆，热层保留硬约束与未决状态，完整历史按 SHA 外置并有界回查 | [任务上下文](../../tasks/context.go)、[命令记忆](../../tasks/context_memory.go)、[预算投影](../../core/agentcontext/managed.go) |
@@ -28,8 +28,9 @@ flowchart TB
   User[自然语言目标与操作员审批] --> Local[Local Agent：单机器人自治]
   User --> Cloud[Fleet：云端任务与协调器]
   Cloud --> Worker[每台机器人一个 Edge Worker]
-  Worker --> Runtime[本机 Robot Runtime]
-  Local --> Runtime
+  Worker --> Host[共享 Edge Host：Task / Ops / Recovery]
+  Local --> Host
+  Host --> Runtime[能力执行器 / 本机 Robot Runtime]
   Runtime --> Backend[型号适配器、感知、控制器]
   Local --> Ledger[单机任务账本与事件总线]
   Ledger --> Ops[Ops：定位异常]
@@ -40,19 +41,20 @@ flowchart TB
 
 Local Agent 在一个进程中装配 `task / ops / recovery`。Task 推进获批任务；Ops 根据真实事件与摘要发现异常并生成根因假设；Recovery 从恢复动作目录产生计划。当前 Ops/Recovery 主要使用确定性规则和目录，并不代表三个独立大模型。实际长程任务的 GOAL 规划使用模型；各模型调用阶段可独立配置。
 
-Fleet 是另一层：中心负责批准计划、意图顺序、设备分配、共享世界及资源归属；每台 Edge Worker 领取本机工作，准备本机步骤并调用 Runtime。Fleet Worker 与 Local Agent 的三个角色不能画成每台设备都天然拥有的同一套进程拓扑。云端只读模型 Assist 只提供推理结果，也不接管设备的动作授权。部署细节见[Fleet](fleet-cloud.md)和[角色 Harness](../production/agent-harness-docker-acceptance.md)。
+Fleet 中心负责目标批准、设备分配、父 claim、共享世界及资源归属；Worker 负责本机接入、父租约和回执。新增 `edge.goal` 进入与 Local 共用的 Host：Task 规划子任务，确定性 Ops 根据子账本诊断，RecoveryPolicy 提出有界建议，Host 校验后决定继续。Local 保留上段原事件运行时；Worker 并未装配其整个 EventBus。云端只读模型 Assist 或远端 GOAL 推理均不接管设备动作权限。部署细节见[Fleet](fleet-cloud.md)、[分层目标](hierarchical-edge-objectives.md)和[角色 Harness](../production/agent-harness-docker-acceptance.md)。
 
 电机控制、轨迹跟踪、传感器采集、短租约停止和急停在设备侧完成；中心不把网络或模型推理放进实时控制环。任务状态、资源所有权和物理证据分别由各自的确定性组件管理，任何 Agent 的文字建议都不能代替它们。
 
 ## 3. Agent 之间究竟通过什么通讯
 
-### 三条通道承担不同职责
+### 事件、账本、执行网络和数据交换承担不同职责
 
 | 通道 | 内容 | 交付与权限边界 |
 | --- | --- | --- |
 | 同进程 EventBus | task/action/evidence/state/ops/agent 事件，按 topic 订阅 | 有界队列；慢订阅者可能丢事件。注册身份限制发布，不是跨主机身份认证 |
 | 持久任务账本 | 原始执行事件、诊断、计划、回执、版本、规划上下文 | Local 使用 SQLite；Fleet 使用任务/事件/Outbox 存储。回放、恢复和放行以持久事实为依据 |
-| 云边网络 | HTTP 数据面传递任务、claim、事件与 completion；FleetGateway mTLS gRPC 传递心跳和控制；本机 Runtime 使用 gRPC | 设备身份、凭据、claim、审批、租约与 fencing 都独立校验。队列仅唤醒 worker，不授予动作权限 |
+| 云边网络 | HTTP 数据面传递任务、claim、子计划证据和 completion；FleetGateway mTLS gRPC 传递心跳和控制；本机 Runtime 使用 gRPC | 设备身份、凭据、claim、审批、租约与 fencing 都独立校验。队列仅唤醒 worker，不授予动作权限 |
+| 独立边缘数据交换 | edge-exchange 的 TLS、peer 凭据、持久 inbox/outbox、序号、TTL、去重与 ACK | 只传 advisory 数据；无 Runtime 命令端口，收消息不代表批准、观测真实或物理完成 |
 
 `tasks.TaskEvent` 向总线投影执行事实；Agent 的诊断与计划也写回同一任务账本。原始事件和镜像共享事件身份，同内容去重，同 ID 不同身份或业务参数会拒绝并记录冲突。事件是事实、建议或回执，具体含义由 topic 和发布者权限确定。
 
@@ -83,7 +85,7 @@ Orchestrator 注入绑定注册身份的发布口；观察者不能发布动作�
 
 ## 4. 一个意外如何被多个 Agent 定位、处理并继续
 
-以下是已实现、并在家庭长程任务中实测的瞬时只读故障路径：
+以下是旧冻结能力计划及 Local 事件运行时已实现、并在家庭长程任务中实测的瞬时只读故障路径：
 
 ```mermaid
 sequenceDiagram
@@ -110,6 +112,8 @@ sequenceDiagram
 
 规划阶段也有终止预算：当前 GOAL 循环最多 10 轮、6 次 provider 状态读取、3 次提案，单份能力提案最多 16 个 calls。归档回查计入总轮数，不作为额外机器人工具执行。失败规划保留 trace，但不因此创建可执行任务。系统用这些条件避免无限推理、无限调查和无限重试；更长目标需要明确的阶段与批准版本，当前没有自动生成无限阶段的调度器。
 
+目标通道的监督采用另一条明确路径：Host 在 `EDGE_OPS_FINDING` 后持久化 `EDGE_RECOVERY_DECISION`。只读失败或明确未准入且无效果的写拒绝，才可在原包络与剩余额度内重规划；已确认写不会重放。全部动作完成后，完成条件的瞬态 gRPC Unavailable/DeadlineExceeded 共用最多两次持久只读重试，不再生成动作计划。`CompletionReadPending` 的落盘/确认被中断时要求输入，不通过重启获得额外读取。上述限额与旧路径的一次读恢复分开计量，详见[单机鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)。
+
 ## 5. 长上下文如何保持一致并跨域传递
 
 ### 权威状态与模型视图分开
@@ -135,6 +139,12 @@ sequenceDiagram
 
 输入字节不等于供应商实际 token 数。必保留状态仍放不下时，模型调用前拒绝，需要缩小阶段或工具集；不会删硬约束或提高预算来宣称支持无限长任务。实际模型 HTTP 请求原文和 SHA 随决策保存，HTTP Authorization 凭据不进入 trace。详见[分层上下文](../development/2026-10-09-long-horizon-context.md)与[真实长历史预算修复](../development/2026-10-10-context-budget-recovery.md)。
 
+### 目标宿主的进度视图
+
+父授权固定，子计划按代数生成，完整 trace 和模型输入存入追加式子账本，子计划内容固定。模型分别接收原目标和进度 JSON；进度包含精确完成条件、完成数量/摘要、最近 8 个确认调用及当前诊断，限制为 8,000 字节。这一限制不包含单独传入的目标文本，也不是整个模型请求上限。完整完成历史仍用于确定性重复写额度检查，模型摘要无法重置计数或消除未知效果。最多 8 代计划、128 次子能力调用、4,096 次 Host 业务读取、86,400 秒，调用方可设置更小预算；每份子计划最多 16 个 calls。
+
+`maxSteps` 计能力调用，`maxReads` 计 Host 业务服务读取，不覆盖复合 `robot.task` 内每个物理子步骤、相机帧或控制周期。预算在工作前持久预留，跨重启保留。论文记录必须同时注明能力层、物理步骤层与观测层的单位。云端保留父授权与上报证据；边缘 SQLite 保留完整子 trace/checkpoint，归档时两边按 task/revision/child/command 身份关联，不能用云端最新聊天补写边缘历史。
+
 ### 不一致如何处理
 
 | 不一致 | 处理 |
@@ -146,6 +156,8 @@ sequenceDiagram
 | 目录、Runtime 身份或标定变化 | 执行前拒绝；更新配置、重新登记和批准，不能热换身份 |
 | 世界来源、采集时间或坐标不符合要求 | 等待合格新证据或停止，不用轮询时间替换采集时间 |
 | 已执行，中心已收尾，但 completion 响应丢失 | 按精确不可变回执确认旧结果；不改新版本，不重放动作 |
+| 子步骤完成而父确认提交失败 | 原子账本中的独立 StepCompleted 与完整绑定 CAPABILITY_VERIFIED 均存在，且当前目录/授权仍一致时补记 EDGE_STEP_RECOVERED；不再派发动作 |
+| 完成结果已本地验证，报告提交失败 | 保留 pending 结果，仅补传原计划/证据/回执；不能重新执行目标 |
 | 状态仍矛盾、落盘失败或物理结果未知 | 失败关闭、停止/对账，保留全部来源供定位 |
 
 跨域传递同步的是版本化执行依据和证据引用。各 Agent 可以有不同长度的模型视图，但必须引用同一作用域的权威事实；不要求把所有聊天、图像和点云复制到所有节点。
@@ -201,6 +213,8 @@ fence 和来源序号使用 typed uint64 及精确 JSON 留存，不能经通用
 
 同一机器人并发 worker 要共享执行数据库，CAS 决定唯一接收者；不同数据库不会自动形成分布式锁。断网后不能无限离线执行，通信校验或短 lease 失效会停止。租约过期仅证明授权失效，不证明机器人没有动作；不能把未知结果自动回收给另一台机器人重做。
 
+新目标路径在 ACCEPTED 阶段可凭 Host 的无在途安全检查点或完整子完成证据继续原父目标；实际 Run 仍复核当前批准、目录、机器人和原 claim。此例外不放宽上表旧执行图的 ACCEPTED 未知规则。Worker 的首次运行和续跑共用失败上报路径；失去租约即停止，未知效果向中心报告原 claim 的 UNKNOWN_OUTCOME。只读 `CanResumeGoal` 预检不是离线续跑授权。
+
 ### “保证完成”的实际条件
 
 这些机制保证的是执行身份、权限、资源与证据约束下的可继续性。已经验证的自动续跑包括特定只读瞬时故障、持久 completion 重传和部分记账崩溃收尾。持续感知失效、硬件故障、无有效路径、未知抓放结果、未批准改版和未闭合资源转移都可能使任务停止。
@@ -211,6 +225,8 @@ fence 和来源序号使用 typed uint64 及精确 JSON 留存，不能经通用
 
 | 证据层 | 已验证内容 | 不能据此推导 |
 | --- | --- | --- |
+| 2026-10-15 Host 软件故障实验 | 主保留批次 27 个顶层测试、58 个含子测试结果通过；同一持久机器人夹具完成 32/48/64/96/128 次确认写链，0 已确认写重放，进度投影最大 2,634 字节 | 真实 LLM、控制器性能、硬件可靠性或公共网络丢包实测 |
+| 2026-10-15 Gazebo 长程与新目标通道 | 一条旧任务长程巡检 7 个能力/18 个低层步骤、一次只读故障自动恢复；新 Host 巡检 1 计划/4 能力/10 低层步骤独立通过，保留失败尝试和四个二进制身份 | UAV 飞行、足式步态、实体机器人或把不同任务/代码的尝试合并成成功率 |
 | 2026-10-10 单机器人 Gazebo 长程任务 | 同一自然语言目标 7 个能力阶段、23 个子步骤、6 次抵达，约 19 分 19 秒；建图启用、巡检、同杯抓放和返回完成；一次只读故障自动恢复 | 多机器人长程物理协作、任意家庭或实体硬件可靠性 |
 | 同次上下文与事件审计 | 11 个 managed 上下文、7 个实际模型请求、4 次压缩、41 个 v1 事件无身份冲突 | 本次实际使用了冷归档分页；实测分页次数为 0 |
 | 独立 Fleet 回归与双机交接证据 | 意图顺序、共享世界/资源、检查点、版本切换、重连及 completion 丢响应等特定边界 | 异构机群自主匹配、生产 MySQL/Redis HA 或跨地域容灾 |
@@ -218,7 +234,7 @@ fence 和来源序号使用 typed uint64 及精确 JSON 留存，不能经通用
 
 Gazebo 原末尾导航读取 `ready=false`，因为定位年龄 1078ms 超过 1000ms 门槛；后续交接读取为 ready=true，两份事实分别保留。最后阶段要求读取并报告状态，任务成功不意味着可以跳过下一次物理动作的就绪检查。暂停由操作员发起，不能计作自动物理恢复。原始失败任务和修复前证据不会改判成功。[验收索引](../experiments/2026-10-10-long-horizon-acceptance.json)关联原始制品 SHA；大体积原图、数据库和私密配置不随源码克隆交付。
 
-本次文档修订只核对实现、运行记录和文档合同，没有重新执行 Gazebo 或实机验收。发布版本的 CI 结果见[v0.7.0](../releases/v0.7.0.md)，不能把它当新硬件的现场放行。
+最新记录、独立验证结果、CSV/JSONL、制品哈希与全部失败见[2026-10-15 完整实验报告](../experiments/2026-10-15-single-robot-robustness.md)。本次文档修订核对实现、既存运行记录和文档合同，没有重新执行 Gazebo 或实机验收。发布版本的 CI 结果见[v0.7.0](../releases/v0.7.0.md)，不能把它当新硬件的现场放行。
 
 ## 9. 扩展时保持哪些接口稳定
 

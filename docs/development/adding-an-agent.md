@@ -2,6 +2,8 @@
 
 新增一个 Agent **只需要实现接口并注册**，不需要改 `agentruntime` 里的任何核心代码。这份文档用一个 EvalAgent 骨架把那条路径走一遍。
 
+本文扩展的是 Local Agent 事件式 `agentruntime`，不等于向 Worker 注册远程 Agent。新粗目标路径中 Local/Worker 共享 `internal/edgeagent.Host`；目标 Task/Ops/Recovery 是宿主内的逻辑角色，替换建议实现应使用 `RecoveryPolicy` 端口，并保留宿主对权限、预算和未知效果的最终检查。先按[分层架构](../architecture/hierarchical-edge-objectives.md)选择扩展层；注册新观察角色不会自行获得动作权限。
+
 ## 三步
 
 1. 实现 `agentcontract.Agent`（通常在 `agentruntime/` 或你的 Agent 自己的包里）。

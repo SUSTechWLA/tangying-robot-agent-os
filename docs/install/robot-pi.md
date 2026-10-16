@@ -1,5 +1,7 @@
 # 树莓派 Robot Edge 安装与硬件准备
 
+当前目标通道参考 `821659df`：云端批准粗目标，Local 或 Worker 共享 Edge Host 在工具/参数包络内细化，Runtime 负责动作准入、控制与证据。原工作台表单仍用冻结计划；接入见[目标指南](../guides/delegated-edge-goals.md)，状态保留、续跑和升级见[目标运维](../operations/delegated-goal-operations.md)。Local 与 Worker 不同时控制同一 Runtime。
+
 先阅读[购机后 Sim2Real 上手](../sim2real/README.md)，确认硬件型号和固定软件版本，再按本页安装。当前默认 direct backend 不依赖 ROS 2，桌面模式禁用移动底盘。安装成功与离线预检通过均不代表实机验收。
 
 ## 先理解硬件

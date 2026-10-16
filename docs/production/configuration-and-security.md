@@ -46,6 +46,7 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 | `AGENT_PROVIDER` | `deterministic` 或 `openai` |
 | `AGENT_BASE_URL`, `AGENT_MODEL`, `AGENT_ORCHESTRATION_SAMPLES` | LLM endpoint/model/采样数 |
 | `AGENT_API_KEY` | 模型服务密钥；只在 Agent 进程，不发往机器人/浏览器状态 |
+| `AGENT_GOAL_PROVIDER/BASE_URL/API_KEY/MODEL` | 能力 GOAL 阶段；Worker 的目标委托也读取该组配置，复杂目标与剩余计划需有效模型；deterministic 仅支持有限语法 |
 | `AGENT_INTENT_*`, `AGENT_PLANNING_*`, `AGENT_RECOVERY_*`, `AGENT_SYSTEM_*` | 意图理解、规划、单机恢复、云端系统任务分别覆盖默认 provider/base URL/API key/model；Server Harness 使用 SYSTEM，Edge Harness 使用 RECOVERY。云端 Compose 默认 SYSTEM=deterministic，即系统任务接口返回 503，显式配置 openai 才启用 |
 | `FLEET_ASSIST_BASE_URL`, `FLEET_ASSIST_MODEL`, `FLEET_ASSIST_API_KEY` | 云端只读推理工具的上游大模型；密钥只留在 Fleet 进程，设备不可选择实际模型 |
 | `FLEET_ASSIST_INTENT_MODEL`, `FLEET_ASSIST_PLANNING_MODEL`, `FLEET_ASSIST_RECOVERY_MODEL` | 将设备的 `cloud-intent`、`cloud-planning`、`cloud-recovery` 别名分别映射到云端指定模型；缺对应配置的别名被拒绝 |
@@ -53,7 +54,7 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 | `FLEET_ASSIST_MAX_OUTPUT_TOKENS` | 云端工具单次输出 token 上限，默认 4096；请求/响应分别限制 64 KiB/1 MiB |
 | `LOCAL_ROBOT_ID`, `AGENT_CLOUD_ASSIST_URL`, `AGENT_CLOUD_ASSIST_DEVICE_TOKEN`, `AGENT_CLOUD_ASSIST_CA` | 单机器人身份与云端只读工具的 HTTPS 设备认证；推荐使用 `FLEET_ASSIST_DEVICE_CREDENTIALS` 对应的最小权限 token；URL 固定为 `/v1/assist` |
 
-`AGENT_PROVIDER=openai` 不表示所有请求都经过模型：完整已知表达优先确定性解析，其他表达才尝试模型，已识别的否定/条件/歧义不会用模型绕过。`scripts/evaluate_natural_language.py` 显式选择 deterministic 并移除继承的 Agent API Key；其通过率不评价所配置线上模型。任务编排 Planner 与动作策略 Provider 是独立通道。
+模型按阶段区分：配置 GOAL 时，能力计划由该阶段模型按注册目录产生；复合 robot.task 的意图解析仍会优先匹配完整已知表达，其他表达才尝试 INTENT 模型，已识别的否定/条件/歧义不会借模型绕过。目标 Host 的规划位置在边缘，模型端点在本机或云端不改变其执行职责。`scripts/evaluate_natural_language.py` 显式选择 deterministic 并移除继承的 Agent API Key；其通过率不评价所配置线上模型。任务编排 Planner 与动作策略 Provider 是独立通道。
 
 Orin NX 模式的三段模型可独立选本机量化服务或 Fleet 工具，配置及无运动预检见 [Orin NX 安装](../install/edge-orin.md)。本地模型可以无 API Key，Console 的“密钥未配置”本身不意味着未启用模型；具体路由按阶段状态与模型服务连通性核对。阶段 URL 与默认 URL 不同时不继承默认模型名或 Key；改变 Console 默认模型 URL 也不会沿用旧 Key。Robot Runtime 的 Local Agent 与 Fleet Worker 使用同机控制锁，跨主机控制权仍需另行保证。
 

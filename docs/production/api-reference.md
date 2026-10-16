@@ -18,7 +18,7 @@
 
 ## 2. Fleet HTTP API
 
-目标委托新增 `GET /v1/devices/{id}/goal-catalog`（operator，返回规范化目标目录）和 `POST /v1/objectives`（operator，创建未批准父目标）。Local 也提供 `POST /v1/objectives`，使用 Console session；`GET /v1/robot/services` 增加 `goalCatalogRevision/goalCapabilities`。完整合同与拒绝码见[目标接入指南](../guides/delegated-edge-goals.md)。这些接口不自动审批，不替换原 `/v1/tasks`。
+目标委托新增 `GET /v1/devices/{id}/goal-catalog`（operator，返回规范化目标目录）和 `POST /v1/objectives`（operator，创建未批准父目标）。Local 也提供 `POST /v1/objectives`，使用 Console session；`GET /v1/robot/services` 增加 `goalCatalogRevision/goalCapabilities`。完整合同与拒绝码见[目标接入指南](../guides/delegated-edge-goals.md)。这些接口不自动审批，不替换原 `/v1/tasks`。现有 UI 自然语言表单、系统任务/MCP 草案工具继续使用旧冻结计划入口；采用边缘持续编排须显式调用新目标 API。`goalCapabilities` 为按工具名索引的对象，目标目录摘要与 Runtime 低层目录摘要不可互换。
 
 外部 Agent 可使用[官方 SDK 的 MCP stdio 桥接](../../robot/mcp/README.md)调用同一 Fleet API。8 个工具是 `list_robots`、`get_robot_capabilities`、`observe_world`、`list_tasks`、`create_task`、`get_task`、`cancel_task`、`emergency_stop`；工具输入和结果有 JSON Schema。`create_task` 仅创建 `approved=false` 的提议，用户在控制台审批。MCP 结果中的 `retryable` 属于桥接协议，不是本页 Fleet 通用错误体的新字段。
 

@@ -119,3 +119,19 @@
 | advisory / agent.data.v1 | 有认证和时效的设备/云边数据建议 | Task 权威、运动授权或实体完成 |
 
 定位时效和质量阈值由已调试部署决定，数值通过不证明估计器统计校准。包络为保守几何条件，控制器仍承担真实运动可行性。
+
+## D.9 分层目标与持久恢复术语
+
+| 标识 | 精确含义与边界 |
+| --- | --- |
+| robot.objective.v1 | 单 robot 的目标授权合同；含目录、参数/效果、配额、完成读谓词、预算和期限 |
+| edge.goal | 获批父计划中的虚拟目标节点，由 Host 细化，不是 Runtime 电机工具 |
+| edgeagent.Host | Local/Worker 共用的目标生命周期核心；组织逻辑 Task/Ops/Recovery，不要求三个 LLM |
+| edge-goal / edge-child | 持久父检查点 / 固定子计划与追加式子账本；各有身份，不是新的独立人工批准 |
+| maxPlans / maxSteps / maxReads | 父目标计划数 / 子能力调用数 / Host 业务读数；不等于所有内部控制与传感调用总数 |
+| maxExecutions | 同工具与业务参数的获批执行次数；观测文本变化不能掩盖重复写 |
+| EDGE_STEP_RECOVERED | 已确认且双重绑定证据通过后补父记账，仍校验现时授权，不再发动作 |
+| CompletionReadPending | 完成读尝试已预留；持久确认中断后停止审查，不能靠重启无限读 |
+| ErrReportPending | 结果已验证但投递待闭合，续跑只补传原 proof，不获得执行权 |
+
+Host 分别提供原目标和最多 8000 字节的进度 JSON；后者保留完成谓词、已确认总数/摘要、最近 8 次确认调用与诊断。8000 字节限制不包括独立传入的目标文本，也不是整个模型 HTTP 请求上限；完整账本保留配额和全部历史。它与旧 actionloop managed view 的 32768 字节是不同层次，不把二者说成统一全局上下文上限。`maxReads` 不包含 Runtime 控制器 tick；原 claim 丢失后不能凭本地摘要继续运动。

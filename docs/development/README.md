@@ -6,11 +6,11 @@
 
 空间导航增量（2026-10-14）：[统一 2D / 地形 / 3D 接入](spatial-navigation.md) → [注册测量与地图包](spatial-mapping.md) → [实施计划](2026-10-14-spatial-navigation-plan.md) → [实际实验](../experiments/2026-10-14-spatial-navigation.md)。涉及无人机高度、足式支撑、外部 SLAM 接入或跨坐标版本时优先核对这些合同。
 
-核对日期：2026-10-13。这里按开发者的工作顺序组织资料：**了解架构 → 定位模块 → 设计变更 → 测试验收 → 发布交付**。日常值守另看[运维入口](../operations/README.md)，实验复现和论文取证看[实验索引](../experiments/README.md)，全部资料的分类见[文档总导航](../README.md)。
+核对日期：2026-10-16。这里按开发者的工作顺序组织资料：**了解架构 → 定位模块 → 设计变更 → 测试验收 → 发布交付**。日常值守另看[运维入口](../operations/README.md)，实验复现和论文取证看[实验索引](../experiments/README.md)，全部资料的分类见[文档总导航](../README.md)。
 
 边缘设备开发优先看[实机测试部署](../operations/edge-field-testing.md)、[ROS 2 异构运动契约](heterogeneous-mobility.md)、[跨 Agent 数据协议](edge-data-exchange.md)和[Worker 可靠执行](edge-worker-reliability.md)。本轮实现、仿真与未测项汇总于[边缘升级记录](2026-10-13-edge-field-candidate.md)。
 
-正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 2.0.0 教材](../../book/README.md)的案例源码固定到 `11db0adb`，适合建立原理，不自动包含后续点云语义执行升级。记录自己的分支和提交后再比较文档中的行为。
+正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 2.2.0 教材](../../book/README.md)的实现复核固定到 `821659df`，包含目标委托、持久恢复、点云语义和空间通道；实验按原身份引用。记录自己的分支和提交后再比较文档中的行为。
 
 ## 1. 先建立系统全貌
 
@@ -29,8 +29,10 @@
 
 | 要修改的问题 | 实现入口 | 接口或实现说明 | 首选回归入口 |
 | --- | --- | --- | --- |
+| 云端下粗目标、边缘自主编排 | [目标合同](../../core/objective/contract.go)、[目标服务](../../tasks/objective.go)、[共享 Host](../../internal/edgeagent/host.go) | [分层架构](../architecture/hierarchical-edge-objectives.md)、[目标接入](../guides/delegated-edge-goals.md) | [Host 测试](../../internal/edgeagent/host_test.go)、[恢复测试](../../internal/edgeagent/recovery_test.go)、[Worker 目标测试](../../edge/worker/objective_robustness_test.go) |
 | 自然语言如何选择能力、约束提案 | [能力规划器](../../internal/capabilityagent/planner.go)、[提案 Schema](../../internal/capabilityagent/proposal_contract.go) | [统一能力目标](../guides/unified-capability-goals.md) | [规划测试](../../internal/capabilityagent/planner_test.go)、[提案契约](../../internal/capabilityagent/proposal_contract_test.go) |
 | 任务版本、审批、更新与事件 | [任务服务](../../tasks/service.go)、[任务上下文](../../tasks/context.go) | [API](../production/api-reference.md)、[数据契约](../production/data-contracts.md) | [版本更新](../../tasks/service_revision_test.go)、[决策上下文](../../tasks/decision_context_test.go) |
+| 目标进度投影与持久额度 | [Host](../../internal/edgeagent/host.go)、[目标 journal](../../internal/edgeagent/journal.go) | [目标架构](../architecture/hierarchical-edge-objectives.md)、[目标运维](../operations/delegated-goal-operations.md) | [长步骤链](../../internal/edgeagent/campaign_test.go)、[完成读取恢复](../../internal/edgeagent/completion_test.go) |
 | 长历史压缩、冷归档、模型上下文预算 | [预算投影](../../core/agentcontext/managed.go)、[任务阶段记忆](../../tasks/context_memory.go) | [上下文实现](2026-10-09-long-horizon-context.md)、[预算故障与修复](2026-10-10-context-budget-recovery.md) | [上下文验收](../../core/agentcontext/managed_acceptance_test.go)、[规划上下文](../../internal/capabilityagent/planning_context_test.go) |
 | 多 Agent 通讯、诊断与受控恢复 | [运行时协调](../../agentruntime/orchestrator.go)、[恢复 Agent](../../agentruntime/recoveryagent.go)、[只读续跑](../../internal/capabilityagent/read_recovery.go) | [Agent 事件](../architecture/agent-events.md)、[交互协议](2026-10-10-agent-interaction-protocol.md) | [协调测试](../../agentruntime/orchestrator_test.go)、[恢复绑定守卫](../../internal/capabilityagent/read_recovery_guards_test.go) |
 | Local 执行、grounding 与完成判据 | [Runner](../../edge/agent/runner.go)、[机器人客户端](../../edge/robotclient/client.go) | [执行原则](principles.md)、[观察证据](observation-evidence.md) | [执行闭环](../../edge/agent/closure_test.go)、[目标落地](../../edge/robotclient/grounding_test.go) |
@@ -51,7 +53,7 @@
 3. [点云语义层实施记录](2026-10-13-semantic-cloud-plan.md)与[执行升级实施记录](2026-10-13-semantic-execution-plan.md)：为什么选择当前方案、如何分阶段接入、遇到哪些问题。
 4. [地图回放实验](../experiments/2026-10-13-semantic-point-cloud.md)与[五站 Gazebo 执行实验](../experiments/2026-10-13-semantic-execution.md)：前者检验保存点云的语义层，后者记录实际导航、故障恢复、失败修复与版本冲突负例。
 
-当前执行路径为：自然语言 → 已查询的语义目标 → 冻结任务版本 → 每站新鲜定位与可达候选 → 原有 Runtime/Nav2 → 动作后的到位或对象证据。三维语义目标仍使用地面二维导航；`arrival` 不等于识别出对象。开放词汇全图识别、自动多视角实例融合、标签随闭环优化自动迁移、跨机器人地图对齐和真机长程完成不在这轮已验证范围内。
+点云语义路线的执行路径为：自然语言 → 已查询的语义目标 → 冻结任务版本 → 每站新鲜定位与可达候选 → 原有 Runtime/Nav2 → 动作后的到位或对象证据。该次五站点云实验中的三维语义目标使用地面二维导航；新的 terrain25d/volume3d 接入与测量见[空间导航](spatial-navigation.md)，不能把空间接口结果写成该历史实验已飞行。`arrival` 不等于识别出对象。开放词汇全图识别、自动多视角实例融合、标签随闭环优化自动迁移、跨机器人地图对齐和真机长程完成不在这轮已验证范围内。
 
 ## 4. 设计变更时怎样使用历史资料
 
@@ -84,4 +86,4 @@
 
 提交前确认代码、当前指南、配置/API 和测试一致；运行 `git diff --check`，排除密钥、会话凭据和运行数据。论文需要的数据结构与证据保留规则从[实验索引](../experiments/README.md)继续；部署、升级执行与回滚从[运维入口](../operations/README.md)继续。
 
-本轮维护与出版见 [实施计划](2026-10-14-maintenance-and-book-plan.md)，清理清单见 [产物记录](2026-10-14-artifact-cleanup.json)。当前参考文档已补齐空间通道和持久合同，与历史实施报告分别使用。
+当前参考文档与教材对应 `821659df` 的分层目标、恢复和空间合同；历史维护与清理分别见[10-14 计划](2026-10-14-maintenance-and-book-plan.md)及[产物记录](2026-10-14-artifact-cleanup.json)，不作为今天再次清理或再次实验的记录。

@@ -1,5 +1,7 @@
 # 云端机群与 Orin NX 边缘升级：软件预认证记录
 
+证据范围：本页各轮次、测试数和二进制摘要保持其原始版本。当前目标 Host、恢复与上下文实现见[最新架构](../architecture/hierarchical-edge-objectives.md)；`821659df` 的软件与 Gazebo 任务结果、全部失败和可重验清单见[2026-10-15 鲁棒性报告](../experiments/2026-10-15-single-robot-robustness.md)，不能用旧验收表替代新设备放行。
+
 日期：2026-09-25。范围为本次云边双模式升级，设计与回滚约束见 [升级规范 ADR](../superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md)。本记录随代码提交保留；后续目标环境认证应新增带 commit、设备序列号、模型制品哈希与签字的记录，不覆盖本页的软件结果。
 
 ## 软件验证结果

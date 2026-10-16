@@ -55,7 +55,7 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 | --- | --- |
 | `compose.yaml` | 与云端同一镜像；`edge` 与 `fleet` profile 互斥，host 网络访问本机 Runtime/量化模型，共享持久控制锁卷 |
 | `edge.env.example` | Orin NX 单机器人自治模型与 Runtime 配置 |
-| `edge-worker.env.example` | Orin NX 接入云端 Fleet 的设备、Runtime 和 mTLS 配置 |
+| `edge-worker.env.example` | Orin NX 接入 Fleet 的设备、Runtime、mTLS 与边缘 GOAL 模型配置 |
 | `.env.example` | Compose 的 `EDGE_CERT_GID` 模板；实际私有 `.env` 必须填宿主机证书组 GID |
 | `tangying-orin-local-agent.service` | 单机器人自治 systemd 单元；启动前只读预检 |
 | `tangying-orin-edge-worker.service` | Fleet Worker systemd 单元；启动前只读预检 |
@@ -70,4 +70,6 @@ docker compose -p tangying-navigation -f deploy/robot/navigation/compose.yaml do
 
 ## 统一能力目标与持久操作
 
-标定/SLAM/地图工具在 Agent 后端编排；云端与 Orin profile 使用同一 Capability Executor。GOAL 是新增独立模型路由，云咨询别名 cloud-goal；Worker journal 必须保存在 agent-state 卷（EDGE_EXECUTION_DB）。原始操作未知时不得删卷或自动重启运动。配置、协议迁移和接入契约见[统一目标部署说明](../docs/guides/unified-capability-goals.md)。
+标定/SLAM/地图工具在 Agent 后端编排。Local 与 Worker 共用 `internal/edgeagent.Host`：`/v1/objectives` 创建未批准粗目标包络，批准后边缘自主细化并受控恢复；`/v1/tasks` 和当前 UI 保留冻结能力计划路径。GOAL 是独立模型路由，云咨询别名为 cloud-goal，模型放在云端不改变边缘生命周期所有权。
+
+Worker 配置 `AGENT_GOAL_PROVIDER/BASE_URL/API_KEY/MODEL`；精确接口见[目标委托](../docs/guides/delegated-edge-goals.md)。Host 父/子检查点及 Worker journal 必须保存在 agent-state 卷（EDGE_EXECUTION_DB）。未知操作不能删卷重做，完成待上报只重传原 proof；失去原 claim 后不能离线继续运动。部署、备份与恢复见[运维入口](../docs/operations/README.md)；Local/Worker 同一 Runtime 只能选择一个执行所有者。

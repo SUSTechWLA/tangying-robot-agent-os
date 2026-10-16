@@ -1,5 +1,7 @@
 # 统一能力目标：标定、SLAM 与机器人任务
 
+2026-10-16 路径说明：本页介绍原 `/v1/tasks` 的审批前完整能力计划，现有 UI/MCP 继续使用它。需要“云端给粗目标，边缘根据进度编排子计划”时使用新增[目标委托 API](delegated-edge-goals.md)；Local 与 Worker 均承载共享 Edge Host，不再把 Worker 理解成只能接收云端细步骤。
+
 首次阅读可先看[一条已执行任务的逐阶段讲解](natural-language-task-lifecycle.md)：从用户原句、GOAL 模型逐轮读取、冻结计划和审批，一直追到 Gazebo SLAM、卧室到位、最终地图/定位读回与失败回溯。本页提供参数、契约、恢复和部署操作细节。
 
 ## 一句话下发
@@ -102,7 +104,7 @@ mapping.start/move/finish 保留为操作员手动扫描接口，没有自动目
 
 ## 云边与异构机器人
 
-Local 管一台机器人。Fleet 使用设备认证的服务目录规划；Worker 领取批准步骤、持有资源租约和 fencing token，再运行同一 Executor。连续续租不改变命令身份或证据新鲜度基准。云端核对当前所有者的证据后提交完成，来源为 PROVIDER_CONTRACT_EDGE_VERIFIED。
+Local 管一台机器人。本页冻结计划路径由 Fleet 使用设备认证目录在审批前规划，Worker 领取批准步骤、持有资源租约和 fencing token，再运行同一 Executor。新增目标路径由 Fleet 批准父包络，Worker 托管共享 Host 在边缘规划子任务、诊断和受控恢复；两条路径复用执行器和物理安全合同。连续续租不改变命令身份或证据新鲜度基准。云端核对当前所有者的证据后提交完成，来源为 PROVIDER_CONTRACT_EDGE_VERIFIED。
 
 通用目标按单机器人绑定，多设备使用 robotId: 完整目标。原多机器人 Intent 协调仍保留，本轮没有实现任意目标自动跨设备分解或千台压测。机构控制、传感器、IK、足迹、语义来源与物理安全留在 Provider，Agent 不按仿真器选择实现。
 

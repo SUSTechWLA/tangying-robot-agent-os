@@ -17,8 +17,8 @@ from scripts import build_book as book
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 31  # three front sections, 19 chapters, nine appendices
-    assert manifest["edition"] == "2.1.0"
-    assert manifest["source_snapshot"] == "9e5aebaec9199aa93d86e4561858ba5ef1fa5b82"
+    assert manifest["edition"] == "2.2.0"
+    assert manifest["source_snapshot"] == "821659dfd6782927d02924916ced5474a8142d74"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -256,11 +256,12 @@ def test_1_2_0_content_and_original_generator_are_exactly_recoverable():
         assert (archive / name).read_bytes() == original
 
 
-def test_2_0_0_sources_and_generator_are_exactly_recoverable():
-    archive = book.ROOT / "book/editions/2.0.0"
+@pytest.mark.parametrize("edition", ["2.0.0", "2.1.0"])
+def test_textbook_sources_and_generator_are_exactly_recoverable(edition):
+    archive = book.ROOT / "book/editions" / edition
     identity = json.loads((archive / "source-manifest.json").read_text())
     manifest = json.loads((archive / "edition.json").read_text())
-    assert identity["edition"] == manifest["edition"] == "2.0.0"
+    assert identity["edition"] == manifest["edition"] == edition
     assert identity["code_snapshot"] == manifest["source_snapshot"]
     assert len(identity["sources"]) == 31
     assert set(identity["sources"]) == set(manifest["sources"])

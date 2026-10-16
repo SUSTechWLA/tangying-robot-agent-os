@@ -6,6 +6,23 @@
 
 工具终态的 `SkillEvent.evidence_observation` 是原始验证输入。它必须匹配命令回执的观测编号，并通过来源、时间与重建合同校验；成功或失败都可以归档。历史归档不推进或倒退当前实时观测游标，底部相机的导航证据也不会覆盖头部相机实时场景。旧 Runtime 未提供该字段时才保存执行后观测，并标注 `post_tool_observation`，不能将其描述为原始验证输入。
 
+## 目标授权与子计划合同
+
+`core/objective.Contract` 的 `robot.objective.v1` 包含 robotId、goal、64 个十六进制字符的规范目标 catalogRevision、工具 grants/参数 Schema/重复写次数、effects、resources、completion、budget 和 expiresAt。父 Task 仅含一个虚拟 `edge.goal`，创建未批准；批准冻结包络，之后的边缘计划必须是其子集。目标目录来自 Fleet `GET /v1/devices/{id}/goal-catalog`，Local 则使用 `/v1/robot/services` 中的 `goalCatalogRevision/goalCapabilities`；后者是按工具名索引的对象，不能拿 Runtime 低层目录哈希替换。
+
+| 合同字段 | 当前限制与含义 |
+| --- | --- |
+| `goal` | 最多 4,000 字节；业务描述不能代替可执行参数约束 |
+| `resources` | v1 精确为单一 `robot`，只允许绑定本机，不授权物体、区域或机群资源 |
+| `grants[].maxExecutions` | 相同工具和业务参数的写次数，默认 1；重规划、重启和变化的 LegacyIntent 观测元数据不重置额度 |
+| `completion` | 1–16 个已登记只读工具的参数/键路径/精确值谓词，全部满足；固定版本值不单独证明业务路线 |
+| `budget` | 最多 8 代计划、128 子能力 calls、4,096 Host 业务读取、86,400 秒，绝对期限取更早者；每子计划最多 16 calls |
+| 创建身份 | 认证调用者 + idempotencyKey 决定父任务；同键同包络回原记录，同键改包络为 409，不重置审批和进度 |
+
+`maxSteps/maxReads` 的单位是 Host 能力层；复合 robot.task 的物理子步骤、内部观测和控制周期各按自己的限额运行。目标 JSON 请求上限 256 KiB，必须是单个严格 JSON 文档。模型看收窄的工具目录与有界进度；完整子账本仍是重复写额度、恢复和结果审核的数据源。
+
+父执行身份继续使用 task/revision/claim/robot/catalog/basis。`edge-goal/<task>/<revision>` 检查点累积代数、步骤、读预算与 pending；`edge-child/<childId>` 保存子计划、命令、完整模型上下文和结果。父确认丢失只可由独立 StepCompleted + 完整匹配 CAPABILITY_VERIFIED 补认；`EDGE_STEP_RECOVERED` 不是一次新动作。完成读取的在途状态与最多两次重试也持久化，不能因进程重建获得新额度。协议详见[分层目标](../architecture/hierarchical-edge-objectives.md)。
+
 ## 1. 标识与版本
 
 新增严格接入合同：`RuntimeInfo.robot_profile` 携带 `robot.profile.v1`；`Observation.reconstruction` 携带 `scene.reconstruction.v1`。内部 JSON 使用 camelCase。新 Profile 存在时 reconstruction 必填，机器人/适配器身份、传感器类型、sourceFrameId、变换版本和采集时刻必须一致。Profile 在一次 Runtime/Go 客户端连接生命周期内不可变；改变型号或标定声明后应重新接入并验收，不能静默降级为 legacy。
@@ -23,7 +40,7 @@ World 的逐实体 Envelope 使用原始 source/sequence/capture/entity 身份�
 | `aggregateVersion` | Task 聚合提交版本；CAS 防并发覆盖 |
 | `stepId` / `intentIndex` | 稳定步骤身份；保留步骤维持原 ID |
 | `commandId` | 一次 Runtime 命令，全局唯一 |
-| `idempotencyKey` | revision API 要求 UUID；Runtime 命令使用自己的幂等身份，不能混用两种格式要求 |
+| `idempotencyKey` | revision API 要求 UUID；目标创建为调用者范围内非空、最多 128 字节的稳定键；Runtime 命令用自己的幂等身份，不能混用格式与语义 |
 | `worldRevisionBasis` | 命令/验证所依据的世界版本 |
 | `sourceSequence` | 每个观测源的单调序列；重复/倒序不得变成新证据 |
 | `fencingToken` | 独占资源代次；转移时增加，旧 token 不复活 |

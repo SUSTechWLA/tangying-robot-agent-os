@@ -1,13 +1,13 @@
 # 点云语义到长程任务的交互协议
 
-本文定义已实现的语义导航边界：中心大脑选择目标与顺序，边缘 Agent 逐段取得当前候选，机器人 Runtime 决定是否允许执行，并以新鲜观测确认结果。本文不是新通信总线规范；实现复用已有能力目录、gRPC、任务账本和云边执行信封。阅读入口见[用户指南](../guides/semantic-point-cloud.md)，工程决策见[本轮实施计划](../development/2026-10-13-semantic-execution-plan.md)，通用云边机制见[长程协作导读](long-horizon-collaboration.md)。
+本文定义已实现的语义导航边界：GOAL 规划器选择目标与顺序，边缘执行器逐段取得当前候选，机器人 Runtime 决定是否允许执行，并以新鲜观测确认结果。新目标通道的 GOAL 规划器位于 Local/Worker 共享 Host 内，旧冻结计划通道在审批前规划；模型 endpoint 在云端不改变边缘生命周期归属。本文不是新通信总线规范；实现复用已有能力目录、gRPC、任务账本和云边执行信封。阅读入口见[用户指南](../guides/semantic-point-cloud.md)，工程决策见[本轮实施计划](../development/2026-10-13-semantic-execution-plan.md)，通用云边机制见[长程协作导读](long-horizon-collaboration.md)。
 
 ## 1. 权威与消息边界
 
 | 角色 | 拥有的权威 | 可以交换的内容 | 不能代替的环节 |
 | --- | --- | --- | --- |
 | 操作员/标注感知源 | 给出有来源的标签声明；操作员按现有流程批准任务 | 标签、范围、来源、观测时间、任务要求 | 标签不能证明目前存在目标或空间可通行 |
-| 中心大脑 GOAL Agent | 从成功查询证据选择名称、ID、顺序与验证模式 | `semanticRoute`、六元身份、语义版本、有界摘要 | 不生成执行坐标，不签发执行绑定 |
+| GOAL 规划角色（目标通道为边缘 Task） | 从成功查询证据选择名称、ID、顺序与验证模式 | `semanticRoute`、六元身份、语义版本、有界摘要 | 不生成执行坐标，不签发执行绑定 |
 | 边缘 Agent | 在当前阶段 grounding，保存冻结候选并执行任务图 | `SEMANTIC_GROUNDING_FROZEN`、命令、结果与证据引用 | 不以新候选替换旧检查点，不把工具成功等同物理成功 |
 | 机器人地图/语义服务 | 校验几何包，维护本机语义 CAS 账本，规划并签发候选绑定 | `semantic.query/plan/observe` | 查询、签名和识别不直接授予运动许可 |
 | Runtime 与导航适配器 | 校验机器人/目录/审批/租约/资源；执行、停止及保存命令 journal | 运动事件、`map_route`、验证回执 | 不靠标签跳过足迹、定位与动态障碍检查 |
@@ -111,7 +111,7 @@ observe_scene
 
 ```mermaid
 sequenceDiagram
-  participant Brain as 中心大脑
+  participant Brain as GOAL 规划器
   participant Ledger as 任务账本
   participant Edge as 边缘Agent
   participant Runtime as 地图服务与Runtime

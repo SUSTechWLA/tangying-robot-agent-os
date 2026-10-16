@@ -74,7 +74,7 @@ Gazebo家庭任务使用规定模型、地图、目标杯/盘及验证器。修�
 
 ### 三类移动机器人如何共用 ROS 2 执行链
 
-mobility 合同分别声明 domain、motionModel、poseModel、单位、速度限制、出发准备和设备所有的停止流程。UGV、legged、multirotor 共享 navigation.navigate 和 verify_arrival，但控制器根据本体实际完成准备与运动。纯导航设备无需机械臂抓放就绪，无人机也不使用地面 pre_position。
+共享目标Host只决定授权内的本机能力序列，不能让一种本体继承另一种本体的动态约束或停止策略。mobility 合同分别声明 domain、motionModel、poseModel、单位、速度限制、出发准备和设备所有的停止流程。UGV、legged、multirotor 共享 navigation.navigate 和 verify_arrival，但控制器根据本体实际完成准备与运动。纯导航设备无需机械臂抓放就绪，无人机也不使用地面 pre_position。
 
 | 接口 | 设备责任 | 边缘检查 |
 | --- | --- | --- |

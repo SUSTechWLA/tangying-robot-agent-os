@@ -1,6 +1,6 @@
 # 文档导航：学习、开发、运维与研究
 
-最新云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
+当前文档核对到实现 `821659df`（2026-10-16）；教材入口为[数字版 2.2.0](../book/README.md)。最新云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
 
 从你的工作目标选择入口。四条路线负责推荐顺序，[全量分类目录](catalog.md)负责查找所有文档、实验数据表与配图，[文档维护规则](maintenance.md)说明新增资料该放哪里。
 
@@ -29,7 +29,7 @@
 | 一句话如何变成可执行任务？ | [任务生命周期](guides/natural-language-task-lifecycle.md)、[统一能力目标](guides/unified-capability-goals.md) | [模型复杂任务实验](experiments/2026-09-28-complex-model-led-goals.md) |
 | 多 Agent 如何通信、保持上下文一致？ | [协作总览](architecture/long-horizon-collaboration.md)、[事件协议](development/2026-10-10-agent-interaction-protocol.md)、[长上下文](development/2026-10-09-long-horizon-context.md) | [长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
 | 系统如何扩展到云边、异构机器人和多种 SLAM？ | [模块化评价与路线](architecture/modular-extensibility.md)、[SLAM Provider](development/slam-providers.md) | [边界升级与验证记录](development/2026-10-13-modular-extensibility.md) |
-| 云端大脑与边缘怎样交接？ | [Fleet 架构](architecture/fleet-cloud.md)、[完成回执协议](development/2026-10-10-cloud-edge-protocol.md) | [角色 Harness 软件验收](production/agent-harness-docker-acceptance.md) |
+| 云端大脑与边缘怎样交接？ | [分层目标合同](architecture/hierarchical-edge-objectives.md)、[API 接入](guides/delegated-edge-goals.md)、[目标运维](operations/delegated-goal-operations.md) | [目标委托测试](experiments/2026-10-15-hierarchical-edge-objectives.md)与[鲁棒性证据](experiments/2026-10-15-single-robot-robustness.md) |
 | 点云语义怎样驱动长程导航？ | [点云语义操作](guides/semantic-point-cloud.md)、[目标绑定与执行协议](architecture/semantic-execution-protocol.md) | [五站任务、失败和修复](experiments/2026-10-13-semantic-execution.md) |
 | 标定、建图或地图显示有问题？ | [注册服务工作流](guides/robot-service-workflow.md)、[关键帧检查](guides/slam-keyframe-inspection.md)、[地图运维](development/dense-map-operations.md) | [SLAM 与语义导航实测](experiments/2026-09-27-gazebo-slam-semantic-navigation.md) |
 | 怎样接入异构机器人？ | [完整接入流程](guides/hardware-agent-integration.md)、[适配器开发](development/robot-adapters.md) | [实机前置判定](operations/production-readiness.md)；协议测试与实体认证分别看 |
@@ -42,7 +42,7 @@
 | 资料 | 用法 | 不能直接推导的结论 |
 | --- | --- | --- |
 | 当前操作与接口指南 | 按所在 Git 提交使用；核对设备角色、配置与能力目录 | 指南里出现一个接口，不代表所有适配器都已实现 |
-| [书籍2.1.0](../book/README.md) | 系统学习和课程参考；代码复核固定到 `9e5aebae` | 本版已包含点云语义、边缘与空间通道；之后的增量入口见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
+| [书籍2.2.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `821659df` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
 | [软件发布记录](releases/v0.7.0.md)与[Changelog](../CHANGELOG.md) | 区分正式发布和 Unreleased 增量；分支规则见[发布规范](development/branching.md) | 功能分支上的实验通过，不等于已合入 main 或完成发布 |
 | 带日期的实施、审计和实验记录 | 回溯当时的假设、失败、修复及环境；按原版本引用 | 历史成功、旧状态页或设计清单不覆盖今天的全部代码 |
 | 原始观测与机器可读结果 | 根据 manifest、身份和原始字节复验；数据入口见[研究路线](research/README.md) | 仿真、回放、软件合同和真机证据不能互相替代 |

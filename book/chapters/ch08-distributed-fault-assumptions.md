@@ -31,17 +31,23 @@ HTTP的幂等语义讨论相同请求重复的预期效果，不能自动赋予�
 | 阶段 | 重启动作 | 未知边界 |
 | --- | --- | --- |
 | 无记录 | 校验后CAS提交ACCEPTED | 不落盘不派发 |
-| ACCEPTED | 停止/对账 | 可能在实际派发后中断 |
+| ACCEPTED | 默认停止/对账；目标通道仅允许证明安全的检查点重入 | 不能仅凭父阶段推断未发生动作 |
 | EXECUTED | 只重传原completion | 不能再执行物理图 |
 | COMPLETED | 不动作，补ACK | 队列确认可重试 |
 
 同机器人worker应共享执行库，CAS决定唯一接收者；不同DB不是共享锁，还需Runtime幂等/fence。领取租约过期的已执行任务不能自动分给另一机器人重做。
+
+目标通道还保留 `edge-goal/<task>/<revision>` 检查点与不可变子计划。无在途动作的已确认边界可重入原父claim，但仍检查批准、revision、计划、设备、目录与实时租约；`CanResumeGoal` 只是本地只读预检，不是执行许可。云端断连失去claim续租后停止，没有离线继续授权。
+
+若子动作已持久完成而父确认写入丢失，恢复必须同时找到独立 `StepCompleted` 和完整匹配 child/step/command/robot/revision/plan/catalog 的 `CAPABILITY_VERIFIED`，并用固定目录复核写分类。Host 重新检查当前权威后追加 `EDGE_STEP_RECOVERED`，承认原效果而不发新动作。只有回执、开始记录、缺字段、身份错配或后续失败时仍保留未知。
 
 ## 8.5 完成响应丢失与v2收尾
 
 中心把精确receipt、成功状态、pendingCompletion和finalize outbox一起提交。边缘若丢响应且revision已变，可重发旧completion；中心核对不可变回执确认旧结果，不推进新图。
 
 收尾用原grants/effects释放旧租约、投影共享归属、尊重更高fence和后来取消/安全停止，再关闭pending。未完成收尾不得认领新工作，也不调用Runtime。
+
+目标已经验证而父结果投递失败时，Host 返回 `ErrReportPending`，Worker保留待交付结果；重连补传子计划和逐步验证，不能重做动作。即便执行期限已过，也只允许在当前父权威下交付原证明。初次执行和安全续跑共用失败上报路径，未知效果都按原claim上报 `UNKNOWN_OUTCOME`。
 
 ## 8.6 未覆盖窗口
 

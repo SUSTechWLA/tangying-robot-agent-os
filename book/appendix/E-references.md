@@ -36,6 +36,7 @@
 | 闭环与世界 | `core/closedloop/`、`core/harness/`、`core/worldmodel/` | 3、4 |
 | 能力/本体 | [能力目标](../../docs/guides/unified-capability-goals.md)、[硬件接入](../../docs/guides/hardware-agent-integration.md)、[适配器](../../docs/development/robot-adapters.md) | 5、10、14 |
 | Agent 协议 | [事件、权限与恢复 binding](../../docs/development/2026-10-10-agent-interaction-protocol.md) | 6、11 |
+| 分层目标委托 | [当前合同和共享 Host](../../docs/architecture/hierarchical-edge-objectives.md)、[接口](../../docs/guides/delegated-edge-goals.md) | 2、6–9、17、18 |
 | 云边协议 | [Basis、检查点、完成与兼容](../../docs/development/2026-10-10-cloud-edge-protocol.md) | 8、17 |
 | 长上下文 | [预算修复与原失败](../../docs/development/2026-10-10-context-budget-recovery.md)、[协作导读](../../docs/architecture/long-horizon-collaboration.md) | 18 |
 | 运行治理 | [配置和安全](../../docs/production/configuration-and-security.md)、[Orin](../../docs/install/edge-orin.md)、[现场准备](../../docs/production/field-readiness-2026-09-26.md) | 10、13 |
