@@ -1,0 +1,24 @@
+........................................................................ [ 75%]
+........................                                                 [100%]
+============================= slowest 20 durations =============================
+1.27s call     robot/gateway/tests/test_spatial_exploration.py::test_global_reposition_can_use_known_detour_while_direct_ablation_cannot
+0.74s call     robot/gateway/tests/test_spatial_exploration.py::test_all_ablation_modes_keep_identical_safety_and_first_hit_observation[nearest_frontier-False]
+0.73s call     robot/gateway/tests/test_spatial_exploration.py::test_all_ablation_modes_keep_identical_safety_and_first_hit_observation[information_gain-True]
+0.72s call     robot/gateway/tests/test_spatial_exploration.py::test_all_ablation_modes_keep_identical_safety_and_first_hit_observation[information_gain-False]
+0.72s call     robot/gateway/tests/test_spatial_exploration.py::test_all_ablation_modes_keep_identical_safety_and_first_hit_observation[nearest_frontier-True]
+0.25s call     tests/scripts/test_spatial_exploration_benchmark.py::test_production_fault_episode_reconnects_and_resolves_unknown_before_continuing
+0.10s call     robot/gateway/tests/test_spatial_exploration.py::test_target_identity_survives_map_snapshot_change_but_not_world_change
+0.07s call     robot/gateway/tests/test_spatial_exploration.py::test_target_identity_is_shared_across_robots_local_maps_and_calibrations
+0.07s call     robot/gateway/tests/test_spatial_exploration.py::test_equivalent_integer_and_float_grid_coordinates_keep_target_identity
+0.05s call     robot/gateway/tests/test_spatial_exploration.py::test_ground_viewpoint_search_uses_surface_height_and_yaw_only
+0.05s call     tests/scripts/test_spatial_exploration_benchmark.py::test_campaign_freezes_sources_and_replay_checks_semantics
+0.03s call     robot/gateway/tests/test_spatial_exploration.py::test_vertical_frontiers_are_observable_in_volume_mode_and_paths_are_certified
+0.03s call     tests/scripts/test_spatial_exploration_benchmark.py::test_actual_production_episode_passes_only_measured_snapshots
+0.03s call     tests/scripts/test_spatial_exploration_benchmark.py::test_unknown_first_robot_does_not_expire_second_robot_assignment
+0.03s call     tests/scripts/test_spatial_exploration_benchmark.py::test_unexercised_faults_are_skipped_not_counted_as_applied
+0.02s call     robot/gateway/tests/test_spatial_exploration.py::test_excluded_target_is_not_returned_and_does_not_consume_candidate_budget
+0.01s call     robot/gateway/tests/test_spatial_exploration.py::test_proposals_are_deterministic_and_bounded_and_no_candidate_does_not_claim_coverage
+0.01s call     robot/gateway/tests/test_spatial_exploration.py::test_already_observed_unknown_targets_have_no_gain
+0.01s call     robot/gateway/tests/test_spatial_exploration.py::test_ground_robot_requires_explicit_measured_support
+0.01s setup    robot/gateway/tests/test_spatial_mission.py::test_coverage_replay_is_durable_and_duplicate_does_not_refresh_receipt
+96 passed in 5.17s

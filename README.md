@@ -19,6 +19,8 @@
 
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
 
+异构三维探索研究增量见[设计与模块接口](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)、[实际软件实验与证据](docs/experiments/2026-10-18-spatial-exploration.md)和[教材补充](book/updates/2026-10-17-heterogeneous-spatial-exploration.md)：共用三维观察策略，按本体认证路径，用版本化分工与覆盖账本支持回放和量化比较。当前为软件闭环与可替换 provider，不是已接入 ROS 1 OmniPlanner，也不代表新的 Gazebo/实机三维探索或任意全场景覆盖。
+
 ```text
 从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
 ```

@@ -1,0 +1,83 @@
+go test ./agent/... ./agentruntime/... ./cmd/... ./console/... ./core/... ./edge/... ./fleet/... ./gen/... ./internal/... ./middleware/... ./orchestration/... ./skills/... ./tasks/... ./tests/architecture/... ./tests/contract/... ./web/...
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/agent	1.651s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent	1.828s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime	3.672s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/context-render	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange	1.207s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-worker	0.552s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/fleet-control-plane	2.921s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent	3.295s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/nl-eval	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/robot-agent	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/training-export	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	4.225s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext	3.257s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract	5.268s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/capability	3.288s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop	6.149s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/compiler	4.529s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract	5.702s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/exchangecontract	6.205s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/core/fleetcontract	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/guard	4.258s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/harness	4.367s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/objective	4.769s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/observation	5.192s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract	4.699s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/skills	4.824s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph	4.835s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry	4.842s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/core/trace	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/worldmodel	5.132s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent	11.347s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient	5.073s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange	5.462s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy	5.817s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery	5.808s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient	8.749s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime	5.848s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/tasksource	5.617s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker	6.722s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet	6.855s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth	6.070s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator	7.895s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/eventlog	5.941s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/fusion	5.965s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/gateway	5.578s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/lease	5.458s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/mysql	4.373s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/queue	4.409s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/redis	4.438s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry	5.252s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub	5.893s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop	4.578s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness	4.465s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery	4.745s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent	5.566s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease	5.596s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery	6.109s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent	127.553s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp	6.177s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localconfig	5.618s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute	5.174s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/pairing	5.819s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec	5.647s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/robotagent	5.173s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp	4.580s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/middleware	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory	4.764s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite	5.009s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration	4.015s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration/eval	4.152s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration/handoff	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation	4.174s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	3.845s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/architecture	4.607s
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/tests/contract/faults_probe	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/tests/contract/heterogeneous_runtime_probe	[no test files]
+?   	github.com/SUSTechWLA/tangying-robot-agent-os/tests/contract/runtime_client_probe	[no test files]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/web	4.457s

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "campaign",
+    "command": [
+      ".venv/bin/python",
+      "scripts/spatial_exploration_benchmark.py",
+      "--config",
+      "examples/experiments/spatial_exploration_ablation.json",
+      "--output",
+      "artifacts/experiments/spatial-exploration-20261018-001"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 16.33790200005751
+  },
+  {
+    "name": "replay",
+    "command": [
+      ".venv/bin/python",
+      "scripts/spatial_exploration_benchmark.py",
+      "--replay",
+      "artifacts/experiments/spatial-exploration-20261018-001"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 0.1731966669904068
+  }
+]

@@ -1,0 +1,711 @@
+{
+  "schemaVersion": "spatial.campaign-manifest.v1",
+  "state": "finalized",
+  "configHash": "8d8d39b160d2650c19c819c2fc9d62f7da02d3f7abba1a2525d220e113829203",
+  "sourceHashes": {
+    "scripts/spatial_exploration_benchmark.py": "fc95faab1f229b1701ad99432d2bd0d3cfc800f928c6fd7033584e4318781aef",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "9e209afb81abc16a406f2b6d6eb9b69db6fba63795d918c1237d81bf564a452f",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "8c764aedd78d4eb9dccb8c81c1b37acde75a4f00f285c6b6447361dfcacd249c",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "898c89894f5cd5d419ea06c946ae3d2c7e0b9472d8ea3ff45d1e2e646373282a"
+  },
+  "pairedAxes": [
+    "sceneId",
+    "seed"
+  ],
+  "physicalExecution": false,
+  "coverageDefinition": "Observed interior ROI voxels, free and occupied; not surface completeness",
+  "sourceRestore": "Restore source/ files over gitHead checkout with recorded environment; replay only re-evaluates recorded events.",
+  "communicationBytesDefinition": "Canonical observation payload upload plus relay and reconnect snapshot; excludes network framing, TLS and lease/control messages.",
+  "ablationDefinitions": {
+    "nearest_frontier": "ranking_strategy_only",
+    "no_global_reposition": "disable_nonlocal_known_space_repositioning",
+    "no_visibility_gain": "replace_occlusion_gain_ranking_only",
+    "no_coordination": "combined_assignment_overlap_and_shared_coverage_guidance_ablation; map exchange and safety fence remain enabled"
+  },
+  "unmeasured": [
+    "energy",
+    "localization error",
+    "physical collisions",
+    "flight/gait dynamics"
+  ],
+  "assumptions": [
+    "Bounded static voxel fixtures, exact registered simulated pose and ideal finite ray sensor.",
+    "Flat load-bearing floor at z=1 is a fixture assumption; terrain support is revealed only for observed floor cells, not estimated geotechnical support.",
+    "UAV sensor orientation is an ideal observation pose; flight attitudes, camera actuation and dynamics are not validated.",
+    "Assignments are batched but execution is serial; other parked robot envelopes are checked, no concurrent 4D collision claim.",
+    "Disconnect faults partition observation exchange only; a local scheduler and stop acknowledgement port remain available.",
+    "Wall-clock planning timings depend on host load; scene seeds change geometry, not measurement noise."
+  ],
+  "episodes": [
+    "vertical_complementarity--seed-7--baseline",
+    "vertical_complementarity--seed-7--nearest_frontier",
+    "vertical_complementarity--seed-7--no_global_reposition",
+    "vertical_complementarity--seed-7--no_visibility_gain",
+    "vertical_complementarity--seed-7--no_coordination",
+    "vertical_complementarity--seed-19--baseline",
+    "vertical_complementarity--seed-19--nearest_frontier",
+    "vertical_complementarity--seed-19--no_global_reposition",
+    "vertical_complementarity--seed-19--no_visibility_gain",
+    "vertical_complementarity--seed-19--no_coordination",
+    "branching_occlusion--seed-7--baseline",
+    "branching_occlusion--seed-7--nearest_frontier",
+    "branching_occlusion--seed-7--no_global_reposition",
+    "branching_occlusion--seed-7--no_visibility_gain",
+    "branching_occlusion--seed-7--no_coordination",
+    "branching_occlusion--seed-19--baseline",
+    "branching_occlusion--seed-19--nearest_frontier",
+    "branching_occlusion--seed-19--no_global_reposition",
+    "branching_occlusion--seed-19--no_visibility_gain",
+    "branching_occlusion--seed-19--no_coordination",
+    "recovery_disconnect--seed-7--baseline",
+    "recovery_disconnect--seed-7--nearest_frontier",
+    "recovery_disconnect--seed-7--no_global_reposition",
+    "recovery_disconnect--seed-7--no_visibility_gain",
+    "recovery_disconnect--seed-7--no_coordination",
+    "recovery_disconnect--seed-19--baseline",
+    "recovery_disconnect--seed-19--nearest_frontier",
+    "recovery_disconnect--seed-19--no_global_reposition",
+    "recovery_disconnect--seed-19--no_visibility_gain",
+    "recovery_disconnect--seed-19--no_coordination"
+  ],
+  "gitHead": "c688ea9312a1838d493579591c4c0073deb584fe",
+  "gitDiffHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "files": {
+    "branching_occlusion--seed-19--baseline/coordination.jsonl": {
+      "sha256": "82a528f6b75b2ffeba08bf04668f4c2c413f3d77f0249d416a0ab5c95d636115",
+      "bytes": 101323
+    },
+    "branching_occlusion--seed-19--baseline/coverage-ledger.jsonl": {
+      "sha256": "ec6b6db678f5351becd091a8e319fc58f96657dcf03064f3de6233e820d86be5",
+      "bytes": 30537
+    },
+    "branching_occlusion--seed-19--baseline/evaluator-truth.json": {
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291",
+      "bytes": 14639
+    },
+    "branching_occlusion--seed-19--baseline/events.jsonl": {
+      "sha256": "4e2e0de6f1befe2017792c041121f0811514ba286e3eae0130b14e44eba3c820",
+      "bytes": 236080
+    },
+    "branching_occlusion--seed-19--baseline/metrics.json": {
+      "sha256": "e8f0942e8523418f86f7192b0dafeaafcf91320535f4625a101b0c339c9aef76",
+      "bytes": 1718
+    },
+    "branching_occlusion--seed-19--nearest_frontier/coordination.jsonl": {
+      "sha256": "b8dfbb3954b52c8ce8f574237293823a86fd7a2ea3aef584f4168cb81b818ae9",
+      "bytes": 119264
+    },
+    "branching_occlusion--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "sha256": "e2d92a38bbe091837b8bfa0ac50a2173c30f00dcb7ce6d5bcda355e36360946d",
+      "bytes": 37195
+    },
+    "branching_occlusion--seed-19--nearest_frontier/evaluator-truth.json": {
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291",
+      "bytes": 14639
+    },
+    "branching_occlusion--seed-19--nearest_frontier/events.jsonl": {
+      "sha256": "9c5e99f0d1257ccb538856a4d7bda2030f53b0a8c18b536f427c79da6a3297a9",
+      "bytes": 289421
+    },
+    "branching_occlusion--seed-19--nearest_frontier/metrics.json": {
+      "sha256": "5a1e53f0b53533748277a6685957c28338404e2fb6c022bc23f83a5e9341a41b",
+      "bytes": 1736
+    },
+    "branching_occlusion--seed-19--no_coordination/coordination.jsonl": {
+      "sha256": "7a49a8ca0d935915c1c99bbabd62795a8a668dc68b15908598f48c3045590667",
+      "bytes": 92377
+    },
+    "branching_occlusion--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "sha256": "9e951e720e13774d9be7fe1ebbb96fe704123cd1c3bad21a632e381868a6d234",
+      "bytes": 28418
+    },
+    "branching_occlusion--seed-19--no_coordination/evaluator-truth.json": {
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291",
+      "bytes": 14639
+    },
+    "branching_occlusion--seed-19--no_coordination/events.jsonl": {
+      "sha256": "decc7bbcb9305a7fb03500fe57bb1c7b8059b71be4533ee67eaecccb977516c7",
+      "bytes": 218536
+    },
+    "branching_occlusion--seed-19--no_coordination/metrics.json": {
+      "sha256": "8b97bfd014401db987f15f1302ae895a4c5bdeabd8adf842f2b3fb9bc3cc9bc1",
+      "bytes": 1732
+    },
+    "branching_occlusion--seed-19--no_global_reposition/coordination.jsonl": {
+      "sha256": "b4435cc1139f7cb9f837651969f9c843f0c8e09254eac597140899e462e58640",
+      "bytes": 81369
+    },
+    "branching_occlusion--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "sha256": "b79d632d0c678035687c8f7e81b4f10b471369ddc41be70da6878453f6d322ad",
+      "bytes": 26448
+    },
+    "branching_occlusion--seed-19--no_global_reposition/evaluator-truth.json": {
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291",
+      "bytes": 14639
+    },
+    "branching_occlusion--seed-19--no_global_reposition/events.jsonl": {
+      "sha256": "2875f91c559d7bc24aa4c5f4de142158d5f34ff7d949de90e4da92d75fafdf38",
+      "bytes": 182802
+    },
+    "branching_occlusion--seed-19--no_global_reposition/metrics.json": {
+      "sha256": "95c15a6fd575c667e5855bbed0ed8ed709142c78df79f2dc5e6bda2cc5a80e7a",
+      "bytes": 1756
+    },
+    "branching_occlusion--seed-19--no_visibility_gain/coordination.jsonl": {
+      "sha256": "a9ab666790c74e2b851f1df8ab5595e373bfecd4a36de87c34a1705fb3711b80",
+      "bytes": 94041
+    },
+    "branching_occlusion--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "sha256": "f2c7a00ffcf279ca3722fff43797504edb32fa61ad43140adb780eaf2f188774",
+      "bytes": 31690
+    },
+    "branching_occlusion--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291",
+      "bytes": 14639
+    },
+    "branching_occlusion--seed-19--no_visibility_gain/events.jsonl": {
+      "sha256": "66483a640bd7cf36370eeab2c148e509b523bb1b333d3cc966c5b623bc9962fe",
+      "bytes": 232262
+    },
+    "branching_occlusion--seed-19--no_visibility_gain/metrics.json": {
+      "sha256": "1b82640c6795c4c0c1199b33986a45be161d4bc2353bd4f2845c24a320654b94",
+      "bytes": 1762
+    },
+    "branching_occlusion--seed-7--baseline/coordination.jsonl": {
+      "sha256": "f78bc80287f1361009e5f84cf4380c1a30a8718ca98ca18f35931514602b5ee4",
+      "bytes": 97866
+    },
+    "branching_occlusion--seed-7--baseline/coverage-ledger.jsonl": {
+      "sha256": "938bc9ce004d612f4a91b74bc5a7696ba37e3c9334823fa2f0a9b93ff877fb8e",
+      "bytes": 32569
+    },
+    "branching_occlusion--seed-7--baseline/evaluator-truth.json": {
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333",
+      "bytes": 14638
+    },
+    "branching_occlusion--seed-7--baseline/events.jsonl": {
+      "sha256": "f44cd5552d47ca101280c4835f1d6a5946123be1e1a201c86410cda44c3a87ca",
+      "bytes": 244701
+    },
+    "branching_occlusion--seed-7--baseline/metrics.json": {
+      "sha256": "6302598e42c81c2f58837e8740c0080f24ce9ab767d70e8532efdbff8b9d8816",
+      "bytes": 1718
+    },
+    "branching_occlusion--seed-7--nearest_frontier/coordination.jsonl": {
+      "sha256": "812c2058c8592226b14b2e4f6406e589b4ad2bb1519bee5845edebd082b2ba0f",
+      "bytes": 118981
+    },
+    "branching_occlusion--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "sha256": "d68b052d3bc82d3326f043e1d2a0bada119f31ed33f93a65a2997bb51496c4fb",
+      "bytes": 39385
+    },
+    "branching_occlusion--seed-7--nearest_frontier/evaluator-truth.json": {
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333",
+      "bytes": 14638
+    },
+    "branching_occlusion--seed-7--nearest_frontier/events.jsonl": {
+      "sha256": "78d93e7e33d53b2997f4ea97deb7d83334da33915b4c0000f36b58a6326cc4bf",
+      "bytes": 289997
+    },
+    "branching_occlusion--seed-7--nearest_frontier/metrics.json": {
+      "sha256": "df6a41853b27bdafacee9d8521d543092bdba77640387513e3b96ec8e84756b4",
+      "bytes": 1751
+    },
+    "branching_occlusion--seed-7--no_coordination/coordination.jsonl": {
+      "sha256": "4825c85fd3f393f050f0baae854e7a2ea02fd50b9b861a5d1c8dc9153d1afc05",
+      "bytes": 122479
+    },
+    "branching_occlusion--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "sha256": "4d6d146e73bd70d2a1e6c679f90c502cc02a42f53c27872b5b07fa89297bcdb7",
+      "bytes": 37467
+    },
+    "branching_occlusion--seed-7--no_coordination/evaluator-truth.json": {
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333",
+      "bytes": 14638
+    },
+    "branching_occlusion--seed-7--no_coordination/events.jsonl": {
+      "sha256": "950812247b4246888d08c73c58b8577d8c625c3dbbcecb7105abe124891a3c2d",
+      "bytes": 303101
+    },
+    "branching_occlusion--seed-7--no_coordination/metrics.json": {
+      "sha256": "c4dd2a854860f01063548902a966fdb092a788ada6490f2416f3314bce855acb",
+      "bytes": 1735
+    },
+    "branching_occlusion--seed-7--no_global_reposition/coordination.jsonl": {
+      "sha256": "26708e39c7ccd4d8a92fe0e6713300b0d372bad40e5dd0c733849bfb46653717",
+      "bytes": 89742
+    },
+    "branching_occlusion--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "sha256": "d44cbef5a80ab7489d567206a7965f2fb0ea00a96b802beb51874315d36c14d4",
+      "bytes": 29202
+    },
+    "branching_occlusion--seed-7--no_global_reposition/evaluator-truth.json": {
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333",
+      "bytes": 14638
+    },
+    "branching_occlusion--seed-7--no_global_reposition/events.jsonl": {
+      "sha256": "0d76af141847e166ceaf1df1eeb3fa51cf842f5a34a5bf5b54a15ae96e288dad",
+      "bytes": 203090
+    },
+    "branching_occlusion--seed-7--no_global_reposition/metrics.json": {
+      "sha256": "aef021f215fc8edf99a34a2db6d4010b10174652cc9fd39bd539652d17e53154",
+      "bytes": 1740
+    },
+    "branching_occlusion--seed-7--no_visibility_gain/coordination.jsonl": {
+      "sha256": "38b13dd0df04537fd2d52bd9ce3731c4cdb492b7f3021f6237e13a99d0af5f85",
+      "bytes": 119538
+    },
+    "branching_occlusion--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "sha256": "bd6eaada9a30ddaf727529bf7cb371d78e64ec7df42a99206a251167bdcb5e20",
+      "bytes": 39559
+    },
+    "branching_occlusion--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333",
+      "bytes": 14638
+    },
+    "branching_occlusion--seed-7--no_visibility_gain/events.jsonl": {
+      "sha256": "47b28daa9297e8a26683d1860b1d3d81c29b32616b7fc0be635914ea555cd990",
+      "bytes": 291333
+    },
+    "branching_occlusion--seed-7--no_visibility_gain/metrics.json": {
+      "sha256": "778f8930d5af98480f0e75409ef36b7c7248bd571bc695a301d5248a5aabc788",
+      "bytes": 1750
+    },
+    "config.json": {
+      "sha256": "00a3cc571cc504aa4b0fe6c3ea44e823058c7fa39805cc7e14e5695a622af7d4",
+      "bytes": 748
+    },
+    "environment.json": {
+      "sha256": "d35f824b102dd5ac58d62fb268ee2c4b4a4b8ca967333517e89e9fc14ed78264",
+      "bytes": 277
+    },
+    "episodes.csv": {
+      "sha256": "b32d94bc0f612a7372b2b0cb6e01a7f693bde6a76c0d437ba1ccdcd7d09ac415",
+      "bytes": 16142
+    },
+    "input-config.json": {
+      "sha256": "253c63a84c7441d7c1ad5c25ceb5e597aee1876c4c033663d02ab36fcad3aa0b",
+      "bytes": 648
+    },
+    "recovery_disconnect--seed-19--baseline/coordination.jsonl": {
+      "sha256": "6365e73b0f064beec0d1545709cf0327a1afba2db956be0f5a9ecca3cd83241e",
+      "bytes": 98000
+    },
+    "recovery_disconnect--seed-19--baseline/coverage-ledger.jsonl": {
+      "sha256": "3fc872694e169a9f2b12393596e1d6cf571449f17979c5ef2d7f1f7d10f84f2f",
+      "bytes": 30137
+    },
+    "recovery_disconnect--seed-19--baseline/evaluator-truth.json": {
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333",
+      "bytes": 14639
+    },
+    "recovery_disconnect--seed-19--baseline/events.jsonl": {
+      "sha256": "fb4f56a49e2cda392663f50ae520dfcf6dff679d15c41401cf9966779491285c",
+      "bytes": 234583
+    },
+    "recovery_disconnect--seed-19--baseline/metrics.json": {
+      "sha256": "d61be0a5c3648723d33d00cb767a1118d1834debd9b5ad0c095027996031bfb4",
+      "bytes": 3098
+    },
+    "recovery_disconnect--seed-19--nearest_frontier/coordination.jsonl": {
+      "sha256": "0fbdc0b29d0e75802361a3ed9094253fe360a949fabcea3986bb9b6ded8ab8d9",
+      "bytes": 120478
+    },
+    "recovery_disconnect--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "sha256": "9033d513ed1dcec9fb07e9891db57f4895c7288f08662342da77bd224f8c3f3f",
+      "bytes": 38650
+    },
+    "recovery_disconnect--seed-19--nearest_frontier/evaluator-truth.json": {
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333",
+      "bytes": 14639
+    },
+    "recovery_disconnect--seed-19--nearest_frontier/events.jsonl": {
+      "sha256": "f88e7a54a52c7cc89d5eb90bf5e21debc3659727626e19801a7158d39c8acc34",
+      "bytes": 294567
+    },
+    "recovery_disconnect--seed-19--nearest_frontier/metrics.json": {
+      "sha256": "51904138822201e11fdbb3385ffc15d84772c5fb649dec6566e31be47f8b7fce",
+      "bytes": 3113
+    },
+    "recovery_disconnect--seed-19--no_coordination/coordination.jsonl": {
+      "sha256": "7d32dcf77c40118ca73e6702af982beece73a10503067e115f1d08c1ec713cd5",
+      "bytes": 107292
+    },
+    "recovery_disconnect--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "sha256": "da6025f712e2d56e99d35d016f4b2a08a3946f89e77d52358d46895be2095908",
+      "bytes": 33439
+    },
+    "recovery_disconnect--seed-19--no_coordination/evaluator-truth.json": {
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333",
+      "bytes": 14639
+    },
+    "recovery_disconnect--seed-19--no_coordination/events.jsonl": {
+      "sha256": "fbd264b4b7cb386d4c8b6c719896617086bf16efe40b310580e8e9f6599842f6",
+      "bytes": 265090
+    },
+    "recovery_disconnect--seed-19--no_coordination/metrics.json": {
+      "sha256": "d98053579bd82ee6f3255817d3c55d92bd0bc9ba4b0a952e65062ca86e5f7795",
+      "bytes": 3094
+    },
+    "recovery_disconnect--seed-19--no_global_reposition/coordination.jsonl": {
+      "sha256": "45d63605caa27d2a7dc4338f6ac5ac9c459b12f646b6124f9165e1cd63cc01e5",
+      "bytes": 88202
+    },
+    "recovery_disconnect--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "sha256": "0b4b65074505298828f3e6ed435ac553a0e99854c2b02a4cd0ce80b05fb51b64",
+      "bytes": 27840
+    },
+    "recovery_disconnect--seed-19--no_global_reposition/evaluator-truth.json": {
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333",
+      "bytes": 14639
+    },
+    "recovery_disconnect--seed-19--no_global_reposition/events.jsonl": {
+      "sha256": "ea69a5e58a536c7007adef845deae3b698b51f9e45d78933f313d72628c7155e",
+      "bytes": 209216
+    },
+    "recovery_disconnect--seed-19--no_global_reposition/metrics.json": {
+      "sha256": "773bc125329bbe80517ca0448237c807151bd0a202b3bf451343ad0d7383cc4b",
+      "bytes": 3122
+    },
+    "recovery_disconnect--seed-19--no_visibility_gain/coordination.jsonl": {
+      "sha256": "370a45ffbbaef231c1b6ccb5df18bdebaf6d9118ba747669e78803771d8d6417",
+      "bytes": 121135
+    },
+    "recovery_disconnect--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "sha256": "83188c51e73d32a1649d1e2d0244998f3e9604d47b3586807d7ed14e229358c2",
+      "bytes": 37893
+    },
+    "recovery_disconnect--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333",
+      "bytes": 14639
+    },
+    "recovery_disconnect--seed-19--no_visibility_gain/events.jsonl": {
+      "sha256": "64f1aeef0a280931f6021b4769e1b15d9e14f006e773680ea237c7acf2815a60",
+      "bytes": 294146
+    },
+    "recovery_disconnect--seed-19--no_visibility_gain/metrics.json": {
+      "sha256": "143b6cca2f2c17fcc0c8d6386979af7425bc36b96123da0ca94c471fc5bff085",
+      "bytes": 3122
+    },
+    "recovery_disconnect--seed-7--baseline/coordination.jsonl": {
+      "sha256": "b31de1e0bd479d02e227bfc0c29f9f5ec83402c6ee70964d105b91808dc5333d",
+      "bytes": 107220
+    },
+    "recovery_disconnect--seed-7--baseline/coverage-ledger.jsonl": {
+      "sha256": "442de6bdd18af2f4640b545da241003aeb51be73c6e61a04ffcd826e503edd1b",
+      "bytes": 35460
+    },
+    "recovery_disconnect--seed-7--baseline/evaluator-truth.json": {
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3",
+      "bytes": 14638
+    },
+    "recovery_disconnect--seed-7--baseline/events.jsonl": {
+      "sha256": "794047a775b2dbb9877716088c8596395e6b0c364acaa2f08f1ecbb743c95e5c",
+      "bytes": 272521
+    },
+    "recovery_disconnect--seed-7--baseline/metrics.json": {
+      "sha256": "96dd53317b9b8fc356a2efdd1463c1a63aaec11de62e71ef34dfe772580bd328",
+      "bytes": 3085
+    },
+    "recovery_disconnect--seed-7--nearest_frontier/coordination.jsonl": {
+      "sha256": "28b4c0ed412a5df57f91c6084f483c706bca8c08dbc0fb1472b677d3a67f5e5f",
+      "bytes": 120142
+    },
+    "recovery_disconnect--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "sha256": "530ca1376c8094bb81c8ac55910a3e4090d8bc1c7d885180ceb53d9e21322d3d",
+      "bytes": 40449
+    },
+    "recovery_disconnect--seed-7--nearest_frontier/evaluator-truth.json": {
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3",
+      "bytes": 14638
+    },
+    "recovery_disconnect--seed-7--nearest_frontier/events.jsonl": {
+      "sha256": "6ab72235e5be2d4e9d651fffd0ec0ecbee46569859670685b125e7b2bcaead30",
+      "bytes": 295096
+    },
+    "recovery_disconnect--seed-7--nearest_frontier/metrics.json": {
+      "sha256": "024a3bf80b83c551de34e0612bda70a2a40e48f2b4c8800908c25d976fb143e0",
+      "bytes": 3094
+    },
+    "recovery_disconnect--seed-7--no_coordination/coordination.jsonl": {
+      "sha256": "52f4a4ae48a074017701765539800d9f25a95ec01290cd7055ac4ea25a52d174",
+      "bytes": 121416
+    },
+    "recovery_disconnect--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "sha256": "0dbc7bc9a32e1471a136ea072094e7be0a87f68e6c0c7ac682d91609b624978b",
+      "bytes": 37936
+    },
+    "recovery_disconnect--seed-7--no_coordination/evaluator-truth.json": {
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3",
+      "bytes": 14638
+    },
+    "recovery_disconnect--seed-7--no_coordination/events.jsonl": {
+      "sha256": "f81c0466c76a22fb80888bb7ce73eeb6218fb48b1e85d9d9faec8d3f687245a2",
+      "bytes": 307902
+    },
+    "recovery_disconnect--seed-7--no_coordination/metrics.json": {
+      "sha256": "fe640723489b51f462c6dca5791e005bfeead31b53683f33547ecbf2702a4caa",
+      "bytes": 3107
+    },
+    "recovery_disconnect--seed-7--no_global_reposition/coordination.jsonl": {
+      "sha256": "03a879c840ead356bda3dcecbdcfcaf4485ebc3acc7abe62286a4fd913bcf492",
+      "bytes": 103331
+    },
+    "recovery_disconnect--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "sha256": "33ed7b83b97592baa8b54430ff492bc441f538c1f3f10c39c08b63e647872619",
+      "bytes": 33199
+    },
+    "recovery_disconnect--seed-7--no_global_reposition/evaluator-truth.json": {
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3",
+      "bytes": 14638
+    },
+    "recovery_disconnect--seed-7--no_global_reposition/events.jsonl": {
+      "sha256": "ee71bf29032e8c4270a3200b2e1810f9d5b017d3b5be005025563f6fd748ce3b",
+      "bytes": 240691
+    },
+    "recovery_disconnect--seed-7--no_global_reposition/metrics.json": {
+      "sha256": "2bbc9fb7f9b08b8b95ea05ec03252b9c1457d82ba93a5130595077a44404a78f",
+      "bytes": 3115
+    },
+    "recovery_disconnect--seed-7--no_visibility_gain/coordination.jsonl": {
+      "sha256": "37ad007e9d8a48d3ea3392290d70630806f09db9de3a92612b7a29e2b316bf95",
+      "bytes": 120996
+    },
+    "recovery_disconnect--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "sha256": "7d6be1d0f88047cba04439d036aed68d2e8ac83da8b7ef91497f97eb6c1926ea",
+      "bytes": 40473
+    },
+    "recovery_disconnect--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3",
+      "bytes": 14638
+    },
+    "recovery_disconnect--seed-7--no_visibility_gain/events.jsonl": {
+      "sha256": "cea385353534f427da307aeeff8f1d902531f4d21f5d41562b5a5015dbf5add4",
+      "bytes": 297143
+    },
+    "recovery_disconnect--seed-7--no_visibility_gain/metrics.json": {
+      "sha256": "eca354fd4d18c021585069437138d7548eb877cec1b454e89987834972952009",
+      "bytes": 3095
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "sha256": "9e209afb81abc16a406f2b6d6eb9b69db6fba63795d918c1237d81bf564a452f",
+      "bytes": 20276
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "sha256": "8c764aedd78d4eb9dccb8c81c1b37acde75a4f00f285c6b6447361dfcacd249c",
+      "bytes": 37564
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "sha256": "898c89894f5cd5d419ea06c946ae3d2c7e0b9472d8ea3ff45d1e2e646373282a",
+      "bytes": 22131
+    },
+    "source/scripts/spatial_exploration_benchmark.py": {
+      "sha256": "fc95faab1f229b1701ad99432d2bd0d3cfc800f928c6fd7033584e4318781aef",
+      "bytes": 46298
+    },
+    "summary.json": {
+      "sha256": "cc950ead09158d428fb72386ca27cc33ace2988093f107764ed5ce8df951e072",
+      "bytes": 88188
+    },
+    "vertical_complementarity--seed-19--baseline/coordination.jsonl": {
+      "sha256": "8b95381bff7981448edbe190f7312ab9fa6fbd12c6d3049c34a160f8fe28dacf",
+      "bytes": 78726
+    },
+    "vertical_complementarity--seed-19--baseline/coverage-ledger.jsonl": {
+      "sha256": "216f00167803d50a10d5ca467bc650b0ef98a27321a967f27234536d11df86fa",
+      "bytes": 28110
+    },
+    "vertical_complementarity--seed-19--baseline/evaluator-truth.json": {
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7",
+      "bytes": 14592
+    },
+    "vertical_complementarity--seed-19--baseline/events.jsonl": {
+      "sha256": "8e0300d88b924a0f8bc4beeea99219d062ff2055a675afa8b4fa00e2f95b1b14",
+      "bytes": 191674
+    },
+    "vertical_complementarity--seed-19--baseline/metrics.json": {
+      "sha256": "474737a109aa94fe5703989b6be5318374b268650847e948c0d50678c6da7661",
+      "bytes": 1751
+    },
+    "vertical_complementarity--seed-19--nearest_frontier/coordination.jsonl": {
+      "sha256": "d8b5bf569bd5784fb84874cbfa62833d21dcb9b22b9fd5ebc24a19ea191732d0",
+      "bytes": 119821
+    },
+    "vertical_complementarity--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "sha256": "a4687ab719e4f9c86905567ea54771933e5b43042ec6c0db413e2506604752c0",
+      "bytes": 39956
+    },
+    "vertical_complementarity--seed-19--nearest_frontier/evaluator-truth.json": {
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7",
+      "bytes": 14592
+    },
+    "vertical_complementarity--seed-19--nearest_frontier/events.jsonl": {
+      "sha256": "02fc6bc83e158780d6a9afe76f88a6ee565cde35043f342341cd6047b110fa78",
+      "bytes": 291149
+    },
+    "vertical_complementarity--seed-19--nearest_frontier/metrics.json": {
+      "sha256": "5f1f86640ee800ab1cfd3f7ccdfcf322f90fa7aed5e8c56d7568e0015cc1fca8",
+      "bytes": 1747
+    },
+    "vertical_complementarity--seed-19--no_coordination/coordination.jsonl": {
+      "sha256": "1983cbc33010ba1607c08d5f8454569e25a4aa7d228e24dd8dc8251126e3c98b",
+      "bytes": 83016
+    },
+    "vertical_complementarity--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "sha256": "ff031be94cf860025a651a5bb99246ed17223f9aa7a9a4f1dfd123e38ee3a010",
+      "bytes": 31161
+    },
+    "vertical_complementarity--seed-19--no_coordination/evaluator-truth.json": {
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7",
+      "bytes": 14592
+    },
+    "vertical_complementarity--seed-19--no_coordination/events.jsonl": {
+      "sha256": "71971cc89700b49ce1b8e876f6420cec9ebbf4098b9a27a0238e49b6dc7eab4b",
+      "bytes": 209265
+    },
+    "vertical_complementarity--seed-19--no_coordination/metrics.json": {
+      "sha256": "8942c843a9a924c8e645f96805d055faae16fbd2c43cde0c9e0eeb581d2a2132",
+      "bytes": 1732
+    },
+    "vertical_complementarity--seed-19--no_global_reposition/coordination.jsonl": {
+      "sha256": "480482aedfefbaf96e8b5ad62ebb9cede7395b4a00f6c3297288756393970788",
+      "bytes": 73988
+    },
+    "vertical_complementarity--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "sha256": "08b9c924b9927b606810e190e97e2d1aca7b54f9b75f0a77d6ad709258514995",
+      "bytes": 27382
+    },
+    "vertical_complementarity--seed-19--no_global_reposition/evaluator-truth.json": {
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7",
+      "bytes": 14592
+    },
+    "vertical_complementarity--seed-19--no_global_reposition/events.jsonl": {
+      "sha256": "1a908342306f8b00184b9b2a89c3556cb9251767954aba0d7cc392e1340df753",
+      "bytes": 180823
+    },
+    "vertical_complementarity--seed-19--no_global_reposition/metrics.json": {
+      "sha256": "cce718763039710e6dca749de3caf7af2471e51b1a533bc89d68ad70d8266b45",
+      "bytes": 1757
+    },
+    "vertical_complementarity--seed-19--no_visibility_gain/coordination.jsonl": {
+      "sha256": "849b289ffa0cd6f6201f16e84eebeb26ebc20172022eb3e7b112a2706b07aeef",
+      "bytes": 121668
+    },
+    "vertical_complementarity--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "sha256": "2c24b59e475c029df4267a8c14e11cecf41c37c8fc02b611586ea88fa23e9dc2",
+      "bytes": 38800
+    },
+    "vertical_complementarity--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7",
+      "bytes": 14592
+    },
+    "vertical_complementarity--seed-19--no_visibility_gain/events.jsonl": {
+      "sha256": "74f98373e6b3ebc9aba3b5ed998bd01186f4e5d47cb654010f5588b3a599ff0e",
+      "bytes": 293582
+    },
+    "vertical_complementarity--seed-19--no_visibility_gain/metrics.json": {
+      "sha256": "5733d248295c3b6a2ac159d52d74457753e64a2705cb6029f6e27108d75e7398",
+      "bytes": 1755
+    },
+    "vertical_complementarity--seed-7--baseline/coordination.jsonl": {
+      "sha256": "7802ebf577a8721067b836014bb5218e6e10d2e02e2df4cd4951fe0baa11dc0d",
+      "bytes": 93489
+    },
+    "vertical_complementarity--seed-7--baseline/coverage-ledger.jsonl": {
+      "sha256": "1e1d0b24bfd8d2ae61b918d58462e3a66c94d86df472931b54fb6963bd960ace",
+      "bytes": 31648
+    },
+    "vertical_complementarity--seed-7--baseline/evaluator-truth.json": {
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d",
+      "bytes": 14591
+    },
+    "vertical_complementarity--seed-7--baseline/events.jsonl": {
+      "sha256": "8e8bc17da269719871b9dd55ddc359ab2e6fd168d87de94a54ebebbc193a1e9f",
+      "bytes": 229438
+    },
+    "vertical_complementarity--seed-7--baseline/metrics.json": {
+      "sha256": "298ce9ae028042fb3dd4aa7de44c142d8a59195334ab93534e70f280e748fe83",
+      "bytes": 1725
+    },
+    "vertical_complementarity--seed-7--nearest_frontier/coordination.jsonl": {
+      "sha256": "a222285f10b5e4bb3746fe6de8070aeb9b7ee433808d9c96021c1c54497637c0",
+      "bytes": 120255
+    },
+    "vertical_complementarity--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "sha256": "7f22f80165cb25aa473473a140afe032e7a52a20bee7556621ad172e18fa495e",
+      "bytes": 38579
+    },
+    "vertical_complementarity--seed-7--nearest_frontier/evaluator-truth.json": {
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d",
+      "bytes": 14591
+    },
+    "vertical_complementarity--seed-7--nearest_frontier/events.jsonl": {
+      "sha256": "5993eea94b924adcf9abb5638662b75d968532435bfef662527a032ba6e360fc",
+      "bytes": 291345
+    },
+    "vertical_complementarity--seed-7--nearest_frontier/metrics.json": {
+      "sha256": "edfcbf22a7a9f1297534f0ef0d6c6f9d5aeffccbeeb2c01b987eb32b2b07925c",
+      "bytes": 1754
+    },
+    "vertical_complementarity--seed-7--no_coordination/coordination.jsonl": {
+      "sha256": "32fc2ddff9480f798e93350139c36f4942f79ee1873f50c9567b4840f34ef45f",
+      "bytes": 100096
+    },
+    "vertical_complementarity--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "sha256": "9beaf60a298922138ea0d8d1b66b2cd7d654bdb49bc082d42820060184613da0",
+      "bytes": 32309
+    },
+    "vertical_complementarity--seed-7--no_coordination/evaluator-truth.json": {
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d",
+      "bytes": 14591
+    },
+    "vertical_complementarity--seed-7--no_coordination/events.jsonl": {
+      "sha256": "3f17ebc2c9d93f2bd9521995176ab3fe6c8ed65817a868410909938f2c4bde68",
+      "bytes": 247127
+    },
+    "vertical_complementarity--seed-7--no_coordination/metrics.json": {
+      "sha256": "d1cfcc8c37d973d9ca8652c44f9fd55aa9643cc25f0ad55807bc20a07809bef1",
+      "bytes": 1736
+    },
+    "vertical_complementarity--seed-7--no_global_reposition/coordination.jsonl": {
+      "sha256": "ce0f31e7a32db19dce13f737ee12b4c479936e92b237cce1ef1b970741ee50be",
+      "bytes": 78144
+    },
+    "vertical_complementarity--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "sha256": "2333a45964bfa03ab5737af5c409d11e677c59bc84372a9af2fac92ee465e713",
+      "bytes": 29054
+    },
+    "vertical_complementarity--seed-7--no_global_reposition/evaluator-truth.json": {
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d",
+      "bytes": 14591
+    },
+    "vertical_complementarity--seed-7--no_global_reposition/events.jsonl": {
+      "sha256": "da393766526c30955c80ba1cdd97273655b395dedee4f3c7fd15e06a59b531c5",
+      "bytes": 190047
+    },
+    "vertical_complementarity--seed-7--no_global_reposition/metrics.json": {
+      "sha256": "7a33f69d6158f828d3b4a764f39ae6e5f14ff3c29bdaed6029d20ea0edc21fa2",
+      "bytes": 1753
+    },
+    "vertical_complementarity--seed-7--no_visibility_gain/coordination.jsonl": {
+      "sha256": "0f7bc5efe1e8850e1658f187aa30442bd16c4de1c96957d21b923c6ee412dee8",
+      "bytes": 120617
+    },
+    "vertical_complementarity--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "sha256": "8d49c153ffcecda5401836c0ee00d9c411d1f6f9e736e03f4d8b976b8fa556fd",
+      "bytes": 43954
+    },
+    "vertical_complementarity--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d",
+      "bytes": 14591
+    },
+    "vertical_complementarity--seed-7--no_visibility_gain/events.jsonl": {
+      "sha256": "757905ec9f84d5624d20acf7d92762acc9b34667766145da4db43295fac45ef0",
+      "bytes": 295791
+    },
+    "vertical_complementarity--seed-7--no_visibility_gain/metrics.json": {
+      "sha256": "fe863e39e1f35d4fe040a3b9fa3c412947439c568aeea497676f93b7107c7538",
+      "bytes": 1729
+    }
+  }
+}

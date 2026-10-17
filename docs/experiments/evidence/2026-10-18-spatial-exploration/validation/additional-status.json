@@ -1,0 +1,27 @@
+[
+  {
+    "name": "benchmark-tests",
+    "command": [
+      ".venv/bin/pytest",
+      "-q",
+      "tests/scripts/test_spatial_exploration_benchmark.py"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "lint",
+    "command": [
+      "make",
+      "lint"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "book",
+    "command": [
+      "make",
+      "book-check"
+    ],
+    "exitCode": 0
+  }
+]

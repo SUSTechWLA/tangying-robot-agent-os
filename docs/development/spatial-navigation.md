@@ -2,6 +2,8 @@
 
 阅读顺序：先读[异构机器人与 ROS 2](heterogeneous-mobility.md)，再读本页；建图数据格式与发布见[空间测量建图](spatial-mapping.md)。本页描述当前实现，实验结果和未测项见[2026-10-14 实验记录](../experiments/2026-10-14-spatial-navigation.md)。
 
+2026-10-17 新增[异构三维探索研究层](2026-10-17-heterogeneous-spatial-exploration.md)：`SpatialExplorer` 共用本页几何可达性，`SpatialMissionRunner` 通过地图/驱动/报告端口接线，任务协调与覆盖账本支持恢复和[配对消融](../experiments/2026-10-17-spatial-exploration-protocol.md)；[10-18 实际软件结果](../experiments/2026-10-18-spatial-exploration.md)单独保存。它不自动启用 ROS 2 三维探索，不替代本页定位、部署、控制器与路径握手；当前离线几何任务不证明实机动力学。
+
 ## 三种导航通道
 
 | 通道 | 地图与定位 | 适用机器人 | 负责执行的模块 |
@@ -116,5 +118,6 @@ flowchart LR
 | 非完整车辆曲率、轨迹时间参数化 | 专门运动规划器与控制器准入 |
 | 新无人机飞控、厂商底盘、足式平台 | Profiled ROS 2 controller adapter，保留命令/路径/证据协议 |
 | 多机器人联合避碰、跨地图融合 | 显式世界配准、资源与协调模块；当前数据通信不自动产生联合轨迹 |
+| 三维 frontier/NBV、覆盖、异构目标分配 | [spatial_exploration / spatial_mission](2026-10-17-heterogeneous-spatial-exploration.md)；替换策略或 provider，保留世界/网格、路径与观测合同；目前有序协作，不含联合避碰 |
 
 当前交付可作为 ROS 2 空间导航的联调与实机前软件验证基础。体素预算、静态地图、单层地形和保守包络是明确约束；长期运行、动态复杂环境、具体设备飞行/步态以及小时级可靠性需要单独实验，不能由本页的软件测试替代。

@@ -1,0 +1,10 @@
+....................                                                     [100%]
+============================= slowest 20 durations =============================
+0.25s call     tests/scripts/test_spatial_exploration_benchmark.py::test_production_fault_episode_reconnects_and_resolves_unknown_before_continuing
+0.05s call     tests/scripts/test_spatial_exploration_benchmark.py::test_campaign_freezes_sources_and_replay_checks_semantics
+0.04s call     tests/scripts/test_spatial_exploration_benchmark.py::test_actual_production_episode_passes_only_measured_snapshots
+0.03s call     tests/scripts/test_spatial_exploration_benchmark.py::test_unknown_first_robot_does_not_expire_second_robot_assignment
+0.03s call     tests/scripts/test_spatial_exploration_benchmark.py::test_unexercised_faults_are_skipped_not_counted_as_applied
+
+(15 durations < 0.005s hidden.  Use -vv to show these durations.)
+20 passed in 0.52s

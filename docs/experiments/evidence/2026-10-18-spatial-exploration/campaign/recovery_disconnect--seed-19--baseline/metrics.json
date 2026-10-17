@@ -1,0 +1,113 @@
+{
+  "coverageMetric": "observed_roi_voxels",
+  "coverageDenominator": 315,
+  "coverageObserved": 315,
+  "coverageFraction": 1.0,
+  "coverageThreshold": 1.0,
+  "status": "completed",
+  "roiVoxelObservations": 1085,
+  "repeatedVoxelObservations": 770,
+  "repeatObservationFraction": 0.7096774193548387,
+  "perRobotObservedVoxels": {
+    "ugv": 165,
+    "uav": 282
+  },
+  "pathLengthM": 44.590514679685256,
+  "planningCalls": 26,
+  "planningMsP50": 15.1753335,
+  "planningMsP95": 80.28507275000001,
+  "planningMsMax": 101.135833,
+  "planningMsTotal": 522.0358339999999,
+  "messageCount": 46,
+  "messageBytes": 37621,
+  "admissionMsP50": 0.2587915,
+  "admissionMsP95": 0.9729702,
+  "attemptedLegs": 22,
+  "completedLegs": 20,
+  "rejectedLegs": 1,
+  "uncertainLegs": 1,
+  "faultEvents": 3,
+  "plannedFaults": 3,
+  "appliedFaults": 3,
+  "skippedFaults": 0,
+  "faultPlan": [
+    {
+      "faultId": "fault-0",
+      "reason": "scheduled",
+      "robotId": "uav",
+      "scheduledRound": 2,
+      "taskId": null,
+      "type": "disconnect"
+    },
+    {
+      "faultId": "fault-1",
+      "reason": "scheduled",
+      "robotId": "ugv",
+      "scheduledRound": 3,
+      "taskId": null,
+      "type": "driver_rejection"
+    },
+    {
+      "faultId": "fault-2",
+      "reason": "scheduled",
+      "robotId": "uav",
+      "scheduledRound": 5,
+      "taskId": null,
+      "type": "unknown_execution"
+    }
+  ],
+  "faultApplications": [
+    {
+      "appliedRound": 2,
+      "faultId": "fault-0",
+      "reason": "withheld_observation_relay",
+      "robotId": "uav",
+      "scheduledRound": 2,
+      "taskId": null,
+      "type": "disconnect"
+    },
+    {
+      "appliedRound": 3,
+      "faultId": "fault-1",
+      "reason": "injected_driver_refusal",
+      "robotId": "ugv",
+      "scheduledRound": 3,
+      "taskId": "87c139d0e1349c1fa94681a5bf26b7e1f91de076a68e4cc9f0d7c12e7d48488e",
+      "type": "driver_rejection"
+    },
+    {
+      "appliedRound": 5,
+      "faultId": "fault-2",
+      "reason": "injected_unknown_response",
+      "robotId": "uav",
+      "scheduledRound": 5,
+      "taskId": "a76e53117bdc1425fc9bc4f369efd2e84593b898cb596bb81d7a7f72ed1ca971",
+      "type": "unknown_execution"
+    }
+  ],
+  "faultSkips": [],
+  "successfulGainLegs": 15,
+  "successfulNoGainLegs": 5,
+  "stopAcknowledgements": 1,
+  "recoveredUncertainLegs": 1,
+  "independentCollisionRefusals": 0,
+  "reconnectSnapshots": 1,
+  "failureReasons": {
+    "injected_driver_refusal": 1,
+    "injected_unknown_response": 1
+  },
+  "energyJ": null,
+  "localizationErrorM": null,
+  "physicalCollisionCount": null,
+  "flightDynamicsValidated": null,
+  "hardwareSuccess": null,
+  "schemaVersion": "spatial.episode-result.v1",
+  "sceneId": "recovery_disconnect",
+  "seed": 19,
+  "variant": "baseline",
+  "stopReason": "no_executable_candidate",
+  "physicalExecution": false,
+  "truthHash": "a7d3be3846f05c7f135819d26225799c12a1b843c238ab8ace7647c81063adeb",
+  "eventChainHead": "0d7cfce74354c3403a6bc0116e58641d8dd9f02d96fb9be2c7031f96f10b21e9",
+  "occupancyGeometryHash": "7a40842da50286e705e30301d2fe004a06dfccba47aaad208e59f4772a68491c"
+}
