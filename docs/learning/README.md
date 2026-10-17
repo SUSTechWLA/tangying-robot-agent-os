@@ -1,5 +1,7 @@
 # 学习路线：从系统全貌到可检查实践
 
+理解“有地图之后怎样完整巡检”时，阅读[已知覆盖与多层移动补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)、[当前接口](../development/2026-10-18-spatial-coverage-upgrade.md)及[计划/Runner/350 次探索实际实验](../experiments/2026-10-18-spatial-coverage-upgrade.md)，区分预测覆盖、新采集证据、分层支撑与设备可执行性。
+
 研究异构三维探索时，阅读[教材补充](../../book/updates/2026-10-17-heterogeneous-spatial-exploration.md) → [当前模块与边界](../development/2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融协议](../experiments/2026-10-17-spatial-exploration-protocol.md) → [实际软件结果与图表](../experiments/2026-10-18-spatial-exploration.md)。先区分路径、观察、覆盖、分工和真实控制，再设计可解释的量化实验。
 
 首次进入未知环境时，补读[探索学习补充](../../book/updates/2026-10-17-exploration-first-scan.md)与[当前操作指南](../guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索)：区分初始观察、前沿规划、局部控制、地图发布与全环境覆盖。

@@ -1,0 +1,24 @@
+........................................................................ [ 56%]
+........................................................                 [100%]
+============================= slowest 20 durations =============================
+0.20s call     tests/scripts/test_spatial_exploration_benchmark.py::test_production_fault_episode_reconnects_and_resolves_unknown_before_continuing
+0.10s call     tests/scripts/test_plan_spatial_coverage.py::test_coverage_artifacts_preserve_inputs_and_replay_exact_source
+0.09s call     tests/scripts/test_plan_spatial_coverage.py::test_read_only_command_line_never_executes_a_driver
+0.08s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_upper_targets_remain_unresolved_when_no_cross_layer_connection_was_measured
+0.08s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_layered_runner_rejects_unbound_or_expanded_prediction_scope_before_dispatch[expected_outside_scope]
+0.08s call     tests/scripts/test_plan_spatial_coverage.py::test_request_bytes_are_frozen_once_even_when_original_file_changes
+0.08s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_layered_runner_rejects_unbound_or_expanded_prediction_scope_before_dispatch[missing_scope]
+0.08s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_parked_peer_blocks_only_available_layered_corridor_without_fake_completion
+0.07s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_total_travel_budget_cannot_be_bypassed_by_multilevel_route_length
+0.07s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_explicit_coverage_can_reach_upper_observation_pose_only_via_measured_ramp
+0.07s call     robot/gateway/tests/test_spatial_coverage.py::test_runner_refuses_a_proposal_for_a_different_coverage_scope
+0.05s call     tests/scripts/test_spatial_exploration_benchmark.py::test_campaign_freezes_sources_and_replay_checks_semantics
+0.05s call     tests/scripts/test_plan_spatial_coverage.py::test_verification_detects_altered_data_and_manifest_paths
+0.05s call     tests/scripts/test_spatial_exploration_benchmark.py::test_new_design_splits_have_disjoint_seeds_and_actual_layouts
+0.04s call     tests/scripts/test_plan_spatial_coverage.py::test_verification_refuses_current_implementation_drift
+0.04s call     robot/gateway/tests/test_spatial_layered_coverage.py::test_plugin_straight_line_cannot_replace_supporting_ramp_with_flying_shortcut
+0.04s call     tests/scripts/test_plan_spatial_coverage.py::test_source_mutation_during_planning_never_publishes_output
+0.04s call     tests/scripts/test_run_spatial_coverage_fixture.py::test_unknown_receipt_needs_logged_positive_fixture_stop_before_second_command
+0.03s call     robot/gateway/tests/test_spatial_coverage.py::test_ground_and_air_use_distinct_admissibility_but_one_coverage_scope
+0.03s call     tests/scripts/test_spatial_exploration_benchmark.py::test_actual_production_episode_passes_only_measured_snapshots
+128 passed in 1.84s

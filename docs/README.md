@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+已知地图覆盖与多层地面增量（2026-10-18）：[设计、CLI 和插件边界](development/2026-10-18-spatial-coverage-upgrade.md) → [四类计划、315/315 Runner 软件闭环与 350 次探索对照](experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)。预测、软件新采集和实体完成分别判断；与下述已归档三维探索实验分别按版本评价。
+
 最新异构三维探索（设计 2026-10-17，实验 2026-10-18）：[模块与变更](development/2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融、指标与回放协议](experiments/2026-10-17-spatial-exploration-protocol.md) → [实际报告、配对图与证据](experiments/2026-10-18-spatial-exploration.md) → [教材补充](../book/updates/2026-10-17-heterogeneous-spatial-exploration.md)。软件研究核心复用本体路径约束，提供分工、覆盖账本和后续在线接线端口；与下述实际二维 Gazebo 首次扫描分别评价。
 
 最新探索增量（2026-10-17）：[首次扫描实现](development/2026-10-17-exploration-first-scan.md) → [操作指南](guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索) → [实验与全部尝试](experiments/2026-10-17-exploration-first-scan.md) → [书籍补充](../book/updates/2026-10-17-exploration-first-scan.md)。当前为平面本体主动观察和在线 frontier 增强，不代表三维自主探索或实机认证。
@@ -34,6 +36,7 @@
 | 多 Agent 如何通信、保持上下文一致？ | [协作总览](architecture/long-horizon-collaboration.md)、[事件协议](development/2026-10-10-agent-interaction-protocol.md)、[长上下文](development/2026-10-09-long-horizon-context.md) | [长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
 | 系统如何扩展到云边、异构机器人和多种 SLAM？ | [模块化评价与路线](architecture/modular-extensibility.md)、[SLAM Provider](development/slam-providers.md) | [边界升级与验证记录](development/2026-10-13-modular-extensibility.md) |
 | 怎样研究空地异构三维探索与消融？ | [探索器、分工和覆盖合同](development/2026-10-17-heterogeneous-spatial-exploration.md) | [配对协议与 CLI](experiments/2026-10-17-spatial-exploration-protocol.md)、[实际报告与证据](experiments/2026-10-18-spatial-exploration.md)；离线体素观测不等于实际飞行或表面全覆盖 |
+| 已知地图怎样做覆盖规划、多层地面怎样通行？ | [显式覆盖与分层地形](development/2026-10-18-spatial-coverage-upgrade.md) | [学习补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)；预测覆盖、实际新观测和控制器可执行性分别判断 |
 | 云端大脑与边缘怎样交接？ | [分层目标合同](architecture/hierarchical-edge-objectives.md)、[API 接入](guides/delegated-edge-goals.md)、[目标运维](operations/delegated-goal-operations.md) | [目标委托测试](experiments/2026-10-15-hierarchical-edge-objectives.md)与[鲁棒性证据](experiments/2026-10-15-single-robot-robustness.md) |
 | 点云语义怎样驱动长程导航？ | [点云语义操作](guides/semantic-point-cloud.md)、[目标绑定与执行协议](architecture/semantic-execution-protocol.md) | [五站任务、失败和修复](experiments/2026-10-13-semantic-execution.md) |
 | 标定、建图或地图显示有问题？ | [注册服务工作流](guides/robot-service-workflow.md)、[关键帧检查](guides/slam-keyframe-inspection.md)、[地图运维](development/dense-map-operations.md) | [SLAM 与语义导航实测](experiments/2026-09-27-gazebo-slam-semantic-navigation.md) |

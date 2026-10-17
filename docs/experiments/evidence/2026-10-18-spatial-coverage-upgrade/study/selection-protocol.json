@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "research.selection-protocol.v1",
+  "registeredAt": "2026-10-17T16:45:59.418247+00:00",
+  "selectionOrder": [
+    "maximize completed episode fraction on development",
+    "maximize mean ROI voxel coverage on development",
+    "minimize mean successful geometric path length on development",
+    "minimize mean observation JSON bytes on development",
+    "lexicographic variant name tie break"
+  ],
+  "candidateSet": "all seven frozen variants",
+  "tuning": "No post-registration scene/weight/algorithm tuning planned; inspect development then freeze selected variant before holdout.",
+  "scope": "software geometric fixtures; no physical optimality claim",
+  "sourceHashes": {
+    "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+  },
+  "configHashes": {
+    "development": "506d34035f200d193055f92657b8e46febe28a360d4c3f41115b0aeae7b539f1",
+    "holdout": "c3bfa50824a7f4c7e6d48fea419cf191216aa9208bc701beee825fb83f22e5db"
+  }
+}

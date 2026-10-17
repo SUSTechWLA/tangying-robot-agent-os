@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "spatial.preregistration.v2",
+  "configHash": "4eec2b32d8f6a7e6623facaac2c2656f28fb60c04a07cf7c8bdf2743ec8f5e39",
+  "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+  "split": "development",
+  "blocks": [
+    {
+      "blockId": "warehouse_aisles--seed-3",
+      "path": "truth/warehouse_aisles--seed-3.json",
+      "inputHash": "26f2bcdc47460578fbedb8864cadd178b5a962aefab0adda5fa34776cb8c09a3",
+      "occupancyGeometryHash": "42fa4fca02fe95a2d46ce9b103a8132b4aa6f6c0685f9d8f2f7a55f0cc96407b"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-7",
+      "path": "truth/warehouse_aisles--seed-7.json",
+      "inputHash": "b0cfcc5ba1c36784fc5e878f54a27225b7e1c01f1a445d7fa5fe40a2b1baf928",
+      "occupancyGeometryHash": "9b03f5f02d8c6d68e4b9903f290bd4ab1725f003cb1a4c76d57a92ad22b2ca56"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-19",
+      "path": "truth/warehouse_aisles--seed-19.json",
+      "inputHash": "e64db3338f579521684b35fb894f1175d951f80e98be501ce4ca303c70ef5b52",
+      "occupancyGeometryHash": "bcb01033c474f902fb27eb8909dccd63cce6528c321aec9dca3a4ae049e5bf8d"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-43",
+      "path": "truth/warehouse_aisles--seed-43.json",
+      "inputHash": "bfcb2599f7b2829ce0bff63ac538a69e67dd414c5168369f794ccdb05db0e224",
+      "occupancyGeometryHash": "5a884a8051af1f05a7885ddaaaf9a0b109fa1d72ad75e128aa91c7de6e1ef1eb"
+    },
+    {
+      "blockId": "staggered_doorways--seed-3",
+      "path": "truth/staggered_doorways--seed-3.json",
+      "inputHash": "526ace1b6591a5269b8c50051da0972dff960ef32fdbd38835722713802e03d4",
+      "occupancyGeometryHash": "4cbc92ba35f6c611a00c61cc07c0fc1292686a4fd5ba94919aba9234961a7737"
+    },
+    {
+      "blockId": "staggered_doorways--seed-7",
+      "path": "truth/staggered_doorways--seed-7.json",
+      "inputHash": "aeb0f68624b0f0b63889aa195e219a627ef7538219161ff5293820836659fced",
+      "occupancyGeometryHash": "664ac3706344df01d1d710f01356003bc9a7a9e29cae16023dbf23bd2ade0dc8"
+    },
+    {
+      "blockId": "staggered_doorways--seed-19",
+      "path": "truth/staggered_doorways--seed-19.json",
+      "inputHash": "c1fcb8703afe51d2052129edd8dec3db04cae4ba68e0fe74cabf09af3d3b1ec8",
+      "occupancyGeometryHash": "5a7ee66ce83293472394327cffd660e24a8cadc21d7aee099456e3f46a02ba55"
+    },
+    {
+      "blockId": "staggered_doorways--seed-43",
+      "path": "truth/staggered_doorways--seed-43.json",
+      "inputHash": "db668c43b39f59dda4907cd543875eb5a0a5d8732e1912f59a0a041661551340",
+      "occupancyGeometryHash": "d85c27f48d56a7d17dcde02cf3522eeb32ab1ebea6a2a417378a9455985e8d62"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-3",
+      "path": "truth/elevated_occlusion--seed-3.json",
+      "inputHash": "1a17f0a2bdc5ff119933f51b4b0d9d5c39e71761e08642ad9a9d757b53ee59da",
+      "occupancyGeometryHash": "019adb747e5e99fddefc2c158b3dc05a8b9b216a46744b10265963ef79706f7a"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-7",
+      "path": "truth/elevated_occlusion--seed-7.json",
+      "inputHash": "7bce8c4e3aae575ab4ea5febb1a6b847cc832e14009322834a349b5dba783909",
+      "occupancyGeometryHash": "cd0df00369fd33404465a3d5da8ff58007804d5caba50d1f9c98eb287ff8db73"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-19",
+      "path": "truth/elevated_occlusion--seed-19.json",
+      "inputHash": "3cbb23f5ac5e206ebe2d9db47231632575f34e5bb971bdc03212383d45ffdc5e",
+      "occupancyGeometryHash": "06a235ccd4cd9fb2afb6c43a92da469932588b557442cdf5e9f3e46da6a90203"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-43",
+      "path": "truth/elevated_occlusion--seed-43.json",
+      "inputHash": "752f99c27c20e3c7bd337e02d9a1529e3ff9f95f3dd36f5b174e49516d96d1f4",
+      "occupancyGeometryHash": "166d412d2836a2b93ad2e2fcfe010f4902d2443ee29266a623f0f8186adddd23"
+    },
+    {
+      "blockId": "sealed_chamber--seed-3",
+      "path": "truth/sealed_chamber--seed-3.json",
+      "inputHash": "141106bb2d14a532e478d791fea68d8205a47502a5620b2e2b0dead754013ae4",
+      "occupancyGeometryHash": "98b67d69087bb84de1ef2b865f1c16e44cff752fd08b786da5be942f8b71225f"
+    },
+    {
+      "blockId": "sealed_chamber--seed-7",
+      "path": "truth/sealed_chamber--seed-7.json",
+      "inputHash": "399c43187a95b96e318a7c97f70b5d5843e80747cc1cbf5234655cdab467a5a6",
+      "occupancyGeometryHash": "cb8b6f4e8d2cf96da245760ba6b5c908e9e2a043436bb8045f0c4cd580f8af84"
+    },
+    {
+      "blockId": "sealed_chamber--seed-19",
+      "path": "truth/sealed_chamber--seed-19.json",
+      "inputHash": "1e91a3f1f46fbac1c99f1c771b61dff18ef8798206979dc2ece74abc576e6ca9",
+      "occupancyGeometryHash": "3dd9a12a43a158d137fc4c030e0e9349ea5935a5f45eae6aa3f4618e130f6ce4"
+    },
+    {
+      "blockId": "sealed_chamber--seed-43",
+      "path": "truth/sealed_chamber--seed-43.json",
+      "inputHash": "3df67f1dc18b6e83179b3612ece62679a491963b2a6c7dec351289187f40ddf9",
+      "occupancyGeometryHash": "bfae5d80b274926b3895e14f1f94e4e4fdd91b4e9eacd7ab68f21991c1462db6"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-3",
+      "path": "truth/delayed_exchange_recovery--seed-3.json",
+      "inputHash": "1bb832fd734bce241d3be66c52e5d2b5ab5f082714aa1c307d2f90fdf9eb1374",
+      "occupancyGeometryHash": "4cbc92ba35f6c611a00c61cc07c0fc1292686a4fd5ba94919aba9234961a7737"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-7",
+      "path": "truth/delayed_exchange_recovery--seed-7.json",
+      "inputHash": "09a720b3ebf1eadee42ddae98c1226b21ff3bcf40505d0c10c7caee5bd551853",
+      "occupancyGeometryHash": "664ac3706344df01d1d710f01356003bc9a7a9e29cae16023dbf23bd2ade0dc8"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-19",
+      "path": "truth/delayed_exchange_recovery--seed-19.json",
+      "inputHash": "878a66b47934af8bf167c0a187cce468f1dbdd49bebf4d9d3d0080ad8a2fe2ad",
+      "occupancyGeometryHash": "5a7ee66ce83293472394327cffd660e24a8cadc21d7aee099456e3f46a02ba55"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-43",
+      "path": "truth/delayed_exchange_recovery--seed-43.json",
+      "inputHash": "9dcfa2175ad794deef27a7cd01d1f1aa3ff95c9b525d6077d328c976cc3d9bf7",
+      "occupancyGeometryHash": "d85c27f48d56a7d17dcde02cf3522eeb32ab1ebea6a2a417378a9455985e8d62"
+    }
+  ],
+  "splitGeometryAudit": {
+    "warehouse_aisles": {
+      "layouts": {
+        "development": {
+          "3": "42fa4fca02fe95a2d46ce9b103a8132b4aa6f6c0685f9d8f2f7a55f0cc96407b",
+          "7": "9b03f5f02d8c6d68e4b9903f290bd4ab1725f003cb1a4c76d57a92ad22b2ca56",
+          "19": "bcb01033c474f902fb27eb8909dccd63cce6528c321aec9dca3a4ae049e5bf8d",
+          "43": "5a884a8051af1f05a7885ddaaaf9a0b109fa1d72ad75e128aa91c7de6e1ef1eb"
+        },
+        "holdout": {
+          "101": "7a751c0136862bf2b86b715684b94b6f1821c57a5936e33f3223612f1dcc6e4f",
+          "137": "fe795b2472671c33db443ea7b84bcef58d89f9b0978fd9aa56a3d5a2c2a401d5",
+          "173": "242934ee98b30ebae563143c34ba1b4d02ce7afbed103679f856ab87bf09bb11",
+          "211": "3a3a8be6b7d36c5b9f9c5cadbd402dff3c20fe9acf90f71bebb66e77693be972",
+          "257": "aef34858224209b369aa04e91a03182d27a5cbda5a2567c34aadcfe6572da532",
+          "293": "28ee8231c96fb211dbab9d428d0dd32a32b9b89c88b64e0dfb5c234f261b5f43"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "staggered_doorways": {
+      "layouts": {
+        "development": {
+          "3": "4cbc92ba35f6c611a00c61cc07c0fc1292686a4fd5ba94919aba9234961a7737",
+          "7": "664ac3706344df01d1d710f01356003bc9a7a9e29cae16023dbf23bd2ade0dc8",
+          "19": "5a7ee66ce83293472394327cffd660e24a8cadc21d7aee099456e3f46a02ba55",
+          "43": "d85c27f48d56a7d17dcde02cf3522eeb32ab1ebea6a2a417378a9455985e8d62"
+        },
+        "holdout": {
+          "101": "5c682a0283963e027380c74a7bcce11a9273d573adeec8e3724608183b065f4f",
+          "137": "ffbe914b64e7385a451382574fe9d6b0f297c1d3b30a23830817e14529ce09ae",
+          "173": "a18c66f244dbd8b92684b545ae776d6290f79d036559db327200e472e1ef0e09",
+          "211": "0d3392017641066e731f3e7b82f1ffbe7dfe1e09a1a8550997811cf57c43537c",
+          "257": "4ef5e9221bc7e3423551b87ea771876458c9532cae3de6a4c5606fdbc21729c8",
+          "293": "f28976bf9236e73db02b2ac3c6f11f08a7cdbd76814691472852a1e29d75a8e2"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "elevated_occlusion": {
+      "layouts": {
+        "development": {
+          "3": "019adb747e5e99fddefc2c158b3dc05a8b9b216a46744b10265963ef79706f7a",
+          "7": "cd0df00369fd33404465a3d5da8ff58007804d5caba50d1f9c98eb287ff8db73",
+          "19": "06a235ccd4cd9fb2afb6c43a92da469932588b557442cdf5e9f3e46da6a90203",
+          "43": "166d412d2836a2b93ad2e2fcfe010f4902d2443ee29266a623f0f8186adddd23"
+        },
+        "holdout": {
+          "101": "b357d488d2f81f321cba0f0f8127680b5dff362aeaa75f3e0a39b0489f0c4afe",
+          "137": "d42100133633dee93c3c5073b70b51444eb72eae1072f5007a75d892fd3c6725",
+          "173": "32a40b2e26767497b4a675ddd80e8c50016286586f9307d5f4f6cd9fba4748f7",
+          "211": "0b3ec209824b742cfca5d83aabaf478cf05b5153c1a8cd3b172a850c549d2b30",
+          "257": "ab6e3c8b653e6e35cdb12fb83726a09a8cdac0537efaf8f63eb9d8eba7669a6f",
+          "293": "ac43c90951b05614bffc635dfe7f7dbc11f07dc89b56f0cfe95ceef974b30294"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "sealed_chamber": {
+      "layouts": {
+        "development": {
+          "3": "98b67d69087bb84de1ef2b865f1c16e44cff752fd08b786da5be942f8b71225f",
+          "7": "cb8b6f4e8d2cf96da245760ba6b5c908e9e2a043436bb8045f0c4cd580f8af84",
+          "19": "3dd9a12a43a158d137fc4c030e0e9349ea5935a5f45eae6aa3f4618e130f6ce4",
+          "43": "bfae5d80b274926b3895e14f1f94e4e4fdd91b4e9eacd7ab68f21991c1462db6"
+        },
+        "holdout": {
+          "101": "149e37670e4599392f5c1292b803d82452f2c33a12829a49f2a91704eae39f40",
+          "137": "69ef0872cb53abee798798ee5554f188f83fa3f3a1ac797f4f8c5123302746f4",
+          "173": "1e7e50ef61c37983d66a3510d51fab746c12268aae142e3d99bdaf11c3654bbb",
+          "211": "a8b2ca6179dca67fc77e79b52cf81d5f1b6c10d237ab7bc609fb35bf45f93599",
+          "257": "3d1bd0df086a9780d16db258759380935801c933338c11268216a56794a48601",
+          "293": "fd7c311c820e1ff5421b831f7de13fbd8473a16732826058d6e7370b6db920de"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "delayed_exchange_recovery": {
+      "layouts": {
+        "development": {
+          "3": "4cbc92ba35f6c611a00c61cc07c0fc1292686a4fd5ba94919aba9234961a7737",
+          "7": "664ac3706344df01d1d710f01356003bc9a7a9e29cae16023dbf23bd2ade0dc8",
+          "19": "5a7ee66ce83293472394327cffd660e24a8cadc21d7aee099456e3f46a02ba55",
+          "43": "d85c27f48d56a7d17dcde02cf3522eeb32ab1ebea6a2a417378a9455985e8d62"
+        },
+        "holdout": {
+          "101": "5c682a0283963e027380c74a7bcce11a9273d573adeec8e3724608183b065f4f",
+          "137": "ffbe914b64e7385a451382574fe9d6b0f297c1d3b30a23830817e14529ce09ae",
+          "173": "a18c66f244dbd8b92684b545ae776d6290f79d036559db327200e472e1ef0e09",
+          "211": "0d3392017641066e731f3e7b82f1ffbe7dfe1e09a1a8550997811cf57c43537c",
+          "257": "4ef5e9221bc7e3423551b87ea771876458c9532cae3de6a4c5606fdbc21729c8",
+          "293": "f28976bf9236e73db02b2ac3c6f11f08a7cdbd76814691472852a1e29d75a8e2"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    }
+  },
+  "globalCrossSplitGeometryOverlapN": 0,
+  "declaredUniqueGeometryNBySplit": {
+    "development": 16,
+    "holdout": 24
+  },
+  "truthPolicyBoundary": "Truth files are evaluator/synthetic sensor inputs; policy interface receives measured snapshots only. This is an interface contract, not an adversarial process sandbox.",
+  "selectionFreeze": null,
+  "holdoutClaim": "Split labels and disjoint geometry are checked; an external policy-selection receipt is needed to substantiate blinded holdout use."
+}

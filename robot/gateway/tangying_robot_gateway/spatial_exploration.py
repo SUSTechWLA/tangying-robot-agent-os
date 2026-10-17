@@ -9,7 +9,8 @@ Poses use xyz, quaternion wxyz; a sensor looks along local +X with local +Z up.
 Viewpoint orientations are geometric observation goals, not dynamically feasible
 flight attitudes or a promise that a ground robot has an actuated camera. An
 execution provider must commission its sensor/body attitude constraints. Ground
-viewpoint search therefore varies yaw only. Terrain remains single-layer 2.5D.
+viewpoint search therefore varies yaw only. Ground support may be single-layer
+or explicitly connected measured layers; it is never inferred from free voxels.
 """
 from __future__ import annotations
 
@@ -257,6 +258,37 @@ def raycast_observation(volume, pose, sensor, *, max_rays=81, max_ray_steps=8192
     return _raycast(document, pose, sensor, max_rays, max_ray_steps)
 
 
+def navigation_points(volume, policy):
+    """Enumerate measured candidate centres without claiming their reachability.
+
+    Inputs are normalized navigation contracts. The path planner must still
+    certify the complete body envelope, support, connectivity and the route.
+    """
+    shape, origin, resolution = volume["shape"], volume["origin"], volume["resolution"]
+    if policy["mode"] == "volume3d":
+        for index, value in enumerate(volume["cells"]):
+            if value == 0:
+                node = (index % shape[0], index // shape[0] % shape[1],
+                        index // (shape[0] * shape[1]))
+                yield node, [base + (cell + .5) * resolution
+                             for base, cell in zip(origin, node, strict=True)]
+        return
+    layers = ([volume["terrain"]] if policy["mode"] == "terrain25d"
+              else volume["terrainLayers"]["layers"])
+    for layer in layers:
+        for index, supported in enumerate(layer["supported"]):
+            if not supported:
+                continue
+            x, y = index % shape[0], index // shape[0]
+            point = [origin[0] + (x + .5) * resolution,
+                     origin[1] + (y + .5) * resolution,
+                     layer["heights"][index] + policy["referenceHeightM"]]
+            z = math.floor((point[2] - origin[2]) / resolution)
+            node = (x, y, z)
+            if _inside(node, shape) and volume["cells"][_flat(node, shape)] == 0:
+                yield node, point
+
+
 class SpatialExplorer:
     """Frontier/NBV proposal service with measured-space route certification.
 
@@ -295,31 +327,20 @@ class SpatialExplorer:
 
     def _views(self, start):
         volume, shape = self._volume, self._volume["shape"]
-        ground = self._policy["mode"] == "terrain25d"
+        ground = self._policy["mode"] != "volume3d"
         cardinal = ((1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0))
         axes = cardinal + ((0, 0, 1), (0, 0, -1))
         # In-place looks are useful even if the camera can see a distant
         # frontier while its body cannot safely stand in the frontier voxel.
         for direction in (cardinal if ground else axes):
             yield (0., -1, direction, start[:3], 1)
-        used_columns = set()
-        for index, value in enumerate(volume["cells"]):
-            if value != 0:
-                continue
-            node = (index % shape[0], (index // shape[0]) % shape[1], index // (shape[0]*shape[1]))
+        for node, point in navigation_points(volume, self._policy):
+            index = _flat(node, shape)
             adjacent = [direction for direction in axes
                         if _inside(tuple(item+offset for item, offset in zip(node, direction, strict=True)), shape)
                         and volume["cells"][_flat(tuple(item+offset for item, offset in
                             zip(node, direction, strict=True)), shape)] == -1]
             if not adjacent:
-                continue
-            if ground:
-                column = node[:2]
-                if column in used_columns:
-                    continue
-                used_columns.add(column)
-            point = self._point(node)
-            if point is None:
                 continue
             directions = sorted({(direction if direction[2] == 0 or not ground else heading)
                                 for direction in adjacent

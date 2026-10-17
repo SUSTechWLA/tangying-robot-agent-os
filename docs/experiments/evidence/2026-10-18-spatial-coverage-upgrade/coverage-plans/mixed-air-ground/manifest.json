@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "coverage.artifacts.v1",
+  "state": "finalized",
+  "gitHead": "d984b77bf329610fc48ac89735508264de1b2365",
+  "files": {
+    "plan.json": {
+      "bytes": 5578,
+      "sha256": "16269a0b56b458652a51627d76831e3e5e7894d52347e1d6e00a62dfe3cb7601"
+    },
+    "request.json": {
+      "bytes": 22231,
+      "sha256": "a671b830fd456ac09f79105743e32b0f22154ba7dff6d45b503b088789c08f8e"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "source/scripts/plan_spatial_coverage.py": {
+      "bytes": 5567,
+      "sha256": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990"
+    }
+  },
+  "sourceHashes": {
+    "scripts/plan_spatial_coverage.py": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990",
+    "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.4.6"
+  },
+  "predictionOnly": true,
+  "physicalExecution": false,
+  "verification": "byte_hash_and_source_bound_deterministic_planning_replay"
+}

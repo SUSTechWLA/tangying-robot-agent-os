@@ -241,7 +241,7 @@ class RegisteredSpatialSlamProvider:
                     next_crossing[a] += increments[a]
         raise ValueError("ray traversal failed to terminate")
 
-    def volume(self, *, terrain=None):
+    def volume(self, *, terrain=None, terrain_layers=None):
         if not self._frames:
             raise ValueError("cannot publish a volume without registered observations")
         cells = [-1] * math.prod(self.shape)
@@ -264,6 +264,8 @@ class RegisteredSpatialSlamProvider:
                   "origin": list(self.origin), "shape": list(self.shape), "cells": cells}
         if terrain is not None:
             result["terrain"] = copy.deepcopy(terrain)
+        if terrain_layers is not None:
+            result["terrainLayers"] = copy.deepcopy(terrain_layers)
         from .spatial_navigation import validate_volume
         return validate_volume(result)
 
@@ -309,8 +311,8 @@ class RegisteredSpatialSlamProvider:
             instance.add(frame, now_unix_ms=frame["observedAtUnixMs"])
         return instance
 
-    def publish(self, directory, *, terrain=None):
-        return publish_spatial_map(directory, self, terrain=terrain)
+    def publish(self, directory, *, terrain=None, terrain_layers=None):
+        return publish_spatial_map(directory, self, terrain=terrain, terrain_layers=terrain_layers)
 
 
 def _write_synced(path, payload):
@@ -320,9 +322,10 @@ def _write_synced(path, payload):
         os.fsync(stream.fileno())
 
 
-def publish_spatial_map(directory, provider, *, terrain=None):
+def publish_spatial_map(directory, provider, *, terrain=None, terrain_layers=None):
     """Atomically publish a complete package; repeat identical publication is safe."""
-    documents = {"volume.json": provider.volume(terrain=terrain), "provenance.json": provider.provenance(),
+    documents = {"volume.json": provider.volume(terrain=terrain, terrain_layers=terrain_layers),
+                 "provenance.json": provider.provenance(),
                  "measurements.json": provider.measurements()}
     payloads = {name: _canonical(document) for name, document in documents.items()}
     if any(len(data) > MAX_DOCUMENT_BYTES for data in payloads.values()):
@@ -400,7 +403,8 @@ def load_spatial_map(directory):
         raise ValueError("spatial package identity mismatch")
     if not isinstance(documents["volume"], dict):
         raise TypeError("spatial volume artifact must be an object")
-    rebuilt = provider.volume(terrain=documents["volume"].get("terrain"))
+    rebuilt = provider.volume(terrain=documents["volume"].get("terrain"),
+                              terrain_layers=documents["volume"].get("terrainLayers"))
     if rebuilt != documents["volume"] or provider.provenance() != documents["provenance"]:
         raise ValueError("spatial map artifacts disagree with measured provenance")
     return {"manifest": manifest, **documents}

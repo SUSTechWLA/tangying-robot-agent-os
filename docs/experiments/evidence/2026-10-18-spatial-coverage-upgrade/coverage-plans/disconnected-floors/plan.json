@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "coverage.plan.v1",
+  "missionId": "fixture-disconnected-floors",
+  "geometryId": "65dad3a7427d66621be96dfb547151962da6fdd0c7efbe75dbde8642573a1c7f",
+  "predictionOnly": true,
+  "status": "partial",
+  "stopReason": "bounded_search_no_admissible_viewpoint",
+  "targetVoxels": 1,
+  "predictedCoveredVoxels": 0,
+  "predictedCoverage": 0.0,
+  "observedCoverage": null,
+  "unresolvedVoxelIds": [
+    318
+  ],
+  "pathLengthM": 0.0,
+  "planCalls": 8,
+  "evaluatedViewpoints": 680,
+  "legs": [],
+  "diagnostics": [
+    {
+      "robotId": "ugv",
+      "objectiveKind": "explicit_scope_coverage",
+      "targetVoxels": 1,
+      "remainingTargetVoxels": 1,
+      "evaluatedViewpoints": 680,
+      "planCalls": 8,
+      "rejectedPaths": {
+        "NO_KNOWN_PATH": 8
+      },
+      "rayBudgetExhaustions": 0,
+      "predictionOnly": true,
+      "strategy": "gain_per_meter",
+      "sampledPositions": 170,
+      "availablePositions": 170,
+      "viewpointSamplingTruncated": false,
+      "pathSamplingTruncated": true,
+      "scopeAlreadyObserved": false,
+      "peerRefusals": 0,
+      "travelRefusals": 0
+    }
+  ],
+  "executionModel": "serial_with_stationary_peer_envelope_checks",
+  "physicalValidation": false,
+  "continuousSceneCompletenessProven": false
+}

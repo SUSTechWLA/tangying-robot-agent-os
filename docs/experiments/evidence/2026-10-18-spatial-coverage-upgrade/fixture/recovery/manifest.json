@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "coverage.fixture-artifacts.v1",
+  "state": "finalized",
+  "sourceHashes": {
+    "scripts/run_spatial_coverage_fixture.py": "da91fa56cc435a800b75d2e910b803c727e8981994c1aaa974aec6c25440be54",
+    "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+  },
+  "gitHead": "d984b77bf329610fc48ac89735508264de1b2365",
+  "environment": {
+    "python": "3.11.9",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.4.6"
+  },
+  "unknownStep": 3,
+  "physicalExecution": false,
+  "files": {
+    "captures.jsonl": {
+      "bytes": 55528,
+      "sha256": "5504e108c1bd9c6107a36328755c7df2f80441d43110b88e094f8c7e8f858bc4"
+    },
+    "commands.jsonl": {
+      "bytes": 15736,
+      "sha256": "4a5f16d5806e7c492c14d4e7df73e98c8c3f08d2658d214a9d80f899e4b24580"
+    },
+    "coordination.jsonl": {
+      "bytes": 64658,
+      "sha256": "b4cdc6e19ed4db908059c65b4471806f1ec64c2476cd0eccce707d1ca3c70e1d"
+    },
+    "coverage-ledger.jsonl": {
+      "bytes": 36616,
+      "sha256": "e6246775d16568b6af2629181e46151585f235a817249eedc3f927ddb3fe511c"
+    },
+    "events.jsonl": {
+      "bytes": 147240,
+      "sha256": "7c38d0d74a147111d317c80e2f18dbb862b18abe16c0417e6c96d587e102595f"
+    },
+    "reports.jsonl": {
+      "bytes": 18703,
+      "sha256": "0d4c725dc9208870277a52f33bb5d3161680a842526d9f99182b5cc1adbab37c"
+    },
+    "request.json": {
+      "bytes": 31007,
+      "sha256": "d9412c92517b809586954253a1cfa2e6a1e82bde7ae0806d720ec780c6db8019"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "source/scripts/run_spatial_coverage_fixture.py": {
+      "bytes": 25045,
+      "sha256": "da91fa56cc435a800b75d2e910b803c727e8981994c1aaa974aec6c25440be54"
+    },
+    "summary.json": {
+      "bytes": 932,
+      "sha256": "ec467fa6719bc611be64809812ae2d35b3b4e27b0af36945d8d5ec4537bdd8cb"
+    }
+  }
+}

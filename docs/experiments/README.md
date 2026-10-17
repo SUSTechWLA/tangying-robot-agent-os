@@ -1,5 +1,7 @@
 # 实验协议、报告与证据索引
 
+最新[已知覆盖、多层导航和扩展消融实际报告](2026-10-18-spatial-coverage-upgrade.md)记录四个预测计划、两次 315/315 的 Runner 软件闭环，以及开发 140/留出 210 个全部 partial 的未知探索 episode；独立几何分别为 16/24。见[实现与方法](../development/2026-10-18-spatial-coverage-upgrade.md)、[逐次 CSV](2026-10-18-spatial-coverage-upgrade.csv)和[机器可读报告](2026-10-18-spatial-coverage-upgrade.json)。原联合协调消融现拆开比较，下面已归档实验仍保留原定义和分母。
+
 最新异构三维探索：[配对消融、覆盖分母、指标与回放协议](2026-10-17-spatial-exploration-protocol.md)与[2026-10-18 实际报告、图表和完整证据](2026-10-18-spatial-exploration.md)，覆盖空地几何互补、分支遮挡与故障注入；使用实际探索/账本/协调模块和合成传感器/驱动，不计为 Gazebo、实机、SLAM 精度或并发多机动力学实验。
 
 最新首次扫描：[实验协议](2026-10-17-exploration-first-scan-protocol.md)与[实际 Gazebo 尝试和修复报告](2026-10-17-exploration-first-scan.md)，使用新隔离地图存储、保留首轮转角不足及修复后复测；Runtime 验收与自然语言/实机/全环境覆盖分别判断。

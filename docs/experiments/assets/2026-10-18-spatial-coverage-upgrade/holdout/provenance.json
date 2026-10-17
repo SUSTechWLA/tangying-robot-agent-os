@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "research.spatial-exploration-figure.v1",
+  "input": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout",
+  "inputs": {
+    "summary.json": "50f935fa6a5e85719e286418e83e5aa7cd4dfb62028dc57f373ae1f074b7602c",
+    "episodes.csv": "dcc9b1cc2c9802f6687ef1d2751e1506a7172aa159d32393bd3199d5eedd5ce1",
+    "manifest.json": "4a1e4e8c6f1a3635e99901b0c405bcc9a0ad9ca1ed6483c0b3314d4acdba2e87"
+  },
+  "scriptSha256": "eb07639793e18b450dbb22f6cc81a5ef4b868334b0fba7e80d7e419b321f20fb",
+  "matplotlibVersion": "3.10.8",
+  "episodeN": 210,
+  "pairedSeeds": {
+    "warehouse_aisles": [
+      101,
+      137,
+      173,
+      211,
+      257,
+      293
+    ],
+    "staggered_doorways": [
+      101,
+      137,
+      173,
+      211,
+      257,
+      293
+    ],
+    "elevated_occlusion": [
+      101,
+      137,
+      173,
+      211,
+      257,
+      293
+    ],
+    "sealed_chamber": [
+      101,
+      137,
+      173,
+      211,
+      257,
+      293
+    ],
+    "delayed_exchange_recovery": [
+      101,
+      137,
+      173,
+      211,
+      257,
+      293
+    ]
+  },
+  "variants": [
+    "baseline",
+    "nearest_frontier",
+    "no_global_reposition",
+    "no_visibility_gain",
+    "no_assignment_overlap",
+    "no_shared_coverage_guidance",
+    "no_coordination"
+  ],
+  "variantLabels": {
+    "baseline": "Baseline",
+    "nearest_frontier": "Nearest frontier",
+    "no_global_reposition": "No global reposition",
+    "no_visibility_gain": "No visibility gain",
+    "no_assignment_overlap": "Assignment overlap off",
+    "no_shared_coverage_guidance": "Shared coverage guidance off",
+    "no_coordination": "No coordination (both)"
+  },
+  "metrics": [
+    "coverageFraction",
+    "pathLengthM",
+    "messageBytes"
+  ],
+  "sampleInterpretation": "Descriptive paired samples; no statistical or physical optimality claim.",
+  "validation": "Cross-checked summary/CSV and manifest hashes, not a new sensor or path replay.",
+  "files": {
+    "paired-exploration.png": "a4b96ff9b520722f16751824fa805ff025ee7b96059974256dffaf22c5c7e612",
+    "paired-exploration.svg": "3dff6147a996cf5858d115502017ad3c175c552a4520e03444d3608136bacb44",
+    "plotted-values.csv": "0cdad5a7c0324a744b39adfcde913f2a5df16395336966b2dee6908acb8e2723"
+  }
+}

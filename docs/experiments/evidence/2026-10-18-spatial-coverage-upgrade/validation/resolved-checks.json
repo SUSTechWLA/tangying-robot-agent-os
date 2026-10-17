@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "engineering.validation-resolution.v1",
+  "state": "completed_with_documentation_regression_fixed",
+  "pythonMain": {
+    "exitCode": 1,
+    "passed": 3713,
+    "failed": 1,
+    "skipped": 40,
+    "warnings": 20,
+    "elapsedSeconds": 563.08,
+    "failure": "tests/test_repository.py::test_readme_leads_with_the_single_robot_home_loop",
+    "resolution": "Move research update paragraphs below quickstart; keep first-run household command within the opening section.",
+    "targetedRegression": {
+      "command": [
+        ".venv/bin/pytest",
+        "-q",
+        "tests/test_repository.py"
+      ],
+      "exitCode": 0,
+      "passed": 15,
+      "log": "readme-regression-attempt02.log"
+    }
+  },
+  "runtimeBoundary": {
+    "exitCode": 0,
+    "passed": 2
+  },
+  "finalFocused": {
+    "exitCode": 0,
+    "passed": 128,
+    "elapsedSeconds": 1.84,
+    "note": "Includes two scope rejection cases added after initial full-suite collection; overlaps prior tests, never sum as independent passes."
+  },
+  "lint": {
+    "firstExitCode": 2,
+    "finalExitCode": 0,
+    "resolution": "Merge equivalent nested scope conditions; frozen study source preserved; current bound plan and fixture artifacts rerun."
+  },
+  "goBuildGenerate": {
+    "testGoExitCode": 0,
+    "buildExitCode": 0,
+    "generateCheckExitCode": 0
+  },
+  "hardwareOrGazeboExecuted": false
+}

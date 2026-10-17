@@ -4,3 +4,9 @@
 /docs/experiments/2026-10-18-spatial-exploration.csv -text whitespace=cr-at-eol
 /docs/experiments/assets/2026-10-18-spatial-exploration/*.csv -text whitespace=cr-at-eol
 /docs/experiments/assets/2026-10-18-spatial-exploration/*.svg -text -whitespace
+
+# Preserve the next study's frozen logs, standard CSV and generated figures.
+/docs/experiments/evidence/2026-10-18-spatial-coverage-upgrade/** -text -whitespace
+/docs/experiments/2026-10-18-spatial-coverage-upgrade.csv -text whitespace=cr-at-eol
+/docs/experiments/assets/2026-10-18-spatial-coverage-upgrade/**/*.csv -text whitespace=cr-at-eol
+/docs/experiments/assets/2026-10-18-spatial-coverage-upgrade/**/*.svg -text -whitespace

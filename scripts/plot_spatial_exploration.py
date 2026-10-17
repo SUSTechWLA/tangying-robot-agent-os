@@ -23,14 +23,16 @@ from matplotlib.lines import Line2D
 METRICS = (
     ("coverageFraction", "Observed ROI voxel coverage", "Coverage (%)", 100.),
     ("pathLengthM", "Successful route distance", "Distance (m)", 1.),
-    ("messageBytes", "Observation payload exchange", "Payload (kB; decimal)", .001),
+    ("messageBytes", "Recorded data payload exchange", "Payload (kB; decimal)", .001),
 )
 VARIANTS = {
     "baseline": ("Baseline", "#1b4965"),
     "nearest_frontier": ("Nearest frontier", "#c66129"),
     "no_global_reposition": ("No global reposition", "#527d50"),
     "no_visibility_gain": ("No visibility gain", "#865a91"),
-    "no_coordination": ("No coordination", "#a7474e"),
+    "no_assignment_overlap": ("Assignment overlap off", "#2a8c82"),
+    "no_shared_coverage_guidance": ("Shared coverage guidance off", "#aa8a24"),
+    "no_coordination": ("No coordination (both)", "#a7474e"),
 }
 MARKERS = ("o", "s", "^", "D", "v", "P", "X", "h")
 
@@ -119,7 +121,8 @@ def plot_campaign(directory, output):
     matplotlib.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9,
                                 "axes.titlesize": 11, "axes.labelsize": 10,
                                 "svg.fonttype": "none", "savefig.facecolor": "white"})
-    figure, axes = plt.subplots(1, 3, figsize=(14.5, 5.2))
+    expanded_design = len(variants) > 5 or len(scenes) > 3
+    figure, axes = plt.subplots(1, 3, figsize=(14.5, 6.0 if expanded_design else 5.2))
     offsets = [0.] if len(variants) == 1 else [-.32 + .64*i/(len(variants)-1) for i in range(len(variants))]
     numeric_rows = []
     for panel, (metric, title, unit, scale) in enumerate(METRICS):
@@ -156,13 +159,14 @@ def plot_campaign(directory, output):
     legend = [Line2D([0], [0], marker="o", linestyle="none", color=VARIANTS[variant][1],
                      label=VARIANTS[variant][0], markersize=6) for variant in variants]
     figure.legend(handles=legend, loc="lower center", bbox_to_anchor=(.5, .095),
-                  ncol=min(5, len(variants)), frameon=False, fontsize=8.5)
+                  ncol=4 if len(variants) > 5 else min(5, len(variants)), frameon=False, fontsize=8.5)
     figure.text(.5, .062, "Each dot is one recorded episode; gray lines connect paired seeds. "
                 "No confidence intervals or significance claims.", ha="center", fontsize=8)
     figure.text(.5, .025, "Static ideal-sensor fixtures; no physical robot completion or energy claim. "
                 "Payload excludes network framing and control messages.", ha="center", fontsize=8,
                 color="#555b60")
-    figure.subplots_adjust(left=.065, right=.985, bottom=.265, top=.83, wspace=.31)
+    figure.subplots_adjust(left=.065, right=.985, bottom=.30 if expanded_design else .265,
+                           top=.83, wspace=.31)
     figure.savefig(output / "paired-exploration.png", dpi=240)
     figure.savefig(output / "paired-exploration.svg")
     plt.close(figure)
@@ -175,7 +179,9 @@ def plot_campaign(directory, output):
     metadata = {"schemaVersion": "research.spatial-exploration-figure.v1", "input": str(directory),
                 "inputs": inputs, "scriptSha256": sha(Path(__file__)),
                 "matplotlibVersion": matplotlib.__version__, "episodeN": len(records),
-                "pairedSeeds": seeds, "metrics": [item[0] for item in METRICS],
+                "pairedSeeds": seeds, "variants": variants,
+                "variantLabels": {variant: VARIANTS[variant][0] for variant in variants},
+                "metrics": [item[0] for item in METRICS],
                 "sampleInterpretation": "Descriptive paired samples; no statistical or physical optimality claim.",
                 "validation": "Cross-checked summary/CSV and manifest hashes, not a new sensor or path replay.",
                 "files": {path.name: sha(path) for path in sorted(output.iterdir()) if path.is_file()}}

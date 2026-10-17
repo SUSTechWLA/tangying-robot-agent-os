@@ -19,8 +19,6 @@
 
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
 
-异构三维探索研究增量见[设计与模块接口](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)、[实际软件实验与证据](docs/experiments/2026-10-18-spatial-exploration.md)和[教材补充](book/updates/2026-10-17-heterogeneous-spatial-exploration.md)：共用三维观察策略，按本体认证路径，用版本化分工与覆盖账本支持回放和量化比较。当前为软件闭环与可替换 provider，不是已接入 ROS 1 OmniPlanner，也不代表新的 Gazebo/实机三维探索或任意全场景覆盖。
-
 ```text
 从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
 ```
@@ -62,6 +60,10 @@ SIM_STACK_ENGINE=mujoco make home-furnished
   --output artifacts/acceptance/my-household-run-1 \
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer --timeout 600
 ```
+
+已知地图巡检与多层地面增量见[覆盖规划与扩展接口](docs/development/2026-10-18-spatial-coverage-upgrade.md)、[实际实验/图表](docs/experiments/2026-10-18-spatial-coverage-upgrade.md)和[教材补充](book/updates/2026-10-18-spatial-coverage-upgrade.md)：显式 ROI、分层支撑、可替换策略与 Runner 软件闭环。两次已知地图软件覆盖均为 315/315；另有 350 次未知探索消融全部保留 partial，不混为实机或全场景覆盖证明。计划文件不授予运动权限，实际执行沿用当前 Runtime/控制器准入。
+
+异构三维探索研究增量见[设计与模块接口](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)、[实际软件实验与证据](docs/experiments/2026-10-18-spatial-exploration.md)和[教材补充](book/updates/2026-10-17-heterogeneous-spatial-exploration.md)：共用三维观察策略，按本体认证路径，用版本化分工与覆盖账本支持回放和量化比较。当前为软件闭环与可替换 provider，不是已接入 ROS 1 OmniPlanner，也不代表新的 Gazebo/实机三维探索或任意全场景覆盖。
 
 ## 项目框架
 

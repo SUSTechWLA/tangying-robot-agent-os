@@ -1,5 +1,7 @@
 # 模块化与扩展性：云端大脑、边缘 Agent 与异构机器人
 
+2026-10-18 增量见[已知覆盖与多层地面](../development/2026-10-18-spatial-coverage-upgrade.md)：显式任务目标、预测覆盖策略/传感器/路径端口、分层支撑以及新观测完成判据。规划制品与动作授权分开，保留现有 Runtime/控制器边界；独立协调消融不回写旧报告的联合对照。
+
 2026-10-17 新增[异构三维探索与研究扩展层](../development/2026-10-17-heterogeneous-spatial-exploration.md)：共同网格目标、可替换观察策略、本体路径准入、持久覆盖账本和有 fence 的分配；`SpatialMissionRunner` 提供地图/驱动/报告端口，[基准协议](../experiments/2026-10-17-spatial-exploration-protocol.md)提供配对消融和独立指标回放，[10-18 实际报告](../experiments/2026-10-18-spatial-exploration.md)保留软件样本、图表及来源。当前是软件闭环及后续在线接线基础，没有自动获得跨地图 SLAM 融合、通用异构 DAG、并发多机避碰或已验证的实体飞行能力。下文历史评估按原日期阅读。
 
 2026-10-16 以 `821659df` 同步：[目标委托与统一边缘宿主](hierarchical-edge-objectives.md)已接入 Local/Worker；云端给批准包络，边缘产生子计划并受控重规划。下述早期评价中的两条部署路径现在共用目标核心；Local 原事件总线未整体迁入 Worker，跨机通用调度和离线继续仍未实现。接口见[目标指南](../guides/delegated-edge-goals.md)，实测边界见[报告](../experiments/2026-10-15-hierarchical-edge-objectives.md)。

@@ -1,0 +1,4 @@
+{
+  "note": "Development started after focused validations; known-map full-room planning smoke overlapped at start. No Go/full Python suite or Gazebo/robot motion run during matrix. Timings are host-wall-clock software samples, not isolated hardware benchmarks.",
+  "physicalExecution": false
+}

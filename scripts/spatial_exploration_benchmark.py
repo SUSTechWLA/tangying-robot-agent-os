@@ -26,20 +26,27 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "robot" / "gateway"))
 sys.path.insert(0, str(ROOT / "python"))
 
 SCHEMA = "spatial.experiment.v1"
+BENCHMARK_PROTOCOL_VERSION = 2
 VARIANTS = {
     "baseline": {},
     "nearest_frontier": {"strategy": "nearest_frontier"},
     "no_global_reposition": {"use_global_reposition": False},
     "no_visibility_gain": {"visibility_gain": False},
+    "no_assignment_overlap": {"assignment_overlap": False},
+    "no_shared_coverage_guidance": {"shared_coverage_guidance": False},
     "no_coordination": {"coordination": False},
 }
+COOPERATION_DEFAULTS = {"assignment_overlap": True, "shared_coverage_guidance": True}
+LEGACY_SCENES = ("vertical_complementarity", "branching_occlusion", "recovery_disconnect")
+EXTENDED_SCENES = ("warehouse_aisles", "staggered_doorways", "elevated_occlusion",
+                   "sealed_chamber", "delayed_exchange_recovery")
 SOURCES = (
     "scripts/spatial_exploration_benchmark.py",
     "robot/gateway/tangying_robot_gateway/spatial_exploration.py",
@@ -60,6 +67,32 @@ def digest(value) -> str:
 def occupancy_geometry_hash(volume):
     """Layout identity excludes scene names, map IDs and seed labels."""
     return digest({key: volume[key] for key in ("cells", "shape", "origin", "resolution")})
+
+
+def effective_variant(settings, variant):
+    """Resolve independent experimental factors; preserve the legacy joint arm."""
+    overrides = copy.deepcopy(VARIANTS[variant])
+    cooperation = {**COOPERATION_DEFAULTS, **settings.get("cooperation", {})}
+    legacy_joint = overrides.pop("coordination", None)
+    if legacy_joint is not None:
+        cooperation.update(dict.fromkeys(COOPERATION_DEFAULTS, legacy_joint))
+    for name in COOPERATION_DEFAULTS:
+        if name in overrides:
+            cooperation[name] = overrides.pop(name)
+    return {"exploration": {**settings["exploration"], **overrides}, "cooperation": cooperation}
+
+
+def study_design_hash(settings):
+    """A common design identity across development/holdout seed subsets."""
+    return digest({key: value for key, value in settings.items() if key not in {"split", "seeds", "selectionFreeze"}})
+
+
+def scene_input(scene):
+    """Complete paired input; evaluator-only components never enter the policy."""
+    return {"sceneId": scene.scene_id, "seed": scene.seed, "truth": scene.truth,
+            "roiVoxelIds": sorted(scene.target_ids), "starts": scene.starts,
+            "policies": scene.policies, "faults": scene.faults,
+            "generator": scene.metadata, "annotations": scene.evaluator_annotations}
 
 
 def write_json(path, value):
@@ -83,6 +116,8 @@ class Scene:
     policies: dict
     target_ids: set
     faults: list
+    metadata: dict = field(default_factory=dict)
+    evaluator_annotations: dict = field(default_factory=dict)
 
     @property
     def identity(self):
@@ -93,7 +128,7 @@ class Scene:
 
 def build_scene(scene_id, seed):
     """Seed changes physical obstacle placement; no artificial metric noise."""
-    if scene_id not in {"vertical_complementarity", "branching_occlusion", "recovery_disconnect"}:
+    if scene_id not in LEGACY_SCENES:
         raise ValueError(f"unknown scene plugin: {scene_id}")
     generator = random.Random(seed)
     shape = [11, 9, 7]
@@ -140,9 +175,88 @@ def build_scene(scene_id, seed):
     return Scene(scene_id, seed, truth, starts, policies, targets, faults)
 
 
+def build_extended_scene(scene_id, seed):
+    """Procedural geometric families, with no held-out tuning or score noise.
+
+    Map dimensions, openings, shelf lengths and obstacle heights change with the
+    preregistered seed. All robots still receive only ray-classified occupancy
+    and explicitly commissioned flat-floor support, never this generator state.
+    """
+    if scene_id not in EXTENDED_SCENES:
+        raise ValueError(f"unknown extended scene: {scene_id}")
+    generator = random.Random(seed)
+    scene = build_scene("vertical_complementarity", seed)
+    nx, ny, nz = generator.choice([13, 15, 17]), generator.choice([11, 13, 15]), generator.choice([8, 9, 10])
+    if scene_id == "elevated_occlusion":
+        nz += 3
+    shape = [nx, ny, nz]
+    cells = [0] * math.prod(shape)
+    for z, y, x in itertools.product(range(nz), range(ny), range(nx)):
+        if x in (0, nx - 1) or y in (0, ny - 1) or z in (0, nz - 1):
+            cells[flat(shape, x, y, z)] = 100
+
+    def box(x0, x1, y0, y1, z0, z1, state=100):
+        for z, y, x in itertools.product(range(z0, z1), range(y0, y1), range(x0, x1)):
+            cells[flat(shape, x, y, z)] = state
+
+    parameters = {"shape": shape}
+    annotations = {}
+    if scene_id == "warehouse_aisles":
+        rows = []
+        for y in range(4, ny - 2, 3):
+            end, height = generator.randint(nx - 5, nx - 2), generator.randint(2, nz - 3)
+            box(4, end, y, y + 1, 1, height)
+            rows.append({"y": y, "endX": end, "height": height})
+        parameters["shelves"] = rows
+    elif scene_id in {"staggered_doorways", "delayed_exchange_recovery"}:
+        openings = []
+        for x in (5, nx - 5):
+            y = generator.randint(2, ny - 4)
+            box(x, x + 1, 1, ny - 1, 1, nz - 1)
+            box(x, x + 1, y, y + 2, 1, 3, 0)
+            # An upper inspection window is distinct from the ground doorway.
+            upper_y = (y + ny // 2) % (ny - 3) + 1
+            box(x, x + 1, upper_y, upper_y + 1, nz - 4, nz - 2, 0)
+            openings.append({"x": x, "groundY": y, "upperY": upper_y})
+        parameters["openings"] = openings
+    elif scene_id == "elevated_occlusion":
+        shelf_z, shelf_end = generator.randint(4, nz - 4), generator.randint(nx - 5, nx - 2)
+        box(5, shelf_end, 3, ny - 3, shelf_z, shelf_z + 1)
+        # Thin columns and a low obstacle give separate under/over observations.
+        for x in (5, shelf_end - 1):
+            box(x, x + 1, ny - 4, ny - 3, 1, shelf_z)
+        low_x, low_y = generator.randint(6, nx - 3), generator.randint(2, ny - 3)
+        box(low_x, low_x + 1, low_y, low_y + 1, 1, 3)
+        parameters.update(shelfZ=shelf_z, shelfEndX=shelf_end, lowObstacle=[low_x, low_y])
+    else:
+        x0, y0 = generator.randint(6, nx - 5), generator.randint(4, ny - 5)
+        x1, y1, z1 = x0 + 3, y0 + 3, generator.randint(5, nz - 2)
+        box(x0, x1, y0, y1, 1, z1)
+        box(x0 + 1, x1 - 1, y0 + 1, y1 - 1, 2, z1 - 1, 0)
+        hidden = [flat(shape, x, y, z) for z, y, x in itertools.product(
+            range(2, z1 - 1), range(y0 + 1, y1 - 1), range(x0 + 1, x1 - 1))]
+        annotations["sealedUnobservableInteriorVoxelIds"] = hidden
+        parameters["sealedBox"] = [x0, x1, y0, y1, 1, z1]
+    scene.scene_id = scene_id
+    scene.truth.update(mapId=f"{scene_id}-{seed}", shape=shape, cells=cells)
+    scene.truth["terrain"].update(heights=[1.0] * (nx * ny), supported=[True] * (nx * ny),
+                                  slopeRadians=[0.0] * (nx * ny))
+    scene.target_ids = {flat(shape, x, y, z) for z, y, x in itertools.product(
+        range(1, nz - 1), range(1, ny - 1), range(1, nx - 1))}
+    scene.faults = ([{"round": 2, "robotId": "uav", "kind": "disconnect", "durationRounds": 3},
+                     {"round": 3, "robotId": "ugv", "kind": "driver_rejection"},
+                     {"round": 5, "robotId": "uav", "kind": "unknown_execution"}]
+                    if scene_id == "delayed_exchange_recovery" else [])
+    scene.metadata = {"generatorId": "extended-voxel-families-v1", "parameters": parameters,
+                      "coverageScope": "all_interior_voxels_including_occluded_or_unreachable_targets",
+                      "groundSupportModel": "flat_floor_fixture_not_multilayer_exploration"}
+    scene.evaluator_annotations = annotations
+    return scene
+
+
 SCENE_BUILDERS: dict[str, Callable] = {
-    name: build_scene for name in
-    ("vertical_complementarity", "branching_occlusion", "recovery_disconnect")
+    **dict.fromkeys(LEGACY_SCENES, build_scene),
+    **dict.fromkeys(EXTENDED_SCENES, build_extended_scene),
 }
 
 
@@ -286,6 +400,9 @@ def independent_metrics(events, target_ids, coverage_threshold, truth_volume=Non
     collision_refusals, reconnected = 0, 0
     planned, applied, skipped = [], [], []
     no_gain_legs, gain_legs = 0, 0
+    communication_channels = {}
+    queued_map_packets = 0
+    evidence_ids, coordinator_seen = {}, set()
     for event in events:
         kind = event["kind"]
         if kind == "observation":
@@ -295,6 +412,8 @@ def independent_metrics(events, target_ids, coverage_threshold, truth_volume=Non
                     if not 0 <= index < len(truth_volume["cells"]) or state != truth_volume["cells"][index]:
                         raise ValueError("observation contradicts evaluator truth")
             ids = set(map(int, event["classified"])) & target_ids
+            if "evidenceId" in event:
+                evidence_ids[event["evidenceId"]] = ids
             if event.get("executionOutcome") == "succeeded":
                 if ids - seen:
                     gain_legs += 1
@@ -331,6 +450,16 @@ def independent_metrics(events, target_ids, coverage_threshold, truth_volume=Non
             message_bytes += event["bytes"]
             if event.get("channel") == "reconnect_snapshot":
                 reconnected += 1
+            if event.get("channel") == "observation_upload" and event.get("acceptance", {}).get("accepted"):
+                if event["evidenceId"] not in evidence_ids:
+                    raise ValueError("coordinator accepted evidence before its sensor record")
+                coordinator_seen.update(evidence_ids[event["evidenceId"]])
+            channel = event.get("channel", "legacy")
+            stats = communication_channels.setdefault(channel, {"messageCount": 0, "bytes": 0})
+            stats["messageCount"] += event.get("messageCount", 1)
+            stats["bytes"] += event["bytes"]
+        elif kind == "relay_queued":
+            queued_map_packets += 1
         elif kind == "fault_planned":
             planned.append(event["fault"])
         elif kind == "fault_applied":
@@ -345,7 +474,7 @@ def independent_metrics(events, target_ids, coverage_threshold, truth_volume=Non
         actual_ids = [item["faultId"] for item in [*applied, *skipped]]
         if len(set(plan_ids)) != len(plan_ids) or len(set(actual_ids)) != len(actual_ids) or set(plan_ids) != set(actual_ids):
             raise ValueError("fault schedule is not partitioned into applied and skipped outcomes")
-    return {
+    result = {
         "coverageMetric": "observed_roi_voxels", "coverageDenominator": len(target_ids),
         "coverageObserved": len(seen), "coverageFraction": coverage,
         "coverageThreshold": coverage_threshold,
@@ -370,6 +499,12 @@ def independent_metrics(events, target_ids, coverage_threshold, truth_volume=Non
         "energyJ": None, "localizationErrorM": None, "physicalCollisionCount": None,
         "flightDynamicsValidated": None, "hardwareSuccess": None,
     }
+    if events and events[0].get("benchmarkProtocolVersion", 1) >= 2:
+        result.update(communicationByChannel=communication_channels, queuedMapPackets=queued_map_packets,
+                      pendingMapPacketsAtEnd=events[-1].get("pendingMapPackets", 0),
+                      coordinatorObservedRoiVoxels=len(coordinator_seen),
+                      coordinatorCoverageFraction=len(coordinator_seen) / len(target_ids) if target_ids else None)
+    return result
 
 
 def read_events(path):
@@ -393,10 +528,12 @@ def run_episode(scene, variant, settings, output):
     from tangying_robot_gateway.spatial_navigation import SpatialPathPlanner
 
     output.mkdir()
-    selected = {**VARIANTS[variant]}
-    coordination = selected.pop("coordination", True)
-    policy_config = ExplorationConfig(**{**settings["exploration"], **selected})
+    effective = effective_variant(settings, variant)
+    assignment_overlap = effective["cooperation"]["assignment_overlap"]
+    coverage_guidance = effective["cooperation"]["shared_coverage_guidance"]
+    policy_config = ExplorationConfig(**effective["exploration"])
     sensor = SensorModel(**settings["sensor"])
+    input_hash = digest(scene_input(scene))
     ports = TruthPorts(scene, sensor)
     volumes = {robot: blank_volume(scene, robot) for robot in scene.starts}
     positions = copy.deepcopy(scene.starts)
@@ -404,15 +541,20 @@ def run_episode(scene, variant, settings, output):
     excluded = {robot: set() for robot in scene.starts}
     sequence = {robot: 0 for robot in scene.starts}
     buffer = []
+    map_delay = settings.get("mapExchangeDelayRounds", 0)
+    pending_relays = []
+    shared_coverage = {robot: set() for robot in scene.starts}
     ledger = CoverageLedger(f"{scene.scene_id}-{scene.seed}-{variant}", "fixture-world-v1",
                             geometry_id=scene.identity, max_age_ms=60_000,
                             journal_path=output / "coverage-ledger.jsonl")
     coordinator = TaskCoordinator(f"{scene.scene_id}-{scene.seed}-{variant}", "fixture-world-v1",
-                                  use_coordination=coordination,
+                                  use_coordination=assignment_overlap,
                                   journal_path=output / "coordination.jsonl")
     received = {}
     journal = Events(output / "events.jsonl")
     journal.add("episode_start", sceneId=scene.scene_id, seed=scene.seed, variant=variant,
+                benchmarkProtocolVersion=BENCHMARK_PROTOCOL_VERSION,
+                split=settings.get("split", "unspecified"), studyId=settings.get("studyId"),
                 backend=settings["backend"], publicGeometry={k: scene.truth[k] for k in
                   ("shape", "origin", "resolution")}, truthHash=digest(scene.truth),
                 geometryId=scene.identity, initialPoses=positions, policies=scene.policies,
@@ -421,9 +563,12 @@ def run_episode(scene, variant, settings, output):
                 executionModel="batched_assignments_serial_geometry_admission",
                 peerBodyChecksEnabled=True,
                 occupancyGeometryHash=occupancy_geometry_hash(scene.truth),
-                coordinationComponents={"assignmentOverlap": coordination,
-                    "sharedCoverageGuidance": coordination, "mapExchange": True,
-                    "executionFence": True})
+                coordinationComponents={"assignmentOverlap": assignment_overlap,
+                    "sharedCoverageGuidance": coverage_guidance, "mapExchange": True,
+                    "executionFence": True}, effectiveConfiguration=effective,
+                mapExchangeDelayRounds=map_delay, sceneGenerator=scene.metadata)
+    journal.add("input_frozen", pairedInputHash=input_hash, policyConfiguration=effective,
+                sensor=settings["sensor"], coverageThreshold=settings["coverageThreshold"])
     fault_states = {}
     for index, fault in enumerate(scene.faults):
         record = {"faultId": f"fault-{index}", "type": fault["kind"], "robotId": fault["robotId"],
@@ -433,6 +578,7 @@ def run_episode(scene, variant, settings, output):
     write_json(output / "evaluator-truth.json", {
         "schemaVersion": "spatial.evaluator-truth.v1", "volume": scene.truth,
         "roiVoxelIds": sorted(scene.target_ids), "policyAccess": False,
+        "annotations": scene.evaluator_annotations,
     })
 
     def disconnected(robot, round_index):
@@ -470,14 +616,34 @@ def run_episode(scene, variant, settings, output):
         for robot in volumes:
             if robot != packet["robotId"] and disconnected(robot, round_index):
                 apply_fault("disconnect", robot, round_index, now, "withheld_observation_relay")
-        if report["accepted"]:
-            for robot in recipients:
-                merge_measurements(volumes[robot], packet["classified"], packet["observedAtMs"])
         journal.add("communication", nowMs=now, robotId=packet["robotId"],
                     sequence=packet["sequence"], evidenceId=packet["evidenceId"],
-                    bytes=len(canonical(packet)) * (1 + len(recipients)),
-                    messageCount=1 + len(recipients), recipients=recipients,
-                    channel="observation_upload_and_relay", acceptance=report)
+                    bytes=len(canonical(packet)), messageCount=1, recipients=["coordinator"],
+                    channel="observation_upload", acceptance=report)
+        if report["accepted"]:
+            for robot in recipients:
+                if coverage_guidance:
+                    send_coverage(robot, set(packet["classified"]) & ledger.observed_ids, now, "coverage_delta")
+                if map_delay:
+                    pending_relays.append({"packet": copy.deepcopy(packet), "recipient": robot,
+                                           "dueRound": round_index + map_delay})
+                    journal.add("relay_queued", nowMs=now, robotId=robot,
+                                evidenceId=packet["evidenceId"], dueRound=round_index + map_delay)
+                else:
+                    send_map(packet, robot, now)
+
+    def send_map(packet, robot, now):
+        merge_measurements(volumes[robot], packet["classified"], packet["observedAtMs"])
+        journal.add("communication", nowMs=now, robotId=packet["robotId"],
+                    evidenceId=packet["evidenceId"], sequence=packet["sequence"],
+                    recipients=[robot], messageCount=1, bytes=len(canonical(packet)), channel="occupancy_relay")
+
+    def send_coverage(robot, ids, now, channel):
+        payload = {"robotId": robot, "coverageVoxelIds": sorted(ids),
+                   "worldFrameRevision": ledger.world_revision, "geometryId": scene.identity}
+        shared_coverage[robot].update(ids)
+        journal.add("communication", nowMs=now, robotId=robot, channel=channel,
+                    coverageVoxelIds=sorted(ids), recipients=[robot], messageCount=1, bytes=len(canonical(payload)))
 
     def observe(robot, now, round_index, task_id=None, outcome=None):
         sequence[robot] += 1
@@ -486,6 +652,7 @@ def run_episode(scene, variant, settings, output):
         new_team = len(set(classified) - set().union(*local_seen.values()))
         merge_measurements(volumes[robot], classified, now)
         local_seen[robot].update(classified)
+        shared_coverage[robot].update(classified)
         packet = {"robotId": robot, "sourceId": f"sensor-{robot}", "sequence": sequence[robot],
                   "observedAtMs": now, "classified": classified,
                   "evidenceId": f"{robot}-{sequence[robot]}"}
@@ -521,6 +688,17 @@ def run_episode(scene, variant, settings, output):
                     journal.add("communication", nowMs=now, robotId=robot,
                                 channel="reconnect_snapshot", classified=received,
                                 recipients=[robot], messageCount=1, bytes=len(canonical(payload)))
+                    if coverage_guidance:
+                        send_coverage(robot, ledger.observed_ids, now, "coverage_reconnect_snapshot")
+                    superseded = [item for item in pending_relays if item["recipient"] == robot]
+                    for item in superseded:
+                        pending_relays.remove(item)
+                        journal.add("relay_superseded", nowMs=now, robotId=robot,
+                                    evidenceId=item["packet"]["evidenceId"], reason="reconnect_snapshot_contains_evidence")
+            for item in list(pending_relays):
+                if item["dueRound"] <= round_index and not disconnected(item["recipient"], round_index):
+                    send_map(item["packet"], item["recipient"], now)
+                    pending_relays.remove(item)
             assignments = []
             # Both robots propose against their current measured snapshots before
             # either moves. Target overlap therefore has an opportunity to affect
@@ -530,11 +708,12 @@ def run_episode(scene, variant, settings, output):
                 start = time.perf_counter_ns()
                 explorer = BACKENDS[settings["backend"]](volumes[robot], scene.policies[robot], sensor, policy_config)
                 proposal = explorer.propose(positions[robot], excluded_targets=excluded[robot],
-                    observed_targets=(ledger.observed_ids if coordination and not disconnected(robot, round_index)
-                                      else local_seen[robot]))
+                    observed_targets=shared_coverage[robot] if coverage_guidance else local_seen[robot])
                 planning_ms = (time.perf_counter_ns() - start) / 1e6
                 journal.add("decision", round=round_index, nowMs=tick, robotId=robot,
-                            knownMapHash=digest(volumes[robot]), planningMs=planning_ms, proposal=proposal)
+                            knownMapHash=digest(volumes[robot]), planningMs=planning_ms, proposal=proposal,
+                            observedGuidanceHash=digest(sorted(shared_coverage[robot] if coverage_guidance else local_seen[robot])),
+                            observedGuidanceCount=len(shared_coverage[robot] if coverage_guidance else local_seen[robot]))
                 candidates = proposal.get("candidates", [])
                 if not candidates and proposal.get("candidate"):
                     candidates = [proposal["candidate"]]
@@ -605,8 +784,11 @@ def run_episode(scene, variant, settings, output):
             if not assignments and round_index >= 6:
                 stop_reason = "no_executable_candidate"
                 break
+        if digest(scene_input(scene)) != input_hash:
+            raise RuntimeError("paired truth or input changed during the episode")
         finish_faults(last_round, stop_reason)
-        journal.add("episode_end", stopReason=stop_reason, unsentObservationPackets=len(buffer))
+        journal.add("episode_end", stopReason=stop_reason, unsentObservationPackets=len(buffer),
+                    pendingMapPackets=len(pending_relays))
     except Exception as exc:
         finish_faults(last_round, "software_error")
         journal.add("episode_end", stopReason="software_error", errorType=type(exc).__name__, error=str(exc))
@@ -621,11 +803,19 @@ def run_episode(scene, variant, settings, output):
                    variant=variant, stopReason=stop_reason, physicalExecution=False,
                    truthHash=digest(scene.truth), eventChainHead=events[-1]["hash"])
     metrics["occupancyGeometryHash"] = occupancy_geometry_hash(scene.truth)
+    metrics.update(split=settings.get("split", "unspecified"), studyId=settings.get("studyId"),
+                   coordinationComponents=effective["cooperation"], mapExchangeDelayRounds=map_delay)
+    metrics["pairedInputHash"] = input_hash
     write_json(output / "metrics.json", metrics)
     return metrics
 
 
 def validate_settings(value):
+    if type(value) is not dict:
+        raise ValueError("experiment configuration must be an object")
+    required = {"schemaVersion", "backend", "scenes", "seeds", "variants", "maxRounds", "coverageThreshold", "sensor", "exploration"}
+    if required - value.keys():
+        raise ValueError("experiment configuration is missing required fields")
     if value.get("schemaVersion") != SCHEMA:
         raise ValueError("unsupported experiment configuration schema")
     if value.get("backend") not in BACKENDS:
@@ -634,6 +824,8 @@ def validate_settings(value):
         raise ValueError("unknown or empty scene plugins")
     if not value.get("variants") or any(variant not in VARIANTS for variant in value["variants"]):
         raise ValueError("unknown or empty variants")
+    if any(type(value[field]) is not list for field in ("scenes", "variants", "seeds")):
+        raise ValueError("experiment axes must be lists")
     if any(len(set(value[field])) != len(value[field]) for field in ("scenes", "variants", "seeds")):
         raise ValueError("paired experiment axes must have no duplicates")
     if not value["seeds"] or any(type(seed) is not int or not 0 <= seed < 2**31 for seed in value["seeds"]):
@@ -642,11 +834,88 @@ def validate_settings(value):
         raise ValueError("maxRounds must be 1..1000")
     if type(value.get("coverageThreshold")) not in (int, float) or not 0 < value["coverageThreshold"] <= 1:
         raise ValueError("coverageThreshold must be positive and at most one")
+    cooperation = value.get("cooperation", {})
+    if (type(cooperation) is not dict or cooperation.keys() - COOPERATION_DEFAULTS.keys()
+            or any(type(flag) is not bool for flag in cooperation.values())):
+        raise ValueError("cooperation requires independent boolean assignment_overlap/shared_coverage_guidance")
+    if type(value.get("mapExchangeDelayRounds", 0)) is not int or not 0 <= value.get("mapExchangeDelayRounds", 0) <= 20:
+        raise ValueError("mapExchangeDelayRounds must be an integer in 0..20")
+    partitions = value.get("seedPartitions")
+    if partitions is not None:
+        if type(partitions) is not dict or set(partitions) != {"development", "holdout"}:
+            raise ValueError("seedPartitions must declare development and holdout")
+        for seeds in partitions.values():
+            if (type(seeds) is not list or not seeds or len(seeds) != len(set(seeds))
+                    or any(type(seed) is not int or not 0 <= seed < 2**31 for seed in seeds)):
+                raise ValueError("split seeds must be nonempty unique bounded integers")
+        if set(partitions["development"]) & set(partitions["holdout"]):
+            raise ValueError("development and holdout seed partitions overlap")
+        split = value.get("split")
+        if split not in partitions or not set(value["seeds"]) <= set(partitions[split]):
+            raise ValueError("requested seeds must belong to the declared split")
+        if type(value.get("studyId")) is not str or not value["studyId"]:
+            raise ValueError("split configurations require a studyId")
+    elif value.get("split", "unspecified") != "unspecified":
+        raise ValueError("named split requires explicit seedPartitions")
+    from tangying_robot_gateway.spatial_exploration import ExplorationConfig, SensorModel
+    SensorModel(**value["sensor"])
+    for variant in value["variants"]:
+        effective = effective_variant(value, variant)
+        ExplorationConfig(**effective["exploration"])
+        if variant != "baseline" and effective == effective_variant(value, "baseline"):
+            raise ValueError("ablation variant does not change its baseline factor")
     return value
 
 
+def freeze_design(settings, output):
+    """Freeze inputs and split geometry audit before any policy is constructed."""
+    scenes = {}
+    blocks = []
+    for scene_id, seed in itertools.product(settings["scenes"], settings["seeds"]):
+        scene = SCENE_BUILDERS[scene_id](scene_id, seed)
+        block_id = f"{scene_id}--seed-{seed}"
+        path = output / "truth" / f"{block_id}.json"
+        path.parent.mkdir(exist_ok=True)
+        payload = scene_input(scene)
+        write_json(path, payload)
+        blocks.append({"blockId": block_id, "path": str(path.relative_to(output)),
+                       "inputHash": digest(payload), "occupancyGeometryHash": occupancy_geometry_hash(scene.truth)})
+        scenes[(scene_id, seed)] = scene
+    audit, global_layouts = {}, {}
+    for scene_id in settings["scenes"]:
+        partitions = settings.get("seedPartitions", {"unspecified": settings["seeds"]})
+        by_split = {}
+        for split, seeds in partitions.items():
+            by_split[split] = {str(seed): occupancy_geometry_hash(
+                SCENE_BUILDERS[scene_id](scene_id, seed).truth) for seed in seeds}
+            if split == settings.get("split", "unspecified"):
+                for seed in settings["seeds"]:
+                    if by_split[split][str(seed)] != occupancy_geometry_hash(scenes[(scene_id, seed)].truth):
+                        raise ValueError(f"scene plugin is not seed-deterministic: split audit differs from frozen input in {scene_id}/{seed}")
+            global_layouts.setdefault(split, set()).update(by_split[split].values())
+        overlap = (set(by_split.get("development", {}).values()) & set(by_split.get("holdout", {}).values()))
+        if overlap:
+            raise ValueError(f"development/holdout occupancy geometry overlaps in {scene_id}; choose different preregistered seeds")
+        audit[scene_id] = {"layouts": by_split, "crossSplitGeometryOverlapN": len(overlap),
+                          "uniqueGeometryNBySplit": {split: len(set(layouts.values())) for split, layouts in by_split.items()}}
+    global_overlap = global_layouts.get("development", set()) & global_layouts.get("holdout", set())
+    if global_overlap:
+        raise ValueError("development/holdout occupancy geometry overlaps across scene families")
+    registration = {"schemaVersion": "spatial.preregistration.v2", "configHash": digest(settings),
+                    "studyDesignHash": study_design_hash(settings), "split": settings.get("split", "unspecified"),
+                    "blocks": blocks, "splitGeometryAudit": audit,
+                    "globalCrossSplitGeometryOverlapN": len(global_overlap),
+                    "declaredUniqueGeometryNBySplit": {split: len(layouts) for split, layouts in global_layouts.items()},
+                    "truthPolicyBoundary": "Truth files are evaluator/synthetic sensor inputs; policy interface receives measured snapshots only. This is an interface contract, not an adversarial process sandbox.",
+                    "selectionFreeze": settings.get("selectionFreeze"),
+                    "holdoutClaim": "Split labels and disjoint geometry are checked; an external policy-selection receipt is needed to substantiate blinded holdout use."}
+    write_json(output / "preregistration.json", registration)
+    return scenes, registration
+
+
 def campaign(config_path, output):
-    settings = validate_settings(json.loads(config_path.read_text()))
+    config_bytes = config_path.read_bytes()
+    settings = validate_settings(json.loads(config_bytes))
     output.mkdir(parents=True, exist_ok=False)
     source_hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in SOURCES}
     for name in SOURCES:
@@ -654,7 +923,7 @@ def campaign(config_path, output):
         snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_bytes((ROOT / name).read_bytes())
     write_json(output / "config.json", settings)
-    (output / "input-config.json").write_bytes(config_path.read_bytes())
+    (output / "input-config.json").write_bytes(config_bytes)
     environment = {"python": sys.version, "platform": platform.platform(), "packages": {}}
     for package in ("numpy", "scipy", "grpcio", "protobuf", "pytest"):
         try:
@@ -662,15 +931,30 @@ def campaign(config_path, output):
         except importlib.metadata.PackageNotFoundError:
             environment["packages"][package] = None
     write_json(output / "environment.json", environment)
+    frozen_scenes, registration = freeze_design(settings, output)
+    scoring = {"schemaVersion": "spatial.scoring-contract.v2", "metric": "observed_roi_voxels",
+               "roi": "all_interior_voxels_free_and_occupied_including_unobservable_or_unreachable",
+               "coverageThreshold": settings["coverageThreshold"], "evaluatorSourceHash": source_hashes[SOURCES[0]],
+               "unmeasuredValues": "null", "fullSceneGuarantee": False,
+               "policyTruthAccess": False, "pairedUnit": ["sceneId", "seed"]}
+    write_json(output / "scoring-contract.json", scoring)
     manifest = {"schemaVersion": "spatial.campaign-manifest.v1", "state": "running",
+                "benchmarkProtocolVersion": BENCHMARK_PROTOCOL_VERSION,
                 "configHash": digest(settings), "sourceHashes": source_hashes,
+                "studyDesignHash": study_design_hash(settings), "studyId": settings.get("studyId"),
+                "studyImplementationHash": digest({"design": study_design_hash(settings), "sources": source_hashes}),
+                "split": settings.get("split", "unspecified"),
+                "preregistrationHash": digest(registration), "scoringContractHash": digest(scoring),
                 "pairedAxes": ["sceneId", "seed"], "physicalExecution": False,
                 "coverageDefinition": "Observed interior ROI voxels, free and occupied; not surface completeness",
+                "coverageAccounting": "Posthoc union of robot sensor records; coordinatorCoverageFraction separately counts uploaded accepted evidence.",
                 "sourceRestore": "Restore source/ files over gitHead checkout with recorded environment; replay only re-evaluates recorded events.",
                 "communicationBytesDefinition": "Canonical observation payload upload plus relay and reconnect snapshot; excludes network framing, TLS and lease/control messages.",
                 "ablationDefinitions": {"nearest_frontier": "ranking_strategy_only",
                     "no_global_reposition": "disable_nonlocal_known_space_repositioning",
                     "no_visibility_gain": "replace_occlusion_gain_ranking_only",
+                    "no_assignment_overlap": "disable_assignment_overlap_only; shared coverage guidance/map exchange/fence unchanged",
+                    "no_shared_coverage_guidance": "disable_shared_coverage_guidance_only; assignment overlap/map exchange/fence unchanged",
                     "no_coordination": "combined_assignment_overlap_and_shared_coverage_guidance_ablation; map exchange and safety fence remain enabled"},
                 "unmeasured": ["energy", "localization error", "physical collisions", "flight/gait dynamics"],
                 "assumptions": [
@@ -682,6 +966,8 @@ def campaign(config_path, output):
                     "Wall-clock planning timings depend on host load; scene seeds change geometry, not measurement noise.",
                 ],
                 "episodes": []}
+    manifest["effectiveVariants"] = {variant: effective_variant(settings, variant) for variant in settings["variants"]}
+    manifest["mapExchangeDelayRounds"] = settings.get("mapExchangeDelayRounds", 0)
     try:
         manifest["gitHead"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         manifest["gitDiffHash"] = hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD", "--", *SOURCES], cwd=ROOT)).hexdigest()
@@ -692,7 +978,7 @@ def campaign(config_path, output):
     for scene_id, seed in itertools.product(settings["scenes"], settings["seeds"]):
         # One identical scene per paired block, rebuilt detached for each variant.
         for variant in settings["variants"]:
-            scene = SCENE_BUILDERS[scene_id](scene_id, seed)
+            scene = copy.deepcopy(frozen_scenes[(scene_id, seed)])
             episode_id = f"{scene_id}--seed-{seed}--{variant}"
             result = run_episode(scene, variant, settings, output / episode_id)
             results.append(result)
@@ -702,6 +988,11 @@ def campaign(config_path, output):
                "pairedDeltas": paired_deltas(results), "paretoLabels": pareto_labels(results),
                "pairedBlockN": len({(item["sceneId"], item["seed"]) for item in results}),
                "seedsPerScene": {scene: len(settings["seeds"]) for scene in settings["scenes"]},
+               "split": settings.get("split", "unspecified"), "studyId": settings.get("studyId"),
+               "studyDesignHash": study_design_hash(settings), "splitGeometryAudit": registration["splitGeometryAudit"],
+               "studyImplementationHash": manifest["studyImplementationHash"],
+               "globalCrossSplitGeometryOverlapN": registration["globalCrossSplitGeometryOverlapN"],
+               "declaredUniqueGeometryNBySplit": registration["declaredUniqueGeometryNBySplit"],
                "uniqueGeometryN": len({item["occupancyGeometryHash"] for item in results}),
                "uniqueGeometryNByScene": {scene: len({item["occupancyGeometryHash"] for item in results
                    if item["sceneId"] == scene}) for scene in settings["scenes"]},
@@ -737,6 +1028,8 @@ def paired_deltas(results):
         reference = baseline.get((item["sceneId"], item["seed"]))
         if reference is not None and item["occupancyGeometryHash"] != reference["occupancyGeometryHash"]:
             raise ValueError("paired variants do not share the same occupancy geometry")
+        if reference is not None and item.get("pairedInputHash") != reference.get("pairedInputHash"):
+            raise ValueError("paired variants do not share complete frozen inputs")
     return [{"sceneId": item["sceneId"], "seed": item["seed"], "variant": item["variant"],
              "relativeTo": "baseline", "pairedBlockN": 1,
              "delta": {metric: item[metric] - reference[metric] for metric in metrics}}
@@ -782,6 +1075,33 @@ def replay(output):
     settings = json.loads((output / "config.json").read_text())
     if digest(settings) != manifest["configHash"]:
         raise ValueError("configuration identity mismatch")
+    registration = None
+    registered_blocks = {}
+    if manifest.get("benchmarkProtocolVersion", 1) >= 2:
+        registration = json.loads((output / "preregistration.json").read_text())
+        scoring = json.loads((output / "scoring-contract.json").read_text())
+        if (digest(registration) != manifest["preregistrationHash"]
+                or digest(scoring) != manifest["scoringContractHash"]
+                or registration["configHash"] != digest(settings)
+                or registration["studyDesignHash"] != study_design_hash(settings)
+                or manifest["studyDesignHash"] != study_design_hash(settings)
+                or scoring["evaluatorSourceHash"] != manifest["sourceHashes"][SOURCES[0]]
+                or scoring["coverageThreshold"] != settings["coverageThreshold"]):
+            raise ValueError("preregistered configuration/scoring identity mismatch")
+        implementation = digest({"design": study_design_hash(settings), "sources": manifest["sourceHashes"]})
+        if (manifest["studyImplementationHash"] != implementation
+                or manifest["effectiveVariants"] != {variant: effective_variant(settings, variant) for variant in settings["variants"]}
+                or digest(json.loads((output / "input-config.json").read_text())) != digest(settings)):
+            raise ValueError("frozen implementation, factors or original configuration mismatch")
+        for block in registration["blocks"]:
+            path = output / block["path"]
+            if output.resolve() not in path.resolve().parents:
+                raise ValueError("preregistered truth path escapes campaign")
+            payload = json.loads(path.read_text())
+            if (digest(payload) != block["inputHash"]
+                    or occupancy_geometry_hash(payload["truth"]) != block["occupancyGeometryHash"]):
+                raise ValueError("preregistered truth/input mismatch")
+            registered_blocks[block["blockId"]] = (block, payload)
     verified, rebuilt_episodes = [], []
     for episode in manifest["episodes"]:
         directory = output / episode
@@ -794,6 +1114,23 @@ def replay(output):
         if (digest(truth["volume"]) != metrics["truthHash"] or events[-1]["hash"] != metrics["eventChainHead"]
                 or occupancy_geometry_hash(truth["volume"]) != metrics["occupancyGeometryHash"]):
             raise ValueError(f"episode identity mismatch: {episode}")
+        if registration is not None:
+            block_id = f"{metrics['sceneId']}--seed-{metrics['seed']}"
+            block, frozen = registered_blocks[block_id]
+            input_event = next((event for event in events if event["kind"] == "input_frozen"), None)
+            effective = effective_variant(settings, metrics["variant"])
+            if (metrics["pairedInputHash"] != block["inputHash"] or input_event is None
+                    or input_event["pairedInputHash"] != block["inputHash"]
+                    or input_event["policyConfiguration"] != effective
+                    or input_event["sensor"] != settings["sensor"]
+                    or input_event["coverageThreshold"] != settings["coverageThreshold"]
+                    or metrics["split"] != settings.get("split", "unspecified")
+                    or truth["volume"] != frozen["truth"]
+                    or truth["roiVoxelIds"] != frozen["roiVoxelIds"]
+                    or events[0]["initialPoses"] != frozen["starts"]
+                    or events[0]["policies"] != frozen["policies"]
+                    or events[0]["faults"] != frozen["faults"]):
+                raise ValueError(f"episode escaped preregistered inputs or scoring boundary: {episode}")
         verified.append(episode)
         rebuilt_episodes.append(metrics)
     summary = json.loads((output / "summary.json").read_text())
@@ -805,6 +1142,14 @@ def replay(output):
     if (summary["uniqueGeometryN"] != len({item["occupancyGeometryHash"] for item in rebuilt_episodes})
             or summary["uniqueGeometryNByScene"] != unique_by_scene):
         raise ValueError("summary geometry counts contradict episode layouts")
+    if registration is not None and summary["splitGeometryAudit"] != registration["splitGeometryAudit"]:
+        raise ValueError("summary split audit contradicts preregistration")
+    if registration is not None and (
+            summary["studyImplementationHash"] != manifest["studyImplementationHash"]
+            or summary["studyDesignHash"] != manifest["studyDesignHash"]
+            or summary["globalCrossSplitGeometryOverlapN"] != registration["globalCrossSplitGeometryOverlapN"]
+            or summary["declaredUniqueGeometryNBySplit"] != registration["declaredUniqueGeometryNBySplit"]):
+        raise ValueError("summary design identity or global split audit mismatch")
     return {"schemaVersion": "spatial.replay.v1", "verifiedEpisodes": len(verified), "passed": True}
 
 

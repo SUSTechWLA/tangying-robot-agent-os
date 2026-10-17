@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "research.selection-freeze.v1",
+  "frozenAt": "2026-10-17T16:48:19.582090+00:00",
+  "selectedVariant": "baseline",
+  "selectionProtocolSha256": "2ce6b04558404f6c5012fbb4d1fab864e653db218e45965f5bf3b978059c24e8",
+  "developmentManifestSha256": "7686454be00651bd04790de4bb9f793b88ad285c71d403c0770527679adc4f34",
+  "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+  "studyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7",
+  "sourceHashes": {
+    "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+  },
+  "rankedVariants": [
+    {
+      "variant": "baseline",
+      "sortKey": [
+        0.0,
+        -0.7721100173166289,
+        49.43609778930609,
+        75511.1,
+        "baseline"
+      ]
+    },
+    {
+      "variant": "no_assignment_overlap",
+      "sortKey": [
+        0.0,
+        -0.7660976542588113,
+        50.55263936803546,
+        76524.05,
+        "no_assignment_overlap"
+      ]
+    },
+    {
+      "variant": "no_coordination",
+      "sortKey": [
+        0.0,
+        -0.7475582574756129,
+        49.46954168986567,
+        57367.5,
+        "no_coordination"
+      ]
+    },
+    {
+      "variant": "no_shared_coverage_guidance",
+      "sortKey": [
+        0.0,
+        -0.7393705571288216,
+        49.04992892311587,
+        58435.3,
+        "no_shared_coverage_guidance"
+      ]
+    },
+    {
+      "variant": "no_global_reposition",
+      "sortKey": [
+        0.0,
+        -0.6306207191950993,
+        33.65158265953188,
+        62064.2,
+        "no_global_reposition"
+      ]
+    },
+    {
+      "variant": "no_visibility_gain",
+      "sortKey": [
+        0.0,
+        -0.44554021735839916,
+        28.717305586701944,
+        76896.95,
+        "no_visibility_gain"
+      ]
+    },
+    {
+      "variant": "nearest_frontier",
+      "sortKey": [
+        0.0,
+        -0.37486166840505686,
+        23.367490540196762,
+        71262.05,
+        "nearest_frontier"
+      ]
+    }
+  ],
+  "holdoutPolicyResultsInspected": false,
+  "externalBlindingOrTimestampAttestation": false,
+  "interpretation": "Operational source/config freeze before heldout policy execution, not external blinded certification or universal optimum."
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "spatial.experiment.v1",
+  "studyId": "heterogeneous-exploration-generalization-v2",
+  "split": "holdout",
+  "seedPartitions": {"development": [3, 7, 19, 43], "holdout": [101, 137, 173, 211, 257, 293]},
+  "selectionFreeze": null,
+  "selectionProtocol": "Tune on development only; freeze the implementation and design hashes before inspecting holdout results. Split labels alone do not prove blinded selection.",
+  "backend": "production_voxel",
+  "scenes": ["warehouse_aisles", "staggered_doorways", "elevated_occlusion", "sealed_chamber", "delayed_exchange_recovery"],
+  "seeds": [101, 137, 173, 211, 257, 293],
+  "variants": ["baseline", "nearest_frontier", "no_global_reposition", "no_visibility_gain", "no_assignment_overlap", "no_shared_coverage_guidance", "no_coordination"],
+  "cooperation": {"assignment_overlap": true, "shared_coverage_guidance": true},
+  "mapExchangeDelayRounds": 2,
+  "maxRounds": 18,
+  "coverageThreshold": 1.0,
+  "sensor": {"range_m": 3.6, "horizontal_fov_rad": 3.141592653589793, "vertical_fov_rad": 2.0943951023931953},
+  "exploration": {"strategy": "information_gain", "use_global_reposition": true, "visibility_gain": true, "max_candidates": 32, "max_rays": 49, "max_ray_steps": 8192, "max_plan_calls": 6}
+}

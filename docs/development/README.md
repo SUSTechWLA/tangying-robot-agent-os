@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+已知覆盖与多层地面增量（2026-10-18）：[接口、来源和可替换规划](2026-10-18-spatial-coverage-upgrade.md) → [计划/Runner/探索消融实际证据](../experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)。`spatial_coverage.py` 与本地 CLI 处理显式目标，`terrain_layered` 处理分层支撑和显式连接；旧探索与归档实验不被改写。
+
 异构三维探索增量（设计 2026-10-17，实验 2026-10-18）：[模块、版本与迁移](2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融与量化协议](../experiments/2026-10-17-spatial-exploration-protocol.md) → [实际报告与修复前后证据](../experiments/2026-10-18-spatial-exploration.md) → [教材补充](../../book/updates/2026-10-17-heterogeneous-spatial-exploration.md)。入口为 `spatial_exploration.py` / `spatial_mission.py`，在线地图/控制器端口与离线基准分开，不自动改变现有二维 `mapping.build`。
 
 首次探索增量（2026-10-17）：[实现与变更](2026-10-17-exploration-first-scan.md) → [预登记](../experiments/2026-10-17-exploration-first-scan-protocol.md) → [全部实际尝试](../experiments/2026-10-17-exploration-first-scan.md)，关注初始观察、实测 yaw 闭环、取消/深度失效与前沿完成范围。

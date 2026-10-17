@@ -1,0 +1,82 @@
+[
+  {
+    "command": [
+      "scripts/spatial_exploration_benchmark.py",
+      "--replay",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/study/development"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"schemaVersion\": \"spatial.replay.v1\", \"verifiedEpisodes\": 140, \"passed\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/spatial_exploration_benchmark.py",
+      "--replay",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/study/holdout"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"schemaVersion\": \"spatial.replay.v1\", \"verifiedEpisodes\": 210, \"passed\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/plan_spatial_coverage.py",
+      "--verify",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/study/coverage-plans-final/mixed-air-ground"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"legs\": 2, \"physicalValidation\": false, \"predictedCoverage\": 1.0, \"predictionOnly\": true, \"status\": \"predicted_complete\", \"verified\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/plan_spatial_coverage.py",
+      "--verify",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/study/coverage-plans-final/layered-ramp"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"legs\": 1, \"physicalValidation\": false, \"predictedCoverage\": 1.0, \"predictionOnly\": true, \"status\": \"predicted_complete\", \"verified\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/plan_spatial_coverage.py",
+      "--verify",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/study/coverage-plans-final/disconnected-floors"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"legs\": 0, \"physicalValidation\": false, \"predictedCoverage\": 0.0, \"predictionOnly\": true, \"status\": \"partial\", \"verified\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/plan_spatial_coverage.py",
+      "--verify",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/study/coverage-plans-final/full-room-coverage"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"legs\": 14, \"physicalValidation\": false, \"predictedCoverage\": 1.0, \"predictionOnly\": true, \"status\": \"predicted_complete\", \"verified\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/run_spatial_coverage_fixture.py",
+      "--verify",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/fixture-003"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"observedCoverage\": 1.0, \"physicalValidation\": false, \"status\": \"completed\", \"verification\": \"hash_chains_and_recorded_capture_reaggregation_not_physical_reexecution\", \"verified\": true}",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "scripts/run_spatial_coverage_fixture.py",
+      "--verify",
+      "/var/folders/3s/r97mz3gd08318w5w16jb7s7h0000gn/T/tangying-spatial-reproduce-i793_gzt/fixture-004"
+    ],
+    "exitCode": 0,
+    "stdout": "{\"observedCoverage\": 1.0, \"physicalValidation\": false, \"status\": \"completed\", \"verification\": \"hash_chains_and_recorded_capture_reaggregation_not_physical_reexecution\", \"verified\": true}",
+    "stderr": ""
+  }
+]

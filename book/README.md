@@ -1,5 +1,7 @@
 # 《深入理解分布式机器人 Agent 系统》
 
+最新能力补充：[已知地图覆盖、多层支撑与独立消融](updates/2026-10-18-spatial-coverage-upgrade.md)（2026-10-18），解释巡检目标、预测与完成、规划插件和机制评价；配合[实际软件实验、350 次对照与完整证据](../docs/experiments/2026-10-18-spatial-coverage-upgrade.md)阅读，仍保留数字版 2.2.0 出版身份。
+
 最新研究补充：[异构三维探索、覆盖账本与配对消融](updates/2026-10-17-heterogeneous-spatial-exploration.md)（设计 2026-10-17，[实际软件实验](../docs/experiments/2026-10-18-spatial-exploration.md) 2026-10-18），讲解共同世界模型、本体约束、端侧闭环、团队分工与量化方法；当前是软件研究增量，未形成新的 Gazebo/实机三维探索结论。
 
 最新系统补充：[首次未知场景主动扫描与探索](updates/2026-10-17-exploration-first-scan.md)（2026-10-17），讲解实测转角闭环、frontier、故障与有限证据窗口；保留数字版 2.2.0 原出版身份。

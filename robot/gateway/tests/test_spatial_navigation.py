@@ -302,3 +302,238 @@ def test_ground_path_retains_valley_support_nodes_instead_of_flying_across():
     for waypoint in result["waypoints"]:
         x, y = (math.floor(value / .5) for value in waypoint[:2])
         assert waypoint[2] == pytest.approx(heights[y * 10 + x] + .5)
+
+
+def layered_policy(**overrides):
+    return terrain_policy(mode="terrain_layered", **overrides)
+
+
+def _layer(layer_id, height_at):
+    heights = [height_at(x, y) for y in range(10) for x in range(10)]
+    return {"layerId": layer_id, "heights": heights,
+            "supported": [height is not None for height in heights],
+            "slopeRadians": [0. if height is not None else None for height in heights]}
+
+
+def layered_volume(*, ramp=False, connections=True, slab=False):
+    result = volume()
+    lower = _layer("lower", lambda _x, _y: 0.)
+    if ramp:
+        connector = _layer("ramp", lambda x, _y: (x-2)*.25 if 3 <= x <= 6 else None)
+        connector["slopeRadians"] = [math.atan(.5) if supported else None
+                                     for supported in connector["supported"]]
+        upper = _layer("upper", lambda x, _y: 1. if x >= 7 else None)
+        layers = [lower, upper, connector]  # Labels do not encode height/order.
+        edges = [{"from": ["lower", 2, y], "to": ["ramp", 3, y]} for y in range(10)]
+        edges += [{"from": ["ramp", 6, y], "to": ["upper", 7, y]} for y in range(10)]
+    else:
+        layers = [lower, _layer("upper", lambda _x, _y: 1.5)]
+        edges = []
+    result["terrainLayers"] = {"schemaVersion": "navigation.terrain.layers.v1",
+        "sourceId": "measured-multilevel-surfaces", "observedAtUnixMs": 123456789,
+        "layers": layers, "connections": edges if connections else []}
+    if slab:
+        # A measured upper-floor slab occupies z=[1,1.5]; chassis routes below
+        # and above it remain separated by actual occupied volume.
+        result["cells"][2 * 100:3 * 100] = [100] * 100
+    return result
+
+
+def test_layered_support_keeps_two_overlapping_floors_and_preserves_poses():
+    document, config = layered_volume(slab=True), layered_policy()
+    planner = SpatialPathPlanner(document, config)
+    for height in (.5, 2.):
+        start, goal = pose(.75, .75, height, .1), pose(3.75, .75, height, .2)
+        route = planner.plan(start, goal)
+        assert route["mode"] == "terrain_layered"
+        assert route["waypoints"] == [start, goal]
+        assert planner.plan(start, goal) == route
+        assert json.loads(json.dumps(route)) == route
+        _assert_every_swept_box_avoids_obstacles(document, route, config)
+    assert len(planner.volume["terrainLayers"]["layers"]) == 2
+
+
+def test_layered_robot_cannot_change_floors_without_measured_connections_even_in_free_air():
+    document = layered_volume()
+    start, goal = pose(.75, .75, .5), pose(.75, .75, 2.)
+    planner = SpatialPathPlanner(document, layered_policy(maxStepM=3.))
+    assert not planner.segment_clear(start[:3], goal[:3])
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(start, goal)
+    assert error.value.code == "NO_KNOWN_PATH"
+    # The same measured free voxels do support a geometric aerial route.
+    assert SpatialPathPlanner(document, policy()).plan(start, goal)["waypoints"] == [start, goal]
+
+
+def test_layered_route_uses_explicit_ramp_seams_and_cannot_shortcut_between_floors():
+    document, config = layered_volume(ramp=True), layered_policy(maxStepM=.3, maxSlopeRad=.5)
+    planner = SpatialPathPlanner(document, config)
+    start, goal = pose(.75, .75, .5), pose(4.25, .75, 1.5)
+    assert not planner.segment_clear(start[:3], goal[:3])
+    result = planner.plan(start, goal)
+    heights = [point[2] for point in result["waypoints"]]
+    assert .75 in heights and 1. in heights and 1.25 in heights
+    assert all(planner.segment_clear(first[:3], second[:3]) for first, second in
+               itertools.pairwise(result["waypoints"]))
+    assert all(point[2] in (.5, .75, 1., 1.25, 1.5) for point in result["waypoints"])
+    assert planner.plan(start, goal) == result
+    reverse = planner.plan(goal, start)
+    assert reverse["waypoints"][0] == goal and reverse["waypoints"][-1] == start
+
+
+@pytest.mark.parametrize("missing", ["all", "lower-seam", "upper-seam"])
+def test_layered_ramp_requires_both_explicit_connections(missing):
+    document = layered_volume(ramp=True)
+    edges = document["terrainLayers"]["connections"]
+    document["terrainLayers"]["connections"] = ([] if missing == "all" else
+        [edge for edge in edges if (edge["from"][0] != "lower" if missing == "lower-seam"
+                                    else edge["to"][0] != "upper")])
+    planner = SpatialPathPlanner(document, layered_policy(maxStepM=.3, maxSlopeRad=.5))
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(pose(.75, .75, .5), pose(4.25, .75, 1.5))
+    assert error.value.code == "NO_KNOWN_PATH"
+
+
+@pytest.mark.parametrize("overrides", [{"maxStepM": .1}, {"maxSlopeRad": .2}])
+def test_layer_connections_never_override_step_or_slope_limits(overrides):
+    config = {"maxStepM": .3, "maxSlopeRad": .5, **overrides}
+    planner = SpatialPathPlanner(layered_volume(ramp=True), layered_policy(**config))
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(pose(.75, .75, .5), pose(4.25, .75, 1.5))
+    assert error.value.code == "NO_KNOWN_PATH"
+
+
+@pytest.mark.parametrize("blocking", [-1, 100])
+def test_layered_connections_do_not_authorize_unknown_or_occupied_chassis_sweeps(blocking):
+    document = layered_volume(ramp=True)
+    cells = np.asarray(document["cells"]).reshape(8, 10, 10)
+    cells[:, :, 4] = blocking
+    document["cells"] = cells.ravel().tolist()
+    planner = SpatialPathPlanner(document, layered_policy(maxStepM=.3, maxSlopeRad=.5))
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(pose(.75, .75, .5), pose(4.25, .75, 1.5))
+    assert error.value.code == "NO_KNOWN_PATH"
+
+
+def test_layered_support_rejects_hovering_and_ambiguous_surface_endpoints():
+    document = layered_volume()
+    planner = SpatialPathPlanner(document, layered_policy(maxStepM=3.))
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(pose(.75, .75, 1.), pose(3.75, .75, 2.))
+    assert error.value.code == "LOCALIZATION_NOT_CLEAR"
+    document["terrainLayers"]["layers"][1]["heights"] = [.01] * 100
+    ambiguous = SpatialPathPlanner(document, layered_policy())
+    with pytest.raises(SpatialNavigationError) as error:
+        ambiguous.plan(pose(.75, .75, .5), pose(3.75, .75, .5))
+    assert error.value.code == "LOCALIZATION_NOT_CLEAR"
+
+
+def test_layered_robot_checks_support_under_entire_envelope_without_using_floor_below():
+    document = layered_volume()
+    upper = document["terrainLayers"]["layers"][1]
+    index = 1 * 10 + 2
+    upper["heights"][index], upper["supported"][index], upper["slopeRadians"][index] = None, False, None
+    planner = SpatialPathPlanner(document, layered_policy(bodyHalfExtents=[.3, .1, .1]))
+    assert not planner.segment_clear([.75, .75, 2.], [1.75, .75, 2.])
+    assert planner.segment_clear([.75, .75, .5], [1.75, .75, .5])
+
+
+def test_upper_floor_slab_or_low_ceiling_still_blocks_chassis_on_valid_layer():
+    document = layered_volume(slab=True)
+    planner = SpatialPathPlanner(document, layered_policy(bodyHalfExtents=[.1, .1, .6],
+                                                         referenceHeightM=.7))
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(pose(.75, .75, .7), pose(3.75, .75, .7))
+    assert error.value.code == "LOCALIZATION_NOT_CLEAR"
+
+
+def test_layered_validation_and_planner_are_detached_from_input_mutations():
+    document = layered_volume(ramp=True)
+    planner = SpatialPathPlanner(document, layered_policy(maxStepM=.3, maxSlopeRad=.5))
+    document["terrainLayers"]["layers"][0]["heights"][0] = 2.
+    document["terrainLayers"]["connections"].clear()
+    assert planner.volume["terrainLayers"]["layers"][0]["heights"][0] == 0.
+    assert planner.volume["terrainLayers"]["connections"]
+    assert planner.plan(pose(.75, .75, .5), pose(4.25, .75, 1.5))
+
+
+@pytest.mark.parametrize("connection", [
+    {"from": ["lower", 2, 1], "to": ["upper", 2, 1]},
+    {"from": ["lower", 2, 1], "to": ["upper", 4, 1]},
+    {"from": ["lower", 2, 1], "to": ["upper", 3, 2]},
+    {"from": ["lower", 2, 1], "to": ["lower", 3, 1]},
+    {"from": ["lower", 2, 1], "to": ["missing", 3, 1]},
+    {"from": ["lower", 2, 1], "to": ["upper", True, 1]},
+])
+def test_layered_validation_rejects_vertical_portals_nonadjacent_and_unknown_layer_links(connection):
+    document = layered_volume()
+    document["terrainLayers"]["connections"] = [connection]
+    with pytest.raises(ValueError):
+        validate_volume(document)
+
+
+def test_layered_validation_rejects_duplicate_edges_and_unmeasured_links():
+    document = layered_volume(ramp=True)
+    edge = document["terrainLayers"]["connections"][0]
+    document["terrainLayers"]["connections"].append({"from": edge["to"], "to": edge["from"]})
+    with pytest.raises(ValueError, match="duplicate"):
+        validate_volume(document)
+    document = layered_volume(ramp=True)
+    edge = document["terrainLayers"]["connections"][0]
+    edge["to"] = ["ramp", 2, 0]
+    with pytest.raises(ValueError, match="measured support"):
+        validate_volume(document)
+
+
+@pytest.mark.parametrize("mutation", ["duplicate-layer", "unknown-height", "nan-slope", "bool-height",
+                                       "array-shape", "schema", "layer-budget"])
+def test_layered_surface_contract_rejects_malformed_measurements(mutation):
+    document = layered_volume()
+    terrain = document["terrainLayers"]
+    upper = terrain["layers"][1]
+    if mutation == "duplicate-layer":
+        upper["layerId"] = "lower"
+    elif mutation == "unknown-height":
+        upper["supported"][0] = False
+    elif mutation == "nan-slope":
+        upper["slopeRadians"][0] = math.nan
+    elif mutation == "bool-height":
+        upper["heights"][0] = True
+    elif mutation == "array-shape":
+        upper["supported"].pop()
+    elif mutation == "schema":
+        terrain["schemaVersion"] = "navigation.terrain.layers.v2"
+    else:
+        terrain["layers"] = [terrain["layers"][0]] * 33
+    with pytest.raises(ValueError):
+        validate_volume(document)
+
+
+def test_layered_mode_requires_its_explicit_contract_and_legacy_modes_stay_separate():
+    with pytest.raises(ValueError, match="terrainLayers"):
+        SpatialPathPlanner(terrain_volume(), layered_policy())
+    with pytest.raises(ValueError, match="terrain25d"):
+        SpatialPathPlanner(layered_volume(), terrain_policy())
+    document = layered_volume()
+    assert SpatialPathPlanner(document, policy()).policy["mode"] == "volume3d"
+
+
+@pytest.mark.parametrize("limit", [{"maxExpanded": 1}, {"maxWaypoints": 2}])
+def test_layered_ramp_budget_exhaustion_returns_no_partial_route(limit):
+    planner = SpatialPathPlanner(layered_volume(ramp=True),
+                                 layered_policy(maxStepM=.3, maxSlopeRad=.5, **limit))
+    with pytest.raises(SpatialNavigationError) as error:
+        planner.plan(pose(.75, .75, .5), pose(4.25, .75, 1.5))
+    assert error.value.code == "PLANNING_BUDGET_EXCEEDED"
+
+
+def test_layered_patch_slot_budget_is_independent_of_occupancy_volume_budget():
+    document = {**volume(np.zeros((1, 100, 100), dtype=int)), "resolution": 1.}
+    layer = {"layerId": "base", "heights": [0.] * 10_000, "supported": [True] * 10_000,
+             "slopeRadians": [0.] * 10_000}
+    document["terrainLayers"] = {"schemaVersion": "navigation.terrain.layers.v1",
+        "sourceId": "measured", "observedAtUnixMs": 1,
+        "layers": [{**layer, "layerId": f"layer-{number}"} for number in range(26)],
+        "connections": []}
+    with pytest.raises(ValueError, match="patch-slot"):
+        validate_volume(document)

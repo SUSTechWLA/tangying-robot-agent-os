@@ -1,0 +1,6 @@
+..                                                                       [100%]
+============================= slowest 20 durations =============================
+2.41s call     tests/contract/test_sim_real_runtime_boundary.py::test_real_simulation_and_physical_adapters_share_the_agent_runtime_contract
+
+(5 durations < 0.005s hidden.  Use -vv to show these durations.)
+2 passed in 2.56s

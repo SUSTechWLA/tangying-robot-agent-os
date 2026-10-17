@@ -1,0 +1,78 @@
+{
+  "mixed-air-ground": {
+    "verification": {
+      "verified": true,
+      "predictionOnly": true,
+      "physicalValidation": false,
+      "status": "predicted_complete",
+      "predictedCoverage": 1.0,
+      "legs": 2
+    },
+    "summary": {
+      "status": "predicted_complete",
+      "targetVoxels": 2,
+      "predictedCoveredVoxels": 2,
+      "predictedCoverage": 1.0,
+      "pathLengthM": 0.0,
+      "planCalls": 15,
+      "observedCoverage": null
+    }
+  },
+  "layered-ramp": {
+    "verification": {
+      "verified": true,
+      "predictionOnly": true,
+      "physicalValidation": false,
+      "status": "predicted_complete",
+      "predictedCoverage": 1.0,
+      "legs": 1
+    },
+    "summary": {
+      "status": "predicted_complete",
+      "targetVoxels": 1,
+      "predictedCoveredVoxels": 1,
+      "predictedCoverage": 1.0,
+      "pathLengthM": 3.23606797749979,
+      "planCalls": 8,
+      "observedCoverage": null
+    }
+  },
+  "disconnected-floors": {
+    "verification": {
+      "verified": true,
+      "predictionOnly": true,
+      "physicalValidation": false,
+      "status": "partial",
+      "predictedCoverage": 0.0,
+      "legs": 0
+    },
+    "summary": {
+      "status": "partial",
+      "targetVoxels": 1,
+      "predictedCoveredVoxels": 0,
+      "predictedCoverage": 0.0,
+      "pathLengthM": 0.0,
+      "planCalls": 8,
+      "observedCoverage": null
+    }
+  },
+  "full-room-coverage": {
+    "verification": {
+      "verified": true,
+      "predictionOnly": true,
+      "physicalValidation": false,
+      "status": "predicted_complete",
+      "predictedCoverage": 1.0,
+      "legs": 14
+    },
+    "summary": {
+      "status": "predicted_complete",
+      "targetVoxels": 315,
+      "predictedCoveredVoxels": 315,
+      "predictedCoverage": 1.0,
+      "pathLengthM": 20.603588403439506,
+      "planCalls": 224,
+      "observedCoverage": null
+    }
+  }
+}

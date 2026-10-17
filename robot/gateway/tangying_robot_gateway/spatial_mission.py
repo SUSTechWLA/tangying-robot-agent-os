@@ -265,6 +265,17 @@ class CoverageLedger:
                     "lastEventHash": self.journal.last_hash}
 
 
+def _candidate_targets(candidate):
+    """Keep predicted known-map coverage separate from unknown-map gain."""
+    if candidate.get("objectiveKind") == "explicit_scope_coverage":
+        if candidate.get("visibleUnknownVoxelIds") != []:
+            raise ValueError("known-map coverage predictions must not relabel measured voxels as unknown")
+        return CoverageLedger._ids(candidate["expectedObservedVoxelIds"])
+    if "expectedObservedVoxelIds" in candidate:
+        raise ValueError("predicted coverage requires an explicit objective kind")
+    return CoverageLedger._ids(candidate["visibleUnknownVoxelIds"])
+
+
 class TaskCoordinator:
     """Capability-filtered proposal leases; one execution in flight by default.
 
@@ -332,7 +343,7 @@ class TaskCoordinator:
                 raise MissionError("TASK_CAPACITY", "task receipt budget exhausted")
             if type(candidates) is not list or len(candidates) > 1024:
                 raise ValueError("candidates must be a bounded list")
-            used = {voxel for task in active for voxel in task["candidate"]["visibleUnknownVoxelIds"]}
+            used = {voxel for task in active for voxel in _candidate_targets(task["candidate"])}
             ranked = []
             for candidate in candidates:
                 path = candidate["path"]
@@ -353,7 +364,7 @@ class TaskCoordinator:
                 if (type(declared) not in (int, float) or not math.isfinite(declared)
                         or abs(declared - length) > 1e-6):
                     raise ValueError("candidate path length does not match its waypoints")
-                ids = CoverageLedger._ids(candidate["visibleUnknownVoxelIds"])
+                ids = _candidate_targets(candidate)
                 score = candidate["score"]
                 if type(score) not in (float, int) or not math.isfinite(score):
                     raise ValueError("candidate score must be finite")
@@ -591,18 +602,32 @@ class SpatialMissionRunner:
                     self._excluded.setdefault(task["robotId"], set()).add(task["candidate"]["targetId"])
             if now < self.started_at_ms:
                 raise MissionError("CLOCK_REGRESSION", "mission clock moved backwards")
+            if any(task["state"] in {"running", "uncertain"} for task in self.coordinator.tasks):
+                return self._emit(robot_id, "execution_fenced", termination="await_stop_evidence")
+            if self.ledger.targets is not None and self.ledger.targets <= self.ledger.observed_ids:
+                return self._emit(robot_id, "coverage_complete", termination="completed")
             if (self._steps >= self.max_steps or self._travel >= self.max_travel_m
                     or now - self.started_at_ms >= self.max_duration_ms):
                 return self._emit(robot_id, "budget_exhausted", termination="partial")
-            if any(task["state"] in {"running", "uncertain"} for task in self.coordinator.tasks):
-                return self._emit(robot_id, "execution_fenced", termination="await_stop_evidence")
             self._capture(robot_id)
+            if self.ledger.targets is not None and self.ledger.targets <= self.ledger.observed_ids:
+                return self._emit(robot_id, "coverage_complete", termination="completed")
             sample = self._snapshot(robot_id)
             explorer = self.explorer_factory(sample)
             excluded = self._excluded.setdefault(robot_id, set())
             proposal = explorer.propose(sample.pose, excluded_targets=excluded,
                                         observed_targets=self.ledger.observed_ids
                                         if self.coordinator.use_coordination else ())
+            scope = proposal.get("scope")
+            coverage_candidates = [candidate for candidate in proposal.get("candidates", [])
+                                   if candidate.get("objectiveKind") == "explicit_scope_coverage"]
+            if (scope is not None or coverage_candidates) and (
+                        type(scope) is not dict or scope.get("schemaVersion") != "coverage.scope.v1"
+                        or scope.get("geometryId") != self.ledger.geometry_id
+                        or set(CoverageLedger._ids(scope.get("targetVoxelIds", []))) != self.ledger.targets
+                        or any(not set(_candidate_targets(candidate)) <= self.ledger.targets
+                               for candidate in coverage_candidates)):
+                raise MissionError("COVERAGE_SCOPE_MISMATCH", "proposal and evidence ledger must share the target scope")
             if not proposal.get("candidates"):
                 return self._emit(robot_id, "no_candidate", termination="partial",
                                   diagnostics=proposal.get("diagnostics", {}))
@@ -685,5 +710,8 @@ class SpatialMissionRunner:
                 return self._emit(robot_id, "execution_uncertain", taskId=task["taskId"],
                                   stopAcknowledged=stopped, failure=failure, termination="partial")
             excluded.add(task["candidate"]["targetId"])
+            if (finished["state"] == "succeeded" and self.ledger.targets is not None
+                    and self.ledger.targets <= self.ledger.observed_ids):
+                return self._emit(robot_id, "coverage_complete", taskId=task["taskId"], termination="completed")
             return self._emit(robot_id, finished["state"], taskId=task["taskId"],
                               diagnostics=proposal.get("diagnostics", {}))

@@ -1,0 +1,319 @@
+{
+  "schemaVersion": "spatial.preregistration.v2",
+  "configHash": "9df278d45b059021b7341008288840b7fb41b44e28698d3ee2d0619cd92bc08f",
+  "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+  "split": "holdout",
+  "blocks": [
+    {
+      "blockId": "warehouse_aisles--seed-101",
+      "path": "truth/warehouse_aisles--seed-101.json",
+      "inputHash": "b50bf4f85f724809dcfafb6abc2a6e24e199039ee9da3254d61cc287542cd261",
+      "occupancyGeometryHash": "7a751c0136862bf2b86b715684b94b6f1821c57a5936e33f3223612f1dcc6e4f"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-137",
+      "path": "truth/warehouse_aisles--seed-137.json",
+      "inputHash": "2a37b887183447ef0efb9642346904fff3fa0708b683bbcf2ff922c911b6fcb5",
+      "occupancyGeometryHash": "fe795b2472671c33db443ea7b84bcef58d89f9b0978fd9aa56a3d5a2c2a401d5"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-173",
+      "path": "truth/warehouse_aisles--seed-173.json",
+      "inputHash": "ecde8f08a43a22a0e4a09abe0dd6328bb1571c736b590014766577a61bca205d",
+      "occupancyGeometryHash": "242934ee98b30ebae563143c34ba1b4d02ce7afbed103679f856ab87bf09bb11"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-211",
+      "path": "truth/warehouse_aisles--seed-211.json",
+      "inputHash": "b9aad4bb0d9b37374b76863a66b582c9c8a362c6ddd4510c4c0e5998782017ed",
+      "occupancyGeometryHash": "3a3a8be6b7d36c5b9f9c5cadbd402dff3c20fe9acf90f71bebb66e77693be972"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-257",
+      "path": "truth/warehouse_aisles--seed-257.json",
+      "inputHash": "9928d539fecccdf6a62060509210578459a5ffccc8faf2f4dc04f068a1992568",
+      "occupancyGeometryHash": "aef34858224209b369aa04e91a03182d27a5cbda5a2567c34aadcfe6572da532"
+    },
+    {
+      "blockId": "warehouse_aisles--seed-293",
+      "path": "truth/warehouse_aisles--seed-293.json",
+      "inputHash": "677ac0b31468b024d678eff71a3ee3c8ce4032ce270cf9a520726ab974e2fae0",
+      "occupancyGeometryHash": "28ee8231c96fb211dbab9d428d0dd32a32b9b89c88b64e0dfb5c234f261b5f43"
+    },
+    {
+      "blockId": "staggered_doorways--seed-101",
+      "path": "truth/staggered_doorways--seed-101.json",
+      "inputHash": "846cc74353986460520f4c638804c15d52df60f51d0cbede4f532a8a0e5a7dbd",
+      "occupancyGeometryHash": "5c682a0283963e027380c74a7bcce11a9273d573adeec8e3724608183b065f4f"
+    },
+    {
+      "blockId": "staggered_doorways--seed-137",
+      "path": "truth/staggered_doorways--seed-137.json",
+      "inputHash": "c937b05dfb74acfeecd4d040fed597b1d8a90877b4d19a28db9fff7d1e58a275",
+      "occupancyGeometryHash": "ffbe914b64e7385a451382574fe9d6b0f297c1d3b30a23830817e14529ce09ae"
+    },
+    {
+      "blockId": "staggered_doorways--seed-173",
+      "path": "truth/staggered_doorways--seed-173.json",
+      "inputHash": "65309ef57222eb6aca5f6f624c734f1c9683fc9b9c6a821c41146a7896785b10",
+      "occupancyGeometryHash": "a18c66f244dbd8b92684b545ae776d6290f79d036559db327200e472e1ef0e09"
+    },
+    {
+      "blockId": "staggered_doorways--seed-211",
+      "path": "truth/staggered_doorways--seed-211.json",
+      "inputHash": "882ab7ee5000d0279240bf127fbf60b2d1f71a7995216e604b55d35cf26e08ef",
+      "occupancyGeometryHash": "0d3392017641066e731f3e7b82f1ffbe7dfe1e09a1a8550997811cf57c43537c"
+    },
+    {
+      "blockId": "staggered_doorways--seed-257",
+      "path": "truth/staggered_doorways--seed-257.json",
+      "inputHash": "cfdec0944a4dc3cbdd222c009287b9c556d64cab64ab6ac453f24df0c0e88698",
+      "occupancyGeometryHash": "4ef5e9221bc7e3423551b87ea771876458c9532cae3de6a4c5606fdbc21729c8"
+    },
+    {
+      "blockId": "staggered_doorways--seed-293",
+      "path": "truth/staggered_doorways--seed-293.json",
+      "inputHash": "3414c84c3d089e424d2f4ed20a5d37ec8bcc1ef39110061e145b2fb51b4984c4",
+      "occupancyGeometryHash": "f28976bf9236e73db02b2ac3c6f11f08a7cdbd76814691472852a1e29d75a8e2"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-101",
+      "path": "truth/elevated_occlusion--seed-101.json",
+      "inputHash": "df35ea09520880515376080ad66c4ee9df0c56584060f451f5025ad88dab9393",
+      "occupancyGeometryHash": "b357d488d2f81f321cba0f0f8127680b5dff362aeaa75f3e0a39b0489f0c4afe"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-137",
+      "path": "truth/elevated_occlusion--seed-137.json",
+      "inputHash": "d87b9646eddc49ef3a4351542752979c04c54fe58f3d44c6b8738c00343888dd",
+      "occupancyGeometryHash": "d42100133633dee93c3c5073b70b51444eb72eae1072f5007a75d892fd3c6725"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-173",
+      "path": "truth/elevated_occlusion--seed-173.json",
+      "inputHash": "4af79dcfab5faf884a3cbbf57a37a9ff82f2bb63ff3b3be76c56cf47e9e8ac43",
+      "occupancyGeometryHash": "32a40b2e26767497b4a675ddd80e8c50016286586f9307d5f4f6cd9fba4748f7"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-211",
+      "path": "truth/elevated_occlusion--seed-211.json",
+      "inputHash": "e6ffb2c1be4ec426bfe72451ae5c2351dad06bebaa0f9e2ea2cbbb41aa3b84ab",
+      "occupancyGeometryHash": "0b3ec209824b742cfca5d83aabaf478cf05b5153c1a8cd3b172a850c549d2b30"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-257",
+      "path": "truth/elevated_occlusion--seed-257.json",
+      "inputHash": "78c8b553d599cdab67cca91357594013afcaeff0edd92ee78d22d41503135850",
+      "occupancyGeometryHash": "ab6e3c8b653e6e35cdb12fb83726a09a8cdac0537efaf8f63eb9d8eba7669a6f"
+    },
+    {
+      "blockId": "elevated_occlusion--seed-293",
+      "path": "truth/elevated_occlusion--seed-293.json",
+      "inputHash": "ad919a186fd675b26fd08cf48099ea13787330711ebfeec329f14a04635b5352",
+      "occupancyGeometryHash": "ac43c90951b05614bffc635dfe7f7dbc11f07dc89b56f0cfe95ceef974b30294"
+    },
+    {
+      "blockId": "sealed_chamber--seed-101",
+      "path": "truth/sealed_chamber--seed-101.json",
+      "inputHash": "c3c0ceeb8aea620ea380b0f320f9ff7e0282ef537daffc66ae04ac2691c76351",
+      "occupancyGeometryHash": "149e37670e4599392f5c1292b803d82452f2c33a12829a49f2a91704eae39f40"
+    },
+    {
+      "blockId": "sealed_chamber--seed-137",
+      "path": "truth/sealed_chamber--seed-137.json",
+      "inputHash": "8feefd855a0710cc9f2a2ecb04d7dff331c143049b328c7d874262306e771437",
+      "occupancyGeometryHash": "69ef0872cb53abee798798ee5554f188f83fa3f3a1ac797f4f8c5123302746f4"
+    },
+    {
+      "blockId": "sealed_chamber--seed-173",
+      "path": "truth/sealed_chamber--seed-173.json",
+      "inputHash": "61e27c7f36d5254e9d8b9570b0baf4f469113814be60247c4dc18da40bad0326",
+      "occupancyGeometryHash": "1e7e50ef61c37983d66a3510d51fab746c12268aae142e3d99bdaf11c3654bbb"
+    },
+    {
+      "blockId": "sealed_chamber--seed-211",
+      "path": "truth/sealed_chamber--seed-211.json",
+      "inputHash": "c35d5583d7b9eaf805e681f22cd4637b25ffbec50c1bc0b7d7c2310d1a583e90",
+      "occupancyGeometryHash": "a8b2ca6179dca67fc77e79b52cf81d5f1b6c10d237ab7bc609fb35bf45f93599"
+    },
+    {
+      "blockId": "sealed_chamber--seed-257",
+      "path": "truth/sealed_chamber--seed-257.json",
+      "inputHash": "ecb4f3a7036a5ade817b0fe371f5b40a6036931178e09aeed6593456066ce2fd",
+      "occupancyGeometryHash": "3d1bd0df086a9780d16db258759380935801c933338c11268216a56794a48601"
+    },
+    {
+      "blockId": "sealed_chamber--seed-293",
+      "path": "truth/sealed_chamber--seed-293.json",
+      "inputHash": "90eb9cdaeee97257d504c84eb678c9a9247c8dacfc7725f8cdbf7888c4465459",
+      "occupancyGeometryHash": "fd7c311c820e1ff5421b831f7de13fbd8473a16732826058d6e7370b6db920de"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-101",
+      "path": "truth/delayed_exchange_recovery--seed-101.json",
+      "inputHash": "d4c263116eeab44027cb205269f26694e6c56c039bf141e03d8ce1ff0995c597",
+      "occupancyGeometryHash": "5c682a0283963e027380c74a7bcce11a9273d573adeec8e3724608183b065f4f"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-137",
+      "path": "truth/delayed_exchange_recovery--seed-137.json",
+      "inputHash": "8854a990ee133948e5946a0b2e0fe8e6ca49f1800fb107106f5a58ff5cf48b9f",
+      "occupancyGeometryHash": "ffbe914b64e7385a451382574fe9d6b0f297c1d3b30a23830817e14529ce09ae"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-173",
+      "path": "truth/delayed_exchange_recovery--seed-173.json",
+      "inputHash": "a4841a3bf1fc7ffe910132f9d60604aea23c1a85c9bfdd28728b64689dbee471",
+      "occupancyGeometryHash": "a18c66f244dbd8b92684b545ae776d6290f79d036559db327200e472e1ef0e09"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-211",
+      "path": "truth/delayed_exchange_recovery--seed-211.json",
+      "inputHash": "9a6e3bc80bdd36f59ce6fe82e90b0ba6f565d68d2561c30bea4036332635632b",
+      "occupancyGeometryHash": "0d3392017641066e731f3e7b82f1ffbe7dfe1e09a1a8550997811cf57c43537c"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-257",
+      "path": "truth/delayed_exchange_recovery--seed-257.json",
+      "inputHash": "feea8f18786e20c73264db03b79002f9bae85522cfad2dfe7362752c817fb845",
+      "occupancyGeometryHash": "4ef5e9221bc7e3423551b87ea771876458c9532cae3de6a4c5606fdbc21729c8"
+    },
+    {
+      "blockId": "delayed_exchange_recovery--seed-293",
+      "path": "truth/delayed_exchange_recovery--seed-293.json",
+      "inputHash": "db5ff991b417b15885131dc58d1dcc0677a85906f79f67f8400896224454c55a",
+      "occupancyGeometryHash": "f28976bf9236e73db02b2ac3c6f11f08a7cdbd76814691472852a1e29d75a8e2"
+    }
+  ],
+  "splitGeometryAudit": {
+    "warehouse_aisles": {
+      "layouts": {
+        "development": {
+          "3": "42fa4fca02fe95a2d46ce9b103a8132b4aa6f6c0685f9d8f2f7a55f0cc96407b",
+          "7": "9b03f5f02d8c6d68e4b9903f290bd4ab1725f003cb1a4c76d57a92ad22b2ca56",
+          "19": "bcb01033c474f902fb27eb8909dccd63cce6528c321aec9dca3a4ae049e5bf8d",
+          "43": "5a884a8051af1f05a7885ddaaaf9a0b109fa1d72ad75e128aa91c7de6e1ef1eb"
+        },
+        "holdout": {
+          "101": "7a751c0136862bf2b86b715684b94b6f1821c57a5936e33f3223612f1dcc6e4f",
+          "137": "fe795b2472671c33db443ea7b84bcef58d89f9b0978fd9aa56a3d5a2c2a401d5",
+          "173": "242934ee98b30ebae563143c34ba1b4d02ce7afbed103679f856ab87bf09bb11",
+          "211": "3a3a8be6b7d36c5b9f9c5cadbd402dff3c20fe9acf90f71bebb66e77693be972",
+          "257": "aef34858224209b369aa04e91a03182d27a5cbda5a2567c34aadcfe6572da532",
+          "293": "28ee8231c96fb211dbab9d428d0dd32a32b9b89c88b64e0dfb5c234f261b5f43"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "staggered_doorways": {
+      "layouts": {
+        "development": {
+          "3": "4cbc92ba35f6c611a00c61cc07c0fc1292686a4fd5ba94919aba9234961a7737",
+          "7": "664ac3706344df01d1d710f01356003bc9a7a9e29cae16023dbf23bd2ade0dc8",
+          "19": "5a7ee66ce83293472394327cffd660e24a8cadc21d7aee099456e3f46a02ba55",
+          "43": "d85c27f48d56a7d17dcde02cf3522eeb32ab1ebea6a2a417378a9455985e8d62"
+        },
+        "holdout": {
+          "101": "5c682a0283963e027380c74a7bcce11a9273d573adeec8e3724608183b065f4f",
+          "137": "ffbe914b64e7385a451382574fe9d6b0f297c1d3b30a23830817e14529ce09ae",
+          "173": "a18c66f244dbd8b92684b545ae776d6290f79d036559db327200e472e1ef0e09",
+          "211": "0d3392017641066e731f3e7b82f1ffbe7dfe1e09a1a8550997811cf57c43537c",
+          "257": "4ef5e9221bc7e3423551b87ea771876458c9532cae3de6a4c5606fdbc21729c8",
+          "293": "f28976bf9236e73db02b2ac3c6f11f08a7cdbd76814691472852a1e29d75a8e2"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "elevated_occlusion": {
+      "layouts": {
+        "development": {
+          "3": "019adb747e5e99fddefc2c158b3dc05a8b9b216a46744b10265963ef79706f7a",
+          "7": "cd0df00369fd33404465a3d5da8ff58007804d5caba50d1f9c98eb287ff8db73",
+          "19": "06a235ccd4cd9fb2afb6c43a92da469932588b557442cdf5e9f3e46da6a90203",
+          "43": "166d412d2836a2b93ad2e2fcfe010f4902d2443ee29266a623f0f8186adddd23"
+        },
+        "holdout": {
+          "101": "b357d488d2f81f321cba0f0f8127680b5dff362aeaa75f3e0a39b0489f0c4afe",
+          "137": "d42100133633dee93c3c5073b70b51444eb72eae1072f5007a75d892fd3c6725",
+          "173": "32a40b2e26767497b4a675ddd80e8c50016286586f9307d5f4f6cd9fba4748f7",
+          "211": "0b3ec209824b742cfca5d83aabaf478cf05b5153c1a8cd3b172a850c549d2b30",
+          "257": "ab6e3c8b653e6e35cdb12fb83726a09a8cdac0537efaf8f63eb9d8eba7669a6f",
+          "293": "ac43c90951b05614bffc635dfe7f7dbc11f07dc89b56f0cfe95ceef974b30294"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "sealed_chamber": {
+      "layouts": {
+        "development": {
+          "3": "98b67d69087bb84de1ef2b865f1c16e44cff752fd08b786da5be942f8b71225f",
+          "7": "cb8b6f4e8d2cf96da245760ba6b5c908e9e2a043436bb8045f0c4cd580f8af84",
+          "19": "3dd9a12a43a158d137fc4c030e0e9349ea5935a5f45eae6aa3f4618e130f6ce4",
+          "43": "bfae5d80b274926b3895e14f1f94e4e4fdd91b4e9eacd7ab68f21991c1462db6"
+        },
+        "holdout": {
+          "101": "149e37670e4599392f5c1292b803d82452f2c33a12829a49f2a91704eae39f40",
+          "137": "69ef0872cb53abee798798ee5554f188f83fa3f3a1ac797f4f8c5123302746f4",
+          "173": "1e7e50ef61c37983d66a3510d51fab746c12268aae142e3d99bdaf11c3654bbb",
+          "211": "a8b2ca6179dca67fc77e79b52cf81d5f1b6c10d237ab7bc609fb35bf45f93599",
+          "257": "3d1bd0df086a9780d16db258759380935801c933338c11268216a56794a48601",
+          "293": "fd7c311c820e1ff5421b831f7de13fbd8473a16732826058d6e7370b6db920de"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    },
+    "delayed_exchange_recovery": {
+      "layouts": {
+        "development": {
+          "3": "4cbc92ba35f6c611a00c61cc07c0fc1292686a4fd5ba94919aba9234961a7737",
+          "7": "664ac3706344df01d1d710f01356003bc9a7a9e29cae16023dbf23bd2ade0dc8",
+          "19": "5a7ee66ce83293472394327cffd660e24a8cadc21d7aee099456e3f46a02ba55",
+          "43": "d85c27f48d56a7d17dcde02cf3522eeb32ab1ebea6a2a417378a9455985e8d62"
+        },
+        "holdout": {
+          "101": "5c682a0283963e027380c74a7bcce11a9273d573adeec8e3724608183b065f4f",
+          "137": "ffbe914b64e7385a451382574fe9d6b0f297c1d3b30a23830817e14529ce09ae",
+          "173": "a18c66f244dbd8b92684b545ae776d6290f79d036559db327200e472e1ef0e09",
+          "211": "0d3392017641066e731f3e7b82f1ffbe7dfe1e09a1a8550997811cf57c43537c",
+          "257": "4ef5e9221bc7e3423551b87ea771876458c9532cae3de6a4c5606fdbc21729c8",
+          "293": "f28976bf9236e73db02b2ac3c6f11f08a7cdbd76814691472852a1e29d75a8e2"
+        }
+      },
+      "crossSplitGeometryOverlapN": 0,
+      "uniqueGeometryNBySplit": {
+        "development": 4,
+        "holdout": 6
+      }
+    }
+  },
+  "globalCrossSplitGeometryOverlapN": 0,
+  "declaredUniqueGeometryNBySplit": {
+    "development": 16,
+    "holdout": 24
+  },
+  "truthPolicyBoundary": "Truth files are evaluator/synthetic sensor inputs; policy interface receives measured snapshots only. This is an interface contract, not an adversarial process sandbox.",
+  "selectionFreeze": {
+    "selectedVariant": "baseline",
+    "receiptSha256": "c2c657e8a517131167a0431e8c89fef1e44ce7f2d671e4d30e883719233b201c",
+    "frozenAt": "2026-10-17T16:48:19.582090+00:00",
+    "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+    "studyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7"
+  },
+  "holdoutClaim": "Split labels and disjoint geometry are checked; an external policy-selection receipt is needed to substantiate blinded holdout use."
+}
