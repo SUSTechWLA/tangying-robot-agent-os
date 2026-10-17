@@ -1,0 +1,11 @@
+{
+  "python": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "packages": {
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "grpcio": "1.83.0",
+    "protobuf": "6.33.5",
+    "pytest": "8.4.2"
+  }
+}

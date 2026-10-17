@@ -1,0 +1,20 @@
+{
+  "startedAt": "2026-10-18T00:16:30.331464+08:00",
+  "cpuCount": 10,
+  "loadAverageBefore": [
+    1.82080078125,
+    1.76611328125,
+    2.17626953125
+  ],
+  "fullPythonValidationCompleted": true,
+  "finalFocusedTestsPassed": 96,
+  "campaignPath": "artifacts/experiments/spatial-exploration-20261018-002",
+  "reason": "Repeat after journal write-byte budget admission fix; retain 001; not additional independent seeds",
+  "timingInterpretation": "descriptive local software wall times only",
+  "endedAt": "2026-10-18T00:16:46.841879+08:00",
+  "loadAverageAfter": [
+    1.7919921875,
+    1.7607421875,
+    2.166015625
+  ]
+}

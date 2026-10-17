@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+异构三维探索增量（设计 2026-10-17，实验 2026-10-18）：[模块、版本与迁移](2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融与量化协议](../experiments/2026-10-17-spatial-exploration-protocol.md) → [实际报告与修复前后证据](../experiments/2026-10-18-spatial-exploration.md) → [教材补充](../../book/updates/2026-10-17-heterogeneous-spatial-exploration.md)。入口为 `spatial_exploration.py` / `spatial_mission.py`，在线地图/控制器端口与离线基准分开，不自动改变现有二维 `mapping.build`。
+
 首次探索增量（2026-10-17）：[实现与变更](2026-10-17-exploration-first-scan.md) → [预登记](../experiments/2026-10-17-exploration-first-scan-protocol.md) → [全部实际尝试](../experiments/2026-10-17-exploration-first-scan.md)，关注初始观察、实测 yaw 闭环、取消/深度失效与前沿完成范围。
 
 单机鲁棒性增量（2026-10-15）：[恢复实现与取证工具](2026-10-15-single-robot-robustness.md) → [实验协议](../experiments/2026-10-15-single-robot-robustness-protocol.md) → [实际报告](../experiments/2026-10-15-single-robot-robustness.md)。关注确认提交丢失、云边失败同步、完成观测抖动，以及连续长步骤链的预算与上下文。
@@ -41,6 +43,7 @@
 | 云边交接、重连和重复完成回执 | [云端完成协调](../../fleet/coordinator/completion.go)、[边缘上下文](../../edge/worker/context.go) | [执行上下文契约](../../core/contextcontract/README.md)、[云边完成协议](2026-10-10-cloud-edge-protocol.md) | [云端完成](../../fleet/coordinator/completion_test.go)、[边缘回执重放](../../edge/worker/completion_replay_test.go) |
 | Runtime、安全、持久命令与新机器人 | [服务入口](../../robot/gateway/tangying_robot_gateway/service.py)、[Safety](../../robot/gateway/tangying_robot_gateway/safety.py)、[journal](../../robot/gateway/tangying_robot_gateway/journal.py) | [适配器开发](robot-adapters.md)、[机器人工具层](robot-tool-layer.md) | [Gateway 服务](../../robot/gateway/tests/test_service.py)、[异构跨语言契约](../../tests/contract/test_heterogeneous_runtime_boundary.py) |
 | SLAM、地图启用、定位与导航 | [机器人工作流](../../robot/gateway/tangying_robot_gateway/robot_workflow.py)、[ROS 导航包](../../robot/ros2_ws/src/tangying_navigation/) | [RTAB-Map / Nav2](rtabmap-navigation.md)、[SLAM 语义导航](../guides/slam-semantic-navigation.md) | [Gazebo 工作流](../../robot/gateway/tests/test_gazebo_workflow.py)、[导航包测试](../../robot/ros2_ws/src/tangying_navigation/test/) |
+| 三维观察选点、异构分工与覆盖回放 | [探索策略](../../robot/gateway/tangying_robot_gateway/spatial_exploration.py)、[任务与账本](../../robot/gateway/tangying_robot_gateway/spatial_mission.py)、[基准](../../scripts/spatial_exploration_benchmark.py) | [设计与扩展点](2026-10-17-heterogeneous-spatial-exploration.md)、[实验协议](../experiments/2026-10-17-spatial-exploration-protocol.md) | [核心合同测试](../../robot/gateway/tests/test_spatial_exploration.py)；在线 provider 与基准分别验证 |
 | 三维点云标注、候选和执行绑定 | [语义服务](../../robot/gateway/tangying_robot_gateway/semantic_cloud_services.py)、[语义路线](../../internal/capabilityagent/semantic_route.go)、[持久 grounding](../../edge/agent/semantic_grounding.go) | [操作指南](../guides/semantic-point-cloud.md)、[执行协议](../architecture/semantic-execution-protocol.md) | [运行时绑定](../../robot/gateway/tests/test_semantic_execution_binding.py)、[恢复检查点](../../edge/agent/semantic_grounding_test.go)、[独立验收器](../../tests/install/test_semantic_execution_evidence.py) |
 | 控制台呈现、接口和回放 | [Local API](../../console/server.go)、[浏览器 API](../../web/app.js)、[交互入口](../../web/console_ui.js) | [用户指南](../guides/user-console.md)、[前端开发与诊断](../frontend/console-v1.md) | `make test-web`；布局和交互变更补浏览器验证 |
 

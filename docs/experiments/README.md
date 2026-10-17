@@ -1,5 +1,7 @@
 # 实验协议、报告与证据索引
 
+最新异构三维探索：[配对消融、覆盖分母、指标与回放协议](2026-10-17-spatial-exploration-protocol.md)与[2026-10-18 实际报告、图表和完整证据](2026-10-18-spatial-exploration.md)，覆盖空地几何互补、分支遮挡与故障注入；使用实际探索/账本/协调模块和合成传感器/驱动，不计为 Gazebo、实机、SLAM 精度或并发多机动力学实验。
+
 最新首次扫描：[实验协议](2026-10-17-exploration-first-scan-protocol.md)与[实际 Gazebo 尝试和修复报告](2026-10-17-exploration-first-scan.md)，使用新隔离地图存储、保留首轮转角不足及修复后复测；Runtime 验收与自然语言/实机/全环境覆盖分别判断。
 
 最新单机鲁棒性：[实验协议](2026-10-15-single-robot-robustness-protocol.md)与[长程任务及故障报告](2026-10-15-single-robot-robustness.md)，分别登记连续软件长步骤链、云边丢包与实际 Gazebo；保留修复前失败、环境拒绝和源码变化导致无效的运行。

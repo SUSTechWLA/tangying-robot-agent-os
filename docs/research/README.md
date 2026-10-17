@@ -1,5 +1,7 @@
 # 研究与论文资料导航
 
+异构三维探索的研究入口：[实现与可替换模块](../development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融/指标/回放协议](../experiments/2026-10-17-spatial-exploration-protocol.md)及[实际报告与全部证据](../experiments/2026-10-18-spatial-exploration.md)。固定同场景与种子比较选点、绕障重定位、可见收益和团队协调；当前离线软件证据与 Gazebo/实体结果分别记录，不凭单一加权分数宣布最优系统。
+
 单机器人长程鲁棒性的新数据入口：[协议](../experiments/2026-10-15-single-robot-robustness-protocol.md)、[报告](../experiments/2026-10-15-single-robot-robustness.md)及[实现](../development/2026-10-15-single-robot-robustness.md)。软件任务/HTTP 故障案例与实际 Gazebo 单独计数；使用带 sourceTestOutcome 和 durationScope 的 CSV，不把重复回放或版本变更混为独立实机样本。
 
 本页按“研究问题 → 方法与实现 → 实验与失败 → 数据复核 → 下一轮实验”组织资料，供选题、写论文、设计对照和复现实验使用。核对日期：2026-10-16。各次增量的实验记录单独索引，不重新核定历史结果。
@@ -17,6 +19,7 @@
 | 三维点云上的语义如何成为可执行目标？ | [点云使用指南](../guides/semantic-point-cloud.md)、[语义执行协议](../architecture/semantic-execution-protocol.md) | 先读[历史地图服务回放](../experiments/2026-10-13-semantic-point-cloud.md)，再读[五站实跑](../experiments/2026-10-13-semantic-execution.md)：标注持久化、查询候选和实际到达是三个不同证据层次 |
 | 物理完成如何避免仅依赖工具自报？ | [监督与验证](../architecture/supervision-verification.md)、[书籍第 11 章](../../book/chapters/ch11-observability-recovery.md) | [接地验证实验](../experiments/2026-09-21-grounded-verification.md)：共享 Gazebo 轨迹的配对验证，注意在线动作与离线策略估计的区别 |
 | 建图、语义表达和探索策略各自贡献多少？ | [世界模型](../../book/chapters/ch04-world-model.md)、[语义地图表达实验](../experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md) | [探索主报告](../experiments/2026-09-20-slam-exploration-experiment-report.md)、[被否定的探索假设](../experiments/2026-09-19-exploration-importance-and-coverage.md)：先核对地图完整性和覆盖率分母 |
+| 统一三维探索如何分离各机制贡献？ | [策略与异构分工实现](../development/2026-10-17-heterogeneous-spatial-exploration.md)、[教材补充](../../book/updates/2026-10-17-heterogeneous-spatial-exploration.md) | [配对协议](../experiments/2026-10-17-spatial-exploration-protocol.md)、[实际软件结果](../experiments/2026-10-18-spatial-exploration.md)：固定 ROI 分母、共享场景/seed/故障，独立重算指标，未完成样本保留 |
 | 云边协议与异构适配能支持什么协作？ | [分布式 AgentOS](../architecture/distributed-agentos.md)、[多机器人架构](../architecture/multi-robot.md)、[云边验收](../production/cloud-edge-upgrade-acceptance.md) | [双机交接指南](../operations/robocasa-handoff.md)、[异构边界契约测试](../../tests/contract/test_heterogeneous_runtime_boundary.py)：分清协议夹具、具体双机流程与实体异构机群 |
 
 ## 2. 证据类型决定论文能说什么

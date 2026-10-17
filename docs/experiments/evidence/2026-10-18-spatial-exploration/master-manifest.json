@@ -1,0 +1,1403 @@
+{
+  "schemaVersion": "research.evidence-index.v1",
+  "files": {
+    "README.md": {
+      "bytes": 755,
+      "sha256": "71f47f2b23cae2d7f3937a5ea4fc46315dd11bffea19ea28f648d9e1013720c8"
+    },
+    "campaign/branching_occlusion--seed-19--baseline/coordination.jsonl": {
+      "bytes": 101323,
+      "sha256": "82a528f6b75b2ffeba08bf04668f4c2c413f3d77f0249d416a0ab5c95d636115"
+    },
+    "campaign/branching_occlusion--seed-19--baseline/coverage-ledger.jsonl": {
+      "bytes": 30537,
+      "sha256": "ec6b6db678f5351becd091a8e319fc58f96657dcf03064f3de6233e820d86be5"
+    },
+    "campaign/branching_occlusion--seed-19--baseline/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "campaign/branching_occlusion--seed-19--baseline/events.jsonl": {
+      "bytes": 236080,
+      "sha256": "4e2e0de6f1befe2017792c041121f0811514ba286e3eae0130b14e44eba3c820"
+    },
+    "campaign/branching_occlusion--seed-19--baseline/metrics.json": {
+      "bytes": 1718,
+      "sha256": "e8f0942e8523418f86f7192b0dafeaafcf91320535f4625a101b0c339c9aef76"
+    },
+    "campaign/branching_occlusion--seed-19--nearest_frontier/coordination.jsonl": {
+      "bytes": 119264,
+      "sha256": "b8dfbb3954b52c8ce8f574237293823a86fd7a2ea3aef584f4168cb81b818ae9"
+    },
+    "campaign/branching_occlusion--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 37195,
+      "sha256": "e2d92a38bbe091837b8bfa0ac50a2173c30f00dcb7ce6d5bcda355e36360946d"
+    },
+    "campaign/branching_occlusion--seed-19--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "campaign/branching_occlusion--seed-19--nearest_frontier/events.jsonl": {
+      "bytes": 289421,
+      "sha256": "9c5e99f0d1257ccb538856a4d7bda2030f53b0a8c18b536f427c79da6a3297a9"
+    },
+    "campaign/branching_occlusion--seed-19--nearest_frontier/metrics.json": {
+      "bytes": 1736,
+      "sha256": "5a1e53f0b53533748277a6685957c28338404e2fb6c022bc23f83a5e9341a41b"
+    },
+    "campaign/branching_occlusion--seed-19--no_coordination/coordination.jsonl": {
+      "bytes": 92377,
+      "sha256": "7a49a8ca0d935915c1c99bbabd62795a8a668dc68b15908598f48c3045590667"
+    },
+    "campaign/branching_occlusion--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 28418,
+      "sha256": "9e951e720e13774d9be7fe1ebbb96fe704123cd1c3bad21a632e381868a6d234"
+    },
+    "campaign/branching_occlusion--seed-19--no_coordination/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "campaign/branching_occlusion--seed-19--no_coordination/events.jsonl": {
+      "bytes": 218536,
+      "sha256": "decc7bbcb9305a7fb03500fe57bb1c7b8059b71be4533ee67eaecccb977516c7"
+    },
+    "campaign/branching_occlusion--seed-19--no_coordination/metrics.json": {
+      "bytes": 1732,
+      "sha256": "8b97bfd014401db987f15f1302ae895a4c5bdeabd8adf842f2b3fb9bc3cc9bc1"
+    },
+    "campaign/branching_occlusion--seed-19--no_global_reposition/coordination.jsonl": {
+      "bytes": 81369,
+      "sha256": "b4435cc1139f7cb9f837651969f9c843f0c8e09254eac597140899e462e58640"
+    },
+    "campaign/branching_occlusion--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 26448,
+      "sha256": "b79d632d0c678035687c8f7e81b4f10b471369ddc41be70da6878453f6d322ad"
+    },
+    "campaign/branching_occlusion--seed-19--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "campaign/branching_occlusion--seed-19--no_global_reposition/events.jsonl": {
+      "bytes": 182802,
+      "sha256": "2875f91c559d7bc24aa4c5f4de142158d5f34ff7d949de90e4da92d75fafdf38"
+    },
+    "campaign/branching_occlusion--seed-19--no_global_reposition/metrics.json": {
+      "bytes": 1756,
+      "sha256": "95c15a6fd575c667e5855bbed0ed8ed709142c78df79f2dc5e6bda2cc5a80e7a"
+    },
+    "campaign/branching_occlusion--seed-19--no_visibility_gain/coordination.jsonl": {
+      "bytes": 94041,
+      "sha256": "a9ab666790c74e2b851f1df8ab5595e373bfecd4a36de87c34a1705fb3711b80"
+    },
+    "campaign/branching_occlusion--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 31690,
+      "sha256": "f2c7a00ffcf279ca3722fff43797504edb32fa61ad43140adb780eaf2f188774"
+    },
+    "campaign/branching_occlusion--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "campaign/branching_occlusion--seed-19--no_visibility_gain/events.jsonl": {
+      "bytes": 232262,
+      "sha256": "66483a640bd7cf36370eeab2c148e509b523bb1b333d3cc966c5b623bc9962fe"
+    },
+    "campaign/branching_occlusion--seed-19--no_visibility_gain/metrics.json": {
+      "bytes": 1762,
+      "sha256": "1b82640c6795c4c0c1199b33986a45be161d4bc2353bd4f2845c24a320654b94"
+    },
+    "campaign/branching_occlusion--seed-7--baseline/coordination.jsonl": {
+      "bytes": 97866,
+      "sha256": "f78bc80287f1361009e5f84cf4380c1a30a8718ca98ca18f35931514602b5ee4"
+    },
+    "campaign/branching_occlusion--seed-7--baseline/coverage-ledger.jsonl": {
+      "bytes": 32569,
+      "sha256": "938bc9ce004d612f4a91b74bc5a7696ba37e3c9334823fa2f0a9b93ff877fb8e"
+    },
+    "campaign/branching_occlusion--seed-7--baseline/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "campaign/branching_occlusion--seed-7--baseline/events.jsonl": {
+      "bytes": 244701,
+      "sha256": "f44cd5552d47ca101280c4835f1d6a5946123be1e1a201c86410cda44c3a87ca"
+    },
+    "campaign/branching_occlusion--seed-7--baseline/metrics.json": {
+      "bytes": 1718,
+      "sha256": "6302598e42c81c2f58837e8740c0080f24ce9ab767d70e8532efdbff8b9d8816"
+    },
+    "campaign/branching_occlusion--seed-7--nearest_frontier/coordination.jsonl": {
+      "bytes": 118981,
+      "sha256": "812c2058c8592226b14b2e4f6406e589b4ad2bb1519bee5845edebd082b2ba0f"
+    },
+    "campaign/branching_occlusion--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 39385,
+      "sha256": "d68b052d3bc82d3326f043e1d2a0bada119f31ed33f93a65a2997bb51496c4fb"
+    },
+    "campaign/branching_occlusion--seed-7--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "campaign/branching_occlusion--seed-7--nearest_frontier/events.jsonl": {
+      "bytes": 289997,
+      "sha256": "78d93e7e33d53b2997f4ea97deb7d83334da33915b4c0000f36b58a6326cc4bf"
+    },
+    "campaign/branching_occlusion--seed-7--nearest_frontier/metrics.json": {
+      "bytes": 1751,
+      "sha256": "df6a41853b27bdafacee9d8521d543092bdba77640387513e3b96ec8e84756b4"
+    },
+    "campaign/branching_occlusion--seed-7--no_coordination/coordination.jsonl": {
+      "bytes": 122479,
+      "sha256": "4825c85fd3f393f050f0baae854e7a2ea02fd50b9b861a5d1c8dc9153d1afc05"
+    },
+    "campaign/branching_occlusion--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 37467,
+      "sha256": "4d6d146e73bd70d2a1e6c679f90c502cc02a42f53c27872b5b07fa89297bcdb7"
+    },
+    "campaign/branching_occlusion--seed-7--no_coordination/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "campaign/branching_occlusion--seed-7--no_coordination/events.jsonl": {
+      "bytes": 303101,
+      "sha256": "950812247b4246888d08c73c58b8577d8c625c3dbbcecb7105abe124891a3c2d"
+    },
+    "campaign/branching_occlusion--seed-7--no_coordination/metrics.json": {
+      "bytes": 1735,
+      "sha256": "c4dd2a854860f01063548902a966fdb092a788ada6490f2416f3314bce855acb"
+    },
+    "campaign/branching_occlusion--seed-7--no_global_reposition/coordination.jsonl": {
+      "bytes": 89742,
+      "sha256": "26708e39c7ccd4d8a92fe0e6713300b0d372bad40e5dd0c733849bfb46653717"
+    },
+    "campaign/branching_occlusion--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 29202,
+      "sha256": "d44cbef5a80ab7489d567206a7965f2fb0ea00a96b802beb51874315d36c14d4"
+    },
+    "campaign/branching_occlusion--seed-7--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "campaign/branching_occlusion--seed-7--no_global_reposition/events.jsonl": {
+      "bytes": 203090,
+      "sha256": "0d76af141847e166ceaf1df1eeb3fa51cf842f5a34a5bf5b54a15ae96e288dad"
+    },
+    "campaign/branching_occlusion--seed-7--no_global_reposition/metrics.json": {
+      "bytes": 1740,
+      "sha256": "aef021f215fc8edf99a34a2db6d4010b10174652cc9fd39bd539652d17e53154"
+    },
+    "campaign/branching_occlusion--seed-7--no_visibility_gain/coordination.jsonl": {
+      "bytes": 119538,
+      "sha256": "38b13dd0df04537fd2d52bd9ce3731c4cdb492b7f3021f6237e13a99d0af5f85"
+    },
+    "campaign/branching_occlusion--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 39559,
+      "sha256": "bd6eaada9a30ddaf727529bf7cb371d78e64ec7df42a99206a251167bdcb5e20"
+    },
+    "campaign/branching_occlusion--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "campaign/branching_occlusion--seed-7--no_visibility_gain/events.jsonl": {
+      "bytes": 291333,
+      "sha256": "47b28daa9297e8a26683d1860b1d3d81c29b32616b7fc0be635914ea555cd990"
+    },
+    "campaign/branching_occlusion--seed-7--no_visibility_gain/metrics.json": {
+      "bytes": 1750,
+      "sha256": "778f8930d5af98480f0e75409ef36b7c7248bd571bc695a301d5248a5aabc788"
+    },
+    "campaign/config.json": {
+      "bytes": 748,
+      "sha256": "00a3cc571cc504aa4b0fe6c3ea44e823058c7fa39805cc7e14e5695a622af7d4"
+    },
+    "campaign/environment.json": {
+      "bytes": 277,
+      "sha256": "d35f824b102dd5ac58d62fb268ee2c4b4a4b8ca967333517e89e9fc14ed78264"
+    },
+    "campaign/episodes.csv": {
+      "bytes": 16142,
+      "sha256": "b32d94bc0f612a7372b2b0cb6e01a7f693bde6a76c0d437ba1ccdcd7d09ac415"
+    },
+    "campaign/input-config.json": {
+      "bytes": 648,
+      "sha256": "253c63a84c7441d7c1ad5c25ceb5e597aee1876c4c033663d02ab36fcad3aa0b"
+    },
+    "campaign/manifest.json": {
+      "bytes": 33592,
+      "sha256": "df1c709b86d87108ca88b0aa9a0af6b7fbebd061a8037b5dec9c89e6975101a2"
+    },
+    "campaign/recovery_disconnect--seed-19--baseline/coordination.jsonl": {
+      "bytes": 98000,
+      "sha256": "6365e73b0f064beec0d1545709cf0327a1afba2db956be0f5a9ecca3cd83241e"
+    },
+    "campaign/recovery_disconnect--seed-19--baseline/coverage-ledger.jsonl": {
+      "bytes": 30137,
+      "sha256": "3fc872694e169a9f2b12393596e1d6cf571449f17979c5ef2d7f1f7d10f84f2f"
+    },
+    "campaign/recovery_disconnect--seed-19--baseline/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "campaign/recovery_disconnect--seed-19--baseline/events.jsonl": {
+      "bytes": 234583,
+      "sha256": "fb4f56a49e2cda392663f50ae520dfcf6dff679d15c41401cf9966779491285c"
+    },
+    "campaign/recovery_disconnect--seed-19--baseline/metrics.json": {
+      "bytes": 3098,
+      "sha256": "d61be0a5c3648723d33d00cb767a1118d1834debd9b5ad0c095027996031bfb4"
+    },
+    "campaign/recovery_disconnect--seed-19--nearest_frontier/coordination.jsonl": {
+      "bytes": 120478,
+      "sha256": "0fbdc0b29d0e75802361a3ed9094253fe360a949fabcea3986bb9b6ded8ab8d9"
+    },
+    "campaign/recovery_disconnect--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 38650,
+      "sha256": "9033d513ed1dcec9fb07e9891db57f4895c7288f08662342da77bd224f8c3f3f"
+    },
+    "campaign/recovery_disconnect--seed-19--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "campaign/recovery_disconnect--seed-19--nearest_frontier/events.jsonl": {
+      "bytes": 294567,
+      "sha256": "f88e7a54a52c7cc89d5eb90bf5e21debc3659727626e19801a7158d39c8acc34"
+    },
+    "campaign/recovery_disconnect--seed-19--nearest_frontier/metrics.json": {
+      "bytes": 3113,
+      "sha256": "51904138822201e11fdbb3385ffc15d84772c5fb649dec6566e31be47f8b7fce"
+    },
+    "campaign/recovery_disconnect--seed-19--no_coordination/coordination.jsonl": {
+      "bytes": 107292,
+      "sha256": "7d32dcf77c40118ca73e6702af982beece73a10503067e115f1d08c1ec713cd5"
+    },
+    "campaign/recovery_disconnect--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 33439,
+      "sha256": "da6025f712e2d56e99d35d016f4b2a08a3946f89e77d52358d46895be2095908"
+    },
+    "campaign/recovery_disconnect--seed-19--no_coordination/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "campaign/recovery_disconnect--seed-19--no_coordination/events.jsonl": {
+      "bytes": 265090,
+      "sha256": "fbd264b4b7cb386d4c8b6c719896617086bf16efe40b310580e8e9f6599842f6"
+    },
+    "campaign/recovery_disconnect--seed-19--no_coordination/metrics.json": {
+      "bytes": 3094,
+      "sha256": "d98053579bd82ee6f3255817d3c55d92bd0bc9ba4b0a952e65062ca86e5f7795"
+    },
+    "campaign/recovery_disconnect--seed-19--no_global_reposition/coordination.jsonl": {
+      "bytes": 88202,
+      "sha256": "45d63605caa27d2a7dc4338f6ac5ac9c459b12f646b6124f9165e1cd63cc01e5"
+    },
+    "campaign/recovery_disconnect--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 27840,
+      "sha256": "0b4b65074505298828f3e6ed435ac553a0e99854c2b02a4cd0ce80b05fb51b64"
+    },
+    "campaign/recovery_disconnect--seed-19--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "campaign/recovery_disconnect--seed-19--no_global_reposition/events.jsonl": {
+      "bytes": 209216,
+      "sha256": "ea69a5e58a536c7007adef845deae3b698b51f9e45d78933f313d72628c7155e"
+    },
+    "campaign/recovery_disconnect--seed-19--no_global_reposition/metrics.json": {
+      "bytes": 3122,
+      "sha256": "773bc125329bbe80517ca0448237c807151bd0a202b3bf451343ad0d7383cc4b"
+    },
+    "campaign/recovery_disconnect--seed-19--no_visibility_gain/coordination.jsonl": {
+      "bytes": 121135,
+      "sha256": "370a45ffbbaef231c1b6ccb5df18bdebaf6d9118ba747669e78803771d8d6417"
+    },
+    "campaign/recovery_disconnect--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 37893,
+      "sha256": "83188c51e73d32a1649d1e2d0244998f3e9604d47b3586807d7ed14e229358c2"
+    },
+    "campaign/recovery_disconnect--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "campaign/recovery_disconnect--seed-19--no_visibility_gain/events.jsonl": {
+      "bytes": 294146,
+      "sha256": "64f1aeef0a280931f6021b4769e1b15d9e14f006e773680ea237c7acf2815a60"
+    },
+    "campaign/recovery_disconnect--seed-19--no_visibility_gain/metrics.json": {
+      "bytes": 3122,
+      "sha256": "143b6cca2f2c17fcc0c8d6386979af7425bc36b96123da0ca94c471fc5bff085"
+    },
+    "campaign/recovery_disconnect--seed-7--baseline/coordination.jsonl": {
+      "bytes": 107220,
+      "sha256": "b31de1e0bd479d02e227bfc0c29f9f5ec83402c6ee70964d105b91808dc5333d"
+    },
+    "campaign/recovery_disconnect--seed-7--baseline/coverage-ledger.jsonl": {
+      "bytes": 35460,
+      "sha256": "442de6bdd18af2f4640b545da241003aeb51be73c6e61a04ffcd826e503edd1b"
+    },
+    "campaign/recovery_disconnect--seed-7--baseline/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "campaign/recovery_disconnect--seed-7--baseline/events.jsonl": {
+      "bytes": 272521,
+      "sha256": "794047a775b2dbb9877716088c8596395e6b0c364acaa2f08f1ecbb743c95e5c"
+    },
+    "campaign/recovery_disconnect--seed-7--baseline/metrics.json": {
+      "bytes": 3085,
+      "sha256": "96dd53317b9b8fc356a2efdd1463c1a63aaec11de62e71ef34dfe772580bd328"
+    },
+    "campaign/recovery_disconnect--seed-7--nearest_frontier/coordination.jsonl": {
+      "bytes": 120142,
+      "sha256": "28b4c0ed412a5df57f91c6084f483c706bca8c08dbc0fb1472b677d3a67f5e5f"
+    },
+    "campaign/recovery_disconnect--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 40449,
+      "sha256": "530ca1376c8094bb81c8ac55910a3e4090d8bc1c7d885180ceb53d9e21322d3d"
+    },
+    "campaign/recovery_disconnect--seed-7--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "campaign/recovery_disconnect--seed-7--nearest_frontier/events.jsonl": {
+      "bytes": 295096,
+      "sha256": "6ab72235e5be2d4e9d651fffd0ec0ecbee46569859670685b125e7b2bcaead30"
+    },
+    "campaign/recovery_disconnect--seed-7--nearest_frontier/metrics.json": {
+      "bytes": 3094,
+      "sha256": "024a3bf80b83c551de34e0612bda70a2a40e48f2b4c8800908c25d976fb143e0"
+    },
+    "campaign/recovery_disconnect--seed-7--no_coordination/coordination.jsonl": {
+      "bytes": 121416,
+      "sha256": "52f4a4ae48a074017701765539800d9f25a95ec01290cd7055ac4ea25a52d174"
+    },
+    "campaign/recovery_disconnect--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 37936,
+      "sha256": "0dbc7bc9a32e1471a136ea072094e7be0a87f68e6c0c7ac682d91609b624978b"
+    },
+    "campaign/recovery_disconnect--seed-7--no_coordination/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "campaign/recovery_disconnect--seed-7--no_coordination/events.jsonl": {
+      "bytes": 307902,
+      "sha256": "f81c0466c76a22fb80888bb7ce73eeb6218fb48b1e85d9d9faec8d3f687245a2"
+    },
+    "campaign/recovery_disconnect--seed-7--no_coordination/metrics.json": {
+      "bytes": 3107,
+      "sha256": "fe640723489b51f462c6dca5791e005bfeead31b53683f33547ecbf2702a4caa"
+    },
+    "campaign/recovery_disconnect--seed-7--no_global_reposition/coordination.jsonl": {
+      "bytes": 103331,
+      "sha256": "03a879c840ead356bda3dcecbdcfcaf4485ebc3acc7abe62286a4fd913bcf492"
+    },
+    "campaign/recovery_disconnect--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 33199,
+      "sha256": "33ed7b83b97592baa8b54430ff492bc441f538c1f3f10c39c08b63e647872619"
+    },
+    "campaign/recovery_disconnect--seed-7--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "campaign/recovery_disconnect--seed-7--no_global_reposition/events.jsonl": {
+      "bytes": 240691,
+      "sha256": "ee71bf29032e8c4270a3200b2e1810f9d5b017d3b5be005025563f6fd748ce3b"
+    },
+    "campaign/recovery_disconnect--seed-7--no_global_reposition/metrics.json": {
+      "bytes": 3115,
+      "sha256": "2bbc9fb7f9b08b8b95ea05ec03252b9c1457d82ba93a5130595077a44404a78f"
+    },
+    "campaign/recovery_disconnect--seed-7--no_visibility_gain/coordination.jsonl": {
+      "bytes": 120996,
+      "sha256": "37ad007e9d8a48d3ea3392290d70630806f09db9de3a92612b7a29e2b316bf95"
+    },
+    "campaign/recovery_disconnect--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 40473,
+      "sha256": "7d6be1d0f88047cba04439d036aed68d2e8ac83da8b7ef91497f97eb6c1926ea"
+    },
+    "campaign/recovery_disconnect--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "campaign/recovery_disconnect--seed-7--no_visibility_gain/events.jsonl": {
+      "bytes": 297143,
+      "sha256": "cea385353534f427da307aeeff8f1d902531f4d21f5d41562b5a5015dbf5add4"
+    },
+    "campaign/recovery_disconnect--seed-7--no_visibility_gain/metrics.json": {
+      "bytes": 3095,
+      "sha256": "eca354fd4d18c021585069437138d7548eb877cec1b454e89987834972952009"
+    },
+    "campaign/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 20276,
+      "sha256": "9e209afb81abc16a406f2b6d6eb9b69db6fba63795d918c1237d81bf564a452f"
+    },
+    "campaign/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 37564,
+      "sha256": "8c764aedd78d4eb9dccb8c81c1b37acde75a4f00f285c6b6447361dfcacd249c"
+    },
+    "campaign/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 22131,
+      "sha256": "898c89894f5cd5d419ea06c946ae3d2c7e0b9472d8ea3ff45d1e2e646373282a"
+    },
+    "campaign/source/scripts/spatial_exploration_benchmark.py": {
+      "bytes": 46298,
+      "sha256": "fc95faab1f229b1701ad99432d2bd0d3cfc800f928c6fd7033584e4318781aef"
+    },
+    "campaign/summary.json": {
+      "bytes": 88188,
+      "sha256": "cc950ead09158d428fb72386ca27cc33ace2988093f107764ed5ce8df951e072"
+    },
+    "campaign/vertical_complementarity--seed-19--baseline/coordination.jsonl": {
+      "bytes": 78726,
+      "sha256": "8b95381bff7981448edbe190f7312ab9fa6fbd12c6d3049c34a160f8fe28dacf"
+    },
+    "campaign/vertical_complementarity--seed-19--baseline/coverage-ledger.jsonl": {
+      "bytes": 28110,
+      "sha256": "216f00167803d50a10d5ca467bc650b0ef98a27321a967f27234536d11df86fa"
+    },
+    "campaign/vertical_complementarity--seed-19--baseline/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "campaign/vertical_complementarity--seed-19--baseline/events.jsonl": {
+      "bytes": 191674,
+      "sha256": "8e0300d88b924a0f8bc4beeea99219d062ff2055a675afa8b4fa00e2f95b1b14"
+    },
+    "campaign/vertical_complementarity--seed-19--baseline/metrics.json": {
+      "bytes": 1751,
+      "sha256": "474737a109aa94fe5703989b6be5318374b268650847e948c0d50678c6da7661"
+    },
+    "campaign/vertical_complementarity--seed-19--nearest_frontier/coordination.jsonl": {
+      "bytes": 119821,
+      "sha256": "d8b5bf569bd5784fb84874cbfa62833d21dcb9b22b9fd5ebc24a19ea191732d0"
+    },
+    "campaign/vertical_complementarity--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 39956,
+      "sha256": "a4687ab719e4f9c86905567ea54771933e5b43042ec6c0db413e2506604752c0"
+    },
+    "campaign/vertical_complementarity--seed-19--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "campaign/vertical_complementarity--seed-19--nearest_frontier/events.jsonl": {
+      "bytes": 291149,
+      "sha256": "02fc6bc83e158780d6a9afe76f88a6ee565cde35043f342341cd6047b110fa78"
+    },
+    "campaign/vertical_complementarity--seed-19--nearest_frontier/metrics.json": {
+      "bytes": 1747,
+      "sha256": "5f1f86640ee800ab1cfd3f7ccdfcf322f90fa7aed5e8c56d7568e0015cc1fca8"
+    },
+    "campaign/vertical_complementarity--seed-19--no_coordination/coordination.jsonl": {
+      "bytes": 83016,
+      "sha256": "1983cbc33010ba1607c08d5f8454569e25a4aa7d228e24dd8dc8251126e3c98b"
+    },
+    "campaign/vertical_complementarity--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 31161,
+      "sha256": "ff031be94cf860025a651a5bb99246ed17223f9aa7a9a4f1dfd123e38ee3a010"
+    },
+    "campaign/vertical_complementarity--seed-19--no_coordination/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "campaign/vertical_complementarity--seed-19--no_coordination/events.jsonl": {
+      "bytes": 209265,
+      "sha256": "71971cc89700b49ce1b8e876f6420cec9ebbf4098b9a27a0238e49b6dc7eab4b"
+    },
+    "campaign/vertical_complementarity--seed-19--no_coordination/metrics.json": {
+      "bytes": 1732,
+      "sha256": "8942c843a9a924c8e645f96805d055faae16fbd2c43cde0c9e0eeb581d2a2132"
+    },
+    "campaign/vertical_complementarity--seed-19--no_global_reposition/coordination.jsonl": {
+      "bytes": 73988,
+      "sha256": "480482aedfefbaf96e8b5ad62ebb9cede7395b4a00f6c3297288756393970788"
+    },
+    "campaign/vertical_complementarity--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 27382,
+      "sha256": "08b9c924b9927b606810e190e97e2d1aca7b54f9b75f0a77d6ad709258514995"
+    },
+    "campaign/vertical_complementarity--seed-19--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "campaign/vertical_complementarity--seed-19--no_global_reposition/events.jsonl": {
+      "bytes": 180823,
+      "sha256": "1a908342306f8b00184b9b2a89c3556cb9251767954aba0d7cc392e1340df753"
+    },
+    "campaign/vertical_complementarity--seed-19--no_global_reposition/metrics.json": {
+      "bytes": 1757,
+      "sha256": "cce718763039710e6dca749de3caf7af2471e51b1a533bc89d68ad70d8266b45"
+    },
+    "campaign/vertical_complementarity--seed-19--no_visibility_gain/coordination.jsonl": {
+      "bytes": 121668,
+      "sha256": "849b289ffa0cd6f6201f16e84eebeb26ebc20172022eb3e7b112a2706b07aeef"
+    },
+    "campaign/vertical_complementarity--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 38800,
+      "sha256": "2c24b59e475c029df4267a8c14e11cecf41c37c8fc02b611586ea88fa23e9dc2"
+    },
+    "campaign/vertical_complementarity--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "campaign/vertical_complementarity--seed-19--no_visibility_gain/events.jsonl": {
+      "bytes": 293582,
+      "sha256": "74f98373e6b3ebc9aba3b5ed998bd01186f4e5d47cb654010f5588b3a599ff0e"
+    },
+    "campaign/vertical_complementarity--seed-19--no_visibility_gain/metrics.json": {
+      "bytes": 1755,
+      "sha256": "5733d248295c3b6a2ac159d52d74457753e64a2705cb6029f6e27108d75e7398"
+    },
+    "campaign/vertical_complementarity--seed-7--baseline/coordination.jsonl": {
+      "bytes": 93489,
+      "sha256": "7802ebf577a8721067b836014bb5218e6e10d2e02e2df4cd4951fe0baa11dc0d"
+    },
+    "campaign/vertical_complementarity--seed-7--baseline/coverage-ledger.jsonl": {
+      "bytes": 31648,
+      "sha256": "1e1d0b24bfd8d2ae61b918d58462e3a66c94d86df472931b54fb6963bd960ace"
+    },
+    "campaign/vertical_complementarity--seed-7--baseline/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "campaign/vertical_complementarity--seed-7--baseline/events.jsonl": {
+      "bytes": 229438,
+      "sha256": "8e8bc17da269719871b9dd55ddc359ab2e6fd168d87de94a54ebebbc193a1e9f"
+    },
+    "campaign/vertical_complementarity--seed-7--baseline/metrics.json": {
+      "bytes": 1725,
+      "sha256": "298ce9ae028042fb3dd4aa7de44c142d8a59195334ab93534e70f280e748fe83"
+    },
+    "campaign/vertical_complementarity--seed-7--nearest_frontier/coordination.jsonl": {
+      "bytes": 120255,
+      "sha256": "a222285f10b5e4bb3746fe6de8070aeb9b7ee433808d9c96021c1c54497637c0"
+    },
+    "campaign/vertical_complementarity--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 38579,
+      "sha256": "7f22f80165cb25aa473473a140afe032e7a52a20bee7556621ad172e18fa495e"
+    },
+    "campaign/vertical_complementarity--seed-7--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "campaign/vertical_complementarity--seed-7--nearest_frontier/events.jsonl": {
+      "bytes": 291345,
+      "sha256": "5993eea94b924adcf9abb5638662b75d968532435bfef662527a032ba6e360fc"
+    },
+    "campaign/vertical_complementarity--seed-7--nearest_frontier/metrics.json": {
+      "bytes": 1754,
+      "sha256": "edfcbf22a7a9f1297534f0ef0d6c6f9d5aeffccbeeb2c01b987eb32b2b07925c"
+    },
+    "campaign/vertical_complementarity--seed-7--no_coordination/coordination.jsonl": {
+      "bytes": 100096,
+      "sha256": "32fc2ddff9480f798e93350139c36f4942f79ee1873f50c9567b4840f34ef45f"
+    },
+    "campaign/vertical_complementarity--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 32309,
+      "sha256": "9beaf60a298922138ea0d8d1b66b2cd7d654bdb49bc082d42820060184613da0"
+    },
+    "campaign/vertical_complementarity--seed-7--no_coordination/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "campaign/vertical_complementarity--seed-7--no_coordination/events.jsonl": {
+      "bytes": 247127,
+      "sha256": "3f17ebc2c9d93f2bd9521995176ab3fe6c8ed65817a868410909938f2c4bde68"
+    },
+    "campaign/vertical_complementarity--seed-7--no_coordination/metrics.json": {
+      "bytes": 1736,
+      "sha256": "d1cfcc8c37d973d9ca8652c44f9fd55aa9643cc25f0ad55807bc20a07809bef1"
+    },
+    "campaign/vertical_complementarity--seed-7--no_global_reposition/coordination.jsonl": {
+      "bytes": 78144,
+      "sha256": "ce0f31e7a32db19dce13f737ee12b4c479936e92b237cce1ef1b970741ee50be"
+    },
+    "campaign/vertical_complementarity--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 29054,
+      "sha256": "2333a45964bfa03ab5737af5c409d11e677c59bc84372a9af2fac92ee465e713"
+    },
+    "campaign/vertical_complementarity--seed-7--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "campaign/vertical_complementarity--seed-7--no_global_reposition/events.jsonl": {
+      "bytes": 190047,
+      "sha256": "da393766526c30955c80ba1cdd97273655b395dedee4f3c7fd15e06a59b531c5"
+    },
+    "campaign/vertical_complementarity--seed-7--no_global_reposition/metrics.json": {
+      "bytes": 1753,
+      "sha256": "7a33f69d6158f828d3b4a764f39ae6e5f14ff3c29bdaed6029d20ea0edc21fa2"
+    },
+    "campaign/vertical_complementarity--seed-7--no_visibility_gain/coordination.jsonl": {
+      "bytes": 120617,
+      "sha256": "0f7bc5efe1e8850e1658f187aa30442bd16c4de1c96957d21b923c6ee412dee8"
+    },
+    "campaign/vertical_complementarity--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 43954,
+      "sha256": "8d49c153ffcecda5401836c0ee00d9c411d1f6f9e736e03f4d8b976b8fa556fd"
+    },
+    "campaign/vertical_complementarity--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "campaign/vertical_complementarity--seed-7--no_visibility_gain/events.jsonl": {
+      "bytes": 295791,
+      "sha256": "757905ec9f84d5624d20acf7d92762acc9b34667766145da4db43295fac45ef0"
+    },
+    "campaign/vertical_complementarity--seed-7--no_visibility_gain/metrics.json": {
+      "bytes": 1729,
+      "sha256": "fe863e39e1f35d4fe040a3b9fa3c412947439c568aeea497676f93b7107c7538"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--baseline/coordination.jsonl": {
+      "bytes": 101323,
+      "sha256": "82a528f6b75b2ffeba08bf04668f4c2c413f3d77f0249d416a0ab5c95d636115"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--baseline/coverage-ledger.jsonl": {
+      "bytes": 30537,
+      "sha256": "ec6b6db678f5351becd091a8e319fc58f96657dcf03064f3de6233e820d86be5"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--baseline/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--baseline/events.jsonl": {
+      "bytes": 236091,
+      "sha256": "fc060fb95bab130170cbaac76fc78d824edc667ae766159881ae28152b16d20b"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--baseline/metrics.json": {
+      "bytes": 1726,
+      "sha256": "df85209f768792117944742555d9a608820ed1a45261377bdcb62b4f56226596"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--nearest_frontier/coordination.jsonl": {
+      "bytes": 119264,
+      "sha256": "b8dfbb3954b52c8ce8f574237293823a86fd7a2ea3aef584f4168cb81b818ae9"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 37195,
+      "sha256": "e2d92a38bbe091837b8bfa0ac50a2173c30f00dcb7ce6d5bcda355e36360946d"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--nearest_frontier/events.jsonl": {
+      "bytes": 289417,
+      "sha256": "8e3d0d73d6a15c771072576ecfbba5e96f0b76cf28bbb9ddbf7f9dada29835eb"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--nearest_frontier/metrics.json": {
+      "bytes": 1734,
+      "sha256": "e3dd8e893a07eb33cd826cfeb739ec2f7b7dd77ca318f164abadb9a1abfc0222"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_coordination/coordination.jsonl": {
+      "bytes": 92377,
+      "sha256": "7a49a8ca0d935915c1c99bbabd62795a8a668dc68b15908598f48c3045590667"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 28418,
+      "sha256": "9e951e720e13774d9be7fe1ebbb96fe704123cd1c3bad21a632e381868a6d234"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_coordination/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_coordination/events.jsonl": {
+      "bytes": 218532,
+      "sha256": "0fc588fbb5e98a896a84963ffd756ec3077c16c595d6b6f7a1890e38e78612d1"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_coordination/metrics.json": {
+      "bytes": 1735,
+      "sha256": "ca3f2c0adcd0248a9fd245bce8bf438bd255e38b51834ac84a4f30c267561be1"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_global_reposition/coordination.jsonl": {
+      "bytes": 81369,
+      "sha256": "b4435cc1139f7cb9f837651969f9c843f0c8e09254eac597140899e462e58640"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 26448,
+      "sha256": "b79d632d0c678035687c8f7e81b4f10b471369ddc41be70da6878453f6d322ad"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_global_reposition/events.jsonl": {
+      "bytes": 182805,
+      "sha256": "bca4a3358b2631cf1535bdc756eea3e432bc5172abc48b57138b0b6639a81c69"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_global_reposition/metrics.json": {
+      "bytes": 1753,
+      "sha256": "a34b10f8db9d8bbdb0984afee341f0a57e9c8acb911127dec9b52061130e4278"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_visibility_gain/coordination.jsonl": {
+      "bytes": 94041,
+      "sha256": "a9ab666790c74e2b851f1df8ab5595e373bfecd4a36de87c34a1705fb3711b80"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 31690,
+      "sha256": "f2c7a00ffcf279ca3722fff43797504edb32fa61ad43140adb780eaf2f188774"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "450792b8fa8539a586efa7680ef7592c41d3a5a46961f708b4b4ed916ffa2291"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_visibility_gain/events.jsonl": {
+      "bytes": 232263,
+      "sha256": "b32ddfd50775364de45c9db41b0e41bed1b674fcb94dfd99f58a9d39e30bf0e9"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-19--no_visibility_gain/metrics.json": {
+      "bytes": 1762,
+      "sha256": "53023ea9d503af28be35d29ba033ea86216999137a15f49db7a03c5959a61797"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--baseline/coordination.jsonl": {
+      "bytes": 97866,
+      "sha256": "f78bc80287f1361009e5f84cf4380c1a30a8718ca98ca18f35931514602b5ee4"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--baseline/coverage-ledger.jsonl": {
+      "bytes": 32569,
+      "sha256": "938bc9ce004d612f4a91b74bc5a7696ba37e3c9334823fa2f0a9b93ff877fb8e"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--baseline/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--baseline/events.jsonl": {
+      "bytes": 244700,
+      "sha256": "9e400c5d6d1b309f7b1a3dc4a520483e57b9f6b58c809504d65c575a7e5f597e"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--baseline/metrics.json": {
+      "bytes": 1725,
+      "sha256": "69092031dc73afbe028d8f311d9e7d0dfba067eb2524f28704433f3288cb4cd5"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--nearest_frontier/coordination.jsonl": {
+      "bytes": 118981,
+      "sha256": "812c2058c8592226b14b2e4f6406e589b4ad2bb1519bee5845edebd082b2ba0f"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 39385,
+      "sha256": "d68b052d3bc82d3326f043e1d2a0bada119f31ed33f93a65a2997bb51496c4fb"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--nearest_frontier/events.jsonl": {
+      "bytes": 289990,
+      "sha256": "82d390ce8a947243ac93de865be052bbcdfb74765c645873c029dd2a5dab30ae"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--nearest_frontier/metrics.json": {
+      "bytes": 1732,
+      "sha256": "efed2b659b43e6e987e336618619c6a9edb8c85a2b8b88433bad3ce40e886f5d"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_coordination/coordination.jsonl": {
+      "bytes": 122479,
+      "sha256": "4825c85fd3f393f050f0baae854e7a2ea02fd50b9b861a5d1c8dc9153d1afc05"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 37467,
+      "sha256": "4d6d146e73bd70d2a1e6c679f90c502cc02a42f53c27872b5b07fa89297bcdb7"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_coordination/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_coordination/events.jsonl": {
+      "bytes": 303089,
+      "sha256": "6fbd45805d836513d13b0f95a76254ee7ba2a6ff07bae5976358da05c2f5f117"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_coordination/metrics.json": {
+      "bytes": 1753,
+      "sha256": "38127f73895b317e0bf629ce1e584cd9f4fe31f8e24647b1cc08849ce319059b"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_global_reposition/coordination.jsonl": {
+      "bytes": 89742,
+      "sha256": "26708e39c7ccd4d8a92fe0e6713300b0d372bad40e5dd0c733849bfb46653717"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 29202,
+      "sha256": "d44cbef5a80ab7489d567206a7965f2fb0ea00a96b802beb51874315d36c14d4"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_global_reposition/events.jsonl": {
+      "bytes": 203090,
+      "sha256": "311864d4879bde24510774951ab6b3016169e2e84b836639e6b2216b88d2a180"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_global_reposition/metrics.json": {
+      "bytes": 1742,
+      "sha256": "c0d60e0b849c6e55bad6bb8a850c5a337274dfbfa89175a4394cc5a427eaa8f6"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_visibility_gain/coordination.jsonl": {
+      "bytes": 119538,
+      "sha256": "38b13dd0df04537fd2d52bd9ce3731c4cdb492b7f3021f6237e13a99d0af5f85"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 39559,
+      "sha256": "bd6eaada9a30ddaf727529bf7cb371d78e64ec7df42a99206a251167bdcb5e20"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "d6e021a96c462c5c076ed03cfede6c395eedf665cf7306fff955408dc91a2333"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_visibility_gain/events.jsonl": {
+      "bytes": 291328,
+      "sha256": "0a6226d3450c8a8c0f6e9e818bb8c6cfe10b39c5ea450316e1e21bb4799fd387"
+    },
+    "pre-byte-capacity-campaign/branching_occlusion--seed-7--no_visibility_gain/metrics.json": {
+      "bytes": 1743,
+      "sha256": "8f7dcb5f85c487ca83c36e90867bcec60b8d3d0467fa9b1efce7f721bcd03da7"
+    },
+    "pre-byte-capacity-campaign/config.json": {
+      "bytes": 748,
+      "sha256": "00a3cc571cc504aa4b0fe6c3ea44e823058c7fa39805cc7e14e5695a622af7d4"
+    },
+    "pre-byte-capacity-campaign/environment.json": {
+      "bytes": 277,
+      "sha256": "d35f824b102dd5ac58d62fb268ee2c4b4a4b8ca967333517e89e9fc14ed78264"
+    },
+    "pre-byte-capacity-campaign/episodes.csv": {
+      "bytes": 16173,
+      "sha256": "5af7e6763d17797a19ba91da118c1db382a025b3eaed30deb7c27c2f172983f8"
+    },
+    "pre-byte-capacity-campaign/input-config.json": {
+      "bytes": 648,
+      "sha256": "253c63a84c7441d7c1ad5c25ceb5e597aee1876c4c033663d02ab36fcad3aa0b"
+    },
+    "pre-byte-capacity-campaign/manifest.json": {
+      "bytes": 33592,
+      "sha256": "296d94d771055905670887008e0faadd309605a8923d6145a29f21232b9e62e1"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--baseline/coordination.jsonl": {
+      "bytes": 98000,
+      "sha256": "6365e73b0f064beec0d1545709cf0327a1afba2db956be0f5a9ecca3cd83241e"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--baseline/coverage-ledger.jsonl": {
+      "bytes": 30137,
+      "sha256": "3fc872694e169a9f2b12393596e1d6cf571449f17979c5ef2d7f1f7d10f84f2f"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--baseline/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--baseline/events.jsonl": {
+      "bytes": 234590,
+      "sha256": "f154efc7bcba5c2c95848f6760826cdb3662231df4a027e10437fde80e3544ac"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--baseline/metrics.json": {
+      "bytes": 3086,
+      "sha256": "848b2d46a9d4b9b08cd3f585f261b452f8a0ceba51e66e7540b5952ffb74546f"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--nearest_frontier/coordination.jsonl": {
+      "bytes": 120478,
+      "sha256": "0fbdc0b29d0e75802361a3ed9094253fe360a949fabcea3986bb9b6ded8ab8d9"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 38650,
+      "sha256": "9033d513ed1dcec9fb07e9891db57f4895c7288f08662342da77bd224f8c3f3f"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--nearest_frontier/events.jsonl": {
+      "bytes": 294557,
+      "sha256": "88bd8bb2baab27bd1c8dd29df7bcc8df07ee9e1e34022c875b9b5964e031f5df"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--nearest_frontier/metrics.json": {
+      "bytes": 3113,
+      "sha256": "aafd4734e046a3c29b2f871a8017e3334c4f35ed380b8c769924fc8291c2d827"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_coordination/coordination.jsonl": {
+      "bytes": 107292,
+      "sha256": "7d32dcf77c40118ca73e6702af982beece73a10503067e115f1d08c1ec713cd5"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 33439,
+      "sha256": "da6025f712e2d56e99d35d016f4b2a08a3946f89e77d52358d46895be2095908"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_coordination/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_coordination/events.jsonl": {
+      "bytes": 265104,
+      "sha256": "8dc6bd5ca7bc8968fb0c74e705f30d431ac642b311700c291d22f5d0a4d5be4b"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_coordination/metrics.json": {
+      "bytes": 3121,
+      "sha256": "27ee345d71bd6fe6f29c3d476d18e2ff6f30fa6176354bba76e2e94cf972e457"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_global_reposition/coordination.jsonl": {
+      "bytes": 88202,
+      "sha256": "45d63605caa27d2a7dc4338f6ac5ac9c459b12f646b6124f9165e1cd63cc01e5"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 27840,
+      "sha256": "0b4b65074505298828f3e6ed435ac553a0e99854c2b02a4cd0ce80b05fb51b64"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_global_reposition/events.jsonl": {
+      "bytes": 209217,
+      "sha256": "59471c47593b49d4867601c9cf0861f680460ac6a76012e8c72d793f7bca066b"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_global_reposition/metrics.json": {
+      "bytes": 3113,
+      "sha256": "c636daa88a00b6259133abe9b41ef08675dd2f811e2705f879cb64fcf21389cc"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_visibility_gain/coordination.jsonl": {
+      "bytes": 121135,
+      "sha256": "370a45ffbbaef231c1b6ccb5df18bdebaf6d9118ba747669e78803771d8d6417"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 37893,
+      "sha256": "83188c51e73d32a1649d1e2d0244998f3e9604d47b3586807d7ed14e229358c2"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14639,
+      "sha256": "9ebe6e01c34e30a69ddea82701d37378ddfe3252727916ea8fd98a21ef3f2333"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_visibility_gain/events.jsonl": {
+      "bytes": 294165,
+      "sha256": "2ce8d89286b97014bbd7568c8150a2a4cb6169b537ac2214508744060ea76124"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-19--no_visibility_gain/metrics.json": {
+      "bytes": 3102,
+      "sha256": "3e4934042f03d8612b9db0d31d14f1de04cf273112da4cafb8cabc5fe4b0cc87"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--baseline/coordination.jsonl": {
+      "bytes": 107220,
+      "sha256": "b31de1e0bd479d02e227bfc0c29f9f5ec83402c6ee70964d105b91808dc5333d"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--baseline/coverage-ledger.jsonl": {
+      "bytes": 35460,
+      "sha256": "442de6bdd18af2f4640b545da241003aeb51be73c6e61a04ffcd826e503edd1b"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--baseline/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--baseline/events.jsonl": {
+      "bytes": 272512,
+      "sha256": "fe2da9d3d2b8eb58eafdc4aea8c26741784b91aab9dceb72f19dc9f859ef8672"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--baseline/metrics.json": {
+      "bytes": 3082,
+      "sha256": "c4735375c1b24a30ad70d48f4ad6905dfa8c462f9a9cf796475d3cb26c8ca042"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--nearest_frontier/coordination.jsonl": {
+      "bytes": 120142,
+      "sha256": "28b4c0ed412a5df57f91c6084f483c706bca8c08dbc0fb1472b677d3a67f5e5f"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 40449,
+      "sha256": "530ca1376c8094bb81c8ac55910a3e4090d8bc1c7d885180ceb53d9e21322d3d"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--nearest_frontier/events.jsonl": {
+      "bytes": 295096,
+      "sha256": "80ace18ab9c6fe30c479d7630fc42a6dab12bd19462c15e3c314395fbcf36765"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--nearest_frontier/metrics.json": {
+      "bytes": 3103,
+      "sha256": "60740cad4145d8b1ae91c1bbf0151b36a947bc8ddfca4e2e53c16f6b76812546"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_coordination/coordination.jsonl": {
+      "bytes": 121416,
+      "sha256": "52f4a4ae48a074017701765539800d9f25a95ec01290cd7055ac4ea25a52d174"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 37936,
+      "sha256": "0dbc7bc9a32e1471a136ea072094e7be0a87f68e6c0c7ac682d91609b624978b"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_coordination/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_coordination/events.jsonl": {
+      "bytes": 307911,
+      "sha256": "56bf3ff46dbbc5318eea2011cbd3769869bb6bf1d27b17b9ee68c171b2b89703"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_coordination/metrics.json": {
+      "bytes": 3102,
+      "sha256": "dbfa7e8e0331d5bab3baa66b9056b096f575810ed85a6db3465017db467cfe8b"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_global_reposition/coordination.jsonl": {
+      "bytes": 103331,
+      "sha256": "03a879c840ead356bda3dcecbdcfcaf4485ebc3acc7abe62286a4fd913bcf492"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 33199,
+      "sha256": "33ed7b83b97592baa8b54430ff492bc441f538c1f3f10c39c08b63e647872619"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_global_reposition/events.jsonl": {
+      "bytes": 240681,
+      "sha256": "08febc5e4028b952b60d15fabbace629d49150a8d8443dd5625b1925e4ca65c7"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_global_reposition/metrics.json": {
+      "bytes": 3124,
+      "sha256": "d9881968c8fb715260b55dc27cac541a38aac5903c23e4ba2155de18a6122115"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_visibility_gain/coordination.jsonl": {
+      "bytes": 120996,
+      "sha256": "37ad007e9d8a48d3ea3392290d70630806f09db9de3a92612b7a29e2b316bf95"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 40473,
+      "sha256": "7d6be1d0f88047cba04439d036aed68d2e8ac83da8b7ef91497f97eb6c1926ea"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14638,
+      "sha256": "ede148652d2eac9819c194bdb6fa9500ba51ab17b25f4068decc146a70952eb3"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_visibility_gain/events.jsonl": {
+      "bytes": 297141,
+      "sha256": "9207b02d9ac873fe942f9266d45fc759a1cf3ff1e918f469af70aa5d4a5b2bdc"
+    },
+    "pre-byte-capacity-campaign/recovery_disconnect--seed-7--no_visibility_gain/metrics.json": {
+      "bytes": 3113,
+      "sha256": "ffbed58b8eec170f5268a669c9339bdaaa26bd64b4a3b60cec71944482c5ce63"
+    },
+    "pre-byte-capacity-campaign/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 20276,
+      "sha256": "9e209afb81abc16a406f2b6d6eb9b69db6fba63795d918c1237d81bf564a452f"
+    },
+    "pre-byte-capacity-campaign/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 37190,
+      "sha256": "07d08a62fd7fe02d4f28606dc45be4e77c14a928df9e9596bdf2f5dd080562c1"
+    },
+    "pre-byte-capacity-campaign/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 22131,
+      "sha256": "898c89894f5cd5d419ea06c946ae3d2c7e0b9472d8ea3ff45d1e2e646373282a"
+    },
+    "pre-byte-capacity-campaign/source/scripts/spatial_exploration_benchmark.py": {
+      "bytes": 46298,
+      "sha256": "fc95faab1f229b1701ad99432d2bd0d3cfc800f928c6fd7033584e4318781aef"
+    },
+    "pre-byte-capacity-campaign/summary.json": {
+      "bytes": 88188,
+      "sha256": "e858d4693b0877f71f3743bd74f691aaf2806a97e92c04156c73046d60e8211c"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--baseline/coordination.jsonl": {
+      "bytes": 78726,
+      "sha256": "8b95381bff7981448edbe190f7312ab9fa6fbd12c6d3049c34a160f8fe28dacf"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--baseline/coverage-ledger.jsonl": {
+      "bytes": 28110,
+      "sha256": "216f00167803d50a10d5ca467bc650b0ef98a27321a967f27234536d11df86fa"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--baseline/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--baseline/events.jsonl": {
+      "bytes": 191687,
+      "sha256": "d2b770745aa39f6d669ce5a17aca5a4de709570b4259ac864f151c3b358d6fd9"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--baseline/metrics.json": {
+      "bytes": 1743,
+      "sha256": "b801f1c7eaaae67b7b5cd7facac05d5f5dd1dc58728106a5ca60c2f844966274"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--nearest_frontier/coordination.jsonl": {
+      "bytes": 119821,
+      "sha256": "d8b5bf569bd5784fb84874cbfa62833d21dcb9b22b9fd5ebc24a19ea191732d0"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 39956,
+      "sha256": "a4687ab719e4f9c86905567ea54771933e5b43042ec6c0db413e2506604752c0"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--nearest_frontier/events.jsonl": {
+      "bytes": 291144,
+      "sha256": "2b6f0a4abe12fe2209ba2223de2f5ef22e9a628f77fafc5b50547ec4de8f4dc7"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--nearest_frontier/metrics.json": {
+      "bytes": 1746,
+      "sha256": "890d1d39498fd281ecf7803404e4e2cd4e6bd0d9c2052282fac4ec0006f148ba"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_coordination/coordination.jsonl": {
+      "bytes": 83016,
+      "sha256": "1983cbc33010ba1607c08d5f8454569e25a4aa7d228e24dd8dc8251126e3c98b"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 31161,
+      "sha256": "ff031be94cf860025a651a5bb99246ed17223f9aa7a9a4f1dfd123e38ee3a010"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_coordination/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_coordination/events.jsonl": {
+      "bytes": 209258,
+      "sha256": "a38a7e81b73cf94db9f53bf68c57cbf3b62e01755f20afbef833cf3c87e26e0a"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_coordination/metrics.json": {
+      "bytes": 1718,
+      "sha256": "c7465d5e9db9e2035480fdd459a4a30b22c56450a05021d40c1405afd700f3b0"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_global_reposition/coordination.jsonl": {
+      "bytes": 73988,
+      "sha256": "480482aedfefbaf96e8b5ad62ebb9cede7395b4a00f6c3297288756393970788"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 27382,
+      "sha256": "08b9c924b9927b606810e190e97e2d1aca7b54f9b75f0a77d6ad709258514995"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_global_reposition/events.jsonl": {
+      "bytes": 180818,
+      "sha256": "342ac53e739d8e31e1c036932086d18c8b8e90a2421dcd3a0eb5dff4fb8e70db"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_global_reposition/metrics.json": {
+      "bytes": 1741,
+      "sha256": "a2b2b3a59731798f9d0304faf4a284b0a0d4aa957a3b503f6af62f2570528db3"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_visibility_gain/coordination.jsonl": {
+      "bytes": 121668,
+      "sha256": "849b289ffa0cd6f6201f16e84eebeb26ebc20172022eb3e7b112a2706b07aeef"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 38800,
+      "sha256": "2c24b59e475c029df4267a8c14e11cecf41c37c8fc02b611586ea88fa23e9dc2"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14592,
+      "sha256": "51639c7cbe6841537a0bc36a60ad405a6ed7d4a0962215520e2d567ef867cfe7"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_visibility_gain/events.jsonl": {
+      "bytes": 293588,
+      "sha256": "340b6b9b14da4d6ff6f1c40088dd2c5e968d9debd5f5bcf0b0b84209a968a9c9"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-19--no_visibility_gain/metrics.json": {
+      "bytes": 1746,
+      "sha256": "37f19f3deb5d075e3751b8810b28bb5565d1b18ed8b28fe1acbeb66610aada7d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--baseline/coordination.jsonl": {
+      "bytes": 93489,
+      "sha256": "7802ebf577a8721067b836014bb5218e6e10d2e02e2df4cd4951fe0baa11dc0d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--baseline/coverage-ledger.jsonl": {
+      "bytes": 31648,
+      "sha256": "1e1d0b24bfd8d2ae61b918d58462e3a66c94d86df472931b54fb6963bd960ace"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--baseline/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--baseline/events.jsonl": {
+      "bytes": 229422,
+      "sha256": "e97ef7607dd5c36323358d62310742e8c08dc3fc5c3bdca3115e1fff519851b6"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--baseline/metrics.json": {
+      "bytes": 1724,
+      "sha256": "22b27d04bcff43945255dd9e77b1badb07a1490d2a2c55cb9f1afe5c1aca8dd5"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--nearest_frontier/coordination.jsonl": {
+      "bytes": 120255,
+      "sha256": "a222285f10b5e4bb3746fe6de8070aeb9b7ee433808d9c96021c1c54497637c0"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--nearest_frontier/coverage-ledger.jsonl": {
+      "bytes": 38579,
+      "sha256": "7f22f80165cb25aa473473a140afe032e7a52a20bee7556621ad172e18fa495e"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--nearest_frontier/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--nearest_frontier/events.jsonl": {
+      "bytes": 291343,
+      "sha256": "c19ce3dab01334a341768957be5f39ed1c8b38c3cccbbd714698185badbe10ff"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--nearest_frontier/metrics.json": {
+      "bytes": 1745,
+      "sha256": "52b9976b0a280bc29c4e2666e8f5dec4f43eb994af4a0da1e906dcec29e2fa9b"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_coordination/coordination.jsonl": {
+      "bytes": 100096,
+      "sha256": "32fc2ddff9480f798e93350139c36f4942f79ee1873f50c9567b4840f34ef45f"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_coordination/coverage-ledger.jsonl": {
+      "bytes": 32309,
+      "sha256": "9beaf60a298922138ea0d8d1b66b2cd7d654bdb49bc082d42820060184613da0"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_coordination/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_coordination/events.jsonl": {
+      "bytes": 247132,
+      "sha256": "c63e81c18271dd54522f1afdc46115c527f42682cf2216d87998cb609c6aa1ef"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_coordination/metrics.json": {
+      "bytes": 1736,
+      "sha256": "d8c2b53fb17eb54a4073b2605bb55c2e8c648e30adbba29ad7a7d5b7b8c866f6"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_global_reposition/coordination.jsonl": {
+      "bytes": 78144,
+      "sha256": "ce0f31e7a32db19dce13f737ee12b4c479936e92b237cce1ef1b970741ee50be"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_global_reposition/coverage-ledger.jsonl": {
+      "bytes": 29054,
+      "sha256": "2333a45964bfa03ab5737af5c409d11e677c59bc84372a9af2fac92ee465e713"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_global_reposition/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_global_reposition/events.jsonl": {
+      "bytes": 190054,
+      "sha256": "95020123da0b6ec3b9a4d9d7fef49899ae803a8ea999fb7512c6c56124ef1b0a"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_global_reposition/metrics.json": {
+      "bytes": 1787,
+      "sha256": "bc2d0ea8df39fe04db0febe340a993db1976f9fde89aa20401023e68eef149bf"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_visibility_gain/coordination.jsonl": {
+      "bytes": 120617,
+      "sha256": "0f7bc5efe1e8850e1658f187aa30442bd16c4de1c96957d21b923c6ee412dee8"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_visibility_gain/coverage-ledger.jsonl": {
+      "bytes": 43954,
+      "sha256": "8d49c153ffcecda5401836c0ee00d9c411d1f6f9e736e03f4d8b976b8fa556fd"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_visibility_gain/evaluator-truth.json": {
+      "bytes": 14591,
+      "sha256": "982fb1aa9beea1ee9cadca4907fe15661c91e3486acb8b92793bf337a0ad0e6d"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_visibility_gain/events.jsonl": {
+      "bytes": 295798,
+      "sha256": "2e6285d016074847524e55744d15a3f51ea55fdb4f280f11eb89b2d04bba916b"
+    },
+    "pre-byte-capacity-campaign/vertical_complementarity--seed-7--no_visibility_gain/metrics.json": {
+      "bytes": 1763,
+      "sha256": "af408d91d8f3f155e973084a803947de855f7fc0e1c282e925e3a3a0f5252779"
+    },
+    "pre-byte-capacity-figure/paired-exploration.png": {
+      "bytes": 314141,
+      "sha256": "fd24205ff3651fb6e76ed7f58c9f26ef5ae94ed85a870d46c673385a4c5f9ce3"
+    },
+    "pre-byte-capacity-figure/paired-exploration.svg": {
+      "bytes": 55057,
+      "sha256": "86ade8db03a6c250c7070ebacc2b1151a6036131b1b2c570bcfd9659049ab7ad"
+    },
+    "pre-byte-capacity-figure/plotted-values.csv": {
+      "bytes": 7944,
+      "sha256": "85fe4710a92cfe0dfd207ccc8acf7dac79baeb41d28f961f3d8831b78802a3db"
+    },
+    "pre-byte-capacity-figure/provenance.json": {
+      "bytes": 1382,
+      "sha256": "e81d7e734e74ea54cf1df136ec1ff6579920b2b99d783d5d42f0353c0115ed60"
+    },
+    "validation/additional-status.json": {
+      "bytes": 385,
+      "sha256": "7360ce9d5b74faa976f998d094be8099ac145d51767a8625362c6fafe067973c"
+    },
+    "validation/benchmark-tests.log": {
+      "bytes": 911,
+      "sha256": "02cdd64f429a5efcac6413a9a982f6b355c9a66683297ed220589cc11b3391f2"
+    },
+    "validation/book.log": {
+      "bytes": 99,
+      "sha256": "1f3ecc8769b83fbd2a99e4d2cdb330e79a885e1e27353faca574861d2bc7ee2c"
+    },
+    "validation/build.log": {
+      "bytes": 189,
+      "sha256": "748f954c8a83270cf085595edadc338a9422b9feabdf20d27fddbe2ad9860e59"
+    },
+    "validation/campaign-002-execution-context.json": {
+      "bytes": 624,
+      "sha256": "f9d6ccdd8af874421e330e3a2086612fad3ae863a8783090e217a739be176e6c"
+    },
+    "validation/campaign-002-status.json": {
+      "bytes": 625,
+      "sha256": "9bbdd5c257d2364ce25b499ef9b796618af58da0046235817f08b777d267bb32"
+    },
+    "validation/campaign-002.log": {
+      "bytes": 113,
+      "sha256": "30e1a1460b4bc30815a38857b1b5ff30499d1ce58eb85aa7e5f8cb4193b55d7c"
+    },
+    "validation/campaign-execution-context.json": {
+      "bytes": 516,
+      "sha256": "375178dacd142d25207e0acd84e17b8c32ea9551c7289bce69d3d4280abf7ec0"
+    },
+    "validation/campaign-status.json": {
+      "bytes": 624,
+      "sha256": "adb60caeb020fae43318a3049d888fc03d7750c31f9d453bc1c883004625578f"
+    },
+    "validation/campaign.log": {
+      "bytes": 113,
+      "sha256": "2e8762db8db2bb41110b0a97c153733c4ba158a8d65beeebf3c1524b36ed246e"
+    },
+    "validation/final-focused.log": {
+      "bytes": 3027,
+      "sha256": "9129703beca4fc1c8a005973651c4eaef9cdc0710d39201db77e1d73e75f98c2"
+    },
+    "validation/final-lint-attempt02.log": {
+      "bytes": 482,
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    },
+    "validation/final-lint.log": {
+      "bytes": 977,
+      "sha256": "1011ab25f66aac3e9a9ddeed8f7fe0ac8b537f3c5960f4ef14226d0f5c7b9e7d"
+    },
+    "validation/generate.log": {
+      "bytes": 90,
+      "sha256": "a373eebf37c4724c7f81b8366d89fdcfca795564207eddcb470773cf8ec47fd2"
+    },
+    "validation/go-build-status.json": {
+      "bytes": 314,
+      "sha256": "333a569f54a9ca333bad4f99fca147250f77af9e85fc32d2ac3729c896b208a2"
+    },
+    "validation/go.log": {
+      "bytes": 6494,
+      "sha256": "27578287b88a09ea7bafb1bc6745f5d79d9b6a164db4c28d91500077881a5a17"
+    },
+    "validation/lint.log": {
+      "bytes": 482,
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    },
+    "validation/python-main.log": {
+      "bytes": 7823,
+      "sha256": "bffd2d04b5e2859fb3da8175b02db6160e9e59e0252c7db821433ec099d51c40"
+    },
+    "validation/python-status.json": {
+      "bytes": 433,
+      "sha256": "c5b759065cb7fec277f2fea974c23be64f26eeefe15577281f2d8523affb032b"
+    },
+    "validation/replay-002.log": {
+      "bytes": 79,
+      "sha256": "369b8a0581036ab4dfd72fe9f29c3e81e43971f259a3da625a990594099105f1"
+    },
+    "validation/replay.log": {
+      "bytes": 79,
+      "sha256": "369b8a0581036ab4dfd72fe9f29c3e81e43971f259a3da625a990594099105f1"
+    },
+    "validation/runtime-boundary.log": {
+      "bytes": 386,
+      "sha256": "60b30eadd9ea0e1f2503016b42a616ef49130e1d889aca0b82dec673bac5ff01"
+    },
+    "validation/web-status.json": {
+      "bytes": 67,
+      "sha256": "d787862d1adce840526cff8f36a8e914ad6ff7302a369ed25eccd119a12f5d77"
+    },
+    "validation/web.log": {
+      "bytes": 45043,
+      "sha256": "1cee701717135d1208733fc9f3cccfa03cc471246d318abc70bd02c7464b52a7"
+    }
+  },
+  "fileCount": 349,
+  "totalBytes": 25562668
+}

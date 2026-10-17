@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 增加异构三维探索研究层：有界观察选点与射线收益、复用本体几何路径准入、版本化覆盖账本与未知执行 fence、可替换地图/驱动/报告端口，以及配对消融、指标重算和来源归档。当前为软件闭环，不自动启用 ROS 2 三维探索；范围见[设计记录](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)和[实验协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)。
+
 - 增强首次未知场景探索：实测带方向 yaw 闭环初始扫描、地图外未知统计、可达/遮挡候选与无增益视点退役，修复足迹重开拒绝区、深度失效累计及换段取消覆盖；扫描证据和停止原因进入地图来源，新增不可覆盖的验收记录器。见[实施记录](docs/development/2026-10-17-exploration-first-scan.md)及[全部实验尝试](docs/experiments/2026-10-17-exploration-first-scan.md)。
 
 - 发布独立书籍 2.2.0，将云端粗目标授权、Local/Worker 共享 Host、边缘规划/诊断/恢复、分层预算与上下文写入正文；同步架构、API、部署和学习资料，新增实验 11/12 并归档 2.1.0 完整来源。引用 2026-10-15 软件与实际 Gazebo 全部尝试，保留失败和证据范围。[变更审校](docs/development/2026-10-16-architecture-book-refresh.md)。

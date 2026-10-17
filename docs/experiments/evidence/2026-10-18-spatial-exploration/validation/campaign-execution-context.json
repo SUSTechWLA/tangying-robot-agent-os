@@ -1,0 +1,18 @@
+{
+  "startedAt": "2026-10-18T00:08:55.067804+08:00",
+  "cpuCount": 10,
+  "loadAverageBefore": [
+    1.3603515625,
+    2.4208984375,
+    2.62744140625
+  ],
+  "fullPythonValidationCompleted": true,
+  "campaignPath": "artifacts/experiments/spatial-exploration-20261018-001",
+  "timingInterpretation": "descriptive local software wall times, no powered performance or hardware claim",
+  "endedAt": "2026-10-18T00:09:11.579535+08:00",
+  "loadAverageAfter": [
+    1.72900390625,
+    2.44873046875,
+    2.63330078125
+  ]
+}

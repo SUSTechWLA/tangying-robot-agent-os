@@ -1,0 +1,172 @@
+{
+  "schemaVersion": "research.spatial-exploration-report.v1",
+  "generatedAt": "2026-10-18T00:20:17.110697+08:00",
+  "campaign": "evidence/2026-10-18-spatial-exploration/campaign",
+  "physicalExecution": false,
+  "episodeN": 30,
+  "pairedBlockN": 6,
+  "uniqueGeometryN": 4,
+  "statuses": {
+    "completed": 10,
+    "partial": 20
+  },
+  "variantAggregates": [
+    {
+      "variant": "baseline",
+      "n": 6,
+      "completed": 6,
+      "partial": 0,
+      "meanCoverageFraction": 1.0,
+      "meanSuccessfulPathLengthM": 38.732179524000486,
+      "meanPlanningTotalMs": 558.535549,
+      "meanMessageBytes": 38340.833333333336,
+      "meanRepeatFraction": 0.7318520227843205,
+      "stopReasons": {
+        "no_executable_candidate": 3,
+        "round_budget": 3
+      }
+    },
+    {
+      "variant": "nearest_frontier",
+      "n": 6,
+      "completed": 0,
+      "partial": 6,
+      "meanCoverageFraction": 0.6492063492063492,
+      "meanSuccessfulPathLengthM": 17.824038118247902,
+      "meanPlanningTotalMs": 434.6396395,
+      "meanMessageBytes": 46719.833333333336,
+      "meanRepeatFraction": 0.8697845038326363,
+      "stopReasons": {
+        "round_budget": 6
+      }
+    },
+    {
+      "variant": "no_global_reposition",
+      "n": 6,
+      "completed": 1,
+      "partial": 5,
+      "meanCoverageFraction": 0.9619047619047619,
+      "meanSuccessfulPathLengthM": 25.3393803428313,
+      "meanPlanningTotalMs": 327.84376383333336,
+      "meanMessageBytes": 35223.833333333336,
+      "meanRepeatFraction": 0.7243885925113632,
+      "stopReasons": {
+        "no_executable_candidate": 5,
+        "round_budget": 1
+      }
+    },
+    {
+      "variant": "no_visibility_gain",
+      "n": 6,
+      "completed": 0,
+      "partial": 6,
+      "meanCoverageFraction": 0.7835978835978836,
+      "meanSuccessfulPathLengthM": 21.87340305210386,
+      "meanPlanningTotalMs": 499.95868783333333,
+      "meanMessageBytes": 47004,
+      "meanRepeatFraction": 0.8472143136902363,
+      "stopReasons": {
+        "round_budget": 6
+      }
+    },
+    {
+      "variant": "no_coordination",
+      "n": 6,
+      "completed": 3,
+      "partial": 3,
+      "meanCoverageFraction": 0.9978835978835979,
+      "meanSuccessfulPathLengthM": 39.128392609965545,
+      "meanPlanningTotalMs": 536.1062923333334,
+      "meanMessageBytes": 40479.5,
+      "meanRepeatFraction": 0.7544057151838164,
+      "stopReasons": {
+        "round_budget": 5,
+        "no_executable_candidate": 1
+      }
+    }
+  ],
+  "faultScenarioEpisodeN": 10,
+  "faultSummary": {
+    "plannedFaults": 30,
+    "appliedFaults": 30,
+    "skippedFaults": 0,
+    "uncertainLegs": 10,
+    "stopAcknowledgements": 10,
+    "recoveredUncertainLegs": 10,
+    "reconnectSnapshots": 10
+  },
+  "validation": {
+    "pythonMainPassed": 3591,
+    "pythonRuntimeBoundaryPassed": 2,
+    "pythonBenchmarkPassed": 20,
+    "pythonTotalDisjointPassed": 3613,
+    "pythonSkipped": 40,
+    "pythonWarnings": 20,
+    "webPassed": 517,
+    "newFocusedTests": 96,
+    "goPassed": true,
+    "lintPassed": true,
+    "generateCheckPassed": true,
+    "bookFixedSections": 31,
+    "replayVerifiedEpisodes": 30,
+    "fullSuiteScope": "Before final journal write-byte admission fix; full suite not repeated after that change",
+    "fullSuiteRerunAfterFinalFix": false,
+    "finalFocusedPassed": 96,
+    "finalFocusedScope": "After final journal write-byte admission fix; includes the added assertion within existing IO test",
+    "finalLintPassed": true,
+    "finalCampaignExitCode": 0,
+    "finalReplayExitCode": 0,
+    "executionContext": "evidence/2026-10-18-spatial-exploration/validation/campaign-002-execution-context.json",
+    "finalValidationLogs": [
+      "evidence/2026-10-18-spatial-exploration/validation/final-focused.log",
+      "evidence/2026-10-18-spatial-exploration/validation/final-lint-attempt02.log",
+      "evidence/2026-10-18-spatial-exploration/validation/campaign-002-status.json",
+      "evidence/2026-10-18-spatial-exploration/validation/replay-002.log"
+    ]
+  },
+  "sourceHashes": {
+    "scripts/spatial_exploration_benchmark.py": "fc95faab1f229b1701ad99432d2bd0d3cfc800f928c6fd7033584e4318781aef",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "9e209afb81abc16a406f2b6d6eb9b69db6fba63795d918c1237d81bf564a452f",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "8c764aedd78d4eb9dccb8c81c1b37acde75a4f00f285c6b6447361dfcacd249c",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "898c89894f5cd5d419ea06c946ae3d2c7e0b9472d8ea3ff45d1e2e646373282a"
+  },
+  "optimalityClaim": false,
+  "hardwareClaim": false,
+  "confidenceInterval": null,
+  "campaignRunId": "spatial-exploration-20261018-002",
+  "priorCampaign": "evidence/2026-10-18-spatial-exploration/pre-byte-capacity-campaign",
+  "configHash": "8d8d39b160d2650c19c819c2fc9d62f7da02d3f7abba1a2525d220e113829203",
+  "gitHead": "c688ea9312a1838d493579591c4c0073deb584fe",
+  "environment": {
+    "python": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "packages": {
+      "numpy": "2.4.6",
+      "scipy": "1.17.1",
+      "grpcio": "1.83.0",
+      "protobuf": "6.33.5",
+      "pytest": "8.4.2"
+    }
+  },
+  "uniqueGeometryNByScene": {
+    "vertical_complementarity": 2,
+    "branching_occlusion": 2,
+    "recovery_disconnect": 2
+  },
+  "runHistory": [
+    {
+      "runId": "spatial-exploration-20261018-001",
+      "role": "preserved_before_final_byte_capacity_fix",
+      "path": "evidence/2026-10-18-spatial-exploration/pre-byte-capacity-campaign",
+      "figurePath": "evidence/2026-10-18-spatial-exploration/pre-byte-capacity-figure",
+      "countsAsAdditionalIndependentSample": false
+    },
+    {
+      "runId": "spatial-exploration-20261018-002",
+      "role": "final_reported_campaign",
+      "path": "evidence/2026-10-18-spatial-exploration/campaign",
+      "countsAsAdditionalIndependentSample": false
+    }
+  ],
+  "interpretation": "30 final episodes in six paired task blocks across four unique occupancy geometries; run 001 is preserved, not pooled as 60 independent episodes."
+}
