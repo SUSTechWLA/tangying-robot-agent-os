@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "edge.cooperation.experiment.v1",
+  "passed": true,
+  "startedAtUnix": 1792338883.076509,
+  "elapsedSeconds": 15.307,
+  "transport": "explicit-loopback-http-development",
+  "processCount": 4,
+  "robotIdentities": [
+    "ugv",
+    "uav",
+    "legged"
+  ],
+  "hardwareValidation": false,
+  "physicalMotion": false,
+  "wirelessValidation": false,
+  "ddsValidation": false,
+  "binarySha256": "b5b860834e4f6c416471be0e0ea1af011cdd2f00a544690aa4168923041800b6"
+}

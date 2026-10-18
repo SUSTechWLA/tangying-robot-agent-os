@@ -1,0 +1,2 @@
+2026/10/18 23:54:46 edge exchange ready: agent=edge-legged receive=127.0.0.1:59710 admin=127.0.0.1:59711
+2026/10/18 23:54:48 exchange delivery pending: peer=edge-cloud message=sha256:363b52fa2692812355b82181ca98adfaaa3d59c408723abeaab1566407ff08ad error=Post "http://127.0.0.1:59712/v1/exchange/receive": dial tcp 127.0.0.1:59712: connect: connection refused

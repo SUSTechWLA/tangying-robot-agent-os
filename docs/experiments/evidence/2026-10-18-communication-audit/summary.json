@@ -1,0 +1,447 @@
+{
+  "schemaVersion": "edge.communication.readiness.audit.v1",
+  "sourceCommit": "f930437ae7f8612cef41c0ca82be084cfa7d12af",
+  "branch": "codex/heterogeneous-spatial-exploration",
+  "recordedAt": "2026-10-18T16:09:31.272929+00:00",
+  "assessment": "controlled-integration-candidate; not unattended heterogeneous production acceptance",
+  "runs": [
+    {
+      "name": "go",
+      "command": "go test -json ./core/agentcontext ./core/agentcontract ./core/contextcontract ./core/exchangecontract ./core/objective ./core/harness ./internal/agentharness ./internal/edgeagent ./edge/... ./agentruntime ./tasks ./fleet/... ./middleware/sqlite ./tests/architecture ./tests/docs",
+      "exitCode": 0,
+      "counts": {
+        "test_pass": 1170,
+        "package_pass": 34,
+        "test_skip": 3,
+        "package_skip": 1
+      },
+      "skips": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/tasksource",
+          "test": "TestRedisEnginePendingRestartAndLostAck"
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/mysql",
+          "test": "TestMySQLRevisionMigrationFreshAndLegacy"
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub",
+          "test": "TestWorldCheckpointCrashProcess"
+        }
+      ],
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract",
+          "outcome": "pass",
+          "elapsedSeconds": 0.989
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract",
+          "outcome": "pass",
+          "elapsedSeconds": 1.425
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/exchangecontract",
+          "outcome": "pass",
+          "elapsedSeconds": 1.749
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/objective",
+          "outcome": "pass",
+          "elapsedSeconds": 2.188
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/harness",
+          "outcome": "pass",
+          "elapsedSeconds": 2.613
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext",
+          "outcome": "pass",
+          "elapsedSeconds": 3.02
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness",
+          "outcome": "pass",
+          "elapsedSeconds": 3.071
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/cloudclient",
+          "outcome": "pass",
+          "elapsedSeconds": 4.282
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+          "outcome": "pass",
+          "elapsedSeconds": 4.122
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/policy",
+          "outcome": "pass",
+          "elapsedSeconds": 4.027
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/recovery",
+          "outcome": "pass",
+          "elapsedSeconds": 4.039
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime",
+          "outcome": "pass",
+          "elapsedSeconds": 4.01
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/tasksource",
+          "outcome": "pass",
+          "elapsedSeconds": 4.249
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+          "outcome": "pass",
+          "elapsedSeconds": 5.159
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/tasks",
+          "outcome": "pass",
+          "elapsedSeconds": 3.825
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient",
+          "outcome": "pass",
+          "elapsedSeconds": 6.966
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet",
+          "outcome": "pass",
+          "elapsedSeconds": 4.038
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime",
+          "outcome": "pass",
+          "elapsedSeconds": 5.083
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/auth",
+          "outcome": "pass",
+          "elapsedSeconds": 4.102
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent",
+          "outcome": "pass",
+          "elapsedSeconds": 10.46
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/eventlog",
+          "outcome": "pass",
+          "elapsedSeconds": 3.6470000000000002
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/telemetry",
+          "outcome": "skip",
+          "elapsedSeconds": 0
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/fusion",
+          "outcome": "pass",
+          "elapsedSeconds": 3.051
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/coordinator",
+          "outcome": "pass",
+          "elapsedSeconds": 5.283
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/gateway",
+          "outcome": "pass",
+          "elapsedSeconds": 3.282
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/lease",
+          "outcome": "pass",
+          "elapsedSeconds": 3.444
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/mysql",
+          "outcome": "pass",
+          "elapsedSeconds": 3.219
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/queue",
+          "outcome": "pass",
+          "elapsedSeconds": 3.608
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/redis",
+          "outcome": "pass",
+          "elapsedSeconds": 3.874
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/registry",
+          "outcome": "pass",
+          "elapsedSeconds": 3.709
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/fleet/worldhub",
+          "outcome": "pass",
+          "elapsedSeconds": 4.257
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite",
+          "outcome": "pass",
+          "elapsedSeconds": 3.779
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/tests/docs",
+          "outcome": "pass",
+          "elapsedSeconds": 3.882
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/tests/architecture",
+          "outcome": "pass",
+          "elapsedSeconds": 4.162
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+          "outcome": "pass",
+          "elapsedSeconds": 126.028
+        }
+      ],
+      "rawLog": "go.jsonl.gz",
+      "rawSha256": "22cd2072ba439371d4d0ee207e0f8f81968adbbb95fc043299dd8e3945f8d35f",
+      "startedAt": "2026-10-18T23:52:11.976372+08:00",
+      "finishedAt": "2026-10-18T23:54:18.209864+08:00",
+      "raceWarningObserved": false,
+      "persistentCampaignTimings": [
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_01_032_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 1.07
+        },
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_02_048_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 3.86
+        },
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_03_064_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 9.58
+        },
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_04_096_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 28.8
+        },
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_05_128_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 74.74
+        }
+      ]
+    },
+    {
+      "name": "race",
+      "command": "go test -race -count=1 -json ./core/exchangecontract ./edge/exchange ./cmd/edge-exchange ./middleware/sqlite ./edge/worker ./internal/edgeagent ./agentruntime",
+      "exitCode": 1,
+      "counts": {
+        "test_pass": 369,
+        "package_pass": 6,
+        "package_fail": 1
+      },
+      "skips": [],
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/exchangecontract",
+          "outcome": "pass",
+          "elapsedSeconds": 1.425
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+          "outcome": "pass",
+          "elapsedSeconds": 2.5140000000000002
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange",
+          "outcome": "pass",
+          "elapsedSeconds": 2.58
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime",
+          "outcome": "pass",
+          "elapsedSeconds": 5.063
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+          "outcome": "pass",
+          "elapsedSeconds": 10.153
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite",
+          "outcome": "pass",
+          "elapsedSeconds": 14.593
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+          "outcome": "fail",
+          "elapsedSeconds": 602.148
+        }
+      ],
+      "rawLog": "race.jsonl.gz",
+      "rawSha256": "7e56cf78203a802376f56897c5bcff10aa4e5520f13b603716d4fa3558ee43c1",
+      "startedAt": "2026-10-18T23:55:11.854643+08:00",
+      "finishedAt": "2026-10-19T00:05:14.612398+08:00",
+      "raceWarningObserved": false,
+      "persistentCampaignTimings": [
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_01_032_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 20.15
+        },
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_02_048_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 57.87
+        },
+        {
+          "test": "TestSingleRobotLongHorizonCampaign/persistent_task_03_064_steps",
+          "outcome": "pass",
+          "elapsedSeconds": 138.69
+        }
+      ]
+    },
+    {
+      "name": "harness",
+      "command": "go test -count=1 -json ./internal/capabilityagent ./internal/actionloop ./internal/recoveryexec ./agent/...",
+      "exitCode": 0,
+      "counts": {
+        "test_pass": 411,
+        "package_pass": 5,
+        "test_skip": 1
+      },
+      "skips": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec",
+          "test": "TestRun002ActualRecoveryContextReplay"
+        }
+      ],
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+          "outcome": "pass",
+          "elapsedSeconds": 0.94
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop",
+          "outcome": "pass",
+          "elapsedSeconds": 1.2770000000000001
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/agent",
+          "outcome": "pass",
+          "elapsedSeconds": 1.625
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent",
+          "outcome": "pass",
+          "elapsedSeconds": 2.13
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec",
+          "outcome": "pass",
+          "elapsedSeconds": 2.697
+        }
+      ],
+      "rawLog": "harness.jsonl.gz",
+      "rawSha256": "e440f7fc53f8569d97f099367895f2e24f9a97da7df53e440298fdc8e36c6da5",
+      "startedAt": "2026-10-19T00:02:09.982137+08:00",
+      "finishedAt": "2026-10-19T00:02:12.679329+08:00",
+      "raceWarningObserved": false
+    },
+    {
+      "name": "host-race",
+      "command": "go test -race -count=1 -timeout=5m -json ./internal/edgeagent -run <exact union in host-race-selection.json>",
+      "exitCode": 0,
+      "counts": {
+        "test_pass": 49,
+        "package_pass": 1
+      },
+      "skips": [],
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+          "outcome": "pass",
+          "elapsedSeconds": 51.552
+        }
+      ],
+      "rawLog": "host-race.jsonl.gz",
+      "rawSha256": "5beaf2f4c044002d7cbb3e9b72cc7c884d3230fb346df68f87a2dfe00393d504",
+      "startedAt": "2026-10-19T00:06:15.27367+08:00",
+      "finishedAt": "2026-10-19T00:07:06.825735+08:00",
+      "raceWarningObserved": false
+    },
+    {
+      "name": "context-replay",
+      "command": "TANGYING_RUN002_CONTEXT_FIXTURE=artifacts/acceptance/long-horizon-20261010/run-002/final-task.json go test -count=1 -json ./internal/recoveryexec -run ^TestRun002ActualRecoveryContextReplay$",
+      "exitCode": 0,
+      "counts": {
+        "test_pass": 3,
+        "package_pass": 1
+      },
+      "skips": [],
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec",
+          "outcome": "pass",
+          "elapsedSeconds": 0.429
+        }
+      ],
+      "rawLog": "context-replay.jsonl.gz",
+      "rawSha256": "5724ef5eeccb29f6e7376fb5cee267195bb3e5e72a0fa121ec338e6cb6fdf9bd",
+      "startedAt": "2026-10-19T00:06:53.623199+08:00",
+      "finishedAt": "2026-10-19T00:06:54.051851+08:00",
+      "raceWarningObserved": false
+    }
+  ],
+  "python": {
+    "command": ".venv/bin/python -m pytest -q robot/gateway/tests/test_ros2_profile.py robot/gateway/tests/test_mobility_contract.py robot/gateway/tests/test_spatial_peer_exchange.py",
+    "passed": 104,
+    "log": "python.log"
+  },
+  "processHarness": {
+    "passed": true,
+    "processCount": 4,
+    "elapsedSeconds": 15.307,
+    "summary": "process-summary.json",
+    "transport": "explicit-loopback-http-development",
+    "sourceArchiveLocal": "artifacts/experiments/communication-readiness-20261018-001/frozen-build-source.tar.gz"
+  },
+  "interop": {
+    "passed": true,
+    "messageId": "sha256:3db3610f17ca0b7e170d231860ae97ab5a4893d3367188b9971a37073dbbbf50",
+    "log": "interop.log"
+  },
+  "coverageLimits": {
+    "physicalMotion": false,
+    "hardwareValidation": false,
+    "wirelessValidation": false,
+    "newGazeboRun": false,
+    "newDDSRun": false,
+    "redisIntegrationConfigured": false,
+    "mysqlIntegrationConfigured": false,
+    "fullLongCampaignRacePassed": false
+  },
+  "knownFailure": {
+    "run": "race",
+    "package": "internal/edgeagent",
+    "test": "TestSingleRobotLongHorizonCampaign/persistent_task_04_096_steps",
+    "reason": "Go default 10 minute timeout; package exit 1 after 602.148 seconds",
+    "focusedRerunDoesNotReplaceLongCampaign": true
+  },
+  "documentationValidation": {
+    "command": "go test ./tests/docs",
+    "passed": true,
+    "elapsedSeconds": 0.874,
+    "newDocumentLocalLinksChecked": true,
+    "evidenceManifestVerified": true
+  }
+}

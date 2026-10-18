@@ -37,7 +37,7 @@
 | --- | --- | --- |
 | 边缘 Agent 怎样接 ROS 2 真机并与云端/其他设备通信？ | [边缘测试部署](operations/edge-field-testing.md)、[异构运动契约](development/heterogeneous-mobility.md)、[数据交换](development/edge-data-exchange.md) | [升级与验证记录](development/2026-10-13-edge-field-candidate.md)；软件候选与现场放行分别判断 |
 | 一句话如何变成可执行任务？ | [任务生命周期](guides/natural-language-task-lifecycle.md)、[统一能力目标](guides/unified-capability-goals.md) | [模型复杂任务实验](experiments/2026-09-28-complex-model-led-goals.md) |
-| 多 Agent 如何通信、保持上下文一致？ | [协作总览](architecture/long-horizon-collaboration.md)、[事件协议](development/2026-10-10-agent-interaction-protocol.md)、[长上下文](development/2026-10-09-long-horizon-context.md) | [长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
+| 多 Agent 如何通信、保持上下文一致？ | [消息字段、传递时序、上下文和 Harness 专题](architecture/edge-agent-communication-and-context.md) → [协作总览](architecture/long-horizon-collaboration.md) | [当前就绪审计与复测](development/2026-10-18-edge-communication-readiness.md)、[长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
 | 系统如何扩展到云边、异构机器人和多种 SLAM？ | [模块化评价与路线](architecture/modular-extensibility.md)、[SLAM Provider](development/slam-providers.md) | [边界升级与验证记录](development/2026-10-13-modular-extensibility.md) |
 | 怎样研究空地异构三维探索与消融？ | [探索器、分工和覆盖合同](development/2026-10-17-heterogeneous-spatial-exploration.md) | [配对协议与 CLI](experiments/2026-10-17-spatial-exploration-protocol.md)、[实际报告与证据](experiments/2026-10-18-spatial-exploration.md)；离线体素观测不等于实际飞行或表面全覆盖 |
 | 已知地图怎样做覆盖规划、多层地面怎样通行？ | [显式覆盖与分层地形](development/2026-10-18-spatial-coverage-upgrade.md) | [学习补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)；预测覆盖、实际新观测和控制器可执行性分别判断 |

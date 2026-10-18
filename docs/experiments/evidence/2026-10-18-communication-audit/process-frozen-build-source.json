@@ -1,0 +1,2155 @@
+{
+  "schemaVersion": "edge.cooperation.source.v1",
+  "files": [
+    {
+      "path": "project/agent/intent/parser.go",
+      "sha256": "190fa779863f38d11bc6e55c4557f1d2cdcaa29d31168f23602a779c484832f2",
+      "bytes": 28797
+    },
+    {
+      "path": "project/cmd/edge-exchange/main.go",
+      "sha256": "d68788be395aec269c1362da0190708690c866de138e7d46c2fcff49ac78c325",
+      "bytes": 9849
+    },
+    {
+      "path": "project/core/agentcontext/context.go",
+      "sha256": "e5de8f79521f5fdd86e249fc58d3e80a21e679c5ef61f173a47e8938c5db335b",
+      "bytes": 7839
+    },
+    {
+      "path": "project/core/agentcontext/decision.go",
+      "sha256": "96b90b2cef5805b7c08f6806706d966f41e4a1f1865837376491c06637dfd520",
+      "bytes": 5604
+    },
+    {
+      "path": "project/core/agentcontext/decision_contract.go",
+      "sha256": "2d564c5219e373167f67d65f5de0e11d221e069b11a279196f83d70f7a573a66",
+      "bytes": 2990
+    },
+    {
+      "path": "project/core/agentcontext/eligibility.go",
+      "sha256": "35c422f9eb6ce0df1a775c3e5b4efd159e3d525b7050104f6c20bb896263fe7c",
+      "bytes": 2634
+    },
+    {
+      "path": "project/core/agentcontext/factorial.go",
+      "sha256": "dc59224e33cbcdee9417330a81cb6242600f536b7f5b1de6826a8ea16454ec64",
+      "bytes": 10116
+    },
+    {
+      "path": "project/core/agentcontext/factorial_config.go",
+      "sha256": "a4791931ed9d10623617773e40a4fab49b6e0bc0bf968790e4f1e2e0104be567",
+      "bytes": 1135
+    },
+    {
+      "path": "project/core/agentcontext/factorial_policy.go",
+      "sha256": "3ff5d4926775ae1092b3d4a1bf66b88c1233a2e12a479c7b8dd92a83e8bb8840",
+      "bytes": 2132
+    },
+    {
+      "path": "project/core/agentcontext/grounded.go",
+      "sha256": "e1d8c995f44ea526e856d5c5cf3f7748c55476e39e80fb3c27d433fb94841e0e",
+      "bytes": 1189
+    },
+    {
+      "path": "project/core/agentcontext/hierarchical.go",
+      "sha256": "165ad76ddec64ec7ae1df143216a002c9c23ab8c15278bdc94161db2759281a6",
+      "bytes": 1762
+    },
+    {
+      "path": "project/core/agentcontext/hybrid.go",
+      "sha256": "a51e7e09bcda79bbf0f23fa125516ef46fec71467ca9cd5e3c7423ca3ed35b42",
+      "bytes": 2667
+    },
+    {
+      "path": "project/core/agentcontext/managed.go",
+      "sha256": "586e5fdbc44f851d8c14dbf31e7c9f0bf8ecdf576adf649ae464d522df968247",
+      "bytes": 11108
+    },
+    {
+      "path": "project/core/agentcontext/projection.go",
+      "sha256": "fd2b4ffce7aaf99a726daaae23e67c99d37694a69e9d4f2da076a417347709e3",
+      "bytes": 2687
+    },
+    {
+      "path": "project/core/agentcontext/routing.go",
+      "sha256": "c4614c423c41a9cdebf508555d331bcadbd509d4517fa5ad737ca669ecdab585",
+      "bytes": 1965
+    },
+    {
+      "path": "project/core/agentcontext/stage-policy.json",
+      "sha256": "e63b9d6a2d6589fd30454cfce7bcc4dd2ba0fa8e1e1f97128166717d30706690",
+      "bytes": 1183
+    },
+    {
+      "path": "project/core/agentcontract/anomaly.go",
+      "sha256": "f3db799c770f8b61fc8b8c45314b95835438616b4a2bc9714c0d6614525c976b",
+      "bytes": 5253
+    },
+    {
+      "path": "project/core/agentcontract/contract.go",
+      "sha256": "b42d1e5319a6ea9d5eb1f396a8d08e0eb7a7500f4095530d5ae3ddb0b0e6c639",
+      "bytes": 11304
+    },
+    {
+      "path": "project/core/agentcontract/event.go",
+      "sha256": "96257e2ae89df43d73336f0b934fb693bf404a765398fb7d71f101e55fbe9607",
+      "bytes": 10419
+    },
+    {
+      "path": "project/core/agentcontract/memory.go",
+      "sha256": "5a7b20e41d19fd0b4971b4e3b9995de9552b142ab698880e8e8d152b223d9352",
+      "bytes": 8199
+    },
+    {
+      "path": "project/core/agentcontract/payload.go",
+      "sha256": "42cf74e3c0174c5e80714a8aa9ab376d05d37de2c250017bedf745551046b553",
+      "bytes": 25305
+    },
+    {
+      "path": "project/core/agentcontract/protocol.go",
+      "sha256": "4791266359e5623836c3c490ef8fc84ca05b5548903472dd459ca6fc970da71f",
+      "bytes": 3991
+    },
+    {
+      "path": "project/core/agentcontract/publisher.go",
+      "sha256": "e023121c4f5b66dc8e414b592f4351f52c8b598523b2d77598a9144458ba2225",
+      "bytes": 1415
+    },
+    {
+      "path": "project/core/capability/capability.go",
+      "sha256": "8f55362c6bbb5aa02bd165d8fdbc49763dc39a8a57db1a5367202fb021052b9d",
+      "bytes": 5114
+    },
+    {
+      "path": "project/core/capability/owned_stop.go",
+      "sha256": "86ce401850815d4193842d5f8a7ab0062194207cf60dff2be8e7cbd6d8de574a",
+      "bytes": 2487
+    },
+    {
+      "path": "project/core/capability/planning_attempt.go",
+      "sha256": "2817af621d3f4c6ac96cb53d5f7e485da7a7829a44ca73e125f23166d42579f4",
+      "bytes": 1724
+    },
+    {
+      "path": "project/core/capability/schema.go",
+      "sha256": "e461b8b3e190dd4394c98fb4695ec52cda1d0a07500c282c31e36b5fc3f9cddc",
+      "bytes": 6444
+    },
+    {
+      "path": "project/core/closedloop/closedloop.go",
+      "sha256": "da670af0795bda6baefde04dac14b339e6de9ca04a0c9691430011944ba82fdd",
+      "bytes": 18827
+    },
+    {
+      "path": "project/core/closedloop/gate.go",
+      "sha256": "c71ae3687bae4af460497b383baad6d05fcc2be2fab2a6d34a279f7e1efeb422",
+      "bytes": 5053
+    },
+    {
+      "path": "project/core/closedloop/grounded_report.go",
+      "sha256": "eee855dd4322136348229fe56da3a61f055fc55cab1b81d5bb7ad88c1560761c",
+      "bytes": 2948
+    },
+    {
+      "path": "project/core/eventstore/store.go",
+      "sha256": "b534779c12710fa963cd0f506c13f41b57c32c5b09c14e61b333bae91258dc56",
+      "bytes": 2748
+    },
+    {
+      "path": "project/core/exchangecontract/contract.go",
+      "sha256": "f2e79fb959374231d250caa1feb0bd820ce1f464f65d60c02cf5d04e63d006e4",
+      "bytes": 8660
+    },
+    {
+      "path": "project/core/exchangecontract/coverage.go",
+      "sha256": "59b26e33d3f5b33f80799095e8eb840c776bf596ab5bb633dd4715c9eb7057fb",
+      "bytes": 2093
+    },
+    {
+      "path": "project/core/exchangecontract/feed.go",
+      "sha256": "83a9412c4ff6154cc698336bf1492b1dc88ffbcd148e612a60d5d79a3933b0ee",
+      "bytes": 1055
+    },
+    {
+      "path": "project/core/objective/contract.go",
+      "sha256": "f84c7ad38d7f8523dffadeec62fc003fd67caead74ac037faf3f45a76f396b92",
+      "bytes": 7038
+    },
+    {
+      "path": "project/core/observation/catalog.go",
+      "sha256": "67871f9913cbf2150b8e64d76158b00317ac94aa265ee86411155e01dfc4929a",
+      "bytes": 2913
+    },
+    {
+      "path": "project/core/observation/envelope.go",
+      "sha256": "8287357b8d25f2b99ce6827bc2858e7d02b5997b7f2cbd54c0083ca48081caae",
+      "bytes": 6304
+    },
+    {
+      "path": "project/core/robotcontract/contract.go",
+      "sha256": "009811d7e51b68312558a51083e5440353717035cf72fcee9f82bcb7526a26d9",
+      "bytes": 17908
+    },
+    {
+      "path": "project/core/robotcontract/faults.go",
+      "sha256": "d268a8670bfa05617ed1623c654b16def2dac020a6a0e260fce694d28cf944fb",
+      "bytes": 7605
+    },
+    {
+      "path": "project/core/skills/manifest.go",
+      "sha256": "503619f219dcdfdd6121505be1e0b3febfda1236e56a06a20f88de8a0dea950e",
+      "bytes": 2704
+    },
+    {
+      "path": "project/core/taskgraph/model.go",
+      "sha256": "b68bfb3fe59b025f360895e357ffb64f3511e0077ffb62b509c90aec0cb77368",
+      "bytes": 2141
+    },
+    {
+      "path": "project/core/taskgraph/runtime.go",
+      "sha256": "718102a87314ae50247b0bcaef1d6ca5a00792c4775c6f781e4a88cf6d0dfe96",
+      "bytes": 4226
+    },
+    {
+      "path": "project/core/taskgraph/state.go",
+      "sha256": "31abff94911b41b22583c8325e253b0fa95bdbc283a2ca98a4f4011a6e156020",
+      "bytes": 2582
+    },
+    {
+      "path": "project/core/telemetry/freshness.go",
+      "sha256": "4abbeb55eabbc722458012bb36eb8585220d1662477075541be375a90a181b2e",
+      "bytes": 4297
+    },
+    {
+      "path": "project/core/telemetry/telemetry.go",
+      "sha256": "5a4b00f1611c8042e87ce1a06d9281ff9254a8e0b6822df8b01d293a64241cfd",
+      "bytes": 2707
+    },
+    {
+      "path": "project/core/trace/event.go",
+      "sha256": "3ebec0f500a8f65b7af1ae7f88688925c28efd4a19c73f7971309a356c779fdd",
+      "bytes": 424
+    },
+    {
+      "path": "project/core/worldmodel/checkpoint.go",
+      "sha256": "8269a43117b7a439cf7cbabeb868efd632a1d9f1757ed128309943a23822208a",
+      "bytes": 6365
+    },
+    {
+      "path": "project/core/worldmodel/predicate.go",
+      "sha256": "6eeae63b04b381405c4496529705cee8fb07d3427146d855493819af7a064a51",
+      "bytes": 5442
+    },
+    {
+      "path": "project/core/worldmodel/projector.go",
+      "sha256": "01cd908532d78c3ac60ba834441c84e34ae693c5dd27db52d0e104a6d5724e21",
+      "bytes": 12427
+    },
+    {
+      "path": "project/core/worldmodel/reader.go",
+      "sha256": "df70147e70e83335a718dd89d94d6c20a683e199c0ccf8c3f8c79db4b6a4bc31",
+      "bytes": 430
+    },
+    {
+      "path": "project/core/worldmodel/types.go",
+      "sha256": "a1a69700f8add8d603a75a07b40200facbe9114614fecee6c6e29d7b591fb586",
+      "bytes": 4072
+    },
+    {
+      "path": "project/edge/exchange/coverage.go",
+      "sha256": "875f7bb385442500f14882862cfe8eae0e4f24e6fc52eed9c44325d6c9492caf",
+      "bytes": 5785
+    },
+    {
+      "path": "project/edge/exchange/http.go",
+      "sha256": "f1b6664b3939b3d5a0936d1c53aea0e6a940efa8f147d47f4ef0322582e8f841",
+      "bytes": 8161
+    },
+    {
+      "path": "project/edge/exchange/service.go",
+      "sha256": "64fe8a0b8bec47c2ac189338ac5c8a1f88b09363d51fbb2e4810d9209818bb74",
+      "bytes": 5422
+    },
+    {
+      "path": "project/fleet/eventlog/memory.go",
+      "sha256": "7aac85d009b990df42aee667ca0d2ec9c63389726d2168608e7c5d1ba2dd1afb",
+      "bytes": 5779
+    },
+    {
+      "path": "project/fleet/eventlog/store.go",
+      "sha256": "0ec0a51f68b99e43bcf71a10f40d3e259472d8f9cf3682ed10131d78967dde62",
+      "bytes": 583
+    },
+    {
+      "path": "project/go.mod",
+      "sha256": "32576876cba1c9de3caed84bbec8670e2c39a6baaff21b01020011815b255273",
+      "bytes": 1086
+    },
+    {
+      "path": "project/go.sum",
+      "sha256": "a48b456f601066f7bd821f6e322e4d378953e6f400a716bf60b69419d8baf350",
+      "bytes": 8542
+    },
+    {
+      "path": "project/internal/securehttp/client.go",
+      "sha256": "f04237299317db82bad9be8576bc0fbbcf9fad13ea70921246a54cd2dec47f66",
+      "bytes": 634
+    },
+    {
+      "path": "project/middleware/contracts.go",
+      "sha256": "5ab7e6a2a8eb1b78c9e6e3126fe2b0b735ce2789c0c98f211f50c405f9d4600a",
+      "bytes": 5572
+    },
+    {
+      "path": "project/middleware/sqlite/evidence.go",
+      "sha256": "c27432301417952a03b972af2accf32726766f1ca43448542e29d928c19a7806",
+      "bytes": 7797
+    },
+    {
+      "path": "project/middleware/sqlite/exchange.go",
+      "sha256": "03a0c403c982d05fd807b384541be6dc5757eece21f640ff37fa60be4f69ada9",
+      "bytes": 13928
+    },
+    {
+      "path": "project/middleware/sqlite/exchange_feed.go",
+      "sha256": "8818280852d4c7a49c6412252d507bbf628842debaf132619502bffe26607600",
+      "bytes": 2104
+    },
+    {
+      "path": "project/middleware/sqlite/fleet.go",
+      "sha256": "edcebb83fbe8e87ac84e227f13c218fbad5e27e37ace54275b79459deb2dac73",
+      "bytes": 10500
+    },
+    {
+      "path": "project/middleware/sqlite/retention.go",
+      "sha256": "be424753ec84da8122b24fbc8f0746637d4d810e0fc7c48689951d443cfc84bc",
+      "bytes": 7116
+    },
+    {
+      "path": "project/middleware/sqlite/store.go",
+      "sha256": "2e4a293245acddf9be6c424e3c75e26501b325a97c9f5a856d563b5b9a4a1959",
+      "bytes": 11018
+    },
+    {
+      "path": "project/middleware/sqlite/tasks.go",
+      "sha256": "46c53590cc6427d53a4df3299e07f8980811c78046a5cd1781f2ea9b6cf800ba",
+      "bytes": 17376
+    },
+    {
+      "path": "project/middleware/sqlite/tasks_summary.go",
+      "sha256": "cc1c51312d7b3180234e81ff3ebadf792edbdb4ec3ccc4c9e56a7cf805216de0",
+      "bytes": 1720
+    },
+    {
+      "path": "project/orchestration/llm.go",
+      "sha256": "57d4c4772790b73fdaa3aa9e2e8326233c43881886e0d4fc52dc4298c9f837c5",
+      "bytes": 12494
+    },
+    {
+      "path": "project/orchestration/metrics.go",
+      "sha256": "ee392a54867180091af5b891786fac1b5bf59c87a4d679acc07e659b16470236",
+      "bytes": 2945
+    },
+    {
+      "path": "project/orchestration/types.go",
+      "sha256": "43390a171d795164f17c2d8c357a212bc32809455236b19eca3fde5266d11d65",
+      "bytes": 2240
+    },
+    {
+      "path": "project/orchestration/world.go",
+      "sha256": "53c15b97cba883c9ac3f854533cb2b4eceecf97d7f9233d12445197136c04929",
+      "bytes": 9464
+    },
+    {
+      "path": "project/robot/gateway/tangying_robot_gateway/__init__.py",
+      "sha256": "b021e902c77d08f7bbb24b35758377eec3a1dc478b857c4c88400e22eee2b7d4",
+      "bytes": 147
+    },
+    {
+      "path": "project/robot/gateway/tangying_robot_gateway/spatial_mission.py",
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68",
+      "bytes": 39673
+    },
+    {
+      "path": "project/robot/gateway/tangying_robot_gateway/spatial_navigation.py",
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+      "bytes": 32455
+    },
+    {
+      "path": "project/robot/gateway/tangying_robot_gateway/spatial_peer_exchange.py",
+      "sha256": "b3f251cd92d97b343eefc2a66425443dd467dc77dc7a8d7dab78b6659d18dbd2",
+      "bytes": 9706
+    },
+    {
+      "path": "project/scripts/run_edge_cooperation_harness.py",
+      "sha256": "4887f3942a4218ad3dff3bee99e9fc9b849b4a16115c87a7e26dc4ef970fd93f",
+      "bytes": 16845
+    },
+    {
+      "path": "project/scripts/run_edge_exchange_harness.py",
+      "sha256": "cb9843ecaea61909a23564012fc1f41c80e28039d6b05af78319c6324015f72f",
+      "bytes": 7668
+    },
+    {
+      "path": "project/skills/manipulation/intent.go",
+      "sha256": "a7a799095962f0fd17f2053465336905631edfc82d74cd2b78e16e220ef39b22",
+      "bytes": 5759
+    },
+    {
+      "path": "project/skills/manipulation/plugin.go",
+      "sha256": "31739d1502b89ddccd3d8ab50009b9222daf44310abe2c1b5e7fc2b6d6e6269d",
+      "bytes": 16896
+    },
+    {
+      "path": "project/skills/manipulation/semantic_target.go",
+      "sha256": "af2f3026bd4b842fa624e2f8ce085750a36a66621b0ad36dd538dfff155a3233",
+      "bytes": 1112
+    },
+    {
+      "path": "project/tasks/alert_groups.go",
+      "sha256": "c57e4e00cebdde6b1a3e0ad3da68c83c549c1eebc51cdf923332bf4b554dba7d",
+      "bytes": 10086
+    },
+    {
+      "path": "project/tasks/alerts.go",
+      "sha256": "48fd8e9926fedf2712d6c287ff9227144a4318615d8f6b2d96f6c205255dbb16",
+      "bytes": 25557
+    },
+    {
+      "path": "project/tasks/capability.go",
+      "sha256": "9588fe22a026d1ebdc7f7ce5b87d901959c35ca0c608233b394eecbb6bc05dba",
+      "bytes": 2532
+    },
+    {
+      "path": "project/tasks/context.go",
+      "sha256": "08ea43610365a64074f950e447acb4cc860d7eb45512bd53e79b02ecce2cbefd",
+      "bytes": 6998
+    },
+    {
+      "path": "project/tasks/context_memory.go",
+      "sha256": "456bf2427b772eed86b6f72c36c5ccb7fdc11524932510404dd5b24f53dd6f1a",
+      "bytes": 17335
+    },
+    {
+      "path": "project/tasks/decision_context.go",
+      "sha256": "db42a9dc2aeb0128171e4fe840bad6a6a7a3808e139022b05d2ed7830c3f0d43",
+      "bytes": 3183
+    },
+    {
+      "path": "project/tasks/evidence.go",
+      "sha256": "40084d23e7580a3eb94a05164200a6b6a852910c20633e6d9c5bf04b4aebe24b",
+      "bytes": 7259
+    },
+    {
+      "path": "project/tasks/experience.go",
+      "sha256": "7503475bc3a6d4aaf3d709fae789ed34a661cc19ffdf0ba9871cc3565fb12e21",
+      "bytes": 25427
+    },
+    {
+      "path": "project/tasks/experience_events.go",
+      "sha256": "9ef1798ed873f529e8e77c20d72d128ac7473aae60234570d4faa00ad93e76ba",
+      "bytes": 9507
+    },
+    {
+      "path": "project/tasks/grounded.go",
+      "sha256": "81c54cd7e4dbf4400f83d0a4251a733860e471d0c88bf67bf4078aae8b535e25",
+      "bytes": 1495
+    },
+    {
+      "path": "project/tasks/local_recovery.go",
+      "sha256": "78a7e145603caa758f2201e429d9ceb81a29ebf3cefda32dee662dc8a1414914",
+      "bytes": 923
+    },
+    {
+      "path": "project/tasks/memory_store.go",
+      "sha256": "8ce4550a19d1b040c940cab9ec28ec98201f4e30543bb58594e56f4965b0342e",
+      "bytes": 9508
+    },
+    {
+      "path": "project/tasks/objective.go",
+      "sha256": "2fa5e3518ff13c13112717a12629ae04b964b5fc2fe6f18b7af03baf0138b6a6",
+      "bytes": 2537
+    },
+    {
+      "path": "project/tasks/reconcile.go",
+      "sha256": "8fab816bb5d8e7d796cc99731f7ffeece6d6de2b5620953251c734307989b8dd",
+      "bytes": 1438
+    },
+    {
+      "path": "project/tasks/revision.go",
+      "sha256": "a20480d1ff1c243238260d0a856694ad0113e14540604aa2ba58ad1144382ddb",
+      "bytes": 6827
+    },
+    {
+      "path": "project/tasks/revision_context.go",
+      "sha256": "8557021c2621c685f6aa85868afb09c8e400a52388188d94f7b19ee50e1afabc",
+      "bytes": 3551
+    },
+    {
+      "path": "project/tasks/service.go",
+      "sha256": "300de6359a59b1669b612af161090a4ff9a13e7c2f4b472e6848eec7da0b7ee0",
+      "bytes": 28424
+    },
+    {
+      "path": "project/tasks/store.go",
+      "sha256": "8fa1f0507d107d7357b61025fd40a91f6fe44176e2b894f1db60c0d7556a78a0",
+      "bytes": 776
+    },
+    {
+      "path": "project/tasks/summary.go",
+      "sha256": "720db760f958cc1876c6149430052ba0192cb99cd7e1e6bb4430d3bdddad67ee",
+      "bytes": 2777
+    },
+    {
+      "path": "project/tasks/telemetry.go",
+      "sha256": "cfe719dff2528f0898c7fe89cc87d7533594a5d4a330df0fe266d8f944ba2b5b",
+      "bytes": 8862
+    },
+    {
+      "path": "project/tasks/telemetry_clone.go",
+      "sha256": "001f50e1ce01997f294bd9817df7a1f5e0d35a5d7c54afb1bc231ce490f3d17d",
+      "bytes": 3220
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/LICENSE",
+      "sha256": "a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71",
+      "bytes": 1136
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/big.go",
+      "sha256": "26c2e7a009a1579f126853cbfb6c9ffc7cda00b4f5ca3faea4705c384cff5edf",
+      "bytes": 612
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/bigbytes.go",
+      "sha256": "9318dd523505253f686747635394232cabe2968984df14b2f49d91926ea80c70",
+      "bytes": 4850
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/bytes.go",
+      "sha256": "9fb2391c3896a42cd4091279701f6274c19f3c3f15145503477229a67835d5da",
+      "bytes": 2610
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/comma.go",
+      "sha256": "067d9654d89f6d55df0e10cdb907a1c5eaca786ae7d4225126ce6e68836bf3bf",
+      "bytes": 2476
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/commaf.go",
+      "sha256": "1935732ba840f1470016022ce8a3b4792268fcf326b4229dd2352cf11e9ab27c",
+      "bytes": 762
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/ftoa.go",
+      "sha256": "cdee6a24b70dba3b2a6f1600513960aa6ad1b7c8db15466950fb7c184a38e235",
+      "bytes": 986
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/humanize.go",
+      "sha256": "47bc1b3cfed93656b8698164ee899b5016510dccc84b0ccecb6f1eeed306035a",
+      "bytes": 276
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/number.go",
+      "sha256": "c7a2147a83d6cdbeaded747035299c741fdd97c972345bd9dcc3b4c72b776083",
+      "bytes": 4320
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/ordinals.go",
+      "sha256": "aac3d5ceefd8044baae1f3deb76613470c7eb94fc26af1ea51cec93f8eab075f",
+      "bytes": 371
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/si.go",
+      "sha256": "7159cff48cad974637868726cf45ff255b4a9c522a7b2eafcad3dfd537ba058e",
+      "bytes": 2909
+    },
+    {
+      "path": "project/vendor/github.com/dustin/go-humanize/times.go",
+      "sha256": "c246284fce010f5097a4bafd2ff4fd9bd9d09f7fbddad8d0d9da24f1dd9edacc",
+      "bytes": 3239
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/LICENSE",
+      "sha256": "0a8d61ed3cbfd5312326e8126c31ce9c627a283adc99131b56896d29ada04b2d",
+      "bytes": 1480
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/dce.go",
+      "sha256": "6a4b89e7f6165a673e76f00bebaabf8d0d7eb4356a672c6cb771d95a45fb2695",
+      "bytes": 2072
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/doc.go",
+      "sha256": "0b286e2af61ede9f58d2455781ea254284c477b7fce2447aab3203992cc51f9f",
+      "bytes": 407
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/hash.go",
+      "sha256": "afe975c3f3e8b9a972c66165f06e978cc5c2f8ea5a4809dae4c46b4cfebbadce",
+      "bytes": 1963
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/marshal.go",
+      "sha256": "933eb226d049268e17809fd37f777c650b9ec8cb3fa988534b792610a64dcc43",
+      "bytes": 907
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/node.go",
+      "sha256": "73a93d192ca24078e0f93b8c1675e13adb442421252d3974d697b0821c4832cf",
+      "bytes": 2323
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/node_net.go",
+      "sha256": "78e274b465de8da8690f4ab06281f41025b142c1d093e337fda1d6726b35662b",
+      "bytes": 949
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/null.go",
+      "sha256": "791638f42d54fcf07ac752df6b2df92593f7da308f944465e2cda443dc3346cf",
+      "bytes": 2461
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/sql.go",
+      "sha256": "29281b11e8f97f1ddf73d087854cb401ba42a87c4f59ce45fc69763a4d927f2f",
+      "bytes": 1459
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/time.go",
+      "sha256": "e07999a07de5b667dd1dd5792b544ea933e7e839eca03b3469527f86a8bc2881",
+      "bytes": 3795
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/util.go",
+      "sha256": "755f50afafb13dd89ae6177da7eb6dc31ae650ece2f9ba52821021e9f8de044e",
+      "bytes": 1920
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/uuid.go",
+      "sha256": "0edec8e34c6b6fe0db31b71a29069a09ed832e3fd04ee0175916b58f2b60e5c1",
+      "bytes": 9633
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/version1.go",
+      "sha256": "38a2c229a2aad4bb72d45529304f210b1f31e8ef60bbd2605690a10f0d8a8242",
+      "bytes": 1257
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/version4.go",
+      "sha256": "f252aeb4028659d83cbf7b037d4524f7c9b76cde1fdca1f6f7de310dab6f4dcd",
+      "bytes": 2057
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/version6.go",
+      "sha256": "013cc9f4a9e606746d38d53f8e651b9222f5042fde567484588ec1d7a0c54905",
+      "bytes": 2213
+    },
+    {
+      "path": "project/vendor/github.com/google/uuid/version7.go",
+      "sha256": "8002748cc22a032c3782b42f7653a947189b8566c50d246b4a3beb2e075f8d62",
+      "bytes": 3371
+    },
+    {
+      "path": "project/vendor/github.com/mattn/go-isatty/LICENSE",
+      "sha256": "08eab1118c80885fa1fa6a6dd7303f65a379fcb3733e063d20d1bbc2c76e6fa1",
+      "bytes": 1099
+    },
+    {
+      "path": "project/vendor/github.com/mattn/go-isatty/doc.go",
+      "sha256": "06182cb1a7113cae6fdef9be492893298610bfc63cf565a23f86203c3074a861",
+      "bytes": 64
+    },
+    {
+      "path": "project/vendor/github.com/mattn/go-isatty/isatty_bsd.go",
+      "sha256": "b3df65aaddc2e985cc4b41be48e7a714eea17414cb8d09a04abcd2d35bf3f9e8",
+      "bytes": 609
+    },
+    {
+      "path": "project/vendor/github.com/ncruces/go-strftime/LICENSE",
+      "sha256": "38ae43959daf953a393a585b2988672cb65a5a541aca0d0be5e72595a0a16883",
+      "bytes": 1068
+    },
+    {
+      "path": "project/vendor/github.com/ncruces/go-strftime/parser.go",
+      "sha256": "891c1b085300b1ca57218e58145de8666e62a07293366d92f3a07aa2e9fc484f",
+      "bytes": 1802
+    },
+    {
+      "path": "project/vendor/github.com/ncruces/go-strftime/pkg.go",
+      "sha256": "30eb6aff75d7ba41cff70dea2f3e0d2b7ad4c333da305c3c307e21245fa9e453",
+      "bytes": 3217
+    },
+    {
+      "path": "project/vendor/github.com/ncruces/go-strftime/specifiers.go",
+      "sha256": "bad68697026cc5aaf936aeaaaf3abec9ad5ef7f665764f6cbcf2b9307c205cbf",
+      "bytes": 3428
+    },
+    {
+      "path": "project/vendor/github.com/ncruces/go-strftime/strftime.go",
+      "sha256": "5ba41b76da5ab571a45c065047900a2e28edb94ae09697dfd2e2e45931adaf9c",
+      "bytes": 7649
+    },
+    {
+      "path": "project/vendor/github.com/remyoudompheng/bigfft/LICENSE",
+      "sha256": "dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d",
+      "bytes": 1479
+    },
+    {
+      "path": "project/vendor/github.com/remyoudompheng/bigfft/arith_decl.go",
+      "sha256": "652c090c62611633839e469d5ffb454e8a0afca61cef680f349778758921ca87",
+      "bytes": 790
+    },
+    {
+      "path": "project/vendor/github.com/remyoudompheng/bigfft/fermat.go",
+      "sha256": "25b1256c862303f46e796f1d8a9911da106b28e7bab29f75a59c2a96f964db13",
+      "bytes": 4081
+    },
+    {
+      "path": "project/vendor/github.com/remyoudompheng/bigfft/fft.go",
+      "sha256": "bc123dfafd49301821768f73acd2d46a0fac28b582902bc982352752344be59a",
+      "bytes": 9960
+    },
+    {
+      "path": "project/vendor/github.com/remyoudompheng/bigfft/scan.go",
+      "sha256": "b079e8e278ca3a14d0da9e3d719ab0fbd843047bc6020bfcce8626f8c27e3715",
+      "bytes": 1689
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/riff/riff.go",
+      "sha256": "b2a39817fec051e57931e1bee742a8f983887540026993ecc5aded2e9cde5eac",
+      "bytes": 5179
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/decode.go",
+      "sha256": "9d738122d496eda99e39e358e4c41d13fcbe7d17a5f0b68b563f2dd1d544629d",
+      "bytes": 12251
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/filter.go",
+      "sha256": "7b0196140613dd37ab2eb3aece987b3839289731741ac9fca52f8000c818e653",
+      "bytes": 7797
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/idct.go",
+      "sha256": "b6b27996e730f34d7cc614392cd511eef98b02c44f42659d04294c7b1d9b0594",
+      "bytes": 2867
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/partition.go",
+      "sha256": "6d9d2cfd7ea2207297ff76509733c1135dba3c1dfdc2eed2afcbcdc977a632d2",
+      "bytes": 3698
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/pred.go",
+      "sha256": "791ceebb5f99b762441d56ab00c3e6fa3475416b93be2c48890b740830631dcf",
+      "bytes": 6148
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/predfunc.go",
+      "sha256": "0df4ca0eaa5cdbe562e4f11572279e5717d0ce18aa2f3dfb14adac329062cb67",
+      "bytes": 13005
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/quant.go",
+      "sha256": "b806d2f3a849c648fe394d2812d2386e30148c8545e939dda2f2c47c3628fb14",
+      "bytes": 3114
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/reconstruct.go",
+      "sha256": "72a34c52982880ce3103101e66871acc542ccbfe3fcf5c45e56bf887f8621950",
+      "bytes": 13578
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8/token.go",
+      "sha256": "644a520b7b3102757947ef346cd95da5d6fbed1993513b15eb27ad16008a987c",
+      "bytes": 13089
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8l/decode.go",
+      "sha256": "0667281c231f8c439ea39c8f850e6cb58e39e67a4a33e0ecd60200fc863f44d2",
+      "bytes": 17440
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8l/huffman.go",
+      "sha256": "2cbfd295ca97102bb2f6efea9eb125ca36ad428d299160ea08438a02855dcd8a",
+      "bytes": 7605
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/vp8l/transform.go",
+      "sha256": "ffb990b337e40a07f921bfd213b55b205b3973410fdbd2a38eb2581527dafea1",
+      "bytes": 8445
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/webp/decode.go",
+      "sha256": "cd82c67e40ec49165ba5f7dec5b2672d68816a9473711098305b59008df9d433",
+      "bytes": 8626
+    },
+    {
+      "path": "project/vendor/golang.org/x/image/webp/doc.go",
+      "sha256": "d28a6c1eea36b0806ddfdc0dfa98ac0a32afd13951dfdedf65a2eb0c93bcc2a1",
+      "bytes": 353
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/aliases.go",
+      "sha256": "53e7eeba0503ad62ec18cdf2ca51a1785249a8646354439c854148dc57c06fb5",
+      "bytes": 385
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/asm_bsd_arm64.s",
+      "sha256": "f7740a9d925eccd280e54e7971a36508a7d2856d9ef996a394ad5cfd80bec8c3",
+      "bytes": 709
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/auxv.go",
+      "sha256": "5e470a481610ff746d64cb22b3e7a981ffa527d6ca546e87df4296704d6c6de6",
+      "bytes": 1020
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/constants.go",
+      "sha256": "f3405abc7484992964143eac589b951132d8e3a90f8359fc1a6e9ddcc201aa8a",
+      "bytes": 318
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/dev_darwin.go",
+      "sha256": "9a0bc8af77b4325bb10b651e00b8f7974cc972d0e5456a370f2c46a56181ada7",
+      "bytes": 747
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/dirent.go",
+      "sha256": "03e3b15a8428e2f1520386291052fd30e5d74ecb4d78c724bae7953d71425be1",
+      "bytes": 3085
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/endian_little.go",
+      "sha256": "bc06276262c57cf21e35c13ff2f5fdc96c18feb32a055c6201edfa76e95c967f",
+      "bytes": 358
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/env_unix.go",
+      "sha256": "bcb73ccfc5a8dae1f59e4debba69e0f600155b947f358c939bc753443a7a8007",
+      "bytes": 645
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/fcntl_darwin.go",
+      "sha256": "fb6aa54ed72a392548bcd7c79a10ce16e9ed70da90492ef13346e2419fa52d3f",
+      "bytes": 806
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/fdset.go",
+      "sha256": "8339dad44215930bdd253beaa1064c4d34ed2f81d54c4bd53d2be1f64fe35530",
+      "bytes": 753
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/ioctl_unsigned.go",
+      "sha256": "991b152e32cde753f3b64d8ebc1d18e9078a3615006bc79c474b2bbbc653487a",
+      "bytes": 2570
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/mmap_nomremap.go",
+      "sha256": "f6166771a7d9a6c116617b6e21a15b020ddf709b39162c8596e0880cef3ce4be",
+      "bytes": 343
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/pagesize_unix.go",
+      "sha256": "5fea300c32898efe55341abb39489aeac76f81ea9df513f68d1b2556be7b48a3",
+      "bytes": 396
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/ptrace_darwin.go",
+      "sha256": "61eab9ab1e3d5d24b8e3545352e97afa0f76a77a578f75fb078026617444052c",
+      "bytes": 315
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/race0.go",
+      "sha256": "8a78192af2b20cd177f78e3761e10d66567373cef3b7671aa3c7912d65de4c90",
+      "bytes": 553
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/readdirent_getdirentries.go",
+      "sha256": "db3a5b0e169d6f2431e3a145d2a3cc4374330e29d40378cb3fb26ede4fcd813d",
+      "bytes": 705
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/readv_unix.go",
+      "sha256": "2abd5ef6af8852208f2bae9de6de1c8d90ae33caba76f7fb757004d7a4040fe8",
+      "bytes": 2581
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/sockcmsg_unix.go",
+      "sha256": "7863093bfa7ec9e564c36992fbf2b7c97244c84d406e5fdc60b72c56a23af396",
+      "bytes": 3214
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/sockcmsg_unix_other.go",
+      "sha256": "73f23d4f0c002e24160530515a45f46bb6fbe8728cc79b135a8c6956d5c8458c",
+      "bytes": 1233
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall.go",
+      "sha256": "41abaa37d079eee890fb7803dde876a19ba3acdbadf41f269ae8ed0d73ca0e37",
+      "bytes": 2882
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall_bsd.go",
+      "sha256": "53d6db23c6307444ad18512ee160159c175608c0d424a86ec22dec6b28eeda65",
+      "bytes": 15321
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall_darwin.go",
+      "sha256": "8928e516d815b6d95ff8d6b7ffdbf88843e47076737d885bd81d68bfa8f825ed",
+      "bytes": 23373
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall_darwin_arm64.go",
+      "sha256": "ca9f22a90e5e81a736c0ad500f015b139cbb05a23ffdbc39906c6feb6975244e",
+      "bytes": 1447
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall_darwin_libSystem.go",
+      "sha256": "0c327ad9b9845e19b1e097dfb7b569bc9793b670874e24be4a87ac9bd4647557",
+      "bytes": 1225
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall_unix.go",
+      "sha256": "d851dcf05549674486f35d58b0357bb5c1ea9378bd234b1646534a35dc4a6da5",
+      "bytes": 17244
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/syscall_unix_gc.go",
+      "sha256": "8b7592bca0fff629f9bb6f2c78c4ec8810f989e04b29d76ebd1ff81efd34db5b",
+      "bytes": 640
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/sysvshm_unix.go",
+      "sha256": "e9e5031e048cf7c58692650ea14887158c3bedaaba506be63cbd8190cea2c066",
+      "bytes": 1456
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/sysvshm_unix_other.go",
+      "sha256": "b513c4e9cd077df2b1452bd645abcc3e252ec28ef44cf4e2a984d94bd5464fb3",
+      "bytes": 407
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/timestruct.go",
+      "sha256": "d0d07c2481ce2692f4e5728d65ccab1d105ecf64f52ac6b9a923ef106088a249",
+      "bytes": 2254
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/vgetrandom_unsupported.go",
+      "sha256": "822c28801c556c34f31cd7a14ddbe4c3708e543de6fe81c4ad1fae9420268258",
+      "bytes": 292
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/zerrors_darwin_arm64.go",
+      "sha256": "a4255cecfc6a5e82653d5bb96ee2ef6191a3fa664046de7a016ddeccbf2c9e5f",
+      "bytes": 90132
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/zsyscall_darwin_arm64.go",
+      "sha256": "630f26d7c5679ac8ac11dfe0e7e1861aec0c801e1ef7ca503030f8e8736469a3",
+      "bytes": 73384
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/zsyscall_darwin_arm64.s",
+      "sha256": "5daa70eefd10942e6ba8da79d69152b330da1981874d6726d1d09cf8d8a0d30e",
+      "bytes": 31810
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/zsysnum_darwin_arm64.go",
+      "sha256": "3153f86ca570545e32a352b93289a5e5353cb32902c8ba0e8135d2dc26a10312",
+      "bytes": 18189
+    },
+    {
+      "path": "project/vendor/golang.org/x/sys/unix/ztypes_darwin_arm64.go",
+      "sha256": "b17d2e512a7bab550ef24d3d3ed9b0f3bed89de5a15ac003d7371058d6ea168e",
+      "bytes": 13970
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/LICENSE",
+      "sha256": "95ff867eb55a56935fa7492406cfa953fb7c13ca73f4c0a86ae05756b4605600",
+      "bytes": 1482
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/builtin_all.go",
+      "sha256": "5b2c1479edaaba777d817dbccad1fb41ee26fed87c576f70a427cb3c505c8fea",
+      "bytes": 328
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/capi_darwin_arm64.go",
+      "sha256": "bff4f0b98aef95bd0e53eb7e77ff5e5ecbc4ffddb1647db741e28b1cf8ecc48b",
+      "bytes": 22022
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/ccgo.go",
+      "sha256": "c49dacf7c917bbab19692914b4efa950b6f461117014f7364c818fb39069b92a",
+      "bytes": 78207
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/errno/capi_darwin_arm64.go",
+      "sha256": "da02832421c57e30b7f9063d7ee8a0ae61733f3f244e65cfae3ebb915c990bbd",
+      "bytes": 392
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/errno/errno_darwin_arm64.go",
+      "sha256": "60e2ff2e2dd9f40de590897c1019917c8fe65b7f414ef2d36e150bf79361fb6b",
+      "bytes": 33395
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/etc.go",
+      "sha256": "01c214eab1d31834772c313891cc6315f256034debf7ad6b49616ce7f64534b7",
+      "bytes": 19356
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/fcntl/capi_darwin_arm64.go",
+      "sha256": "34db7b331e947d367828cdc7c96a75da4a4fb6ba579b51400a4b9b1455b92e1b",
+      "bytes": 392
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/fcntl/fcntl_darwin_arm64.go",
+      "sha256": "6cb5ac1e3bf895dfad97579e236354f9ad1525e07706a7ca5390b4920efc7275",
+      "bytes": 103740
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/fsync.go",
+      "sha256": "5760bc90f3df02bbbe2a24dd08365a403b8bbe9a01f6ee9ee345249f7f698b62",
+      "bytes": 277
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/fts/capi_darwin_arm64.go",
+      "sha256": "0977c39a608df29a9f9fab14cda05931957862a3fe3e00496d359caf543bda63",
+      "bytes": 538
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/fts/fts_darwin_arm64.go",
+      "sha256": "69a389237dca613caacc89a50ea6ebaa0d8a0a0227a9a8e7ca866cf45468586c",
+      "bytes": 268569
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/grp/capi_darwin_arm64.go",
+      "sha256": "b0e169469687528f4a0fc32102942952cf059d8ce071d128fe592c0badd61832",
+      "bytes": 382
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/grp/grp_darwin_arm64.go",
+      "sha256": "087a22fcebf0461ed9a7b13171f33829669936fa06e6a8084bff1326c6507e67",
+      "bytes": 48724
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/honnef.co/go/netdb/netdb.go",
+      "sha256": "3b6002f0db2355d23f346a36510bcf80787193e9610e14babbb113a36105c838",
+      "bytes": 27133
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/int128.go",
+      "sha256": "fa4821cd943874028ba6a953e0ee48c480759f98ea1ade6e09d1cd64a8dd7cb4",
+      "bytes": 10087
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/ioutil_darwin.go",
+      "sha256": "a496b5553d12820e4a9a7adc62970a6b6a5481933b9a30679fd3d95aefd1e06c",
+      "bytes": 1512
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/langinfo/capi_darwin_arm64.go",
+      "sha256": "eb648633f36af6cf96c965d46bc72c582b9bdcca2b35acaf2777467d2add29fb",
+      "bytes": 407
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/langinfo/langinfo_darwin_arm64.go",
+      "sha256": "ce85680689cdc9572a7bd6d6af56b61a0dba09d2e73fcff477ac05b6bd27a610",
+      "bytes": 45043
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc.go",
+      "sha256": "d2eeb34890437443044e9fd97cb4d6eb73dda4f19b7b0d725578f5da24546a78",
+      "bytes": 91058
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc64.go",
+      "sha256": "3ff7650ed4250d83bd2df238e5b88bd805fb17e1f959cdd4e4ff9425d3cf19d0",
+      "bytes": 2253
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_all.go",
+      "sha256": "dcd4d1f818059ab5a5f9b430b3cacde4290a15907467ed4e396169d64b778c6c",
+      "bytes": 2588
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_arm64.go",
+      "sha256": "e176bc579a8e7d8a7188c1ee6142fc1c17af50a777d693273155133dd384d327",
+      "bytes": 980
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_darwin.go",
+      "sha256": "d0ad969c4cbcef382eaf6058bf0f3e48efe6269fa18beb79906087077742ecd5",
+      "bytes": 72640
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_darwin_arm64.go",
+      "sha256": "6c725881029bda79d32b8e29be850b45ec8e359a0d5d2f52bc634f93dcae4e99",
+      "bytes": 13489
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_unix.go",
+      "sha256": "131f6361213958cfd5bd0d7b113bf222aa6fec5f324bc0098038cf7105cc1246",
+      "bytes": 33894
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_unix1.go",
+      "sha256": "70ab4175ef2801300f3b2922a42b98bd8c7fd22be4f7b4d3d72c84b0acf5eb5d",
+      "bytes": 806
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/libc_unix3.go",
+      "sha256": "d1c2fcf135c7664801573c5ea2723e0c742ba93d6457a91cf0d4a8bc25a14a3e",
+      "bytes": 1365
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/limits/capi_darwin_arm64.go",
+      "sha256": "a388134749303ea5d4b67594b0ebbf9f4502466c360034f2bef7415c9cb1cffd",
+      "bytes": 397
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/limits/limits_darwin_arm64.go",
+      "sha256": "18f29c5468917d8a0a56c7c7cc26c2c748a0363eb6ca7c14e0806cc3d1bf16c7",
+      "bytes": 44231
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/mem.go",
+      "sha256": "981b610a56d1c091695c52ef08552b33c28723799d33719bb83c3ff324530434",
+      "bytes": 3786
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/musl_darwin_arm64.go",
+      "sha256": "00d8825713eb0d5b01c2d85ea5bb9b87d69f39ddae289bc495ce9fa506fc5785",
+      "bytes": 150635
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/netdb/capi_darwin_arm64.go",
+      "sha256": "a9f334bb4730cea4c92804a0cbcdd1a78960468a1d1e466f8b4fafa987248f3b",
+      "bytes": 548
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/netdb/netdb_darwin_arm64.go",
+      "sha256": "48dc354d92f8d8cf0edbc1f27d39f100bac94c18c6676d53f319263d6e05a60a",
+      "bytes": 330519
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/netinet/in/capi_darwin_arm64.go",
+      "sha256": "d3e471972bd549fde20eb3a6844561bafa9d49330106e4688f4b23d546fc4b2e",
+      "bytes": 549
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/netinet/in/in_darwin_arm64.go",
+      "sha256": "9ac274a7f6c5c1e1ecca1d1c57c50dd801a542e5fcd3638d924e23b7fbd03671",
+      "bytes": 306167
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/nodmesg.go",
+      "sha256": "18232e1a56ef0cc8f9d588d7392b3890e37820047f352e8f24889ebd78a16bde",
+      "bytes": 318
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/poll/capi_darwin_arm64.go",
+      "sha256": "45006c3068adc4cb116536507322f25ff6d9d5fcb95764f5ecd4a6e5bc777692",
+      "bytes": 387
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/poll/poll_darwin_arm64.go",
+      "sha256": "5b8ff761106cf9cc5b0de1f9397727270d937d246470b392a85febc7b9e196fd",
+      "bytes": 7174
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/printf.go",
+      "sha256": "981767759c5f68e9ce2a24486583574f223d2300e78e57789a1f4f5cae92e8fa",
+      "bytes": 20652
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/probes.go",
+      "sha256": "7712b62c336e3e39d145c2824afe7271d989170873d552da9774c544fec1dc43",
+      "bytes": 2810
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/pthread.go",
+      "sha256": "1d84460cdf51a5cf654774a74b82896b301b95459a3a7da794e4ec87b0a49b57",
+      "bytes": 16469
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/pthread/capi_darwin_arm64.go",
+      "sha256": "7a19c28edb425ae8ae7afc38e7d57bae61dcf70a736047255d416f6bc56eaeac",
+      "bytes": 402
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/pthread/pthread_darwin_arm64.go",
+      "sha256": "eb30cf5caa99fb2c75d825c30542e7be92f41bc281519b67011847418ae9161e",
+      "bytes": 154168
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/pthread_all.go",
+      "sha256": "505569f6ba4684e9f9599bea2d2ec5b70c857a296ca3efda32bc867055b27006",
+      "bytes": 1952
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/pwd/capi_darwin_arm64.go",
+      "sha256": "7b9518bc7dd223966a6a2d7cd90958019b033e65e296cc95c0a6a2b866796186",
+      "bytes": 382
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/pwd/pwd_darwin_arm64.go",
+      "sha256": "b3e76718d8f3b44fa76f97c321567268a571d74923ff5c9956971499054fc84c",
+      "bytes": 53484
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/scanf.go",
+      "sha256": "f93c2de58f1a23ade56bfecd1d19886cdfb79a651675eaa1f2452435962906c8",
+      "bytes": 16095
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/signal/capi_darwin_arm64.go",
+      "sha256": "c71790b4f53ba791ab30f9b563c11424afdf992f95d1db49f19970a7cd53530d",
+      "bytes": 436
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/signal/more_darwin_arm64.go",
+      "sha256": "e73a703a1d6802fe4acfd61b63a5ce90ae645fc7a79d89d9955abccc3f6cc847",
+      "bytes": 428
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/signal/signal_darwin_arm64.go",
+      "sha256": "b395a01ceb5a2fc3ad734bca9babbf6d296de74d01d443bb25ad85f1c2fd5f4b",
+      "bytes": 153868
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/stdatomic.go",
+      "sha256": "7c8694fcc4fd186676654978bbf791313ca887491f9ec263b26a39543d5bd151",
+      "bytes": 31886
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/stdio/capi_darwin_arm64.go",
+      "sha256": "bdd37bde794ef0ca2f92740bcc3801e1205757a414e3167e26184c3622612556",
+      "bytes": 392
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/stdio/stdio_darwin_arm64.go",
+      "sha256": "fba35dece2a2f7810510704214b2e7d356a28b2e0d25af50d813a2a399315aeb",
+      "bytes": 95467
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/stdlib/capi_darwin_arm64.go",
+      "sha256": "d0ab148347fc1c5ff55b71470dffbeed106e9ff7127451560db6b62884b92d58",
+      "bytes": 397
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/stdlib/stdlib_darwin_arm64.go",
+      "sha256": "be54a343e24493595989dcda5508faa440ca0fae94506e84f24dc20d994b2512",
+      "bytes": 223110
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/straceoff.go",
+      "sha256": "9b1d5deaa41eb28d23a89c0ac4fc06d827d3a46a57016559342e31bcd16a4b7f",
+      "bytes": 281
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sync.go",
+      "sha256": "a65152029198a7807eb16721dffe0ab9f7e2f8a3b746e8517347e8e6c7eeaa2a",
+      "bytes": 644
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sys/socket/capi_darwin_arm64.go",
+      "sha256": "4decf67d5c55ff1fdc5f90d2316b177e7dad3ec7a0ca041b3ef93c8243dda171",
+      "bytes": 561
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sys/socket/socket_darwin_arm64.go",
+      "sha256": "d7988b988ba7c190966a1d72253474b8f5fb2496e106ad1dbcb1ed4ac0fb510b",
+      "bytes": 266035
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sys/stat/capi_darwin_arm64.go",
+      "sha256": "31e77b7958728ba9d1887cb7f5ed317124c0705375d3a99b8681fba9cd125434",
+      "bytes": 395
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sys/stat/stat_darwin_arm64.go",
+      "sha256": "582898b74503c018d6d95025decb972a31f7024c28e00e947dd6e09755cf11b5",
+      "bytes": 116833
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sys/types/capi_darwin_arm64.go",
+      "sha256": "a5404b58c75b7691e083c935d109ca8ebe81313e4e95d21ba48ff6c54bcad81c",
+      "bytes": 556
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/sys/types/types_darwin_arm64.go",
+      "sha256": "fac7fa087e1225b6a7581461702c83a8daade3bae7a4ebc206b9352d2cb8d93c",
+      "bytes": 212526
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/termios/capi_darwin_arm64.go",
+      "sha256": "dd57110971070b31b092e61ef3a4610f4490e54e0493565ee3235f0d13ff1781",
+      "bytes": 402
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/termios/termios_darwin_arm64.go",
+      "sha256": "8aaf2ddb04ba5245b32eb5ea4908c04d68927b8b3f6e8d60f51662e141ebdd8c",
+      "bytes": 81268
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/time/capi_darwin_arm64.go",
+      "sha256": "55ed6bd854ba1b3fc8278595eb15c1c9ee9aab780e18ed55fcb1f17ef8f682ef",
+      "bytes": 387
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/time/time_darwin_arm64.go",
+      "sha256": "44d399fc6c8dbaf33259b4de46439ad449ca4fdc7bcca8038ce01627d02042a4",
+      "bytes": 85236
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/unistd/capi_darwin_arm64.go",
+      "sha256": "87248a08988638385577cd24e73c2b996901eaad7f74dcf100f4c1ff8adc8f54",
+      "bytes": 553
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/unistd/unistd_darwin_arm64.go",
+      "sha256": "9e2ffcdfc5336717f30efb435f9069f45a50ad321def2f40d87178283774fe9c",
+      "bytes": 184135
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/utime/capi_darwin_arm64.go",
+      "sha256": "48581bd38945c53636ac38e13e6f3ca9ea68848b321f3bcd530028b4a8a3fd70",
+      "bytes": 392
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/utime/utime_darwin_arm64.go",
+      "sha256": "e515aa4ec5f998da384a9e16b88ed29f4280ee960882cd0e711ebdce960a7cf6",
+      "bytes": 65027
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/uuid/uuid/capi_darwin_arm64.go",
+      "sha256": "81524974143febcf63caf5c11610e57f902589b2654aa9fda91919af4929d61e",
+      "bytes": 397
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/uuid/uuid/uuid_darwin_arm64.go",
+      "sha256": "46d0136ef15a9b7274b3febd897dc941b82604ce586f1b78d2a19d66610182df",
+      "bytes": 39328
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/watch.go",
+      "sha256": "d4ba707bdd7dddc533659a1ab47c80caf0a87d5df2c6844ac8fadbc60d7c4a25",
+      "bytes": 5557
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/wctype/capi_darwin_arm64.go",
+      "sha256": "125f868b9473468e336760c3906dded755ee75d86c7b98b9138540e714d5eb6e",
+      "bytes": 2269
+    },
+    {
+      "path": "project/vendor/modernc.org/libc/wctype/wctype_darwin_arm64.go",
+      "sha256": "13091bdf01d82fd7fb7a3643cb38bfaa11702c71b8549b191a96f200aa4e01ae",
+      "bytes": 69404
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/LICENSE",
+      "sha256": "bfa9bf72a72ca009fd62a8f84fca3dca67e51d93af96352723646599898b6cf5",
+      "bytes": 1486
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/binarylog.go",
+      "sha256": "3f53e5d5a9f8cfb25bdd81ab17163c73578514e777f9b10b83d26a2612d448c6",
+      "bytes": 1805
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/bits.go",
+      "sha256": "ee24b720c3b4fbaac728708ae980095f913e8ed73915d7765457102a9b37c0e7",
+      "bytes": 4443
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/envelope.go",
+      "sha256": "8efadf271d1302177e49f8e4105b2bff721125817a9f487013e0ceabc77b615c",
+      "bytes": 1582
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/int.go",
+      "sha256": "9ab9d8b12747d832b02abc007444722e37d6817c79f4f6a5de57d0f2324e99c5",
+      "bytes": 5897
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/mathutil.go",
+      "sha256": "854305b822fcc15df3141aa63cf2af69b4d6da74d7ebce61ed11b9cfc2c09562",
+      "bytes": 30735
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/permute.go",
+      "sha256": "c521f5515b5ceca1e2727b8a055844410f5bebc82ff4121b3397acb9c226e7a0",
+      "bytes": 1009
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/poly.go",
+      "sha256": "6957f3989cac2a394fc215d8ed9c94f8315868067230c1d7f4561092eca9a5fe",
+      "bytes": 5720
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/primes.go",
+      "sha256": "524feedb1b8feb9482b6bb7fde693c54edbba5f258b8f9ee26c6b2a4135e9b32",
+      "bytes": 6763
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/rat.go",
+      "sha256": "4923ae09ef8882cde0f1307db478a443d676e570a64bfea991007ba1f33263e4",
+      "bytes": 660
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/rnd.go",
+      "sha256": "790ee5311ab5231be62f917d9d8414e0049721757d32307353f84692862b5a0d",
+      "bytes": 9315
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/sqr.go",
+      "sha256": "69563735f7723362753ee15dc2c72380d0443a435803f27517a56c66dc98dbdd",
+      "bytes": 208
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/tables.go",
+      "sha256": "23de50dbf9a11b7738fb89af8daeedb4bce218c70c932269534c8c973c74de8c",
+      "bytes": 371593
+    },
+    {
+      "path": "project/vendor/modernc.org/mathutil/test_deps.go",
+      "sha256": "bd359cc1cf32f1b924ce9292ff9fee5278973b19f719c97161b317928645193c",
+      "bytes": 323
+    },
+    {
+      "path": "project/vendor/modernc.org/memory/LICENSE",
+      "sha256": "59895e669f48f168b6b858358f6005779cdf40a265f7828813061b56af67b496",
+      "bytes": 1484
+    },
+    {
+      "path": "project/vendor/modernc.org/memory/memory.go",
+      "sha256": "3f5cee8943da57ffd3db70129f87abdf45c86e5299b81d09504ec2838dc31909",
+      "bytes": 14069
+    },
+    {
+      "path": "project/vendor/modernc.org/memory/memory64.go",
+      "sha256": "1b91a327f3b95d6fc3f80f090175a9c5bc033083a2c675b7a56f009af8fa4813",
+      "bytes": 507
+    },
+    {
+      "path": "project/vendor/modernc.org/memory/mmap_unix.go",
+      "sha256": "d487e0d7f447b25397874a79e53c0e42b8568ed0503b562c959c83e8ef47f0a7",
+      "bytes": 1660
+    },
+    {
+      "path": "project/vendor/modernc.org/memory/nocounters.go",
+      "sha256": "070021a593fc3c28988ad04bee02d83547ff56a9665e7703a80366392e30c18c",
+      "bytes": 290
+    },
+    {
+      "path": "project/vendor/modernc.org/memory/trace_disabled.go",
+      "sha256": "ecd151b29853826767c9fd0e2c9b48b4acd08bd211ce558016399afae693b950",
+      "bytes": 281
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/LICENSE",
+      "sha256": "c6fe05491a60ae13bcd223088d2705e36dede24e5587226231d2459ada5c4822",
+      "bytes": 1489
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/backup.go",
+      "sha256": "508ce9db927dd49d2edc3403497739997e0a3208a756b92e18310388fec60223",
+      "bytes": 3159
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/conn.go",
+      "sha256": "f08ab946eb5d39e490bae470f98dfce9f4536a9725b690c42cb5344ae878519e",
+      "bytes": 38193
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/connector.go",
+      "sha256": "f0bd0b34e047f55cd302f504213bb1a30c5b6d9b34d2c0abef3912ee0084f408",
+      "bytes": 4397
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/convert.go",
+      "sha256": "4a36eadd13bbbead694c7b946638e3444c10888ba36c9e46c78d3d8a8dcfb245",
+      "bytes": 6854
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/dbstatus.go",
+      "sha256": "0da4596c898a4020c087ab4e521484a4d01e93e406ec449e6dfe722481bdfc8b",
+      "bytes": 4539
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/doc.go",
+      "sha256": "163d3492eaf855570093812af0f628007c099e8e1b80584db511a2d07ca80472",
+      "bytes": 8884
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/driver.go",
+      "sha256": "6b446dabf386dfc93355949c67092ba98e967943e982c050fceabf87ecc9613a",
+      "bytes": 12113
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/error.go",
+      "sha256": "0a112a84c6c9e052df56673913989913180c49e43ef99655cd6e2ba66182d2d7",
+      "bytes": 4342
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/fcntl.go",
+      "sha256": "d3fc3e9ea4ad02a456534bb890536ef5eaa1afed48abb4f75c64f30b6b3b0bcb",
+      "bytes": 1779
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/defs.go",
+      "sha256": "14b41dc01d64d4eda978c9a9a6e9eb52ec59ad734e8cba205260bea87aff2881",
+      "bytes": 510
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/hooks.go",
+      "sha256": "f409885d5320894ee49b3b2757e78a04392d388511ec92e1a0cb9732385901bb",
+      "bytes": 506
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/mutex.go",
+      "sha256": "efde48ba9080edc6bdd5b200a360fec3d52c07f53e1801df3787f3e82135e104",
+      "bytes": 11986
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite.go",
+      "sha256": "22c61cdb5a36ce7d1b14314e63a9ac25c7fbceb89d49da4e276fe98a388ad37e",
+      "bytes": 1333014
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_darwin_arm64.go",
+      "sha256": "929bd78b1d28b6f403e08aa7a82d8145daef444a17cbb2b714b7159cb936c7c8",
+      "bytes": 5710
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000003.go",
+      "sha256": "2b6ce2e1228f2960a86ce9d7dfe562bdf34679486c439e1055aef7b8a98b43d5",
+      "bytes": 4519892
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000007.go",
+      "sha256": "223a6e049866a6859bb34cd5a9aec927de96dfeee06ce446ae20e997611bb9f2",
+      "bytes": 224
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000000b.go",
+      "sha256": "bc1f14d7456024d818fb039e9248cc3800c2175769a2e316ee6d153cc40ece9a",
+      "bytes": 26097
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000000f.go",
+      "sha256": "c09f7ba2f556f94f32ec7fd1b1f80cf26be294525008cc037c50ae259498109f",
+      "bytes": 7173
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000012.go",
+      "sha256": "51d3e737815d12fec3a3dfce8bc5dc6f77507884b996a86f6a23f14b618fa1c5",
+      "bytes": 182
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000017.go",
+      "sha256": "62a366848d658a5c09d8f800be0d3d0a9bb34ef0e633b3cee8384ec0f43f67a6",
+      "bytes": 633
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000002b.go",
+      "sha256": "1a39f697f71b9a8d4d2b51a4a8f652ffc5e4ad4d46e2f212fae9b7049c6351cf",
+      "bytes": 29878
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000003f.go",
+      "sha256": "9bee42afb64affc5ce0ddad652a5ad52ab6638079f79f419b52a3308abd86793",
+      "bytes": 45577
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000043.go",
+      "sha256": "bb5a53078502314c96ea9e4cbcaf275344403a769e020c52223edabd34d9b101",
+      "bytes": 2570
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000202.go",
+      "sha256": "6b98b03584547e8588c4c5ab3e9b4fabecb80eb9b0451ff9156ee3d3b224354f",
+      "bytes": 194
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000000332.go",
+      "sha256": "c8dea287db40591b6394624cc84d83f33fba432bb4ec5ec03f53a07d4d1ca256",
+      "bytes": 253
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000002112.go",
+      "sha256": "654e714cde09408d7114ce99bae35e6d4eed2fa48cb0f3d5fa14e645e3939b13",
+      "bytes": 229
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000002802.go",
+      "sha256": "1b9a43856bc2036ed6f7547242eca2ef18b3cd4db1a96250e53dd65a2779e8a8",
+      "bytes": 204
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003a83.go",
+      "sha256": "25795de836c4336759476f55f4de39b574f0a1eb7bfa5fb90c78cbf24330cadf",
+      "bytes": 12807
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003ac3.go",
+      "sha256": "0949898246648274c5ba68854c8ff15c1aea339cdb825dbed1b86aafcd982d20",
+      "bytes": 319
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003bc3.go",
+      "sha256": "943bced6b14bf66650b51cf2465b93c37a6b150e89a16027a3a959166f87eca7",
+      "bytes": 18561
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003e83.go",
+      "sha256": "00ec876ef019183ed0026830ae7fa0a2f49840002480a1eb3a540a5a7c02339c",
+      "bytes": 349
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003eab.go",
+      "sha256": "b4aa113e3ead78c3591318dda44415d331b70a46693e9d043a12d6b2d741b040",
+      "bytes": 13636
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003fc3.go",
+      "sha256": "6b6575d42b4253edecb7dba012f9bcafdbedab943b1bf05a0b75702d1443b953",
+      "bytes": 595
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003fd7.go",
+      "sha256": "91d84c3233857dabf00d585164d61f31d76254df314b2476fd1a5fa413f77dbe",
+      "bytes": 382
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000003fff.go",
+      "sha256": "eb43c4b433dc62ac6430e18a81f7d6052112116cf0fc8ec5cd8aae93d2cb794d",
+      "bytes": 9661
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000004003.go",
+      "sha256": "5f29a9e9d3d6a81df14058921cdc958990580ba9a4a6444d0b13f1e271df4d0a",
+      "bytes": 1232
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000004007.go",
+      "sha256": "55819d00cb9fc5f124cf0017b220aad63483057fc599935017d46498ff0975da",
+      "bytes": 1237
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000004017.go",
+      "sha256": "753973c2b69a36e34a218067376196f1f7f5de168c53682381f4e6825a4e492c",
+      "bytes": 247
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000403f.go",
+      "sha256": "e5a9ad19a7b5176e722d8f62927aef2859d7391298299100d6d8fde75a28b2ed",
+      "bytes": 817
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000007fc3.go",
+      "sha256": "a6c66dd4c9d8ffdc25281a2936a252f5ed729dd9f25079295373b0875b393ee2",
+      "bytes": 373
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000007fff.go",
+      "sha256": "210802abf13175d2e73188e5f316e40233629aa0ff11e18bf41d8cf9a5bbe186",
+      "bytes": 1306
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000c48b.go",
+      "sha256": "778de7144624e83ea2c3d6b932f1cbcb6b5f63ba24be4e91278d4c79c9e10911",
+      "bytes": 181870
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000000c4cf.go",
+      "sha256": "3834d7ee6fb8656438eff62ccdeda87be101fbce05c85434652ec9b2cf98a881",
+      "bytes": 70637
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000010022.go",
+      "sha256": "0bf484d74526cdd28da8548ec77608279b1e1d3960347bb780c6833296a098a7",
+      "bytes": 414
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000010032.go",
+      "sha256": "61dab4a14964eebfa4c3e1b688b71d8be08831d82dfa402f0dd19c14a7bafa03",
+      "bytes": 267
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000010222.go",
+      "sha256": "3b15bdc70612a6082605dd902e157dda43490dba2d45f7473e144319a3bdfd3c",
+      "bytes": 516
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000010232.go",
+      "sha256": "d8af25d464f6a3d4d06e6dd5bf6c4ca73e281fb3c78f0101460bc615547d433a",
+      "bytes": 336
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000010332.go",
+      "sha256": "8a11fe9e79a40cb6ea3a89c79cd64e476241e5ea682b4be687642c2b57dc533f",
+      "bytes": 338
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000012a23.go",
+      "sha256": "53d3eed2eb260fccdd81a2d8fc96f5125fd34a44ad8f2f4f594a8bd485917092",
+      "bytes": 312
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000013e02.go",
+      "sha256": "2d31007bffac70030fc0ef780fc6e4cc8d1108164176eea9c075101f5d18c188",
+      "bytes": 289
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000013e22.go",
+      "sha256": "95f7ba9acabcec92750ba63c412bd61e1c3a1a2dd80b6d0da640ebdd2d99cd89",
+      "bytes": 339
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000013e3e.go",
+      "sha256": "890a5fc37869fc020cf16373b65895032e789baf74c558d8a5f46a99a562ae5f",
+      "bytes": 374
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000018003.go",
+      "sha256": "ea3174aa5ae261ed3c9031a69f277a116ee4ca328ecfbb932bca0463fa427cf7",
+      "bytes": 867
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000018017.go",
+      "sha256": "7f8c78c5c9daf91a2704032580961de232e60df37d635a586a6f9d2d3e6d4ced",
+      "bytes": 427
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001802b.go",
+      "sha256": "85a9d15ff73bc71e760217c726a7b8a483f24ff9667be8b1224a46c06effd6b4",
+      "bytes": 665
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001803f.go",
+      "sha256": "989acf09a85337c31f5fea9d5630ec48254ab6cfc24d2e110c467671c8ac0530",
+      "bytes": 5611
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_00000000000182bb.go",
+      "sha256": "aea9255ab8eecc68281e40ca64dd6084a6f58209b531d8727c26613cb630441d",
+      "bytes": 764
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001843f.go",
+      "sha256": "a93801c9926bf66181a0a1e6603228b36b46886a98b78f4941df9dc280672acf",
+      "bytes": 340
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001883f.go",
+      "sha256": "8bcd9403764cf0a1eca9879a5acdcdbb889b3d7494fb936f51a843f42ec45018",
+      "bytes": 338
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001afff.go",
+      "sha256": "a92267e87402ffee7171fd90e7dc7e207b0e7d202d0cd45e39b24dd20ad9a468",
+      "bytes": 453
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001beab.go",
+      "sha256": "564ad151de5870d3943588d6a32414226e355443134642e9f28d4d83010c5846",
+      "bytes": 399
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001bfff.go",
+      "sha256": "f80e285b555d98f4e224319ed551e0291bc4ad4736dd69335cc2316e9d8799ef",
+      "bytes": 1318
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001c003.go",
+      "sha256": "658e3362025cf33f340d67d5057c95240db80460cc04e00a7a0c1c05a0242289",
+      "bytes": 4576
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001c007.go",
+      "sha256": "444f62c9cc62f7d7830003bde128452d6e7d46ad8972b654e0da9ac9b0f738da",
+      "bytes": 283
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001c017.go",
+      "sha256": "755c41de6a3adf10b3df9d3eeadf5764d6885aa98d351a34827e2788a2b7827f",
+      "bytes": 287
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001c02b.go",
+      "sha256": "0efbf18ba455de8c8c922709962f9ba97b69bae28a4159dec5105e76bbff966e",
+      "bytes": 1074
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001c03f.go",
+      "sha256": "6e93f2cb7fc78c554a745f66ea1ce20087a63a5e9ea0ec6fa56db7d22c5554b1",
+      "bytes": 10265
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001c17f.go",
+      "sha256": "659d337155b2f400296435c9eba79e4efd44044767b8fe4a7279713d3b9ed1e7",
+      "bytes": 375
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001d77f.go",
+      "sha256": "fdc3a913e9c740e7ec5bdac605219d79337a30085903b706b8ec2ea9d0a329c8",
+      "bytes": 433
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001deab.go",
+      "sha256": "4bd343349815a382427d7433eb184b6321320c4bd7ae88a6c3e084b0025b06a7",
+      "bytes": 267016
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001dfff.go",
+      "sha256": "960ae3a546f7f89040a086b7e607b1008cfc92ce8de91feff1253db670fc5336",
+      "bytes": 29722
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001f7ff.go",
+      "sha256": "84e4f5229b03ffc6b75c1323c9eec6ec08ced7da9480f2d603ff0702f0fa9fdb",
+      "bytes": 493
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001fc8f.go",
+      "sha256": "57ba172ca5ae4f33f17ae1a1ba5a7a3e50e2a0d3f7cdc4361781dd36a11328fb",
+      "bytes": 398
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001fccf.go",
+      "sha256": "8dab464380ef7958e94c9703b4c37dae71c2e49bfa37fc6c9207cc7ad6f34875",
+      "bytes": 483
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001fe8b.go",
+      "sha256": "d69fd151f28e9c157ac81f7cf3319e3ad1a0fdc9cdf1270e4737cf1ac1d24e42",
+      "bytes": 2522
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001feab.go",
+      "sha256": "b00a5b76a927ec4bb12be30cdf3727926d27748899cd623c4b058319c7090e5d",
+      "bytes": 1077428
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001feef.go",
+      "sha256": "389f6cb42a9d840dcf6ac8c1f5031bb34f3360d90794c8c695ba0cbbbde5faa4",
+      "bytes": 3025
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001ffbb.go",
+      "sha256": "086e35dac0576d2492ecfb7bed76c1241683948783ba7ddd366943b175a81286",
+      "bytes": 31125
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001ffc3.go",
+      "sha256": "30c9f31e9d9f18fcfee4b4322827c9f48acddf9d25eacb70bd529e8e517825b6",
+      "bytes": 407
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001ffcf.go",
+      "sha256": "e263901e76ba25f89dd910411ad8066a02e0412604ec84b767da63bdd9fbb517",
+      "bytes": 489
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001ffdf.go",
+      "sha256": "1dc002f0086bf20963f0117633d2bd7b1bfce3cd3621a23e5c99c4645be11cab",
+      "bytes": 4402
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000001ffff.go",
+      "sha256": "3460095af818cf180bf54617ac1a9353c72a7314574aac60b53408f562016490",
+      "bytes": 540098
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000002002b.go",
+      "sha256": "39429f34977b72c1b05247cc08c75c11a75c7a952fb9bd19a4e650e6bb36a1fa",
+      "bytes": 260
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000023eab.go",
+      "sha256": "b70ab6bb6dce9cb6e2000154cea77554664d79d7279fe20495821c99ee3ce61d",
+      "bytes": 1735
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000002c48b.go",
+      "sha256": "8523629879f68ad2353a38c978774246611f280dc048447985a9ecfddb567152",
+      "bytes": 27585
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000002c4cf.go",
+      "sha256": "fb4aff5fbbf7d2a43da789ac4179a4ba3ae38bdab04d516585110b51bd0a586d",
+      "bytes": 3383
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003c02b.go",
+      "sha256": "fdf78b3fbf55d1d64f983f20d9713cbd9cfe8de211c417bcd1e7eff166d50c46",
+      "bytes": 1983
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003deab.go",
+      "sha256": "1da9e231db5fe6a6d1217cd30901c679edcfbc24c73b6b0c0f42a27114cadd41",
+      "bytes": 38802
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003fe8b.go",
+      "sha256": "cee763cfc79ca3c3b2e1f6290b9381a70f9babfaa80f36c6e62902bee3a063c5",
+      "bytes": 4078
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003feab.go",
+      "sha256": "bb6c453c46eea5270aa7371cdc433f2d0fa42c411f860e6edcf0a6fa6b6928db",
+      "bytes": 556778
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003feef.go",
+      "sha256": "7401d63086a97b5133dbdb27b567ed1bc0dcfcd6f5118c64d60a6395e74c0bf6",
+      "bytes": 36336
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003ffbb.go",
+      "sha256": "7a28c2346001314d20f3722e3e1847bbd323f734a66473986b6f69a18d25f19a",
+      "bytes": 490
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000003fffb.go",
+      "sha256": "125d71ef02ddedcfa25ab95c8784ba9b271d1eb67c5d0cfe61490f907a39746e",
+      "bytes": 505
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000040003.go",
+      "sha256": "4a18e8130cd3d698ee84426b015eed87c3852faace43f9e0bf7546572df3c802",
+      "bytes": 212
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000005eeff.go",
+      "sha256": "6c770bb352bcd2a84655f0590a455e0612be67a04a305ff7f4eedb7ad82be833",
+      "bytes": 487
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000005ffff.go",
+      "sha256": "b89ab47132e453a1a86e3c92c72b0a9f5ff597fd0e43447bdac1525a8faa9c3e",
+      "bytes": 511
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000060003.go",
+      "sha256": "2679d1ddd371219f2464f41236fc0b808db40b940f07b1631efe77154ec7fcb7",
+      "bytes": 1830
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000006003f.go",
+      "sha256": "fd4b9e13a4cd430396134c445847314b5d2753a2c6365b056284957209163091",
+      "bytes": 445
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000063fc3.go",
+      "sha256": "0ea3e469a92536551ea3b0e393c8ef9752dc534bf4848328d8dc015e41c9823f",
+      "bytes": 527
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000063fff.go",
+      "sha256": "22821751ca138c886c25f77d7bae40220bff45e5bb8bee85858439e0b2537c60",
+      "bytes": 6562
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000064003.go",
+      "sha256": "9430c672eaa50fc5a70332588a37cca7cdb5545eaba8b3d50433b1a45a6f545a",
+      "bytes": 342
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000006403f.go",
+      "sha256": "ee58600792da564f36be924eaf47dc2f3b013c960beb329942d0d96337419966",
+      "bytes": 336
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000067fc3.go",
+      "sha256": "5e552c1f53543e47ec1e27d479ffa69ac1e01aad10b61a8ef665e36f9adf4ade",
+      "bytes": 410
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000067fff.go",
+      "sha256": "ede98672bc761360cf112abc1e6a990f1cf72b1ab105456baa2fcd69a5d859fe",
+      "bytes": 1002
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000006c4cf.go",
+      "sha256": "71820515f5cf1b5b5ff283b7c197b30c1478735a19faa4ac79154739fcee1729",
+      "bytes": 87876
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000006e9df.go",
+      "sha256": "96bf3e5c73ef3ef3f0b36feb8afbbe7582411f10f9f205838d401a56400068d3",
+      "bytes": 661
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_0000000000078003.go",
+      "sha256": "db1200514be9c4e25e70b53b1b1332fd5359fd3e399abce3b65eabb8a3d9bbbc",
+      "bytes": 279
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007803f.go",
+      "sha256": "0ce832989e2648805ba089657969e98deaf424e2c47997a308679db6b0a40dca",
+      "bytes": 496
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_00000000000783ff.go",
+      "sha256": "b1ff861b59562558a44319cb3208937a17d794430bc79af9a9ac049c232cd685",
+      "bytes": 452
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007bfff.go",
+      "sha256": "f7993c8432c996cbb30c43d4e0f8f16b27fd16bef9015e7fb3b00afdf27f945e",
+      "bytes": 661
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007c03f.go",
+      "sha256": "1f92d00547ed4bc46b36a85853778a7bf73f3fa93f3ada8bb660ac076f8298d1",
+      "bytes": 669
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007c17f.go",
+      "sha256": "52e2021ea5cd9596b18de1ab06fa67fd7824a210c6cafb047bd77aaf6660f75a",
+      "bytes": 540
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007c3ef.go",
+      "sha256": "f09198fbe32ce94af001b984fa338e0240efe5a6236e172d1a95dd1586aac1ea",
+      "bytes": 453
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007dfff.go",
+      "sha256": "59c49edf1c828ea4c76025f47b9aab57154b99931e6e41cd73e0fa4b4f52597b",
+      "bytes": 5430
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007eeff.go",
+      "sha256": "c1ea7b06fedfc81a17258737145438638e99ecd826c2d549a17a64b34d45097f",
+      "bytes": 736
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007feff.go",
+      "sha256": "e72b6de516121dbfe341c9ced23f777b6a699f6beca16edba178c76dd2515cbf",
+      "bytes": 591
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007ffbb.go",
+      "sha256": "2c34199c65ff5c1b42efad7c91d1a9683916fec0f193682e0cb601f4e54347a5",
+      "bytes": 11911
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007ffc3.go",
+      "sha256": "76211a6527fa12381bacb59f633a6c50ecf6ead9e06d61c701f06b01a262481c",
+      "bytes": 2300
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007ffd7.go",
+      "sha256": "c753342ad3f2a35a18b709c1001544f9b339172b3612101eb04c7456e04b961f",
+      "bytes": 1400
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/lib/sqlite_g_000000000007ffdf.go",
+      "sha256": "6cb1b26bca4125f12231ee58136eb1a61350e29b9e8a0dea0acb97a7a38cc4a7",
+      "bytes": 6410
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/mutex.go",
+      "sha256": "a35ec3aa1d40010e5031c5e861b4ffa4fd7b50162bea17640e2ccae787f1fefb",
+      "bytes": 502
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/nodmesg.go",
+      "sha256": "a463819cb7b9878057b2a6373f5aad2440f8c2efefa656c1fb9ed78c71e91ed7",
+      "bytes": 328
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/pagecache.go",
+      "sha256": "dafd76f52df0ac91a07b7527b61d01651948d82265a73957104d48d98294483b",
+      "bytes": 15089
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/pagecache_trampolines.go",
+      "sha256": "c2369a40b7bcea982e76755dcd50d30fd3bcee1ce036e6a71c7a1ba3750ebdb2",
+      "bytes": 13403
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/pre_update_hook.go",
+      "sha256": "4c062cbd09d1223b8c4d38087a60a1309e1e38a0fad7997e2feb1bd5d2a01bf9",
+      "bytes": 5875
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/result.go",
+      "sha256": "c5830f2e1ad4fb343e9d1952e0a1c5b9b2c456b4d23613ce3eb74ee13ccbfe6a",
+      "bytes": 935
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/rows.go",
+      "sha256": "bdd566da5998406cb76852d08127b22694024c099824de4f303a853df1d31f33",
+      "bytes": 10563
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/rulimit.go",
+      "sha256": "6528c8b341bfc99dfc31084fc1c21c3056f5bf29612f8ad9574b22aa2ea23566",
+      "bytes": 499
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/sqlite.go",
+      "sha256": "864bfcf8a5dd8e75764a411ad1b51dbb1aca991589c79721cce7688ed8c4d890",
+      "bytes": 40134
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/stmt.go",
+      "sha256": "ae8a35a88b725796ca41ce2c1c36bb0d49780f28cd2beee7faf587d0ce67d9de",
+      "bytes": 11490
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/tx.go",
+      "sha256": "f33774d1d59fd03f4170edd85441de487a8c3ca820e0eb1264e2f51150496106",
+      "bytes": 1893
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/vtab.go",
+      "sha256": "d4713c601a2a3a5b8f476692c681c7788bf63d75b5bf17f042d5f1ac3f70feb0",
+      "bytes": 27042
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/vtab/doc.go",
+      "sha256": "303dc06e7c4994da4e2b5ecfac7a374aad0ed5516056347a29a7e5c8e7160320",
+      "bytes": 2949
+    },
+    {
+      "path": "project/vendor/modernc.org/sqlite/vtab/vtab.go",
+      "sha256": "e3f6c372f0d68aeb6b3c89601c946701fa162e56c566fe1cf0a1469685b54013",
+      "bytes": 12638
+    },
+    {
+      "path": "project/vendor/modules.txt",
+      "sha256": "a35c1cee5152e7b2fae8502dd27e5943427788585772b84d3a8bc7177830d517",
+      "bytes": 7471
+    }
+  ],
+  "toolchain": "go version go1.26.2 darwin/arm64",
+  "pythonVersion": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "goEnvironment": {
+    "CGO_ENABLED": "1",
+    "GOARCH": "arm64",
+    "GOOS": "darwin",
+    "GOVERSION": "go1.26.2"
+  },
+  "standardLibrary": "pinned by toolchain version; not copied",
+  "archiveSha256": "eb79d2b6f8fda4de5e207ee15662af0791587ffd1381bacf9aed6324f7349f5b"
+}

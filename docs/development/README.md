@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+边缘通信与上下文核验（2026-10-18 至 19）：[消息、上下文与核心 Harness 专题](../architecture/edge-agent-communication-and-context.md) → [上线判断、源码审查和本轮复测](2026-10-18-edge-communication-readiness.md)。云端与边缘同事先按此核对通道、身份、可靠性与完成语义。
+
 工作台 UI 更新（2026-10-18）：[深色任务控制台设计、交互修复与验证记录](2026-10-18-mission-console-ui.md)，包含日常/开发模式、响应式截图与安全操作边界。
 
 2026-10-18 边缘与异构协作增量：[系统评价与实现](../development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](../experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
