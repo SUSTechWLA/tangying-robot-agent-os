@@ -1,0 +1,86 @@
+{
+  "independentRecomputationPassed": true,
+  "sourceSummarySha256": "e021305c28eeb082958f89c179a9fdf3969705011aa149f2898aab17008c4f8b",
+  "sourceSamplesSha256": "eb16bd05164be757ffddf3031b20b06d5ab22e5e8ea3761a703c07498a6dc9ea",
+  "evaluatorSha256": "023583beb481ba39cf5b8da082817b495305725c37354d07afd1f46e92d2a270",
+  "results": [
+    {
+      "robotId": "ground-a",
+      "mode": "watchdog",
+      "measuredStopped": true,
+      "sampleCount": 13,
+      "settledSinceSimulationTime": 21.692,
+      "elapsedSimulationSeconds": 1.3039999999999985,
+      "maximumDisplacementMeters": 0.2569244411707994,
+      "travelDistanceMeters": 0.2569244411707994,
+      "lastSpeedMetersPerSecond": 8.158868782016755e-10,
+      "positionSource": "Gazebo rigid-body measured state",
+      "landingVerified": false
+    },
+    {
+      "robotId": "ground-a",
+      "mode": "explicit_stop",
+      "measuredStopped": true,
+      "sampleCount": 10,
+      "settledSinceSimulationTime": 23.192,
+      "elapsedSimulationSeconds": 1.0,
+      "maximumDisplacementMeters": 0.11247488778637993,
+      "travelDistanceMeters": 0.11247488778637993,
+      "lastSpeedMetersPerSecond": 1.0550317426557402e-09,
+      "positionSource": "Gazebo rigid-body measured state",
+      "landingVerified": false
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "watchdog",
+      "measuredStopped": true,
+      "sampleCount": 11,
+      "settledSinceSimulationTime": 24.888,
+      "elapsedSimulationSeconds": 1.1080000000000005,
+      "maximumDisplacementMeters": 0.20844341545511758,
+      "travelDistanceMeters": 0.20844341545511758,
+      "lastSpeedMetersPerSecond": 8.233537570450746e-10,
+      "positionSource": "Gazebo rigid-body measured state",
+      "landingVerified": false
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "explicit_stop",
+      "measuredStopped": true,
+      "sampleCount": 9,
+      "settledSinceSimulationTime": 26.192,
+      "elapsedSimulationSeconds": 0.8919999999999995,
+      "maximumDisplacementMeters": 0.060678103563839736,
+      "travelDistanceMeters": 0.060678103563839736,
+      "lastSpeedMetersPerSecond": 1.1939945127591124e-09,
+      "positionSource": "Gazebo rigid-body measured state",
+      "landingVerified": false
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "watchdog",
+      "measuredStopped": true,
+      "sampleCount": 18,
+      "settledSinceSimulationTime": 28.888,
+      "elapsedSimulationSeconds": 1.804000000000002,
+      "maximumDisplacementMeters": 0.3523137503617206,
+      "travelDistanceMeters": 0.35836569066598234,
+      "lastSpeedMetersPerSecond": 0.0015272180188273972,
+      "positionSource": "Gazebo rigid-body measured state",
+      "landingVerified": false
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "explicit_stop",
+      "measuredStopped": true,
+      "sampleCount": 15,
+      "settledSinceSimulationTime": 31.084,
+      "elapsedSimulationSeconds": 1.5,
+      "maximumDisplacementMeters": 0.20341034404100206,
+      "travelDistanceMeters": 0.20939451610222143,
+      "lastSpeedMetersPerSecond": 0.0019281900237237744,
+      "positionSource": "Gazebo rigid-body measured state",
+      "landingVerified": false
+    }
+  ]
+}

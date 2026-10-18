@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.16)
+project(tangying_field_validation)
+find_package(gz-sim8 REQUIRED)
+find_package(gz-plugin2 REQUIRED COMPONENTS register)
+find_package(gz-transport13 REQUIRED)
+find_package(gz-msgs10 REQUIRED)
+find_package(nlohmann_json REQUIRED)
+add_library(tangying_field_controller SHARED ../field_controller.cc)
+target_compile_features(tangying_field_controller PRIVATE cxx_std_17)
+target_link_libraries(tangying_field_controller gz-sim8::gz-sim8 gz-plugin2::register
+  gz-transport13::gz-transport13 gz-msgs10::gz-msgs10 nlohmann_json::nlohmann_json)
+add_executable(field-transport ../field_transport.cc)
+target_compile_features(field-transport PRIVATE cxx_std_17)
+target_link_libraries(field-transport gz-transport13::gz-transport13 gz-msgs10::gz-msgs10
+  nlohmann_json::nlohmann_json)

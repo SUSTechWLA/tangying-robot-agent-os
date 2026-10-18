@@ -1,5 +1,7 @@
 # 《深入理解分布式机器人 Agent 系统》
 
+最新物理闭环补充：[Gazebo 控制、测量、停止与多机避碰](updates/2026-10-18-gazebo-field-validation.md)，沿 Local Agent → ROS 2 → 力驱动刚体 → 独立观测学习，并区分配置标定、估计标定与实际控制采用的坐标依据；[实验报告](../docs/experiments/2026-10-18-gazebo-field-validation.md)单独记录结果和失败。使用经典控制，无强化学习，厂商 proxy 与真实设备分别评价。
+
 最新工程补充：[单机 ROS harness、异构协作数据与可观察性](updates/2026-10-18-edge-swarm-readiness.md)，解释消息送达、动作接受与物理完成的区别；[本轮验收](../docs/experiments/2026-10-18-edge-swarm-readiness.md)分别统计软件、DDS 和回环通信。
 
 最新能力补充：[已知地图覆盖、多层支撑与独立消融](updates/2026-10-18-spatial-coverage-upgrade.md)（2026-10-18），解释巡检目标、预测与完成、规划插件和机制评价；配合[实际软件实验、350 次对照与完整证据](../docs/experiments/2026-10-18-spatial-coverage-upgrade.md)阅读，仍保留数字版 2.2.0 出版身份。

@@ -67,6 +67,8 @@ SIM_STACK_ENGINE=mujoco make home-furnished
 
 当前边缘与异构协作评估见[执行、通信和运维升级](docs/development/2026-10-18-edge-swarm-readiness.md)与[多轮验收记录](docs/experiments/2026-10-18-edge-swarm-readiness.md)：三类机器人共享 ROS 2 harness，覆盖建议按任务和地图校验，传感器及未决动作可追溯。实机厂商控制器、跨机器人地图对齐和并行动力学仍需逐项接入验证。
 
+新增 [Gazebo 物理闭环](docs/development/2026-10-18-gazebo-field-validation.md)：Local Agent 经 gRPC、ROS 2 与经典力控制器驱动仿真刚体，记录实际测量、停止与并发避碰。真实 lidar 回波参与局部避碰，标定和跨机点云注册另行实验；多机共用集中式实验 hub、真值定位和配置外参，未验证无线分布式自治或在线 SLAM。采用经典控制，无强化学习，不代替大疆飞控、宇树步态或实机验收。结果与失败见[实验报告](docs/experiments/2026-10-18-gazebo-field-validation.md)，学习入口见[教材补充](book/updates/2026-10-18-gazebo-field-validation.md)。
+
 ## 项目框架
 
 项目由 **Go 任务与 Agent 层、Python 机器人执行层、Web 工作台**组成。Go 管理目标、计划、批准、步骤和恢复；Python 连接机器人或仿真，检查命令、调用驱动并提供观测；Web 展示任务与证据。两端通过版本化的 gRPC/数据合同交互。

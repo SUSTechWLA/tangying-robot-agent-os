@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+2026-10-18 Gazebo 物理闭环增量：[控制器、测量、停止与避碰实现](development/2026-10-18-gazebo-field-validation.md) → [实验与失败记录](experiments/2026-10-18-gazebo-field-validation.md) → [教材补充](../book/updates/2026-10-18-gazebo-field-validation.md)。经典控制驱动实际仿真刚体；真值定位、配置外参、独立配准与真实分布式部署的结论边界分别说明。
+
 2026-10-18 边缘与异构协作增量：[系统评价与实现](./development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](./experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
 
 已知地图覆盖与多层地面增量（2026-10-18）：[设计、CLI 和插件边界](development/2026-10-18-spatial-coverage-upgrade.md) → [四类计划、315/315 Runner 软件闭环与 350 次探索对照](experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)。预测、软件新采集和实体完成分别判断；与下述已归档三维探索实验分别按版本评价。

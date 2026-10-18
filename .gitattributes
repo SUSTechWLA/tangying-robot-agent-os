@@ -14,3 +14,6 @@
 # Frozen heterogeneous edge evidence and task CSV preserve original bytes.
 /docs/experiments/evidence/2026-10-18-edge-swarm-readiness/** -text -whitespace
 /docs/experiments/2026-10-18-edge-agent-ros-campaign.csv -text whitespace=cr-at-eol
+
+# Measured Gazebo evidence, CSV and digest manifests must remain byte-identical.
+/docs/experiments/evidence/2026-10-18-gazebo-field-validation/** -text -whitespace

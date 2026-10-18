@@ -1,0 +1,102 @@
+{
+  "baseline": "cbd4ca2cedb711647fb0e608823c3507c737d1a3",
+  "attempts": [
+    {
+      "id": "pilot-001",
+      "scope": "single ground-a short NL route",
+      "outcome": "success",
+      "reason": "first real agent/runtime/ROS2/Gazebo closed loop"
+    },
+    {
+      "id": "pilot-002",
+      "scope": "three-agent short NL route",
+      "outcome": "failed",
+      "reason": "avoidance computation under hub lock caused HTTP timeout"
+    },
+    {
+      "id": "campaign-003",
+      "scope": "three-agent long NL route",
+      "outcome": "aborted",
+      "reason": "fault injection logging duplicate kind argument returned HTTP400; original mutation and source retained"
+    },
+    {
+      "id": "campaign-004",
+      "scope": "three-agent long NL route",
+      "outcome": "1_of_3_succeeded",
+      "reason": "transient state GET timeout caused false unhealthy stop; subsequent peer obstruction timed out another command; UAV succeeded"
+    },
+    {
+      "id": "campaign-005",
+      "scope": "three-agent long NL route",
+      "outcome": "2_of_3_succeeded",
+      "reason": "transient lease reply timeout caused false unhealthy stop for UAV; both ground tasks succeeded"
+    },
+    {
+      "id": "stops-001",
+      "scope": "physical stop setup",
+      "outcome": "setup_failure",
+      "reason": "hub snapshot not yet initialized; no robot motion dispatched; original script incorrectly emitted six failed/skipped entries"
+    },
+    {
+      "id": "stops-002",
+      "scope": "three robots x two stop triggers",
+      "outcome": "6_of_6_passed",
+      "reason": "measured motion, braking/hover and watchdog, no landing"
+    },
+    {
+      "id": "campaign-006",
+      "scope": "three agents, planned three long NL rounds",
+      "outcome": "5_of_6_executed_succeeded_third_round_not_run",
+      "reason": "UAV second-round nav04 rejected by goal handoff race after previous goal lease expired before physics thread wrote blockedReason; transient lease retry earlier recovered within ACK window; fixed atomically in goal admission"
+    },
+    {
+      "id": "campaign-007",
+      "scope": "three agents x three full ten-target natural-language rounds",
+      "outcome": "9_of_9_succeeded",
+      "navigationCommands": 90,
+      "independentArrivalChecks": 90,
+      "reason": "goal handoff race fixed; old ground declared radius .33 retained, conservative world geometry audited independently",
+      "worldGeometryMinimumGapM": 0.05804864739417137,
+      "contactCoverageUnverified": [
+        "uav-a"
+      ]
+    },
+    {
+      "id": "campaign-008",
+      "scope": "new .36m conservative ground radius; three full ten-target NL tasks",
+      "outcome": "3_of_3_succeeded",
+      "navigationCommands": 30,
+      "independentArrivalChecks": 30,
+      "minimumConservativeSampledGapM": 0.09444811440894452,
+      "contactCoverageUnverified": [
+        "uav-a"
+      ]
+    },
+    {
+      "id": "stops-003",
+      "scope": "stop retest startup",
+      "outcome": "setup_failure",
+      "reason": "orchestration missed copying readiness fix; stale script executed only three snapshot GETs before hub ready; no motion command; old source and raw errors preserved"
+    },
+    {
+      "id": "stops-004",
+      "scope": "new radius, latest script; three robots x two stop modes",
+      "outcome": "6_of_6_passed",
+      "maxDisplacementM": 0.3523137503617206,
+      "maxElapsedSimulationS": 1.804000000000002
+    }
+  ],
+  "geometryReview": {
+    "oldGroundDeclaredRadiusM": 0.33,
+    "groundBoxM": [
+      0.5,
+      0.4,
+      0.3
+    ],
+    "ground3DCircumsphereM": 0.3535533905932738,
+    "newGroundDeclaredRadiusM": 0.36,
+    "aerialRadiusM": 0.34,
+    "firstPhysicalRunWithNewRadius": "campaign-008",
+    "priorRawEvidenceUnchanged": true
+  }
+}

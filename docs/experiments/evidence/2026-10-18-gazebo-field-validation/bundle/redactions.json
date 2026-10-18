@@ -1,0 +1,192 @@
+{
+  "audit": {
+    "generalSecretDetection": false,
+    "knownCredentialCount": 22,
+    "policy": "literal_bytes_and_member_names",
+    "sourceFilesModified": false,
+    "sources": [
+      "console-session",
+      "simple dotenv credential assignments"
+    ]
+  },
+  "files": [
+    {
+      "path": "evidence/raw/campaign-003/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-003/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-003/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-003/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-003/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-003/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-004/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-004/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-004/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-004/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-004/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-004/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-005/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-005/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-005/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-005/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-005/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-005/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-006/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-006/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-006/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-006/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-006/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-006/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-007/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-007/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-007/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-007/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-007/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-007/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-008/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-008/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-008/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-008/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/campaign-008/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/campaign-008/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/pilot-001/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/pilot-001/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/pilot-002/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/pilot-002/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/pilot-002/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/pilot-002/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/raw/pilot-002/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/raw/pilot-002/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    }
+  ],
+  "mode": "whole_file_exclusion",
+  "schemaVersion": "gazebo.field.redactions.v1"
+}
