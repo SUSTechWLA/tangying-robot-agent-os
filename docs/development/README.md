@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+工作台 UI 更新（2026-10-18）：[深色任务控制台设计、交互修复与验证记录](2026-10-18-mission-console-ui.md)，包含日常/开发模式、响应式截图与安全操作边界。
+
 2026-10-18 边缘与异构协作增量：[系统评价与实现](../development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](../experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
 
 已知覆盖与多层地面增量（2026-10-18）：[接口、来源和可替换规划](2026-10-18-spatial-coverage-upgrade.md) → [计划/Runner/探索消融实际证据](../experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)。`spatial_coverage.py` 与本地 CLI 处理显式目标，`terrain_layered` 处理分层支撑和显式连接；旧探索与归档实验不被改写。

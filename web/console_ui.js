@@ -201,6 +201,14 @@
   for (const link of all("[data-nav]")) link.addEventListener("click", (event) => {
     event.preventDefault(); navigate(link.hash, true);
   });
+  $(".skip-link")?.addEventListener("click", (event) => {
+    // This anchor moves within the current page. Letting it change the hash
+    // would send #page-title through the route fallback and leave that page.
+    event.preventDefault();
+    const heading = $("#page-title");
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: "start", behavior: "instant" });
+  });
   globalThis.addEventListener("hashchange", () => navigate(location.hash, true));
   $("#audience-toggle").hidden = operatorEdition;
   function setDeveloper(enabled) {
