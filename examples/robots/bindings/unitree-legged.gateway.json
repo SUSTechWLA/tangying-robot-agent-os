@@ -1,0 +1,7 @@
+{
+  "profilePath": "../legged.commissioning.profile.json",
+  "commissioningId": "replace-with-legged-commissioning-id",
+  "namespace": "/unitree_1",
+  "stateMaxAgeMs": 500,
+  "stopTimeoutMs": 1000
+}

@@ -33,7 +33,7 @@ def digest(path: Path) -> str:
 
 def source_hashes() -> dict[str, str]:
     source_paths = {ROOT / "go.mod", ROOT / "go.sum", Path(__file__).resolve()}
-    for directory in ("agent", "agentruntime", "console", "core", "internal", "edge", "fleet", "middleware", "tasks", "orchestration", "skills", "gen/go"):
+    for directory in ("agent", "agentruntime", "cmd", "console", "core", "incidents", "latency", "internal", "edge", "fleet", "middleware", "tasks", "orchestration", "skills", "gen/go"):
         source_paths.update((ROOT / directory).rglob("*.go"))
     return {str(path.relative_to(ROOT)): digest(path) for path in sorted(source_paths) if path.is_file()}
 

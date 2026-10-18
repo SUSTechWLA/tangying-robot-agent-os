@@ -207,6 +207,7 @@ func Evaluate(input ObservationInput) []Finding {
 	findings = append(findings, latencyFindings(input)...)
 	findings = append(findings, abnormalTaskFindings(input)...)
 	findings = append(findings, staleTelemetryFindings(input, now)...)
+	findings = append(findings, harnessFindings(input, now)...)
 	sortFindings(findings)
 	return findings
 }
@@ -587,31 +588,17 @@ func staleTelemetryFindings(input ObservationInput, now time.Time) []Finding {
 			},
 		}}
 	}
-	maxAge := input.TelemetryMaxAge
-	if maxAge <= 0 {
-		maxAge = DefaultTelemetryMaxAge
-	}
-	observedAt := snapshot.ObservedAt
-	if observedAt.IsZero() {
-		observedAt = input.SnapshotReceivedAt
-	}
-	if observedAt.IsZero() {
-		return nil
-	}
-	age := now.Sub(observedAt)
-	if age <= maxAge {
+	reason := telemetryVisibility(snapshot, now, input.TelemetryMaxAge)
+	if reason == "" {
 		return nil
 	}
 	return []Finding{{
 		Code: AnomalyTelemetryStale, Severity: SeverityWarning, Component: "telemetry",
-		Message: "机器人观测已经过期，基于它做出的判断不可信",
-		Facts: map[string]any{
-			"ageMs": age.Milliseconds(), "maxAgeMs": maxAge.Milliseconds(),
-			"robotId": snapshot.RobotID,
-		},
-		Confidence:         1,
-		RecommendedActions: []string{"检查机器人连接与遥测上报是否仍然正常"},
-		MissingEvidence:    []string{"缺少当前观测：上面的其它结论都基于过期数据"},
+		Message:  "机器人观测不可用于当前判断，需要恢复新鲜传感器数据",
+		Facts:    map[string]any{"reason": reason, "ageMs": now.Sub(snapshot.ObservedAt).Milliseconds(), "robotId": snapshot.RobotID},
+		Evidence: evidenceRefs(snapshot), Confidence: 1,
+		RecommendedActions: []string{"检查机器人连接、遥测、时钟同步与传感器采集时间"},
+		MissingEvidence:    []string{"缺少可信的新鲜观测；接收时间不能代替传感器采集时间"},
 	}}
 }
 

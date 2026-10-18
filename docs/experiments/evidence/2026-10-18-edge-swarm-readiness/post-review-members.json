@@ -1,0 +1,374 @@
+{
+  "files": [
+    {
+      "path": "validation/audit_public.py",
+      "bytes": 4967,
+      "sha256": "358a24e649d9534b8fc39e1c0fbc09a7ae24bfa6dcd72726e62e708dbf2daea4"
+    },
+    {
+      "path": "validation/book-final.log",
+      "bytes": 58,
+      "sha256": "61e59679a948f7c8d83dd350e33c9c705e984f96ed160ce2d0646209b57b919f"
+    },
+    {
+      "path": "validation/build-arm64-final.log",
+      "bytes": 313,
+      "sha256": "7fb7364b40dda14e11bd63bf51eb711a1d12d013c2dcc2e4b2c50e427b0eee34"
+    },
+    {
+      "path": "validation/build-final.log",
+      "bytes": 310,
+      "sha256": "fabe6654596e4f837ba7ff7519ae7f9b5bf1cb892accf3779834f03c4af81951"
+    },
+    {
+      "path": "validation/build_machine_index.py",
+      "bytes": 11942,
+      "sha256": "2fe0a0d3fe89dcf08ea6a85497173db6e21ce65f372a6f52f717988717489ad8"
+    },
+    {
+      "path": "validation/credential-audit-initial.json",
+      "bytes": 1487,
+      "sha256": "3e65888f134a8b3e2b9ff8c5da9ccb5e5a73c508c8f4cf2ea18d2e102cc04b76"
+    },
+    {
+      "path": "validation/credential-audit.json",
+      "bytes": 2003,
+      "sha256": "0ef9884a5ad39acfecfd6295b3ee7691548b1ce5e5feeb3682a2d0409e127fde"
+    },
+    {
+      "path": "validation/credential-audit.log",
+      "bytes": 1160,
+      "sha256": "406121cc9d7215ed0a0b88df2d3b93639a7699f518ffc9a166fb60036583a8b7"
+    },
+    {
+      "path": "validation/cross-source-consistency.attempt01.json",
+      "bytes": 265,
+      "sha256": "2820a69ed2fe6d64177c213fd5b63bf0a338cd7048b8c6e99365e219189c4804"
+    },
+    {
+      "path": "validation/cross-source-consistency.json",
+      "bytes": 372,
+      "sha256": "8126b4cad25183fb1a8f7896866923491e692308c5716a26f8ac83ba690b08a4"
+    },
+    {
+      "path": "validation/docs-catalog-final.log",
+      "bytes": 22,
+      "sha256": "76a679fa9206708440c253d816a739686394e3939ae764e86109f6435f49481b"
+    },
+    {
+      "path": "validation/docs-go-final.log",
+      "bytes": 69,
+      "sha256": "ec7c61c172ade9336f1cef24f7cdd15f23fedf8b170ba40288351bd6712cac40"
+    },
+    {
+      "path": "validation/docs-python-final.log",
+      "bytes": 2409,
+      "sha256": "59f4e43b4c7774d511a6aa0e74858f324ada5122b94440db8f8076705411dafe"
+    },
+    {
+      "path": "validation/final-validation.json",
+      "bytes": 8135,
+      "sha256": "a6ff11779bc7eb085b757c48b0b34c26c7d60f9fdd2f74364e1509d81f32bedf"
+    },
+    {
+      "path": "validation/independent-ops-review.json",
+      "bytes": 2583,
+      "sha256": "d9047eaf9a9bd7fb15a094f12d03cfe9fa48c30f436f7040251e2a4a7c254804"
+    },
+    {
+      "path": "validation/lint-final.log",
+      "bytes": 482,
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    },
+    {
+      "path": "validation/lint.log",
+      "bytes": 6003,
+      "sha256": "7690929fb182b6e6d9925db117efa3e07e05252883fa54dc93dfb23248fee1f4"
+    },
+    {
+      "path": "validation/machine-index-build.log",
+      "bytes": 377,
+      "sha256": "c6df9e2e8d35224cef879cbcc27a79915ceb7d194135583307da77868259ad58"
+    },
+    {
+      "path": "validation/ops-final-review-race.log",
+      "bytes": 217,
+      "sha256": "8d7ccc61ce484718182dca832bbdc0302fcbaac7c4deab547b0f6dadb62e7abf"
+    },
+    {
+      "path": "validation/ops-missing-driver-after.log",
+      "bytes": 71,
+      "sha256": "6c03d07a6e2875cb8738c40f94e9d778819302123d39c8c3a172002ffa50bcaa"
+    },
+    {
+      "path": "validation/ops-missing-driver-before.log",
+      "bytes": 1023,
+      "sha256": "147c7db8813049df559db735a00ecdfc818b91045c0a93699c8f15bc1da09f87"
+    },
+    {
+      "path": "validation/ops-missing-driver-race.log",
+      "bytes": 217,
+      "sha256": "260c56c196da4095f1c83a82b13293d3cc2724ec4542178b0875ed8231f8bb9c"
+    },
+    {
+      "path": "validation/ops-restart-unknown-after.json",
+      "bytes": 1325,
+      "sha256": "dc3739c37d4fd30a1072ba995ce7659bc9b99dbc1e1b5ec9036099035ee555e9"
+    },
+    {
+      "path": "validation/ops-restart-unknown-before.json",
+      "bytes": 1219,
+      "sha256": "ba5ed2b4048cfad03b598314e0c6d5a4b7b49a1f19c3fcbc710e1700a8dcd6fd"
+    },
+    {
+      "path": "validation/ops-restart-unknown-before.log",
+      "bytes": 8326,
+      "sha256": "7a87a5d7976cea3b968dc68b2290806f08eeb44308d9ab987c3d46e6243ff586"
+    },
+    {
+      "path": "validation/ops_restart_unknown_repro.go",
+      "bytes": 1649,
+      "sha256": "f1a9aaa68db13891beffd8c82d273aea89c9fd798ffe03f2962d3da5fa6d9181"
+    },
+    {
+      "path": "validation/public-verify.log",
+      "bytes": 159,
+      "sha256": "26053709cdd11921bf620c6ffceb88ddbfe042ee8451243146f45334bc497fba"
+    },
+    {
+      "path": "validation/trio-public-replay.json",
+      "bytes": 242,
+      "sha256": "9c78c3bc926008bdceea39f1bf17d57741f2cc12fe3cc7a36b933e2cd7a98a20"
+    },
+    {
+      "path": "validation/trio-public-replay.log",
+      "bytes": 85,
+      "sha256": "a70c557abae93e8b15f4b586256badd07fd6dee5cdf016f9a95c5f34e3d90f37"
+    },
+    {
+      "path": "validation/vendor-bindings/agv-nav2-deployment.log",
+      "bytes": 2478,
+      "sha256": "925cf905491f3f6ab5ea64443ca682b7b9779f295ae7ee60503bc2f923894551"
+    },
+    {
+      "path": "validation/vendor-bindings/agv-nav2-template.log",
+      "bytes": 2478,
+      "sha256": "925cf905491f3f6ab5ea64443ca682b7b9779f295ae7ee60503bc2f923894551"
+    },
+    {
+      "path": "validation/vendor-bindings/dji-uav-deployment.log",
+      "bytes": 2226,
+      "sha256": "d8b8d64873469eec22aeda0d7a59bd99dc4b50cf36d3d8ac7180aded2f844db2"
+    },
+    {
+      "path": "validation/vendor-bindings/dji-uav-template.log",
+      "bytes": 2226,
+      "sha256": "d8b8d64873469eec22aeda0d7a59bd99dc4b50cf36d3d8ac7180aded2f844db2"
+    },
+    {
+      "path": "validation/vendor-bindings/pytest.log",
+      "bytes": 367,
+      "sha256": "4639b7c50b0a5b0b408fb26c25fcc77830948acd83cddb3be8758c65087a632e"
+    },
+    {
+      "path": "validation/vendor-bindings/ruff.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "validation/vendor-bindings/unitree-legged-deployment.log",
+      "bytes": 2472,
+      "sha256": "b7c3e9b56cd8e5ac2d284e4a00976081a0dfd326cce2b851a467dbd0add5bb22"
+    },
+    {
+      "path": "validation/vendor-bindings/unitree-legged-template.log",
+      "bytes": 2472,
+      "sha256": "b7c3e9b56cd8e5ac2d284e4a00976081a0dfd326cce2b851a467dbd0add5bb22"
+    },
+    {
+      "path": "validation/vendor-bindings/validation.json",
+      "bytes": 3909,
+      "sha256": "4b1288216f08ba7b98ea6df96f4bdec03f39524b02343e1f0926cb1a6c3cdb2c"
+    },
+    {
+      "path": "sources/agentruntime/faultmatrix_test.go",
+      "bytes": 22096,
+      "sha256": "a39a8171a1656fb7899b0dd086ae1ead078b58e64f047375c8273e0973dfe0a9"
+    },
+    {
+      "path": "sources/agentruntime/ledgerfilter_test.go",
+      "bytes": 9058,
+      "sha256": "e6244077324ae0528eb6bdc93b13c7145423b0187755e3d6ab34c1b8dcbf8dc5"
+    },
+    {
+      "path": "sources/agentruntime/ops_visibility.go",
+      "bytes": 8992,
+      "sha256": "33078bd305f7427a7ac8a1324d6a121a3920567d4e3d13e2f22198f862649d1c"
+    },
+    {
+      "path": "sources/agentruntime/ops_visibility_test.go",
+      "bytes": 13138,
+      "sha256": "74bcd34779d38c32a3345733dbd168e3e29c9617063d4192452b18c2ea2d6bb1"
+    },
+    {
+      "path": "sources/agentruntime/opsagent.go",
+      "bytes": 36150,
+      "sha256": "fc5c7b5669c0d43846594358b6d404fe00b2d2b55bd8befecc87d88265eb2899"
+    },
+    {
+      "path": "sources/agentruntime/opsagent_test.go",
+      "bytes": 30753,
+      "sha256": "445478c686174d14dc72cd210c83f5d7240a552815388acfb3ef2942baf31c73"
+    },
+    {
+      "path": "sources/agentruntime/opsrules.go",
+      "bytes": 28669,
+      "sha256": "90fdcb546e2dc8c7692bcdca270fe5de17dde0b230546ea6d7a2fd2403f7a02d"
+    },
+    {
+      "path": "sources/agentruntime/supervision_gap_test.go",
+      "bytes": 14994,
+      "sha256": "a411e3a8f8cc9fad5087d576554ab4d34fdc15d94d592eea3c7ba0ea6522151a"
+    },
+    {
+      "path": "sources/core/exchangecontract/coverage.go",
+      "bytes": 2093,
+      "sha256": "59b26e33d3f5b33f80799095e8eb840c776bf596ab5bb633dd4715c9eb7057fb"
+    },
+    {
+      "path": "sources/core/exchangecontract/feed.go",
+      "bytes": 1055,
+      "sha256": "83a9412c4ff6154cc698336bf1492b1dc88ffbcd148e612a60d5d79a3933b0ee"
+    },
+    {
+      "path": "sources/edge/exchange/coverage.go",
+      "bytes": 5785,
+      "sha256": "875f7bb385442500f14882862cfe8eae0e4f24e6fc52eed9c44325d6c9492caf"
+    },
+    {
+      "path": "sources/edge/exchange/coverage_test.go",
+      "bytes": 7259,
+      "sha256": "75d95f734754d9f2b804144ef43652942563287720ded33431576eaab8c70d3f"
+    },
+    {
+      "path": "sources/edge/exchange/http.go",
+      "bytes": 8161,
+      "sha256": "f1b6664b3939b3d5a0936d1c53aea0e6a940efa8f147d47f4ef0322582e8f841"
+    },
+    {
+      "path": "sources/examples/experiments/heterogeneous_trio_fixture.json",
+      "bytes": 750,
+      "sha256": "ed42393a11a75929e061a62ef2ae57028a3d4575bfd225f1b37e2d9dbe8d8289"
+    },
+    {
+      "path": "sources/examples/robots/bindings/agv-nav2.binding.json",
+      "bytes": 1738,
+      "sha256": "2bb07b1639021a9507a83029060f53cddc89da1dfd7dbb3577a8d595d70154fd"
+    },
+    {
+      "path": "sources/examples/robots/bindings/agv-nav2.gateway.json",
+      "bytes": 189,
+      "sha256": "bab795088fcd4fa43d54e324902252231543810640b656508364bbdd34cbe6c7"
+    },
+    {
+      "path": "sources/examples/robots/bindings/dji-uav.binding.json",
+      "bytes": 1510,
+      "sha256": "76a0a862990a9cc228f5510888e689633e52fb123cf1e84b1be0798bba19a52f"
+    },
+    {
+      "path": "sources/examples/robots/bindings/dji-uav.gateway.json",
+      "bytes": 189,
+      "sha256": "f83648b7ca4f849bf0abfa6092ccf7bf16bc0455522a76a69f350e1de9728f81"
+    },
+    {
+      "path": "sources/examples/robots/bindings/unitree-legged.binding.json",
+      "bytes": 1776,
+      "sha256": "b0403e445f93c05d13e2b6dffaeb12bbb5da6fce50308e741dd20aa402dc7669"
+    },
+    {
+      "path": "sources/examples/robots/bindings/unitree-legged.gateway.json",
+      "bytes": 199,
+      "sha256": "50d747848b915416d7ef28d9391ebcdfd240cf24dcfd69ab2fe91018319ee1bc"
+    },
+    {
+      "path": "sources/middleware/sqlite/exchange.go",
+      "bytes": 13928,
+      "sha256": "03a0c403c982d05fd807b384541be6dc5757eece21f640ff37fa60be4f69ada9"
+    },
+    {
+      "path": "sources/middleware/sqlite/exchange_feed.go",
+      "bytes": 2104,
+      "sha256": "8818280852d4c7a49c6412252d507bbf628842debaf132619502bffe26607600"
+    },
+    {
+      "path": "sources/robot/gateway/tangying_robot_gateway/ros2_profile.py",
+      "bytes": 32163,
+      "sha256": "c5743a48630f880881b8a8245b0d9e05748b27381683e7b77eaf997ef83b3eb0"
+    },
+    {
+      "path": "sources/robot/gateway/tangying_robot_gateway/spatial_peer_exchange.py",
+      "bytes": 9706,
+      "sha256": "b3f251cd92d97b343eefc2a66425443dd467dc77dc7a8d7dab78b6659d18dbd2"
+    },
+    {
+      "path": "sources/robot/gateway/tests/test_ros2_profile.py",
+      "bytes": 19171,
+      "sha256": "6c0c3ddc746b57098eec95567da54da6ca7553cbf1073e8aea09902620f9e792"
+    },
+    {
+      "path": "sources/robot/gateway/tests/test_spatial_peer_exchange.py",
+      "bytes": 7310,
+      "sha256": "8e7aa866ea8b46eb1a432500180cd021d9e59940cebbbdb69f3f81754a1c75c8"
+    },
+    {
+      "path": "sources/scripts/ros2_device_preflight.py",
+      "bytes": 12886,
+      "sha256": "74e79406f7a04e0a3e59feea3b267bef327b039652a4882f0484899de5a91497"
+    },
+    {
+      "path": "sources/scripts/run_edge_cooperation_harness.py",
+      "bytes": 16845,
+      "sha256": "4887f3942a4218ad3dff3bee99e9fc9b849b4a16115c87a7e26dc4ef970fd93f"
+    },
+    {
+      "path": "sources/scripts/run_edge_robustness_campaign.py",
+      "bytes": 7998,
+      "sha256": "0ad2533a2e6846fe3051c804fc3f2aba4eb6cf0b30d4f2052ccab378ccbe3bc7"
+    },
+    {
+      "path": "sources/scripts/run_heterogeneous_exploration_fixture.py",
+      "bytes": 25224,
+      "sha256": "14bd468521babbc5c69c104935b07c6991ca87890fdbd393608b1f4d7c6a8c06"
+    },
+    {
+      "path": "sources/scripts/run_ros2_edge_acceptance.py",
+      "bytes": 17289,
+      "sha256": "6d8d14804033607f350669850ed0f206bcf4ebd85b06a57ecde8894bc4585651"
+    },
+    {
+      "path": "sources/scripts/run_ros2_edge_campaign.py",
+      "bytes": 15077,
+      "sha256": "d8d9909ffc7b457c82748645c4f6c66b418c553a2a727b829954ec4a37a135cc"
+    },
+    {
+      "path": "sources/tests/install/test_ros2_device_preflight.py",
+      "bytes": 8707,
+      "sha256": "f163b8884f682f7d3da5a8a357c9fef3b2684a4c9dbf81fea69a212fa491f3d9"
+    },
+    {
+      "path": "sources/tests/install/test_ros2_edge_campaign.py",
+      "bytes": 6662,
+      "sha256": "7d4e223337f0b2a90d876ed46bb7c1eaba2b12bcd5977a6558c226ec9e0f9860"
+    },
+    {
+      "path": "sources/tests/scripts/test_heterogeneous_exploration_fixture.py",
+      "bytes": 6639,
+      "sha256": "0a20010be8a319f62c01105a7c56c79a9ad149a7e931848faebd40de2d722756"
+    },
+    {
+      "path": "sources/docs/operations/ros2-device-bindings.md",
+      "bytes": 9859,
+      "sha256": "8ebf1e8b877019e8d9b79e201b94682b56a9dc4550c391e01651e3b3d73ac0b7"
+    }
+  ]
+}

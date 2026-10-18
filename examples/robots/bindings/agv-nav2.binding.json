@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "robot.ros2.device-binding.v1",
+  "bindingId": "agv-nav2-template-v1",
+  "robotId": "commissioning-ugv",
+  "profilePath": "../ugv.commissioning.profile.json",
+  "profileRevision": "0619d07057c3dba77101f62a113696054107de561ac56e240e3cb8d2cb2300bf",
+  "gatewayConfigPath": "agv-nav2.gateway.json",
+  "commissioningId": "replace-with-ugv-commissioning-id",
+  "rosDomainId": 23,
+  "device": {
+    "manufacturer": "replace-with-agv-manufacturer",
+    "model": "replace-with-hardware-model",
+    "firmwareRevision": "replace-with-firmware-revision",
+    "sdkName": "nav2",
+    "sdkRevision": "replace-with-sdk-revision",
+    "bridgeImplementationRevision": "replace-with-bridge-commit",
+    "compatibilityReference": "replace-with-exact-model-firmware-sdk-evidence"
+  },
+  "coordinates": {
+    "sourceId": "commissioning-ugv/localization",
+    "vendorConvention": "replace-with-verified-vendor-frame",
+    "transformRevision": "replace-with-calibration-revision",
+    "worldFrame": "world",
+    "worldConvention": "right_handed_z_up"
+  },
+  "controller": {
+    "integrationId": "nav2_controller_bridge",
+    "vendorTransport": "ros2",
+    "navigationDimension": "2d",
+    "safeStopStrategy": "brake",
+    "stopProcedureId": "commissioning-ugv-stop-v1",
+    "commandLossTimeoutMs": 500,
+    "arrivalVerification": "independent_localization",
+    "commandAuthorityOwner": "local_controller",
+    "deduplicationOwner": "local_controller"
+  },
+  "requiredVendorInterfaces": [
+    {
+      "name": "/agv_1/navigate_to_pose",
+      "rosType": "nav2_msgs/action/NavigateToPose",
+      "role": "action_server"
+    },
+    {
+      "name": "/agv_1/odom",
+      "rosType": "nav_msgs/msg/Odometry",
+      "role": "publisher"
+    }
+  ]
+}

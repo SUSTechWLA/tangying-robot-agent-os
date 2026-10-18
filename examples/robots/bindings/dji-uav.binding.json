@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "robot.ros2.device-binding.v1",
+  "bindingId": "dji-uav-template-v1",
+  "robotId": "commissioning-uav",
+  "profilePath": "../uav.commissioning.profile.json",
+  "profileRevision": "929ce59adee1ed30d0ffeb5934451e3987feb66b9e091673763f9b203e345f84",
+  "gatewayConfigPath": "dji-uav.gateway.json",
+  "commissioningId": "replace-with-uav-commissioning-id",
+  "rosDomainId": 21,
+  "device": {
+    "manufacturer": "DJI",
+    "model": "replace-with-hardware-model",
+    "firmwareRevision": "replace-with-firmware-revision",
+    "sdkName": "replace-with-supported-dji-sdk",
+    "sdkRevision": "replace-with-sdk-revision",
+    "bridgeImplementationRevision": "replace-with-bridge-commit",
+    "compatibilityReference": "replace-with-exact-model-firmware-sdk-evidence"
+  },
+  "coordinates": {
+    "sourceId": "commissioning-uav/localization",
+    "vendorConvention": "replace-with-verified-vendor-frame",
+    "transformRevision": "replace-with-calibration-revision",
+    "worldFrame": "world",
+    "worldConvention": "right_handed_z_up"
+  },
+  "controller": {
+    "integrationId": "dji_model_specific_sdk_bridge",
+    "vendorTransport": "sdk",
+    "navigationDimension": "volume3d",
+    "safeStopStrategy": "controlled_land",
+    "stopProcedureId": "commissioning-uav-stop-v1",
+    "commandLossTimeoutMs": 500,
+    "arrivalVerification": "independent_localization",
+    "commandAuthorityOwner": "local_controller",
+    "deduplicationOwner": "local_controller"
+  },
+  "requiredVendorInterfaces": []
+}

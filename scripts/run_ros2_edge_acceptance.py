@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import socket
 import subprocess
 import sys
@@ -34,6 +35,20 @@ def port():
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
+
+
+def read_controller_ledger(path: Path) -> tuple[list[dict], list[int]]:
+    """Retain valid entries while recording truncated or malformed crash tails."""
+    ledger, malformed = [], []
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        try:
+            entry = json.loads(line)
+            if not isinstance(entry, dict) or not isinstance(entry.get("type"), str):
+                raise TypeError("controller entry requires an object with a type")
+            ledger.append(entry)
+        except (ValueError, TypeError):
+            malformed.append(number)
+    return ledger, malformed
 
 
 def main():
@@ -82,6 +97,12 @@ def main():
         "robotId": profile["robotId"], "adapter": profile["adapterId"], "provider": "deterministic", "modelCalls": 0,
         "rosNamespace": namespace,
         "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+        "physicalValidation": False, "dynamicsValidation": False,
+        "environment": {"platform": platform.platform(), "pythonVersion": platform.python_version(),
+                        "rosDistro": os.environ.get("ROS_DISTRO"),
+                        "rosDomainId": os.environ.get("ROS_DOMAIN_ID"),
+                        "rosLocalhostOnly": os.environ.get("ROS_LOCALHOST_ONLY"),
+                        "rmwImplementation": os.environ.get("RMW_IMPLEMENTATION")},
         "sourceSnapshotNote": "Source hashes sampled at experiment start; binary hash is tracked independently."}
     save("source-manifest.json", sources)
     save("summary.json", summary)
@@ -224,22 +245,9 @@ def main():
         summary["error"] = str(exc)
         raise
     finally:
-        ledger_path = output / "controller.jsonl"
-        if ledger_path.exists():
-            ledger = [json.loads(line) for line in ledger_path.read_text().splitlines()]
-            actual_moves = [entry for entry in ledger if entry["type"] == "RECORDED_MOVE"]
-            summary["actualRecordedMoves"] = len(actual_moves)
-            summary["actualArrivalCheckGoals"] = len([entry for entry in ledger
-                if entry["type"] == "GOAL" and entry["capability"] == "verify_arrival"])
-            summary["actualMoveCommandIds"] = [entry["commandId"] for entry in actual_moves]
-        summary["elapsedSeconds"] = time.monotonic() - started
-        summary["endedAtUnixMs"] = int(time.time() * 1000)
-        summary["sourceChangedDuringExperiment"] = [name for name, sha in sources.items()
-            if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != sha]
-        if summary["sourceChangedDuringExperiment"]:
-            summary["success"] = False
-            summary["sourceStabilityError"] = "Source changed during execution; repeat on a stable source snapshot."
-        save("summary.json", summary)
+        # Stop writers before reading their JSONL, and always clean up even if a
+        # failed controller left a partial final line. The previous ordering
+        # could leak every subprocess while trying to summarize that failure.
         for process in reversed(processes):
             if process.poll() is None:
                 process.terminate()
@@ -250,8 +258,32 @@ def main():
                     process.wait(timeout=3)
         for log in logs:
             log.close()
-    if summary.get("sourceChangedDuringExperiment"):
-        raise AssertionError(summary["sourceStabilityError"])
+        ledger_path = output / "controller.jsonl"
+        if ledger_path.exists():
+            ledger, malformed = read_controller_ledger(ledger_path)
+            if malformed:
+                summary["success"] = False
+                summary["malformedControllerLines"] = malformed
+            actual_moves = [entry for entry in ledger if entry["type"] == "RECORDED_MOVE"]
+            summary["actualRecordedMoves"] = len(actual_moves)
+            summary["actualArrivalCheckGoals"] = len([entry for entry in ledger
+                if entry["type"] == "GOAL" and entry["capability"] == "verify_arrival"])
+            summary["actualMoveCommandIds"] = [entry["commandId"] for entry in actual_moves]
+        summary["elapsedSeconds"] = time.monotonic() - started
+        summary["endedAtUnixMs"] = int(time.time() * 1000)
+        summary["sourceChangedDuringExperiment"] = [name for name, sha in sources.items()
+            if not (ROOT / name).is_file() or hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != sha]
+        summary["binaryChangedDuringExperiment"] = not args.binary.is_file() or hashlib.sha256(args.binary.read_bytes()).hexdigest() != binary_sha
+        summary["profileChangedDuringExperiment"] = hashlib.sha256(profile_path.read_bytes()).hexdigest() != summary["profileFileSha256"]
+        if summary["sourceChangedDuringExperiment"] or summary["binaryChangedDuringExperiment"] or summary["profileChangedDuringExperiment"]:
+            summary["success"] = False
+            summary["sourceStabilityError"] = "Source changed during execution; repeat on a stable source snapshot."
+        save("summary.json", summary)
+        files = {str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
+                 for path in sorted(output.rglob("*")) if path.is_file()}
+        save("manifest.json", {"algorithm": "sha256", "files": files})
+    if not summary["success"]:
+        raise AssertionError(summary.get("sourceStabilityError", "acceptance evidence was incomplete"))
 
 
 if __name__ == "__main__":

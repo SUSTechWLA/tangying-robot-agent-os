@@ -1,5 +1,7 @@
 # 边缘 Agent 实机测试部署
 
+2026-10-18 增量：[harness 与协作数据升级](../development/2026-10-18-edge-swarm-readiness.md)修复未知命令关联和运维误清故障，增加逐传感器健康快照及可恢复的收件消费。最新重复验收和现场未测项见[本轮实验](../experiments/2026-10-18-edge-swarm-readiness.md)。
+
 单机长程鲁棒性增量（2026-10-15）：[恢复与取证记录](../development/2026-10-15-single-robot-robustness.md)补充确认后提交丢失的安全恢复、续跑错误同步与最终观测瞬态重读。升级时保留原执行库；目录分类/证据错配、未知效果和中断的完成读取仍需复核。软件长步骤链和 Gazebo 记录见[实验报告](../experiments/2026-10-15-single-robot-robustness.md)，不能作为本页现场验收的替代。
 
 2026-10-15 目标委托增量：[统一边缘核心与合同](../architecture/hierarchical-edge-objectives.md)、[新 API 与模型配置](../guides/delegated-edge-goals.md)允许 Worker 在父目标授权内规划；新增 goal/child SQLite 聚合必须随原执行库保留和备份。设备目录变化、待定动作和失效租约仍停止对账。新版功能测试不替代本页要求的现场停止和设备验证。
@@ -62,6 +64,8 @@ Local Agent 在 `--data-dir/runtime-contract.json` 持久保存 `edge.runtime-pi
 同一设备的 Local/Fleet 切换应使用一致的控制锁目录和 Runtime 身份，先停止旧派发者、检查 journal，再启动新派发者。这一文件锁只协调同一主机；跨主机控制权仍依赖 Runtime 的 lease/fencing 与部署隔离。
 
 ## 4. ROS 2 异构接入
+
+首轮面向大疆无人机、宇树足式和通用 AGV；参见[型号绑定与只读预检](ros2-device-bindings.md)。设备族只是集成方向，不能代替 SDK 兼容性、控制器实现和现场身份绑定。
 
 按[异构运动契约](../development/heterogeneous-mobility.md)选择 `examples/robots/` 中 UGV/UAV/legged Profile 模板，替换机器人、传感器、标定、安全策略与限幅。模板仅描述接口，不会把任何设备自动置为 armed。
 

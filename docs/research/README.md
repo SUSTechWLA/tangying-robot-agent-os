@@ -1,5 +1,7 @@
 # 研究与论文资料导航
 
+2026-10-18 边缘与异构协作增量：[系统评价与实现](../development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](../experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
+
 已知覆盖和多层移动研究见[本轮设计与使用](../development/2026-10-18-spatial-coverage-upgrade.md)、[实际报告、350 次逐次数据与描述性区间](../experiments/2026-10-18-spatial-coverage-upgrade.md)及[教材补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)：分离分配重叠和共享收益，区分已知预测、315/315 软件采集与全部 partial 的未知探索。旧报告保持原联合消融定义与样本分母。
 
 异构三维探索的研究入口：[实现与可替换模块](../development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融/指标/回放协议](../experiments/2026-10-17-spatial-exploration-protocol.md)及[实际报告与全部证据](../experiments/2026-10-18-spatial-exploration.md)。固定同场景与种子比较选点、绕障重定位、可见收益和团队协调；当前离线软件证据与 Gazebo/实体结果分别记录，不凭单一加权分数宣布最优系统。

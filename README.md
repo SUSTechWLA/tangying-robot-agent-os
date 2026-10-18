@@ -65,6 +65,8 @@ SIM_STACK_ENGINE=mujoco make home-furnished
 
 异构三维探索研究增量见[设计与模块接口](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)、[实际软件实验与证据](docs/experiments/2026-10-18-spatial-exploration.md)和[教材补充](book/updates/2026-10-17-heterogeneous-spatial-exploration.md)：共用三维观察策略，按本体认证路径，用版本化分工与覆盖账本支持回放和量化比较。当前为软件闭环与可替换 provider，不是已接入 ROS 1 OmniPlanner，也不代表新的 Gazebo/实机三维探索或任意全场景覆盖。
 
+当前边缘与异构协作评估见[执行、通信和运维升级](docs/development/2026-10-18-edge-swarm-readiness.md)与[多轮验收记录](docs/experiments/2026-10-18-edge-swarm-readiness.md)：三类机器人共享 ROS 2 harness，覆盖建议按任务和地图校验，传感器及未决动作可追溯。实机厂商控制器、跨机器人地图对齐和并行动力学仍需逐项接入验证。
+
 ## 项目框架
 
 项目由 **Go 任务与 Agent 层、Python 机器人执行层、Web 工作台**组成。Go 管理目标、计划、批准、步骤和恢复；Python 连接机器人或仿真，检查命令、调用驱动并提供观测；Web 展示任务与证据。两端通过版本化的 gRPC/数据合同交互。

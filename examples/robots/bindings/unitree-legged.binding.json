@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "robot.ros2.device-binding.v1",
+  "bindingId": "unitree-legged-template-v1",
+  "robotId": "commissioning-legged",
+  "profilePath": "../legged.commissioning.profile.json",
+  "profileRevision": "bfb65d4599af5f1d5a9929bd50b3ddc63aec471aeab6204bd7d47475a8ee8713",
+  "gatewayConfigPath": "unitree-legged.gateway.json",
+  "commissioningId": "replace-with-legged-commissioning-id",
+  "rosDomainId": 22,
+  "device": {
+    "manufacturer": "Unitree",
+    "model": "replace-with-hardware-model",
+    "firmwareRevision": "replace-with-firmware-revision",
+    "sdkName": "unitree_ros2",
+    "sdkRevision": "replace-with-sdk-revision",
+    "bridgeImplementationRevision": "replace-with-bridge-commit",
+    "compatibilityReference": "replace-with-exact-model-firmware-sdk-evidence"
+  },
+  "coordinates": {
+    "sourceId": "commissioning-legged/localization",
+    "vendorConvention": "replace-with-verified-vendor-frame",
+    "transformRevision": "replace-with-calibration-revision",
+    "worldFrame": "world",
+    "worldConvention": "right_handed_z_up"
+  },
+  "controller": {
+    "integrationId": "unitree_model_specific_sport_bridge",
+    "vendorTransport": "ros2",
+    "navigationDimension": "terrain25d",
+    "safeStopStrategy": "hold_position",
+    "stopProcedureId": "commissioning-legged-stop-v1",
+    "commandLossTimeoutMs": 500,
+    "arrivalVerification": "independent_localization",
+    "commandAuthorityOwner": "local_controller",
+    "deduplicationOwner": "local_controller"
+  },
+  "requiredVendorInterfaces": [
+    {
+      "name": "/api/sport/request",
+      "rosType": "unitree_api/msg/Request",
+      "role": "subscriber"
+    },
+    {
+      "name": "/sportmodestate",
+      "rosType": "unitree_go/msg/SportModeState",
+      "role": "publisher"
+    }
+  ]
+}

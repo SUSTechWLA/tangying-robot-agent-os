@@ -1,0 +1,40 @@
+{
+  "previousRun": "artifacts/experiments/heterogeneous-trio-runner-20261018-001",
+  "finalRun": "artifacts/experiments/heterogeneous-trio-runner-20261018-002",
+  "sameScenariosRerun": true,
+  "independentEpisodeN": 6,
+  "independentGeometryN": 3,
+  "changedSummaryFields": [
+    {
+      "seed": 3,
+      "faulted": false,
+      "field": "eventChainHead"
+    },
+    {
+      "seed": 3,
+      "faulted": true,
+      "field": "eventChainHead"
+    },
+    {
+      "seed": 7,
+      "faulted": false,
+      "field": "eventChainHead"
+    },
+    {
+      "seed": 7,
+      "faulted": true,
+      "field": "eventChainHead"
+    },
+    {
+      "seed": 19,
+      "faulted": false,
+      "field": "eventChainHead"
+    },
+    {
+      "seed": 19,
+      "faulted": true,
+      "field": "eventChainHead"
+    }
+  ],
+  "explanation": "Final verifier and CLI tightened; same deterministic task outputs, event hash chains differ because planning timings are remeasured. Do not count as N=12."
+}

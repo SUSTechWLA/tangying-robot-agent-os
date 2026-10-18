@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+2026-10-18 边缘与异构协作增量：[系统评价与实现](./development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](./experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
+
 已知地图覆盖与多层地面增量（2026-10-18）：[设计、CLI 和插件边界](development/2026-10-18-spatial-coverage-upgrade.md) → [四类计划、315/315 Runner 软件闭环与 350 次探索对照](experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)。预测、软件新采集和实体完成分别判断；与下述已归档三维探索实验分别按版本评价。
 
 最新异构三维探索（设计 2026-10-17，实验 2026-10-18）：[模块与变更](development/2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融、指标与回放协议](experiments/2026-10-17-spatial-exploration-protocol.md) → [实际报告、配对图与证据](experiments/2026-10-18-spatial-exploration.md) → [教材补充](../book/updates/2026-10-17-heterogeneous-spatial-exploration.md)。软件研究核心复用本体路径约束，提供分工、覆盖账本和后续在线接线端口；与下述实际二维 Gazebo 首次扫描分别评价。

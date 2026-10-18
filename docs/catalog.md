@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **255 份 Markdown** 与 **852 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **261 份 Markdown** 与 **875 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 29 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 100 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
-| [部署与运维流程](#catalog-operations) | 12 | 查角色、启动、故障、升级及放行条件。 |
+| [开发参考与演进记录](#catalog-development) | 102 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [部署与运维流程](#catalog-operations) | 13 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 42 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 45 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -176,6 +176,8 @@
 | [最新分层架构、全套参考文档与书籍 2.2.0 审校](development/2026-10-16-architecture-book-refresh.md) | `development/2026-10-16-architecture-book-refresh.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [首次进入未知场景的探索扫描升级记录](development/2026-10-17-exploration-first-scan.md) | `development/2026-10-17-exploration-first-scan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [异构三维探索与可复现实验：设计和变更记录](development/2026-10-17-heterogeneous-spatial-exploration.md) | `development/2026-10-17-heterogeneous-spatial-exploration.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [异构边缘 Agent、协作数据与运维就绪升级](development/2026-10-18-edge-swarm-readiness.md) | `development/2026-10-18-edge-swarm-readiness.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-18：异构边缘 Agent 的持久收件与有作用域的协作建议](development/2026-10-18-scoped-peer-cooperation.md) | `development/2026-10-18-scoped-peer-cooperation.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [已知地图三维覆盖与多层地面导航：设计和变更记录](development/2026-10-18-spatial-coverage-upgrade.md) | `development/2026-10-18-spatial-coverage-upgrade.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
@@ -226,6 +228,7 @@
 | [XLeRobot 生产就绪判定](operations/production-readiness.md) | `operations/production-readiness.md` | 操作 / 接口参考 |
 | [家庭场景发布验收清单](operations/release-checklist.md) | `operations/release-checklist.md` | 操作 / 接口参考 |
 | [RoboCasa 双机器人交接与实机迁移](operations/robocasa-handoff.md) | `operations/robocasa-handoff.md` | 操作 / 接口参考 |
+| [DJI、Unitree 与 AGV 的 ROS 2 设备绑定](operations/ros2-device-bindings.md) | `operations/ros2-device-bindings.md` | 操作 / 接口参考 |
 | [Physical hardware safety checklist](operations/safety-checklist.md) | `operations/safety-checklist.md` | 操作 / 接口参考 |
 
 <a id="catalog-install"></a>
@@ -334,11 +337,14 @@
 | [首次未知场景探索扫描：预登记与验收协议](experiments/2026-10-17-exploration-first-scan-protocol.md) | `experiments/2026-10-17-exploration-first-scan-protocol.md` | 实验 / 验收记录 |
 | [首次未知场景探索：Gazebo 工程实验记录](experiments/2026-10-17-exploration-first-scan.md) | `experiments/2026-10-17-exploration-first-scan.md` | 实验 / 验收记录 |
 | [异构三维探索：配对消融、覆盖指标与回放协议](experiments/2026-10-17-spatial-exploration-protocol.md) | `experiments/2026-10-17-spatial-exploration-protocol.md` | 实验 / 验收记录 |
+| [异构单机器人 Agent ROS 重复验收](experiments/2026-10-18-edge-agent-ros-campaign.md) | `experiments/2026-10-18-edge-agent-ros-campaign.md` | 实验 / 验收记录 |
+| [异构边缘 Agent 与分布式协作分层验收](experiments/2026-10-18-edge-swarm-readiness.md) | `experiments/2026-10-18-edge-swarm-readiness.md` | 实验 / 验收记录 |
 | [已知覆盖、多层导航与扩展探索消融：实际软件实验记录](experiments/2026-10-18-spatial-coverage-upgrade.md) | `experiments/2026-10-18-spatial-coverage-upgrade.md` | 实验 / 验收记录 |
 | [异构三维探索与配对消融：实际软件实验记录](experiments/2026-10-18-spatial-exploration.md) | `experiments/2026-10-18-spatial-exploration.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
+| [2026-10-18 异构边缘验收证据包](experiments/evidence/2026-10-18-edge-swarm-readiness/README.md) | `experiments/evidence/2026-10-18-edge-swarm-readiness/README.md` | 导航 / 维护 |
 | [本轮研究证据与复验](experiments/evidence/2026-10-18-spatial-coverage-upgrade/README.md) | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/README.md` | 导航 / 维护 |
 | [工程验证原始结果与修复](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/README.md) | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/README.md` | 导航 / 维护 |
 | [冻结软件实验与验证证据](experiments/evidence/2026-10-18-spatial-exploration/README.md) | `experiments/evidence/2026-10-18-spatial-exploration/README.md` | 导航 / 维护 |
@@ -420,6 +426,9 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-14-spatial-navigation.json](experiments/2026-10-14-spatial-navigation.json) | JSON | `experiments` |
 | [2026-10-17-exploration-first-scan.csv](experiments/2026-10-17-exploration-first-scan.csv) | CSV | `experiments` |
 | [2026-10-17-exploration-first-scan.json](experiments/2026-10-17-exploration-first-scan.json) | JSON | `experiments` |
+| [2026-10-18-edge-agent-ros-campaign.csv](experiments/2026-10-18-edge-agent-ros-campaign.csv) | CSV | `experiments` |
+| [2026-10-18-edge-agent-ros-campaign.json](experiments/2026-10-18-edge-agent-ros-campaign.json) | JSON | `experiments` |
+| [2026-10-18-edge-swarm-readiness.json](experiments/2026-10-18-edge-swarm-readiness.json) | JSON | `experiments` |
 | [2026-10-18-spatial-coverage-upgrade.csv](experiments/2026-10-18-spatial-coverage-upgrade.csv) | CSV | `experiments` |
 | [2026-10-18-spatial-coverage-upgrade.json](experiments/2026-10-18-spatial-coverage-upgrade.json) | JSON | `experiments` |
 | [2026-10-18-spatial-exploration.csv](experiments/2026-10-18-spatial-exploration.csv) | CSV | `experiments` |
@@ -772,6 +781,24 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [patch-from-004.diff](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/patch-from-004.diff) | DIFF | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
 | [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
 | [validation.json](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/validation.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
+| [archive-members.json](experiments/evidence/2026-10-18-edge-swarm-readiness/archive-members.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [attempts.json](experiments/evidence/2026-10-18-edge-swarm-readiness/attempts.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [container-restoration.json](experiments/evidence/2026-10-18-edge-swarm-readiness/container-restoration.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [credential-audit.json](experiments/evidence/2026-10-18-edge-swarm-readiness/credential-audit.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [export-receipt.json](experiments/evidence/2026-10-18-edge-swarm-readiness/export-receipt.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [final-validation.json](experiments/evidence/2026-10-18-edge-swarm-readiness/final-validation.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [master-manifest.json](experiments/evidence/2026-10-18-edge-swarm-readiness/master-manifest.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [post-review-members.json](experiments/evidence/2026-10-18-edge-swarm-readiness/post-review-members.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [post-review.tar.gz](experiments/evidence/2026-10-18-edge-swarm-readiness/post-review.tar.gz) | GZ | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [raw-evidence.tar.gz](experiments/evidence/2026-10-18-edge-swarm-readiness/raw-evidence.tar.gz) | GZ | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [redactions.json](experiments/evidence/2026-10-18-edge-swarm-readiness/redactions.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [ros-observation-audit.json](experiments/evidence/2026-10-18-edge-swarm-readiness/ros-observation-audit.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [ros-summary.json](experiments/evidence/2026-10-18-edge-swarm-readiness/ros-summary.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [ros-task-metrics.csv](experiments/evidence/2026-10-18-edge-swarm-readiness/ros-task-metrics.csv) | CSV | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [software-summary.json](experiments/evidence/2026-10-18-edge-swarm-readiness/software-summary.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [trio-rerun-comparison.json](experiments/evidence/2026-10-18-edge-swarm-readiness/trio-rerun-comparison.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [trio-summary.json](experiments/evidence/2026-10-18-edge-swarm-readiness/trio-summary.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [verify.py](experiments/evidence/2026-10-18-edge-swarm-readiness/verify.py) | PY | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
 | [method.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development/method.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development` |
 | [paired-differences.csv](experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development/paired-differences.csv) | CSV | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development` |
 | [paired-differences.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development/paired-differences.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development` |
@@ -871,6 +898,8 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [selection-freeze.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/study/selection-freeze.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/study` |
 | [selection-protocol.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/study/selection-protocol.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/study` |
 | [build.log](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/build.log) | LOG | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation` |
+| [docs-final.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/docs-final.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation` |
+| [docs-final.log](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/docs-final.log) | LOG | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation` |
 | [final-focused.log](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/final-focused.log) | LOG | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation` |
 | [frozen-vs-final-source.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/frozen-vs-final-source.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation` |
 | [generate.log](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/generate.log) | LOG | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation` |

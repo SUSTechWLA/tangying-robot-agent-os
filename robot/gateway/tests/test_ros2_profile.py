@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
+from dataclasses import replace
 
 import pytest
 from tangying_robot_gateway.ros2_profile import Ros2ProfileBridge
@@ -272,3 +274,148 @@ def test_ros2_runtime_embeds_exact_post_completion_capture_for_go_evidence():
     assert terminal.type == robot_pb2.SKILL_EVENT_SUCCEEDED
     assert terminal.observation_id == terminal.evidence_observation.observation_id == "ros-3"
     assert terminal.evidence_observation.reconstruction["sequence"] == 3
+
+
+@pytest.mark.parametrize("kind", ["ugv", "uav", "legged"])
+def test_unknown_dispatch_keeps_command_binding_for_runtime_safe_stop(kind):
+    from tangying_robot_gateway.service import RobotRuntimeService
+
+    from .test_mobility_contract import nav_command
+
+    bridge, transport = make_bridge(kind)
+    bridge.receive_state(driver_state(bridge))
+    publish_observation(bridge)
+    def lose_action(goal, tick):
+        tick()
+        raise TimeoutError("action result lost after admission")
+    transport.execute = lose_action
+    service = RobotRuntimeService(bridge.backend())
+    request = nav_command(service.GetRuntimeInfo(None, None))
+    events = list(service.execute_for_test(request))
+    assert events[-1].code == "EXECUTION_OUTCOME_UNKNOWN"
+    assert transport.stop_request["command_id"] == request.command_id
+    assert transport.stop_request["procedure_id"] == bridge.profile.mobility.safe_stop.procedure_id
+    health = bridge.health()
+    assert health["uncertainCommandId"] == request.command_id
+    assert health["lastExecution"]["state"] == "unknown"
+    assert health["safeStop"]["state"] == "procedure_entered"
+    assert health["safeStop"]["physicalStopVerified"] is False
+    bridge.receive_state(driver_state(bridge, sequence=2))
+    publish_observation(bridge, sequence=2)
+    assert not bridge.ready()
+    assert bridge.execute(command(bridge)).code == "EXECUTION_OUTCOME_UNKNOWN"
+
+
+def test_same_bridge_serializes_concurrent_commands_without_losing_active_id():
+    bridge, transport = make_bridge()
+    bridge.receive_state(driver_state(bridge))
+    publish_observation(bridge)
+    entered, release = threading.Event(), threading.Event()
+    original = transport.execute
+    def blocked(goal, tick):
+        entered.set()
+        assert release.wait(1)
+        return original(goal, tick)
+    transport.execute = blocked
+    outcomes = []
+    worker = threading.Thread(target=lambda: outcomes.append(bridge.execute(command(bridge))))
+    worker.start()
+    try:
+        assert entered.wait(1)
+        competing = replace(command(bridge), command_id="command-2", idempotency_key="idem-2")
+        assert bridge.execute(competing).code == "ROS2_COMMAND_ACTIVE"
+        assert bridge.health()["activeCommandId"] == "command-1"
+    finally:
+        release.set()
+        worker.join(2)
+    assert not worker.is_alive()
+    assert outcomes[0].success
+    assert bridge.health()["activeCommandId"] == ""
+    assert bridge.health()["lastExecution"]["state"] == "succeeded"
+
+
+@pytest.mark.parametrize("update", [{"message": None}, {"code": "EXECUTION_OUTCOME_UNKNOWN", "success": False}])
+def test_malformed_or_explicit_unknown_result_is_fenced_before_safe_stop(update):
+    bridge, transport = make_bridge()
+    bridge.receive_state(driver_state(bridge))
+    publish_observation(bridge)
+    original = transport.execute
+    transport.execute = lambda goal, tick: {**original(goal, tick), **update}
+    with pytest.raises((ValueError, RuntimeError)):
+        bridge.execute(command(bridge))
+    assert bridge.health()["uncertainCommandId"] == "command-1"
+    assert not bridge.ready()
+    transport.stop = lambda request: (_ for _ in ()).throw(TimeoutError("stop response lost"))
+    with pytest.raises(TimeoutError):
+        bridge.stop("RESULT_UNKNOWN")
+    assert bridge.health()["safeStop"]["state"] == "unconfirmed"
+    assert bridge.health()["safeStop"]["commandId"] == "command-1"
+
+
+def test_invalid_parameters_do_not_take_execution_slot():
+    bridge, transport = make_bridge()
+    malformed = replace(command(bridge), parameters={"goalPose": [float("nan")] * 7})
+    assert bridge.execute(malformed).code == "TOOL_PARAMETERS_INVALID"
+    assert bridge.health()["activeCommandId"] == ""
+    assert not hasattr(transport, "goal")
+
+
+def test_driver_timestamp_regression_revokes_readiness_even_with_increasing_sequence():
+    bridge, _ = make_bridge()
+    now = int(time.time() * 1000)
+    bridge.receive_state(driver_state(bridge, observedAtUnixMs=now - 10))
+    publish_observation(bridge)
+    with pytest.raises(ValueError, match="time regressed"):
+        bridge.receive_state(driver_state(bridge, sequence=2, observedAtUnixMs=now - 20))
+    assert not bridge.ready()
+    assert "time regressed" in bridge.health()["driver"]["error"]
+
+
+def test_health_reports_sensor_freshness_without_refreshing_or_mutating_capture(monkeypatch):
+    bridge, _ = make_bridge()
+    assert bridge.health()["sensors"][0]["state"] == "never_received"
+    bridge.receive_state(driver_state(bridge))
+    publish_observation(bridge)
+    health = bridge.health()
+    assert health["schemaVersion"] == "ros2.harness.health.v1"
+    assert health["driver"]["fresh"]
+    assert health["sensors"][0]["state"] == "fresh"
+    assert health["sensors"][0]["observationId"] == "ros-1"
+    health["sensors"][0]["sequence"] = 100
+    assert bridge.health()["sensors"][0]["sequence"] == 1
+    source = bridge.profile.sensors[0]
+    now_mono = time.monotonic()
+    monkeypatch.setattr("tangying_robot_gateway.ros2_profile.time.monotonic", lambda: now_mono + source.max_age_ms / 1000 + 1)
+    expired = bridge.state()["harnessHealth"]
+    assert not expired["driver"]["fresh"]
+    assert expired["sensors"][0]["state"] == "expired"
+    assert expired["sensors"][0]["sequence"] == 1
+
+
+@pytest.mark.parametrize("kind", ["ugv", "uav", "legged"])
+def test_long_single_robot_sequence_keeps_capture_cache_bounded_and_fresh(kind):
+    bridge, transport = make_bridge(kind)
+    publish_observation(bridge)
+    next_sequence = 1
+    def execute(goal, tick):
+        nonlocal next_sequence
+        tick()
+        next_sequence += 1
+        publish_observation(bridge, sequence=next_sequence)
+        return {"robot_id": goal["robot_id"], "profile_revision": bridge.revision,
+                "command_id": goal["command_id"], "success": True, "code": "OK", "message": "",
+                "observation_id": f"ros-{next_sequence}", "verification_confidence": 1.0}
+    transport.execute = execute
+    for index in range(120):
+        bridge.receive_state(driver_state(bridge, sequence=index + 1))
+        current = replace(command(bridge), command_id=f"{kind}-long-{index}", idempotency_key=f"idem-{index}")
+        result = bridge.execute(current)
+        assert result.success and result.observation_id == f"ros-{index + 2}"
+        assert len(bridge._captures) <= 64
+        assert bridge.health()["lastExecution"]["commandId"] == current.command_id
+        assert bridge.health()["uncertainCommandId"] == ""
+    assert len(bridge._captures) == 64
+    assert len(bridge._source_captures) == 1
+    assert set(next(iter(bridge._source_captures.values()))) == {
+        "sequence", "observationId", "observedAtUnixMs", "receivedMonotonic"}
+    assert bridge.health()["sensors"][0]["sequence"] == 121

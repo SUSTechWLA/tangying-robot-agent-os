@@ -34,11 +34,15 @@ func (d durableSteps) ListStepRuns(_ context.Context, taskID string) ([]middlewa
 
 // quietTelemetry reports a healthy robot with a fresh observation, so the only
 // possible finding is about execution records.
-func quietTelemetry() func(context.Context, string) (telemetry.Snapshot, error) {
+func quietTelemetry(clocks ...func() time.Time) func(context.Context, string) (telemetry.Snapshot, error) {
 	return func(context.Context, string) (telemetry.Snapshot, error) {
+		now := time.Now().UTC()
+		if len(clocks) > 0 {
+			now = clocks[0]()
+		}
 		return telemetry.Snapshot{
 			RobotID: "robot-local", Adapter: "local-runtime", SchemaVersion: "robot.v1",
-			ObservedAt: time.Now().UTC(),
+			ObservedAt: now,
 		}, nil
 	}
 }

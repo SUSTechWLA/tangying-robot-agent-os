@@ -1,5 +1,7 @@
 # 边缘 Agent 数据交换与云端对接
 
+2026-10-18 增量：[持久收件游标、作用域覆盖视图与现有探索 Runner 接线](2026-10-18-scoped-peer-cooperation.md)。新增可靠消费扩展；peer 数据仍无执行权限，GC 缺口必须重新取得完整有效快照。
+
 [开发导航](README.md) · [模块化边界](../architecture/modular-extensibility.md) · [长程协作](../architecture/long-horizon-collaboration.md)
 
 `edge-exchange` 是可独立部署的边缘数据伴随进程。Local Agent、Fleet Worker 的本地业务通过 loopback API 发布数据；另一台边缘 Agent 或云端同事实现相同 HTTP 合同即可收发。它不依赖机器人 Runtime、不拥有运动租约，也不把收到的数据直接灌入任务上下文、地图、任务完成状态。任务控制走 Local Agent / Fleet 的批准、claim/fence 和执行回执协议；新增[目标委托](../guides/delegated-edge-goals.md)仍从受控 API 创建并批准合同，exchange 消息不能直接变成 Host 的执行依据。

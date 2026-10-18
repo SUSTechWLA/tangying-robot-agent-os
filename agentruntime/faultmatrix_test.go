@@ -465,6 +465,7 @@ func TestUnknownOutcomeForbidsRetryAndClearsOnReconciliation(t *testing.T) {
 	}}
 	observer := opsWithMemory(store)
 	observer.Now = func() time.Time { return now }
+	observer.Telemetry = quietTelemetry(observer.Now)
 	recorder := &eventCollector{}
 	observer.Publish = recorder.sink
 
