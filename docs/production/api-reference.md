@@ -82,8 +82,12 @@ curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions/2/confirm" \
 
 Local Brain 路由由 `console/server.go` 注册：
 
+2026-10-20 增加按机器人访问的工作空间。每个 Agent 仍绑定独立 Runtime 和数据目录；入口通过 `/robots/<workspace-id>/v1/...` 转发既有 API 和任务 WebSocket，`X-Tangying-Robot-ID` 固定预期设备，身份错误或离线不退回本机。目录配置、会话守卫及完整边界见[边缘工作空间指南](../operations/edge-robot-workspaces.md)。该代理不提供用户账户或角色权限。
+
 | 接口 | 用途 |
 | --- | --- |
+| `GET /v1/workspaces` | `edge.workspaces.v1` 目录，含 `currentId` 与各项 `id/label/robotId/href`，不公开上游地址或会话文件 |
+| `GET /v1/workspace` | `edge.workspace.v1` 与本进程绑定的 `robotId`；已启动 Agent 在 Runtime 暂时离线后仍保留此身份 |
 | `GET /healthz` | **存活**探针，恒返回 `ok`；它回答"进程还活着吗"，不回答"机器人能不能用" |
 | `POST /v1/recovery/execute` | 批准并执行**一步**恢复动作：body `{actionId,planId,taskId}`。动作必须是目录里的 `read_only` 或 `bounded_write` 条目；三处会拒绝而不会执行——不在目录里(404)、目录明确拒绝如急停复位(409)、没配置执行能力(503)。执行范围是该动作声明的工具，结论由复验给出而不是动作自述。`executed` 的含义是**确实下发过调用**（取自决策循环的调用计数，不是"循环正常返回"）：未配决策器时循环空转，返回 `executed:false` 且不做复验，`trail` 记为 `not-executed`／`verification.not-applicable` |
 | `POST /v1/robots/pair` | 用一次性配对码接入一台已发现的机器人（**不需要 SSH**）：body `{robotId,address,code}`。成功返回 `restartRequired`——机器人凭据是启动时读取的，必须重启 Local Agent 才生效 |

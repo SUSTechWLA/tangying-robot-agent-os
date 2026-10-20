@@ -1,0 +1,126 @@
+[
+  {
+    "path": "cmd/local-agent/main.go",
+    "sha256": "302eac43b73587c1907e8b85627989082dad29ea29c686676faa1c0984c351e0"
+  },
+  {
+    "path": "cmd/local-agent/workspaces_test.go",
+    "sha256": "f05f91c381cc3cdd0fe66ca2b0e07cfbca23f772b7f7873ffac9e072ad3cbd3f"
+  },
+  {
+    "path": "console/guard.go",
+    "sha256": "d0a1023b79fc1fe82398828a91a2014cd18011366e06d6f73e9f049647a61d10"
+  },
+  {
+    "path": "console/guard_test.go",
+    "sha256": "7a4466ab517777ff4de6b209c327a6917eb4187c30ffdd13f9fbbf1c6004c323"
+  },
+  {
+    "path": "console/maps.go",
+    "sha256": "a5279ca282d6974ab8e5473c52f462de96ff22fef6c79a3e319a6c1afb590844"
+  },
+  {
+    "path": "console/server.go",
+    "sha256": "de0d471a0e40fb002259175ef355537bce0d47467fb03baff4d6f83cf85c01a0"
+  },
+  {
+    "path": "console/testdata/workspace-preview/main.go",
+    "sha256": "79d2004a61183015cf133345d3c2b5f46da4fe1e70ce7e954e1059b95f3ec6a7"
+  },
+  {
+    "path": "console/workspace_artifacts.go",
+    "sha256": "41778889c8291d2524e52d2e92c9e5995a690d6e4babf212dbd6da2d81678845"
+  },
+  {
+    "path": "console/workspace_artifacts_test.go",
+    "sha256": "a3f7d50e6063788b8e762626c9b936209eeb585f1146542bb55c1e1eb114b7e1"
+  },
+  {
+    "path": "console/workspaces.go",
+    "sha256": "7aef6bdf3113021676185054cbd3b80d8d25f1dc5bf9aa7f30c6233e16eae966"
+  },
+  {
+    "path": "console/workspaces_integration_test.go",
+    "sha256": "714afe0b451f2dc75ecf2517a0a5315cb622d541af1eddf31631389defd8014f"
+  },
+  {
+    "path": "console/workspaces_test.go",
+    "sha256": "d9c2320a6f52220ae1417c7b3c4742aa8b3b3e50e82cf327f6a3086799d11004"
+  },
+  {
+    "path": "scripts/console_session.py",
+    "sha256": "60c0b1eeb5ff81ac29f0818484e83a86887729cf6028ba7a1955f4ea626e1af6"
+  },
+  {
+    "path": "scripts/preview-console.cjs",
+    "sha256": "137315ecda4ca84e64db73fa739b9cf24d1c2e95d76dd6ee780be19b950cf167"
+  },
+  {
+    "path": "tests/install/test_console_session.py",
+    "sha256": "21112f0e2c149fe8da4fec32602097665933042e01fd26f1d366f1e09f7f93b7"
+  },
+  {
+    "path": "web/agent_rail_dom_test.mjs",
+    "sha256": "82aabcc3ad2667682bc0c5d1fa1a921defba47620c4fe85abcf79600ec2b04de"
+  },
+  {
+    "path": "web/app.js",
+    "sha256": "8bb308cc8937780d0e8d3ac15c845955461373fbeb193f8c3853e3786c8ecf85"
+  },
+  {
+    "path": "web/console_ui.js",
+    "sha256": "9f35947fbd6ea32e42312a4c1694b62f7d63ee9ba652a5e03f536df22e08377d"
+  },
+  {
+    "path": "web/console_ui_test.mjs",
+    "sha256": "615b8b443bf23016e3a5d0cfd0591bc256f6f4554f9dce8afebdfbacd6e2fcb7"
+  },
+  {
+    "path": "web/edge_workspace.js",
+    "sha256": "c8ea149015ec1a2582c6323492e5d7f282698cff9c01add2cde203dbb61e9b92"
+  },
+  {
+    "path": "web/edge_workspace_test.mjs",
+    "sha256": "f2a35c2592c3b204c8ad79021a4647f3fba2279fdbbf5acafa0cc76c70f4d358"
+  },
+  {
+    "path": "web/embed.go",
+    "sha256": "092c411a1a6e6ff7cafc1ae3b669da905f973c3fd0045b5a7e10973d113262cc"
+  },
+  {
+    "path": "web/index.html",
+    "sha256": "48a205ecc0fd45f7f3b62140cf0333c8cce19dbf9220a19dfb7eb17799bb5431"
+  },
+  {
+    "path": "web/map_keyframes.js",
+    "sha256": "e2512d0e0672aec769a6aa0a2521919269023df3214f25ca0fa1b15935301779"
+  },
+  {
+    "path": "web/navigation_view.js",
+    "sha256": "0ec6ad6877f3c59dc1f403a6d63f58ac7b0aaa30f7dea502a9a178a8de6bad19"
+  },
+  {
+    "path": "web/preview_console_test.mjs",
+    "sha256": "46115f26ddad751d0bceab8a703cd238ff6b955885e6dc6fd8d42e8e0c560740"
+  },
+  {
+    "path": "web/problems.js",
+    "sha256": "e8c1e76c5d747d6f444051c2d3e1487e75f93d2ab72ec2f9662590a52cc155b8"
+  },
+  {
+    "path": "web/robot_services.js",
+    "sha256": "1b2ba7d7cb869b11e160360825c261948899e80ed430316c4238d50256c8506b"
+  },
+  {
+    "path": "web/styles.css",
+    "sha256": "ab3ada9d8477528d618ca1c16ddcb1e0d41e63fed2d9063a5d389e4051ba6523"
+  },
+  {
+    "path": "web/task_trace.js",
+    "sha256": "fa25881173ddfba6e94fdc5d9e589fa5ce9f041f0ed2f9f63fe5d5ce07d50dd1"
+  },
+  {
+    "path": "web/task_trace_test.mjs",
+    "sha256": "a469b3c4a69007dfa7d4e1873161235135ba60ba7f15ad5845ee2fbf099a2f6e"
+  }
+]

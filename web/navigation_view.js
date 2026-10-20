@@ -100,7 +100,7 @@
     const generation = requestId, controller = new AbortController();
     const timeout = root.setTimeout(() => controller.abort(), 2500);
     try {
-      const response = await root.fetch("/v1/navigation/map", { cache: "no-store", signal: controller.signal });
+      const response = await (root.TangyingEdgeWorkspace?.fetch || root.fetch)("/v1/navigation/map", { cache: "no-store", signal: controller.signal });
       if (generation !== requestId) return;
       if (!response.ok) { unavailable("导航地图暂时不可用，请检查导航服务、相机和定位状态。"); return; }
       const map = await response.json();

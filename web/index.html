@@ -32,7 +32,14 @@
     </aside>
     <header class="topbar">
       <div><p class="breadcrumb">Robot Agent OS <span>/ 机器人工作空间</span></p><h1 id="page-title" tabindex="-1">工作台</h1><p id="page-description">描述任务，查看进展，让机器人有条不紊地完成工作。</p></div>
-      <div class="topbar-actions"><button id="start-new-task" type="button">＋ 新建任务</button></div>
+      <div class="topbar-actions">
+        <div id="edge-workspace-control" class="edge-workspace-control" hidden>
+          <label for="edge-workspace-select">当前机器人</label>
+          <select id="edge-workspace-select" aria-describedby="edge-current-robot" disabled><option>正在读取工作空间</option></select>
+          <span id="edge-current-robot" class="edge-robot-id">身份待确认</span>
+        </div>
+        <button id="start-new-task" type="button">＋ 新建任务</button>
+      </div>
     </header>
     <div class="workspace-status-bar" aria-label="工作空间状态">
       <span id="workspace-connection" class="status-pill" data-tone="pending" role="status">正在连接</span>
@@ -68,6 +75,12 @@
       <form method="dialog" class="evidence-dialog-close"><button type="submit" class="secondary">关闭</button></form>
     </dialog>
   <main class="dashboard">
+      <section class="panel edge-directory" data-page-panel="devices" hidden aria-labelledby="edge-directory-title">
+        <div class="panel-title"><div><h2 id="edge-directory-title">边缘工作空间</h2><p id="edge-directory-hint" class="hint">正在读取已配置的机器人连接。</p></div><button id="edge-workspace-retry" class="secondary" type="button">刷新连接</button></div>
+        <ul id="edge-workspace-list" class="edge-workspace-list" aria-label="已注册的机器人"></ul>
+        <div class="edge-connection-line"><span id="edge-identity-state" class="status-pill" data-tone="pending" role="status">等待身份核对</span><span id="edge-runtime-checked" class="hint"></span></div>
+        <p id="edge-connection-detail" class="hint">每个工作空间保留自己的任务、观测与执行记录。</p>
+      </section>
       <section id="problems-panel" class="panel problems-panel" data-page-panel="problems" hidden aria-labelledby="problems-title">
         <div class="panel-title">
           <div>
@@ -391,7 +404,7 @@
       <section class="panel runtime-panel" data-page-panel="devices diagnostics" hidden>
         <div class="panel-title"><h2>机器人状态</h2><span id="telemetry-time">—</span></div>
         <div class="runtime-grid">
-          <article><span>活动状态</span><strong id="activity">IDLE</strong></article>
+          <article><span>活动状态</span><strong id="activity">待确认</strong></article>
           <article><span>模式</span><strong id="mode">—</strong></article>
           <article><span>Robot ID</span><strong id="robot-id">—</strong></article>
           <article><span>Adapter</span><strong id="telemetry-adapter">—</strong></article>
@@ -430,6 +443,14 @@
 
       <section class="panel local-history-panel" data-page-panel="tasks" hidden>
         <div class="panel-title"><h2>任务记录</h2><button id="refresh-local-tasks" type="button" class="secondary">刷新记录</button></div>
+        <p id="edge-history-scope" class="hint">核对机器人身份后，读取对应边缘 Agent 的任务与历史观测。</p>
+        <dl class="edge-history-summary" aria-label="当前机器人的任务统计">
+          <div><dt>已保存</dt><dd id="edge-task-total">—</dd></div>
+          <div><dt>进行中</dt><dd id="edge-task-active">—</dd></div>
+          <div><dt>需要关注</dt><dd id="edge-task-attention">—</dd></div>
+          <div><dt>已完成</dt><dd id="edge-task-succeeded">—</dd></div>
+          <div><dt>已取消</dt><dd id="edge-task-cancelled">—</dd></div>
+        </dl>
         <p id="local-history-state" class="hint" role="status">正在读取本地保存的任务…</p>
         <div class="local-history-tools">
           <label class="history-search" for="local-task-search">搜索任务<input id="local-task-search" type="search" placeholder="任务内容或编号" autocomplete="off"></label>
@@ -722,6 +743,7 @@
     <footer class="safety-note">
       请为机器人留出安全的工作空间。网页取消不能替代实体急停。<span data-developer> 真机运行前检查：<code>sudo robot-agent production-check robot-pi</code></span>
     </footer>
+    <script src="./edge_workspace.js" defer></script>
     <script src="./webgl_scene.js" defer></script>
     <script src="./world_view.js" defer></script>
     <script src="./console_ui.js" defer></script>

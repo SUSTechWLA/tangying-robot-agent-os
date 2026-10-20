@@ -402,6 +402,10 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
 function analyseAlignment({ task, timeline, steps, captures, captureById, recovery }) {
   const findings = [];
   const push = (severity, code, message, detail = {}) => findings.push({ severity, code, message, ...detail });
+  if (task?.state === "SUCCEEDED" && steps.length === 0) {
+    push("warn", "SUCCESS_WITHOUT_EXECUTION_HISTORY",
+      "任务记录标为成功，但没有可回溯的工具步骤，无法据此确认执行证据完整。请核对原始执行记录。");
+  }
 
   // 1. A world-mutating step must be confirmed by post-command evidence.
   for (const step of steps) {
@@ -629,7 +633,8 @@ function evidenceCard(item, taskId) {
       <p>这次采集不在任务历史里，无法回看原始画面。</p></li>`;
   }
   const record = item.record;
-  const base = `/v1/tasks/${encodeURIComponent(taskId)}/observations/${encodeURIComponent(item.evidenceId || item.id)}`;
+  const path = `/v1/tasks/${encodeURIComponent(taskId)}/observations/${encodeURIComponent(item.evidenceId || item.id)}`;
+  const base = globalThis.TangyingEdgeWorkspace?.url(path) || path;
   const hash = escapeHTML((item.rgbSha256 || "").slice(0, 16));
   return `<li class="trace-evidence">
     <div class="trace-evidence-images">
@@ -796,7 +801,7 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
   sections.push(`<section class="trace-block">
     <h3>一致性检查 <span class="hint">${severe.length === 0 ? "未发现问题" : `${severe.length} 个发现`}</span></h3>
     ${severe.length === 0
-      ? '<p class="trace-ok">每一步的完成都有对应证据，事件顺序与证据时间一致。</p>'
+      ? `<p class="trace-ok">${trace.steps.length ? "已记录步骤的完成证据通过一致性检查。" : "尚无可检查的工具步骤，无法判断执行证据是否完整。"}</p>`
       : `<ul class="trace-findings">${severe.map(finding =>
           `<li class="trace-finding ${finding.severity}">
              <strong>${escapeHTML(finding.message)}</strong>
@@ -896,7 +901,8 @@ function evidenceNode(item, taskId) {
   }
   // The route takes the record hash; the capture id stays visible as provenance.
   const recordHash = item.evidenceId || item.id;
-  const base = `/v1/tasks/${encodeURIComponent(taskId)}/observations/${encodeURIComponent(recordHash)}`;
+  const path = `/v1/tasks/${encodeURIComponent(taskId)}/observations/${encodeURIComponent(recordHash)}`;
+  const base = globalThis.TangyingEdgeWorkspace?.url(path) || path;
   const card = element("li", "trace-evidence");
 
   const images = element("div", "trace-evidence-images");
@@ -1094,7 +1100,7 @@ function renderTaskTraceNodes(trace) {
     element("span", "hint", severe.length ? `${severe.length} 个发现` : "未发现问题"));
   checks.append(checksTitle);
   if (severe.length === 0) {
-    checks.append(element("p", "trace-ok", "每一步的完成都有对应证据，事件顺序与证据时间一致。"));
+    checks.append(element("p", "trace-ok", trace.steps.length ? "已记录步骤的完成证据通过一致性检查。" : "尚无可检查的工具步骤，无法判断执行证据是否完整。"));
   } else {
     checks.append(findingList(severe));
   }

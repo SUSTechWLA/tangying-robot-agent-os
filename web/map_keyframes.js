@@ -104,7 +104,7 @@
     if(bytes>8*1024*1024) throw new Error("关键帧图像总量超出预算");
     return {frames,encoding:raw.encoding};
   }
-  async function fetchArtifact(map,role,{fetcher=global.fetch,signal}={}) {
+  async function fetchArtifact(map,role,{fetcher=global.TangyingEdgeWorkspace?.fetch || global.fetch,signal}={}) {
     const entry=map.artifacts?.[role], limit=role==="slam_session"?MAX_SESSION_BYTES:MAX_PREVIEW_BYTES;
     if(!entry) return null;
     if(!Number.isSafeInteger(entry.bytes)||entry.bytes<1||entry.bytes>limit||!/^[a-f0-9]{64}$/.test(entry.sha256)) throw new Error("关键帧文件超出预算或缺少内容校验");

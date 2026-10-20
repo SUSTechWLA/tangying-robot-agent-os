@@ -28,6 +28,14 @@ const {
 
 const OBSERVED_AT = 1_789_124_864_400;
 
+test("a successful status without execution history cannot claim complete evidence", () => {
+  const trace = buildTaskTrace({ task: { id: "legacy", state: "SUCCEEDED" }, observations: [] });
+  assert.ok(trace.findings.some(item => item.code === "SUCCESS_WITHOUT_EXECUTION_HISTORY"));
+  const html = renderTaskTrace(trace);
+  assert.match(html, /无法据此确认执行证据完整/);
+  assert.doesNotMatch(html, /每一步的完成都有对应证据|未发现问题/);
+});
+
 function capture(overrides = {}) {
   return {
     schemaVersion: "evidence.capture.v1",
@@ -406,9 +414,11 @@ test("both dispatch and completion times are reported per step", () => {
   }
 });
 
-test("alignment checks run against a task with no events at all", () => {
+test("alignment checks report missing history for a successful task with no events", () => {
   const findings = analyseAlignment({ task: { state: "SUCCEEDED" }, timeline: [], steps: [], captures: [], captureById: new Map() });
-  assert.equal(findings.length, 0);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].code, "SUCCESS_WITHOUT_EXECUTION_HISTORY");
+  assert.equal(findings[0].severity, "warn");
 });
 
 test("a task without an explanation record says why instead of showing a dash", () => {

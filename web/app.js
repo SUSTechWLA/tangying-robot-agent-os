@@ -1,3 +1,5 @@
+const edgeFetch = (...args) => (globalThis.TangyingEdgeWorkspace?.fetch || fetch)(...args);
+const edgeURL = path => globalThis.TangyingEdgeWorkspace?.url(path) || path;
 const $ = (id) => document.querySelector(id);
 const requestInput = $("#request");
 const adapterInput = $("#adapter");
@@ -92,7 +94,7 @@ let localActionPending = false;
 const SAFETY_ACKNOWLEDGEMENT_KEY = "tangying.safety-acknowledged";
 function readSafetyAcknowledgement() {
   try {
-    return globalThis.sessionStorage?.getItem(SAFETY_ACKNOWLEDGEMENT_KEY) === "1";
+    return globalThis.sessionStorage?.getItem(globalThis.TangyingEdgeWorkspace?.storageKey(SAFETY_ACKNOWLEDGEMENT_KEY) || SAFETY_ACKNOWLEDGEMENT_KEY) === "1";
   } catch (_) {
     // A browser that refuses storage must not lose the control entirely.
     return false;
@@ -100,8 +102,8 @@ function readSafetyAcknowledgement() {
 }
 function writeSafetyAcknowledgement(value) {
   try {
-    if (value) globalThis.sessionStorage?.setItem(SAFETY_ACKNOWLEDGEMENT_KEY, "1");
-    else globalThis.sessionStorage?.removeItem(SAFETY_ACKNOWLEDGEMENT_KEY);
+    if (value) globalThis.sessionStorage?.setItem(globalThis.TangyingEdgeWorkspace?.storageKey(SAFETY_ACKNOWLEDGEMENT_KEY) || SAFETY_ACKNOWLEDGEMENT_KEY, "1");
+    else globalThis.sessionStorage?.removeItem(globalThis.TangyingEdgeWorkspace?.storageKey(SAFETY_ACKNOWLEDGEMENT_KEY) || SAFETY_ACKNOWLEDGEMENT_KEY);
   } catch (_) {
     // Ignored on purpose: the in-memory flag below still applies to this page.
   }
@@ -397,7 +399,7 @@ canvas.addEventListener("wheel", (event) => {
 
 async function loadLLMConfig() {
   try {
-    const response = await fetch("/v1/config/status");
+    const response = await edgeFetch("/v1/config/status");
     if (!response.ok) return;
     const status = await response.json();
     const stage = $("#llm-stage").value.toLowerCase();
@@ -427,7 +429,7 @@ $("#llm-stage").addEventListener("change", () => {
 });
 
 async function saveLLMConfig() {
-  const response = await fetch("/v1/config/llm", {
+  const response = await edgeFetch("/v1/config/llm", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -463,7 +465,7 @@ async function createTask() {
   button.textContent = "正在理解…";
   const selectionGeneration = ++localSelectionGeneration;
   try {
-    const response = await fetch("/v1/tasks", {
+    const response = await edgeFetch("/v1/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ request: requestInput.value.trim(), adapter: adapterInput.value }),
@@ -498,7 +500,7 @@ async function taskAction(action) {
   localActionPending = true;
   updateLocalActionButtons();
   try {
-    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/${action}`, { method: "POST" });
+    const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}/${action}`, { method: "POST" });
     if (activeTask?.id !== taskId) return;
     const body = await response.json();
     if (activeTask?.id !== taskId) return;
@@ -536,7 +538,7 @@ function connectEvents(taskId) {
   if (socket) socket.close();
   syncLocalEvents(taskId, activeTask?.id === taskId ? activeTask.events : []);
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  const taskSocket = new WebSocket(`${protocol}://${location.host}/v1/tasks/${taskId}/events/ws`);
+  const taskSocket = new WebSocket(`${protocol}://${location.host}${edgeURL(`/v1/tasks/${encodeURIComponent(taskId)}/events/ws`)}`);
   socket = taskSocket;
   const isCurrent = () => socket === taskSocket && activeTask?.id === taskId;
   taskSocket.addEventListener("open", () => { if (isCurrent()) setConnection(true); });
@@ -676,7 +678,7 @@ function replayOnTaskState(task) {
 async function refreshTask(taskId) {
   if (activeTask?.id !== taskId) return false;
   const generation = ++localTaskRequestGeneration;
-  const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}`);
+  const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}`);
   if (response.ok && activeTask?.id === taskId) {
     const task = await response.json();
     if (generation !== localTaskRequestGeneration || activeTask?.id !== taskId || task.id !== taskId) return false;
@@ -688,6 +690,7 @@ async function refreshTask(taskId) {
 }
 
 function renderTask(task) {
+  globalThis.TangyingEdgeWorkspace?.rememberTask(task.id);
   globalThis.TangyingConsoleUI?.update({ task });
   stateLabel.textContent = globalThis.TangyingConsoleUI?.taskPresentation(task.state).label || task.state;
   taskLabel.textContent = task.id;
@@ -869,7 +872,7 @@ async function loadLocalRecovery(taskId) {
   const generation = ++localRecoveryRequestGeneration;
   const isCurrent = () => generation === localRecoveryRequestGeneration && activeTask?.id === taskId;
   try {
-    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/recovery`, { cache: "no-store" });
+    const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}/recovery`, { cache: "no-store" });
     if (!isCurrent()) return false;
     if (!response.ok) {
       renderLocalRecovery({ taskId, reason: response.status === 404 ? "当前服务尚未提供恢复状态，请更新服务后查看。" : "恢复状态暂时无法确认，请等待连接恢复。", reasonCode: "RECOVERY_STATUS_UNAVAILABLE" });
@@ -888,18 +891,24 @@ let localHistoryTasks = [];
 async function loadLocalTasks(options = {}) {
   const generation = ++localTaskListGeneration;
   try {
-    const response = await fetch("/v1/tasks", { cache: "no-store" });
+    const response = await edgeFetch("/v1/tasks", { cache: "no-store" });
     if (!response.ok || generation !== localTaskListGeneration) throw new Error("history unavailable");
     const tasks = await response.json();
     if (generation !== localTaskListGeneration || !Array.isArray(tasks)) return false;
     const ordered = [...tasks].sort((a, b) => Date.parse(b.updatedAt || b.createdAt || 0) - Date.parse(a.updatedAt || a.createdAt || 0));
     localHistoryTasks = ordered;
+    globalThis.TangyingEdgeWorkspace?.history(ordered);
     globalThis.TangyingConsoleUI?.update({ historyAvailable: true });
     renderLocalTaskList(ordered);
-    if (options.openLatest && !activeTask && ordered[0]) await openLocalTask(ordered[0].id, { navigate: false });
+    if (options.openLatest && !activeTask) {
+      const previous = globalThis.TangyingEdgeWorkspace?.previousTask();
+      const chosen = ordered.find(task => task.id === previous) || ordered[0];
+      if (chosen) await openLocalTask(chosen.id, { navigate: false });
+    }
     return true;
   } catch (_) {
     if (generation === localTaskListGeneration) {
+      globalThis.TangyingEdgeWorkspace?.history(null);
       $("#local-history-state").textContent = "记录暂时无法读取，请检查连接后刷新。";
       globalThis.TangyingConsoleUI?.update({ historyAvailable: false });
     }
@@ -1017,7 +1026,7 @@ async function openLocalTaskById(rawId) {
 async function openLocalTask(taskId, options = {}) {
   const generation = ++localSelectionGeneration;
   try {
-    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}`, { cache: "no-store" });
+    const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}`, { cache: "no-store" });
     if (generation !== localSelectionGeneration) return false;
     // A missing task is a different answer from an unreachable service, and the
     // id lookup has to say which one happened.
@@ -1201,7 +1210,7 @@ async function loadLocalNavigationEvidence(records) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2500);
       try {
-        const response = await fetch(`/v1/tasks/${encodeURIComponent(record.taskId)}/observations/${record.id}`, { cache: "no-store", signal: controller.signal });
+        const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(record.taskId)}/observations/${record.id}`, { cache: "no-store", signal: controller.signal });
         if (!current()) return;
         if (!response.ok) { localNavigationEvidence.delete(record.id); return; }
         const detail = await response.json();
@@ -1409,7 +1418,7 @@ const savedKeyframeInspector = globalThis.TangyingMapKeyframes ? new globalThis.
 $("#saved-map-select")?.addEventListener("change", () => { void loadMapCloud(); });
 // Points actually added to the 3D scene, so they can be disposed rather than leaked.
 
-function browserMapStorage() { try { return globalThis.localStorage || null; } catch (_) { return null; } }
+function browserMapStorage() { try { return globalThis.TangyingEdgeWorkspace?.scopedStorage(globalThis.localStorage) || globalThis.localStorage || null; } catch (_) { return null; } }
 function objectMarker(entry) {
   return {id: entry.id, category: entry.category, attributes: entry.attributes,
           label: entry.label, position: entry.position, ageMs: entry.ageMs,
@@ -1517,7 +1526,7 @@ function renderLocalMapMarks() {
 }
 
 async function fetchSavedMapArtifact(map, suffix, normalize) {
-  const response = await fetch("/v1/maps/" + encodeURIComponent(map.mapId) + "/" + suffix, {cache:"no-store"});
+  const response = await edgeFetch("/v1/maps/" + encodeURIComponent(map.mapId) + "/" + suffix, {cache:"no-store"});
   if (!response.ok) throw new Error(String(response.status));
   return normalize(await response.json(), map);
 }
@@ -1536,7 +1545,7 @@ async function loadMapCloud() {
   let map = null;
   let mapLoadError = "";
   try {
-    const response = await fetch("/v1/maps", { cache: "no-store" });
+    const response = await edgeFetch("/v1/maps", { cache: "no-store" });
     if (response.ok) {
       const listing = await response.json();
       if (generation !== mapLoadGeneration) return;
@@ -1567,7 +1576,7 @@ async function loadMapCloud() {
       }
       if (map) {
         const summary = map;
-        const manifestResponse = await fetch("/v1/maps/" + encodeURIComponent(summary.mapId), {cache:"no-store"});
+        const manifestResponse = await edgeFetch("/v1/maps/" + encodeURIComponent(summary.mapId), {cache:"no-store"});
         if (!manifestResponse.ok) throw new Error("map manifest returned " + manifestResponse.status);
         const manifest = await manifestResponse.json();
         if (generation !== mapLoadGeneration) return;
@@ -1613,7 +1622,7 @@ async function loadMapCloud() {
   semanticMapPanel?.setMap(map, savedMapViewer);
   void savedKeyframeInspector?.load(map,savedMapViewer);
   const layer = new globalThis.TangyingMapCloud.MapCloudLayer({
-    baseUrl: "", mapId: map.mapId, lodLevels: map.lodLevels || 1, pointCount: map.pointCount,
+    baseUrl: globalThis.TangyingEdgeWorkspace?.prefix || "", mapId: map.mapId, lodLevels: map.lodLevels || 1, pointCount: map.pointCount,
     bounds: map.bounds || null, maxResident: 3,
     renderer: {
       show(level, geometry) {
@@ -1742,7 +1751,7 @@ async function refreshMap() {
   const body = $("#map-body");
   if (!body || location.protocol === "file:") return;
   try {
-    const response = await fetch("/v1/navigation/map", { cache: "no-store" });
+    const response = await edgeFetch("/v1/navigation/map", { cache: "no-store" });
     renderMap(response.ok ? await response.json() : null);
   } catch (_) {
     renderMap(null);
@@ -1770,8 +1779,8 @@ async function refreshCalibration() {
   if (!body || location.protocol === "file:") return;
   try {
     const [progress, document] = await Promise.all([
-      fetch("/v1/calibration/session", { cache: "no-store" }),
-      fetch("/v1/calibration", { cache: "no-store" }),
+      edgeFetch("/v1/calibration/session", { cache: "no-store" }),
+      edgeFetch("/v1/calibration", { cache: "no-store" }),
     ]);
     const snapshot = progress.ok ? await progress.json() : null;
     const calibration = document.ok ? await document.json() : null;
@@ -1831,7 +1840,7 @@ globalThis.addEventListener?.("tangying:calibration-state", event => {
 // false one.
 async function refreshReadiness() {
   try {
-    const response = await fetch("/v1/readiness");
+    const response = await edgeFetch("/v1/readiness");
     if (!response.ok) return;
     latestReadiness = await response.json();
     renderOnboarding(latestOnboardingMapStatus);
@@ -1855,7 +1864,7 @@ async function refreshOnboarding() {
   if (location.protocol === "file:") return;
   let mapStatus = null;
   try {
-    const response = await fetch("/v1/navigation/map", { cache: "no-store" });
+    const response = await edgeFetch("/v1/navigation/map", { cache: "no-store" });
     if (response.ok) mapStatus = await response.json();
   } catch (_) {
     mapStatus = null;
@@ -1976,7 +1985,7 @@ async function loadLocalEvidence(taskId, options = {}) {
   const before = options.older ? localEvidenceNextBefore : null;
   if (options.older && !before) return false;
   try {
-    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/observations?limit=100${before ? `&before=${before}` : ""}`, { cache: "no-store" });
+    const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}/observations?limit=100${before ? `&before=${before}` : ""}`, { cache: "no-store" });
     if (!current()) return false;
     if (!response.ok) {
       if (!localEvidenceRecords.length) $("#local-evidence-description").textContent = response.status === 404 ? "这个任务没有可读取的历史观测图像。已有事件仍可在开发模式查看。" : "历史观测暂时无法读取，请稍后刷新。";
@@ -2022,7 +2031,7 @@ async function selectLocalEvidence(id) {
   renderLocalEvidenceMetadata(record);
   const endpoint = `/v1/tasks/${encodeURIComponent(record.taskId)}/observations/${record.id}`;
   const json = $("#local-evidence-json");
-  json.hidden = false; json.href = endpoint;
+  json.hidden = false; json.href = edgeURL(endpoint);
   if (record.expired) {
     for (const kind of ["rgb", "depth"]) $(`#local-evidence-${kind}-status`).textContent = "历史内容已清理；不会替换为当前画面。";
     return true;
@@ -2035,7 +2044,7 @@ async function selectLocalEvidence(id) {
     if (!localEvidenceIsCommandObservation(record) || !["verify_grasp", "verify_placement"].includes(localEvidenceEvent(record)?.payload?.toolName)) return;
     let value = null;
     try {
-      const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
+      const response = await edgeFetch(endpoint, { cache: "no-store", signal: controller.signal });
       if (!current()) return;
       if (response.ok) {
         const detail = await response.json();
@@ -2058,7 +2067,7 @@ async function selectLocalEvidence(id) {
     if (!Number.isSafeInteger(bytes) || bytes <= 0) { status.textContent = "此采集未保存这类图像。"; return; }
     status.textContent = "正在读取当时的图像…";
     try {
-      const response = await fetch(`${endpoint}/${kind}`, { cache: "no-store", signal: controller.signal });
+      const response = await edgeFetch(`${endpoint}/${kind}`, { cache: "no-store", signal: controller.signal });
       if (!current()) return;
       if (response.status === 410) {
         record.expired = true;
@@ -2092,7 +2101,7 @@ async function selectLocalEvidence(id) {
 async function pollLocalWorld() {
   if (!pageVisible("diagnostics")) return;
   try {
-    const response = await fetch("/v1/world", { cache: "no-store" });
+    const response = await edgeFetch("/v1/world", { cache: "no-store" });
     if (!response.ok) return;
     const world = await response.json();
     globalThis.TangyingConsoleUI?.update({ worldRevision: world.revision, eventCursor: world.eventCursor });
@@ -2112,7 +2121,7 @@ async function pollTelemetry() {
   poll.requests += 1;
   try {
     const geometry = scenePageVisible() && (sceneViewMode === "cloud" || sceneViewMode === "orbit");
-    const response = await fetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&history=false${geometry ? "&detail=geometry" : ""}`, {
+    const response = await edgeFetch(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&history=false${geometry ? "&detail=geometry" : ""}`, {
       signal: poll.controller.signal,
     });
     if (!isCurrentTelemetryPoll(poll)) return;
@@ -2268,13 +2277,14 @@ function handleTelemetryFailure(message) {
 
 async function pollRuntime() {
   try {
-    const response = await fetch("/v1/runtime");
+    const response = await edgeFetch("/v1/runtime");
     if (!response.ok) {
       $("#robot-id").textContent = "未连接";
-      setRuntimeConnection(false);
+      setRuntimeConnection(false); globalThis.TangyingEdgeWorkspace?.runtime(null);
       return;
     }
     const snapshot = await response.json();
+    if (globalThis.TangyingEdgeWorkspace?.runtime(snapshot) === false) { setRuntimeConnection(false); return; }
     setRuntimeConnection(true);
     $("#robot-id").textContent = snapshot.RobotID || "—";
     $("#telemetry-adapter").textContent = snapshot.Adapter || "—";
@@ -2282,7 +2292,7 @@ async function pollRuntime() {
     if (snapshot.Blockers?.length) $("#anomalies").textContent = `阻塞: ${snapshot.Blockers.join(" / ")}`;
   } catch (_) {
     $("#robot-id").textContent = "未连接";
-    setRuntimeConnection(false);
+    setRuntimeConnection(false); globalThis.TangyingEdgeWorkspace?.runtime(null);
   }
 }
 
@@ -2537,7 +2547,7 @@ async function updateSelectedCamera(poll) {
     clearSceneFrame(`${sceneCameraLabel(sourceId)}不可用、观测过期或不完整，当前现场未知。`);
   };
   try {
-    const response = await fetch(`/v1/scene/camera?adapter=${encodeURIComponent(poll.adapter)}&sourceId=${encodeURIComponent(sourceId)}`, { cache: "no-store", signal: poll.controller.signal });
+    const response = await edgeFetch(`/v1/scene/camera?adapter=${encodeURIComponent(poll.adapter)}&sourceId=${encodeURIComponent(sourceId)}`, { cache: "no-store", signal: poll.controller.signal });
     if (!current()) return;
     if (!response.ok) { unavailable(); return; }
     const body = await response.json();
@@ -2614,7 +2624,7 @@ async function updateSceneFrame(snapshot, poll) {
   const endpoint = depth ? "/v1/scene/depth" : "/v1/scene/frame";
   poll.requests += 1;
   try {
-    const response = await fetch(`${endpoint}?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, {
+    const response = await edgeFetch(`${endpoint}?adapter=${encodeURIComponent(requestedAdapter)}&t=${Date.now()}`, {
       cache: "no-store", signal: poll.controller.signal,
     });
     if (!current()) return;
@@ -3158,7 +3168,7 @@ function entityColor(entity) {
 async function pollMetrics() {
   if (!pageVisible("diagnostics")) return;
   try {
-    const response = await fetch("/v1/orchestration/metrics");
+    const response = await edgeFetch("/v1/orchestration/metrics");
     if (!response.ok) return;
     renderMetrics(await response.json());
   } catch (_) {
@@ -3437,7 +3447,7 @@ async function createFleetWorldRenderer(snapshot) {
       throw Object.assign(new Error("local WebGL bundle is unavailable"), { code: "WEBGL_BUNDLE_UNAVAILABLE" });
     }
     const registry = new globalThis.TangyingWebGL.AssetRegistry({
-      manifestURL: "/assets/scenes/robocasa-handoff-v1/manifest.json",
+      manifestURL: edgeURL("/assets/scenes/robocasa-handoff-v1/manifest.json"),
     });
     let bundle = await registry.load(snapshot);
     if (generation !== fleetVisualGeneration) return fleetWorldRenderer;
@@ -3953,7 +3963,7 @@ async function startFleetWorld() {
 
 async function detectFleetMode() {
   try {
-    const response = await fetch("/healthz", { cache: "no-store" });
+    const response = await edgeFetch("/healthz", { cache: "no-store" });
     if (!response.ok) return false;
     const health = await response.json();
     fleetDemoAuth = health.mode === "fleet" && health.authMode === "demo";
@@ -3967,7 +3977,7 @@ function fleetAPI(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (fleetToken) headers.Authorization = `Bearer ${fleetToken}`;
   if (options.body) headers["Content-Type"] = "application/json";
-  return fetch(path, { ...options, headers });
+  return edgeFetch(path, { ...options, headers });
 }
 
 async function initFleetMode() {
@@ -3989,7 +3999,7 @@ async function initFleetMode() {
   renderFleetAuth();
   if (fleetDemoAuth && !fleetToken) {
     try {
-      const response = await fetch("/v1/auth/demo-session", { method: "POST" });
+      const response = await edgeFetch("/v1/auth/demo-session", { method: "POST" });
       const session = await response.json();
       if (!response.ok || !session.token) throw new Error("DEMO_SESSION_UNAVAILABLE");
       fleetToken = session.token;
@@ -4041,7 +4051,7 @@ async function fleetLogin() {
     return;
   }
   try {
-    const response = await fetch("/v1/auth/login", {
+    const response = await edgeFetch("/v1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user, password }),
@@ -4698,7 +4708,7 @@ async function runRecoveryStep(step, plan, alert, button, container) {
   container.append(status);
 
   try {
-    const response = await fetch("/v1/recovery/execute", {
+    const response = await edgeFetch("/v1/recovery/execute", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -5067,7 +5077,7 @@ function renderDiscoveredRobots(payload) {
 
 async function refreshDiscoveredRobots() {
   try {
-    const response = await fetch("/v1/robots/discovered", { cache: "no-store" });
+    const response = await edgeFetch("/v1/robots/discovered", { cache: "no-store" });
     if (!response.ok) return;
     renderDiscoveredRobots(await response.json());
   } catch (_) {
@@ -5083,7 +5093,7 @@ async function pairDiscoveredRobot(robot, code, button, message) {
   button.disabled = true;
   message.textContent = "正在配对…";
   try {
-    const response = await fetch("/v1/robots/pair", {
+    const response = await edgeFetch("/v1/robots/pair", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ robotId: robot.robotId, address: robot.address, code: code.trim() }),
@@ -5383,7 +5393,7 @@ const agentAlertPollFloorMs = 5000;
 
 async function refreshAgentAlerts() {
   try {
-    const response = await fetch("/v1/agent/alerts");
+    const response = await edgeFetch("/v1/agent/alerts");
     if (!response.ok) return;
     const payload = await response.json();
     renderAgentAlerts(payload);
@@ -5826,7 +5836,7 @@ async function loadLocalTaskExperience(taskId, options = {}) {
   const requestGeneration = ++localExperienceRequestGeneration;
   const isCurrent = () => requestGeneration === localExperienceRequestGeneration && activeTask?.id === taskId;
   try {
-    const response = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
+    const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}/experience`);
     if (!isCurrent()) return false;
     if (!response.ok) {
       if (response.status === 404) localExperienceMissingTaskId = taskId;
@@ -5840,7 +5850,7 @@ async function loadLocalTaskExperience(taskId, options = {}) {
     if (!isCurrent() || experience.taskId !== taskId) return false;
     const decision = taskExperienceDecisionForState(experience, localTaskExperienceState);
     if (decision === "gap" && options.resyncRevision == null) {
-      const history = await fetch(`/v1/tasks/${encodeURIComponent(taskId)}/revisions`);
+      const history = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}/revisions`);
       if (!history.ok || !isCurrent()) return false;
       const record = await history.json();
       if (!isCurrent()) return false;
@@ -6225,10 +6235,19 @@ async function bootApplication() {
     return "file";
   }
   if (await detectFleetMode()) {
+    globalThis.TangyingEdgeWorkspace?.useFleet();
     await initFleetMode();
     return "fleet";
   }
+  if (globalThis.TangyingEdgeWorkspace && !await globalThis.TangyingEdgeWorkspace.init()) {
+    setRuntimeConnection(false);
+    return "workspace-unavailable";
+  }
+  // A robot switch always asks for a fresh on-site safety acknowledgement.
+  localSafetyAcknowledged = false;
+  writeSafetyAcknowledgement(false);
   startLocalMode();
+  void globalThis.TangyingRobotServices?.enter?.(document.body.dataset.page || "workspace");
   return "local";
 }
 

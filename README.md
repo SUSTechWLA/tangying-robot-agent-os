@@ -51,6 +51,8 @@ make home-furnished  # 首次体验启动这一套：Gazebo 家庭，http://127.
 
 打开工作台后，先查看机器人连接与相机，再按 [Gazebo 指南](docs/guides/gazebo-default.md)完成标定、建图/启用和定位准备，核对草案后批准首个巡检任务。`make sim-start` 是另一套使用 8787 端口的默认场景入口，可按需求选择。
 
+**多机器人本地工作台：**[按设备切换、查看状态与回溯任务](docs/operations/edge-robot-workspaces.md)。每台机器人运行独立 Local Agent 和数据目录，同一工作台通过显式工作空间访问各设备；切换查看不会暂停或迁移正在执行的任务。[本轮变化与验证](docs/development/2026-10-20-edge-robot-workspaces.md)说明身份、地图、会话和上下文隔离。
+
 工作台的底盘、头部 RGB-D 均来自 Gazebo 相机。建图通过注册的 mapping 服务运行，导航使用 RTAB-Map / Nav2；地图、日志和 journal 按场景持久化。场景切换、验收命令与当前功能边界见 [Gazebo 默认引擎指南](docs/guides/gazebo-default.md)。2026-09-27 同一场景的巡检、厨房往返、拿杯放盘并返回客厅已完成严格自然语言验收；4 个任务、34 步与 76 张原始图像记录见[本次闭环报告](docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。以运行时 capability catalogue 与对应版本实测报告为准。
 
 开头的杯具转运任务来自旧 MuJoCo 家庭基线，需要显式选择该后端复现：

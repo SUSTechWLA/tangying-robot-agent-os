@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **261 份 Markdown** 与 **875 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **272 份 Markdown** 与 **928 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -12,14 +12,14 @@
 | --- | ---: | --- |
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
-| [架构与协议](#catalog-architecture) | 29 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 102 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
-| [部署与运维流程](#catalog-operations) | 13 | 查角色、启动、故障、升级及放行条件。 |
+| [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
+| [开发参考与演进记录](#catalog-development) | 107 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 45 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 49 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -73,6 +73,7 @@
 | [V1 Agent 与 Sim2Real 契约](architecture/agent-v1.md) | `architecture/agent-v1.md` | 架构 / 协议 / 设计参考 |
 | [当前系统架构](architecture/architecture.md) | `architecture/architecture.md` | 架构 / 协议 / 设计参考 |
 | [分布式 AgentOS：实现范围与成熟度](architecture/distributed-agentos.md) | `architecture/distributed-agentos.md` | 架构 / 协议 / 设计参考 |
+| [边缘 AgentOS：消息、上下文与 Harness 实现说明](architecture/edge-agent-communication-and-context.md) | `architecture/edge-agent-communication-and-context.md` | 架构 / 协议 / 设计参考 |
 | [Fleet 云端控制平面（分布式 AgentOS 部署画像）](architecture/fleet-cloud.md) | `architecture/fleet-cloud.md` | 架构 / 协议 / 设计参考 |
 | [早期 Fleet 论文闭环实验档案](architecture/fleet-paper-loop.md) | `architecture/fleet-paper-loop.md` | 架构 / 协议 / 设计参考 |
 | [分层目标委托：云端目标与统一边缘 Agent](architecture/hierarchical-edge-objectives.md) | `architecture/hierarchical-edge-objectives.md` | 架构 / 协议 / 设计参考 |
@@ -176,9 +177,13 @@
 | [最新分层架构、全套参考文档与书籍 2.2.0 审校](development/2026-10-16-architecture-book-refresh.md) | `development/2026-10-16-architecture-book-refresh.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [首次进入未知场景的探索扫描升级记录](development/2026-10-17-exploration-first-scan.md) | `development/2026-10-17-exploration-first-scan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [异构三维探索与可复现实验：设计和变更记录](development/2026-10-17-heterogeneous-spatial-exploration.md) | `development/2026-10-17-heterogeneous-spatial-exploration.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [边缘 AgentOS 通信、上下文与上线就绪审计](development/2026-10-18-edge-communication-readiness.md) | `development/2026-10-18-edge-communication-readiness.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [异构边缘 Agent、协作数据与运维就绪升级](development/2026-10-18-edge-swarm-readiness.md) | `development/2026-10-18-edge-swarm-readiness.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [Gazebo 物理闭环：控制、测量、停止、标定与多机避碰](development/2026-10-18-gazebo-field-validation.md) | `development/2026-10-18-gazebo-field-validation.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [机器人工作台视觉与交互更新（2026-10-18）](development/2026-10-18-mission-console-ui.md) | `development/2026-10-18-mission-console-ui.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-18：异构边缘 Agent 的持久收件与有作用域的协作建议](development/2026-10-18-scoped-peer-cooperation.md) | `development/2026-10-18-scoped-peer-cooperation.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [已知地图三维覆盖与多层地面导航：设计和变更记录](development/2026-10-18-spatial-coverage-upgrade.md) | `development/2026-10-18-spatial-coverage-upgrade.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [边缘机器人工作空间与任务回溯升级](development/2026-10-20-edge-robot-workspaces.md) | `development/2026-10-20-edge-robot-workspaces.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -192,6 +197,7 @@
 | [开发者快速上手](development/getting-started.md) | `development/getting-started.md` | 开发参考 / 方案（核对文内状态） |
 | [无人车、无人机与足式机器人的边缘接入合同](development/heterogeneous-mobility.md) | `development/heterogeneous-mobility.md` | 开发参考 / 方案（核对文内状态） |
 | [家居场景扩充：从 1 个物体到完整任务（实施方案）](development/home-scene-expansion-plan.md) | `development/home-scene-expansion-plan.md` | 开发参考 / 方案（核对文内状态） |
+| [从测量估计 SE3：标定、跨机注册与拒绝条件](development/measured-se3-registration.md) | `development/measured-se3-registration.md` | 开发参考 / 方案（核对文内状态） |
 | [MuJoCo 版本与兼容检查](development/mujoco-compatibility.md) | `development/mujoco-compatibility.md` | 开发参考 / 方案（核对文内状态） |
 | [躺营自然语言 Agent 评测与改进](development/natural-language-evaluation.md) | `development/natural-language-evaluation.md` | 开发参考 / 方案（核对文内状态） |
 | [任务观测证据与历史回看](development/observation-evidence.md) | `development/observation-evidence.md` | 开发参考 / 方案（核对文内状态） |
@@ -224,6 +230,7 @@
 | [目标委托的部署、续跑与升级](operations/delegated-goal-operations.md) | `operations/delegated-goal-operations.md` | 操作 / 接口参考 |
 | [部署目标与代码归属](operations/deployment.md) | `operations/deployment.md` | 操作 / 接口参考 |
 | [边缘 Agent 实机测试部署](operations/edge-field-testing.md) | `operations/edge-field-testing.md` | 操作 / 接口参考 |
+| [边缘机器人工作空间：切换、回溯与部署](operations/edge-robot-workspaces.md) | `operations/edge-robot-workspaces.md` | 操作 / 接口参考 |
 | [全新部署：新机器 / 新机器人 / 新云服务器](operations/fresh-deployment.md) | `operations/fresh-deployment.md` | 操作 / 接口参考 |
 | [XLeRobot 生产就绪判定](operations/production-readiness.md) | `operations/production-readiness.md` | 操作 / 接口参考 |
 | [家庭场景发布验收清单](operations/release-checklist.md) | `operations/release-checklist.md` | 操作 / 接口参考 |
@@ -339,15 +346,19 @@
 | [异构三维探索：配对消融、覆盖指标与回放协议](experiments/2026-10-17-spatial-exploration-protocol.md) | `experiments/2026-10-17-spatial-exploration-protocol.md` | 实验 / 验收记录 |
 | [异构单机器人 Agent ROS 重复验收](experiments/2026-10-18-edge-agent-ros-campaign.md) | `experiments/2026-10-18-edge-agent-ros-campaign.md` | 实验 / 验收记录 |
 | [异构边缘 Agent 与分布式协作分层验收](experiments/2026-10-18-edge-swarm-readiness.md) | `experiments/2026-10-18-edge-swarm-readiness.md` | 实验 / 验收记录 |
+| [Gazebo 经典控制与边缘任务全链路实验](experiments/2026-10-18-gazebo-field-validation.md) | `experiments/2026-10-18-gazebo-field-validation.md` | 实验 / 验收记录 |
 | [已知覆盖、多层导航与扩展探索消融：实际软件实验记录](experiments/2026-10-18-spatial-coverage-upgrade.md) | `experiments/2026-10-18-spatial-coverage-upgrade.md` | 实验 / 验收记录 |
 | [异构三维探索与配对消融：实际软件实验记录](experiments/2026-10-18-spatial-exploration.md) | `experiments/2026-10-18-spatial-exploration.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
+| [通信与上下文审计证据](experiments/evidence/2026-10-18-communication-audit/README.md) | `experiments/evidence/2026-10-18-communication-audit/README.md` | 导航 / 维护 |
 | [2026-10-18 异构边缘验收证据包](experiments/evidence/2026-10-18-edge-swarm-readiness/README.md) | `experiments/evidence/2026-10-18-edge-swarm-readiness/README.md` | 导航 / 维护 |
+| [Gazebo 物理闭环证据（2026-10-18）](experiments/evidence/2026-10-18-gazebo-field-validation/README.md) | `experiments/evidence/2026-10-18-gazebo-field-validation/README.md` | 导航 / 维护 |
 | [本轮研究证据与复验](experiments/evidence/2026-10-18-spatial-coverage-upgrade/README.md) | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/README.md` | 导航 / 维护 |
 | [工程验证原始结果与修复](experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/README.md) | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/README.md` | 导航 / 维护 |
 | [冻结软件实验与验证证据](experiments/evidence/2026-10-18-spatial-exploration/README.md) | `experiments/evidence/2026-10-18-spatial-exploration/README.md` | 导航 / 维护 |
+| [边缘工作空间软件验收证据](experiments/evidence/2026-10-20-edge-workspaces/README.md) | `experiments/evidence/2026-10-20-edge-workspaces/README.md` | 导航 / 维护 |
 | [长程 Gazebo 自然语言任务验收脚本](experiments/long-horizon-harness.md) | `experiments/long-horizon-harness.md` | 验收工具说明 |
 
 <a id="catalog-releases"></a>
@@ -781,6 +792,25 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [patch-from-004.diff](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/patch-from-004.diff) | DIFF | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
 | [source-manifest.json](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/source-manifest.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
 | [validation.json](experiments/evidence/2026-10-17-exploration-first-scan/post004-software/validation.json) | JSON | `experiments/evidence/2026-10-17-exploration-first-scan/post004-software` |
+| [context-replay.jsonl.gz](experiments/evidence/2026-10-18-communication-audit/context-replay.jsonl.gz) | GZ | `experiments/evidence/2026-10-18-communication-audit` |
+| [go.jsonl.gz](experiments/evidence/2026-10-18-communication-audit/go.jsonl.gz) | GZ | `experiments/evidence/2026-10-18-communication-audit` |
+| [harness.jsonl.gz](experiments/evidence/2026-10-18-communication-audit/harness.jsonl.gz) | GZ | `experiments/evidence/2026-10-18-communication-audit` |
+| [host-race-selection.json](experiments/evidence/2026-10-18-communication-audit/host-race-selection.json) | JSON | `experiments/evidence/2026-10-18-communication-audit` |
+| [host-race.jsonl.gz](experiments/evidence/2026-10-18-communication-audit/host-race.jsonl.gz) | GZ | `experiments/evidence/2026-10-18-communication-audit` |
+| [interop.log](experiments/evidence/2026-10-18-communication-audit/interop.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [manifest.json](experiments/evidence/2026-10-18-communication-audit/manifest.json) | JSON | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-cloud.log](experiments/evidence/2026-10-18-communication-audit/process-cloud.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-events.json](experiments/evidence/2026-10-18-communication-audit/process-events.json) | JSON | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-frozen-build-source.json](experiments/evidence/2026-10-18-communication-audit/process-frozen-build-source.json) | JSON | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-legged.log](experiments/evidence/2026-10-18-communication-audit/process-legged.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-planning-advice.jsonl](experiments/evidence/2026-10-18-communication-audit/process-planning-advice.jsonl) | JSONL | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-summary.json](experiments/evidence/2026-10-18-communication-audit/process-summary.json) | JSON | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-uav.log](experiments/evidence/2026-10-18-communication-audit/process-uav.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [process-ugv.log](experiments/evidence/2026-10-18-communication-audit/process-ugv.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [process.log](experiments/evidence/2026-10-18-communication-audit/process.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [python.log](experiments/evidence/2026-10-18-communication-audit/python.log) | LOG | `experiments/evidence/2026-10-18-communication-audit` |
+| [race.jsonl.gz](experiments/evidence/2026-10-18-communication-audit/race.jsonl.gz) | GZ | `experiments/evidence/2026-10-18-communication-audit` |
+| [summary.json](experiments/evidence/2026-10-18-communication-audit/summary.json) | JSON | `experiments/evidence/2026-10-18-communication-audit` |
 | [archive-members.json](experiments/evidence/2026-10-18-edge-swarm-readiness/archive-members.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
 | [attempts.json](experiments/evidence/2026-10-18-edge-swarm-readiness/attempts.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
 | [container-restoration.json](experiments/evidence/2026-10-18-edge-swarm-readiness/container-restoration.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
@@ -799,6 +829,24 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [trio-rerun-comparison.json](experiments/evidence/2026-10-18-edge-swarm-readiness/trio-rerun-comparison.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
 | [trio-summary.json](experiments/evidence/2026-10-18-edge-swarm-readiness/trio-summary.json) | JSON | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
 | [verify.py](experiments/evidence/2026-10-18-edge-swarm-readiness/verify.py) | PY | `experiments/evidence/2026-10-18-edge-swarm-readiness` |
+| [attempt-ledger.json](experiments/evidence/2026-10-18-gazebo-field-validation/attempt-ledger.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [evidence.tar.gz](experiments/evidence/2026-10-18-gazebo-field-validation/bundle/evidence.tar.gz) | GZ | `experiments/evidence/2026-10-18-gazebo-field-validation/bundle` |
+| [manifest.json](experiments/evidence/2026-10-18-gazebo-field-validation/bundle/manifest.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation/bundle` |
+| [redactions.json](experiments/evidence/2026-10-18-gazebo-field-validation/bundle/redactions.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation/bundle` |
+| [verify.py](experiments/evidence/2026-10-18-gazebo-field-validation/bundle/verify.py) | PY | `experiments/evidence/2026-10-18-gazebo-field-validation/bundle` |
+| [campaign-007-metrics.json](experiments/evidence/2026-10-18-gazebo-field-validation/campaign-007-metrics.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [campaign-008-metrics.json](experiments/evidence/2026-10-18-gazebo-field-validation/campaign-008-metrics.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [container-restoration.json](experiments/evidence/2026-10-18-gazebo-field-validation/container-restoration.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [credential-audit-summary.json](experiments/evidence/2026-10-18-gazebo-field-validation/credential-audit-summary.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [readable-files-manifest.json](experiments/evidence/2026-10-18-gazebo-field-validation/readable-files-manifest.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [stopping-metrics-final.json](experiments/evidence/2026-10-18-gazebo-field-validation/stopping-metrics-final.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [stops-004-summary.json](experiments/evidence/2026-10-18-gazebo-field-validation/stops-004-summary.json) | JSON | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [trajectory-008.csv](experiments/evidence/2026-10-18-gazebo-field-validation/trajectory-008.csv) | CSV | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [trajectory-008.png](experiments/evidence/2026-10-18-gazebo-field-validation/trajectory-008.png) | PNG | `experiments/evidence/2026-10-18-gazebo-field-validation` |
+| [bundle-verification.log](experiments/evidence/2026-10-18-gazebo-field-validation/validation/bundle-verification.log) | LOG | `experiments/evidence/2026-10-18-gazebo-field-validation/validation` |
+| [final-docs.log](experiments/evidence/2026-10-18-gazebo-field-validation/validation/final-docs.log) | LOG | `experiments/evidence/2026-10-18-gazebo-field-validation/validation` |
+| [final-lint.log](experiments/evidence/2026-10-18-gazebo-field-validation/validation/final-lint.log) | LOG | `experiments/evidence/2026-10-18-gazebo-field-validation/validation` |
+| [final-targeted.log](experiments/evidence/2026-10-18-gazebo-field-validation/validation/final-targeted.log) | LOG | `experiments/evidence/2026-10-18-gazebo-field-validation/validation` |
 | [method.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development/method.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development` |
 | [paired-differences.csv](experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development/paired-differences.csv) | CSV | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development` |
 | [paired-differences.json](experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development/paired-differences.json) | JSON | `experiments/evidence/2026-10-18-spatial-coverage-upgrade/analysis/development` |
@@ -1263,10 +1311,26 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [runtime-boundary.log](experiments/evidence/2026-10-18-spatial-exploration/validation/runtime-boundary.log) | LOG | `experiments/evidence/2026-10-18-spatial-exploration/validation` |
 | [web-status.json](experiments/evidence/2026-10-18-spatial-exploration/validation/web-status.json) | JSON | `experiments/evidence/2026-10-18-spatial-exploration/validation` |
 | [web.log](experiments/evidence/2026-10-18-spatial-exploration/validation/web.log) | LOG | `experiments/evidence/2026-10-18-spatial-exploration/validation` |
+| [SHA256SUMS](experiments/evidence/2026-10-20-edge-workspaces/SHA256SUMS) |  | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [go-race.jsonl.gz](experiments/evidence/2026-10-20-edge-workspaces/go-race.jsonl.gz) | GZ | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [go.jsonl.gz](experiments/evidence/2026-10-20-edge-workspaces/go.jsonl.gz) | GZ | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [python.log.gz](experiments/evidence/2026-10-20-edge-workspaces/python.log.gz) | GZ | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [source-manifest.json](experiments/evidence/2026-10-20-edge-workspaces/source-manifest.json) | JSON | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [summary.json](experiments/evidence/2026-10-20-edge-workspaces/summary.json) | JSON | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [web.log.gz](experiments/evidence/2026-10-20-edge-workspaces/web.log.gz) | GZ | `experiments/evidence/2026-10-20-edge-workspaces` |
 | [task-replay-desktop.png](frontend/assets/console-ux-20260927/task-replay-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-desktop.png](frontend/assets/console-ux-20260927/workspace-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-mobile.png](frontend/assets/console-ux-20260927/workspace-mobile.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-tablet.png](frontend/assets/console-ux-20260927/workspace-tablet.png) | PNG | `frontend/assets/console-ux-20260927` |
+| [browser-checks.json](frontend/assets/edge-workspaces-20261020/browser-checks.json) | JSON | `frontend/assets/edge-workspaces-20261020` |
+| [desktop-devices.png](frontend/assets/edge-workspaces-20261020/desktop-devices.png) | PNG | `frontend/assets/edge-workspaces-20261020` |
+| [desktop-task-history.png](frontend/assets/edge-workspaces-20261020/desktop-task-history.png) | PNG | `frontend/assets/edge-workspaces-20261020` |
+| [diagnostics-mobile.png](frontend/assets/mission-console-20261018/diagnostics-mobile.png) | PNG | `frontend/assets/mission-console-20261018` |
+| [history-desktop.png](frontend/assets/mission-console-20261018/history-desktop.png) | PNG | `frontend/assets/mission-console-20261018` |
+| [responsive-checks.json](frontend/assets/mission-console-20261018/responsive-checks.json) | JSON | `frontend/assets/mission-console-20261018` |
+| [workspace-desktop.png](frontend/assets/mission-console-20261018/workspace-desktop.png) | PNG | `frontend/assets/mission-console-20261018` |
+| [workspace-mobile.png](frontend/assets/mission-console-20261018/workspace-mobile.png) | PNG | `frontend/assets/mission-console-20261018` |
+| [workspace-tablet.png](frontend/assets/mission-console-20261018/workspace-tablet.png) | PNG | `frontend/assets/mission-console-20261018` |
 | [captures.json](images/furnished-home/captures.json) | JSON | `images/furnished-home` |
 | [completed-cup-transfer.png](images/furnished-home/completed-cup-transfer.png) | PNG | `images/furnished-home` |
 | [kitchen.png](images/furnished-home/kitchen.png) | PNG | `images/furnished-home` |

@@ -305,6 +305,7 @@ function loadAlertRenderer(nodes, currentTaskId = "", fetchImpl = defaultFetchSt
   // harness runs one function, not the file, so a missing helper is a
   // ReferenceError rather than a silently different result.
   const body = [
+    extractFunction("edgeFetch"),
     extractFunction("makeTextElement"),
     extractFunction("agentAlertSeverityLabels"),
     extractFunction("agentAlertCodeLabels"),

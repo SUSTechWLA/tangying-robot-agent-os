@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+边缘工作台增量（2026-10-20）：[按机器人切换与任务回溯](operations/edge-robot-workspaces.md) → [实现与验证](development/2026-10-20-edge-robot-workspaces.md)。独立 Agent/数据目录、请求身份、地图与浏览器状态按设备隔离；切换不转移执行权。
+
 2026-10-18 Gazebo 物理闭环增量：[控制器、测量、停止与避碰实现](development/2026-10-18-gazebo-field-validation.md) → [实验与失败记录](experiments/2026-10-18-gazebo-field-validation.md) → [教材补充](../book/updates/2026-10-18-gazebo-field-validation.md)。经典控制驱动实际仿真刚体；真值定位、配置外参、独立配准与真实分布式部署的结论边界分别说明。
 
 2026-10-18 边缘与异构协作增量：[系统评价与实现](./development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](./experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。

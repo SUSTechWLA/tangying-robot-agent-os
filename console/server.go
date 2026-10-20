@@ -128,6 +128,8 @@ type Server struct {
 	evidence         tasks.EvidenceStore
 	planningAttempts PlanningAttemptReader
 	latency          LatencyProvider
+	workspaceRobotID string
+	workspaces       *WorkspaceRegistry
 	mux              *http.ServeMux
 	// session is this process's console session. Every mutating route passes
 	// through it; see guard.go for why the console has one at all.
@@ -172,7 +174,7 @@ func WithSessionToken(token string) Option {
 }
 
 func (s *Server) Handler() http.Handler {
-	return withConsoleSecurityHeaders(s.withSessionCookie(s.mux))
+	return withConsoleSecurityHeaders(s.withSessionCookie(s.withWorkspaces(s.mux)))
 }
 
 // withSessionCookie hands the page its session token on reads, so the browser
@@ -185,6 +187,8 @@ func (s *Server) withSessionCookie(next http.Handler) http.Handler {
 }
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("GET /v1/workspace", s.workspaceIdentity)
+	s.mux.HandleFunc("GET /v1/workspaces", s.listWorkspaces)
 	s.evidenceRoutes()
 	s.mux.HandleFunc("GET /v1/planning-attempts/{id}", s.getPlanningAttempt)
 	// Liveness, not readiness. It stays a constant on purpose: it answers "is this
@@ -277,7 +281,9 @@ func (s *Server) worldEventsWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer connection.Close()
-	subscription, err := s.world.Subscribe(r.Context(), afterRevision)
+	ctx, cancel := workspaceSocketContext(r.Context(), connection)
+	defer cancel()
+	subscription, err := s.world.Subscribe(ctx, afterRevision)
 	if errors.Is(err, worldmodel.ErrResyncRequired) {
 		_ = connection.WriteJSON(map[string]any{"type": "RESYNC_REQUIRED", "afterRevision": afterRevision})
 		return
@@ -286,9 +292,17 @@ func (s *Server) worldEventsWebSocket(w http.ResponseWriter, r *http.Request) {
 		_ = connection.WriteJSON(map[string]string{"type": "WORLD_STREAM_ERROR", "message": err.Error()})
 		return
 	}
-	for delta := range subscription {
-		if err := connection.WriteJSON(delta); err != nil {
+	for {
+		select {
+		case <-ctx.Done():
 			return
+		case delta, ok := <-subscription:
+			if !ok {
+				return
+			}
+			if err := connection.WriteJSON(delta); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -301,6 +315,10 @@ func (s *Server) runtimeStatus(w http.ResponseWriter, r *http.Request) {
 	snapshot, err := s.runtime.Info(r.Context())
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "ROBOT_DISCONNECTED", err.Error())
+		return
+	}
+	if s.workspaceRobotID != "" && snapshot.RobotID != s.workspaceRobotID {
+		writeError(w, http.StatusConflict, "WORKSPACE_IDENTITY_MISMATCH", "Runtime identity differs from this Local Agent's bound workspace")
 		return
 	}
 	writeJSON(w, http.StatusOK, snapshot)
@@ -424,11 +442,13 @@ func (s *Server) taskEventsWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer connection.Close()
+	ctx, cancel := workspaceSocketContext(r.Context(), connection)
+	defer cancel()
 	nextSequence := uint64(1)
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		task, err := s.service.Get(r.Context(), r.PathValue("id"))
+		task, err := s.service.Get(ctx, r.PathValue("id"))
 		if err != nil {
 			_ = connection.WriteJSON(map[string]string{"code": "TASK_NOT_FOUND"})
 			return
@@ -443,7 +463,7 @@ func (s *Server) taskEventsWebSocket(w http.ResponseWriter, r *http.Request) {
 			nextSequence = event.Sequence + 1
 		}
 		select {
-		case <-r.Context().Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
@@ -633,6 +653,9 @@ func (s *Server) calibrationSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "CALIBRATION_MALFORMED", err.Error())
 		return
 	}
+	if !s.allowWorkspaceCalibration(w, payload) {
+		return
+	}
 	payload["available"] = true
 	// Where the file came from, without where it is. The absolute path used to be
 	// echoed to every reader, which told anyone who could reach the console the
@@ -682,6 +705,9 @@ func (s *Server) calibrationDocument(w http.ResponseWriter, r *http.Request) {
 	var document map[string]any
 	if err := json.Unmarshal(raw, &document); err != nil {
 		writeError(w, http.StatusInternalServerError, "CALIBRATION_MALFORMED", err.Error())
+		return
+	}
+	if !s.allowWorkspaceCalibration(w, document) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{

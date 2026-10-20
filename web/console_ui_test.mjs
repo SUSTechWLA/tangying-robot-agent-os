@@ -36,6 +36,12 @@ test("setup pages report robot services instead of camera loading", () => {
   assert.equal(ui.topConnectionPresentation("workspace", { connection: "LOADING" }).label, "正在加载画面");
 });
 
+test("device page distinguishes Runtime connectivity from camera and history availability", () => {
+  assert.equal(ui.topConnectionPresentation("devices", { runtimeConnected: true, connection: "UNAVAILABLE" }).label, "Runtime 已连接");
+  assert.match(ui.topConnectionPresentation("devices", { runtimeConnected: false, historyAvailable: true }).detail, /仍可回溯/);
+  assert.equal(ui.topConnectionPresentation("devices", { mode: "fleet", connection: "STALE" }).label, "场景更新延迟");
+});
+
 test("task state labels distinguish failure, cancellation and waiting for approval", () => {
   assert.equal(ui.taskPresentation("SUCCEEDED").label, "任务已完成");
   assert.equal(ui.taskPresentation("FAILED").tone, "danger");

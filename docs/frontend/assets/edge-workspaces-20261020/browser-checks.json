@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-20",
+  "fixture": "console/testdata/workspace-preview/main.go",
+  "physicalExecution": false,
+  "workflowChecks": [
+    {
+      "case": "runtime-offline-history",
+      "robot": "preview-legged",
+      "history": "当前打开：preview-legged 【界面样例】完成环境扫描并保存观测"
+    },
+    {
+      "case": "return-restores-selected-task",
+      "history": "当前打开：preview-uav 【界面样例】检查通道阻塞，等待人工核对"
+    },
+    {
+      "case": "missing-evidence-not-success",
+      "warning": "任务记录标为成功，但没有可回溯的工具步骤，无法据此确认执行证据完整。请核对原始执行记录。"
+    },
+    {
+      "case": "agent-offline-no-fallback",
+      "robot": "preview-offline",
+      "historyRows": 0,
+      "message": "当前工作空间不可读取。恢复连接后刷新；不会显示其他机器人的记录。"
+    }
+  ],
+  "layoutChecks": [
+    {
+      "page": "tasks",
+      "robot": "preview-uav",
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "page": "tasks",
+      "robot": "preview-uav",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "page": "tasks",
+      "robot": "preview-uav",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "page": "devices",
+      "robot": "preview-uav",
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "page": "devices",
+      "robot": "preview-uav",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "page": "devices",
+      "robot": "preview-uav",
+      "scrollWidth": 1440,
+      "width": 1440
+    }
+  ],
+  "consoleErrors": []
+}

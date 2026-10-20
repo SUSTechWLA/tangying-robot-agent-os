@@ -22,6 +22,8 @@ robot-agent doctor local
 
 Local Agent 默认只监听 `127.0.0.1:8787`。启动后打开该地址，进入左下角“开发模式 → 开发诊断”填写 LLM API Base URL、模型与密钥；保存配置后按页面提示重启服务。确定性模式无需 API Key。
 
+多台机器人分别使用独立进程、数据目录和 Runtime 身份，再按[边缘工作空间指南](../operations/edge-robot-workspaces.md)配置 `LOCAL_WORKSPACES_FILE`，即可在同一工作台切换设备及任务历史。切换不暂停另一台机器人的任务。
+
 配置、证书和 SQLite 状态在升级时保留；敏感后备配置权限为 `0600`。
 
 ## 配对树莓派
@@ -44,7 +46,7 @@ robot-agent restart local
 robot-agent stop local
 ```
 
-macOS 使用 launchd，Ubuntu 使用 systemd user service；笔记本命令不要使用 sudo。Console 在 LLM 或机器人离线时仍可打开，并分别显示依赖状态。
+macOS 使用 launchd，Ubuntu 使用 systemd user service；笔记本命令不要使用 sudo。启动必须先连接 Runtime 并核对身份与持久合同；已启动的 Console 在 LLM 或 Runtime 暂时离线后仍可显示依赖状态和已保存任务。整个 Agent 停止时，该入口不能继续提供历史查询。
 
 ## 升级与恢复
 

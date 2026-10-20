@@ -300,7 +300,7 @@
   // the page and the banner cannot show different numbers.
   async function refresh() {
     try {
-      const response = await fetch("/v1/agent/alerts");
+      const response = await (globalThis.TangyingEdgeWorkspace?.fetch || fetch)("/v1/agent/alerts");
       if (!response.ok) return;
       render(await response.json());
     } catch (error) {
