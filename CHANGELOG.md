@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 精修工作台视觉呈现：分层表面与环境光、品牌导航、主操作/安全按钮层级、场景空态、任务与统计卡、自定义复选框和轻量动效；全部落在样式与图标层，不改变可见控件结构、接口、轮询或状态语义。见[前端说明](docs/frontend/console-v1.md#视觉与交互规范)。
+
 - 增强异构 ROS 2 边缘 harness、持久通信消费和运维可观察性；未知命令保持关联，遥测/任务库失明不误报恢复。新增三机型重复任务、通信故障和探索验收。见[实现记录](docs/development/2026-10-18-edge-swarm-readiness.md)与[分层实验](docs/experiments/2026-10-18-edge-swarm-readiness.md)。
 
 - 扩展已知地图覆盖与多层地面导航：显式 ROI、可替换规划/传感器、本地预测计划、分层支撑和 Runner 软件闭环，以及独立协调消融。两次 315/315 已知覆盖和 350 次全部 partial 的未知探索分别保存；见[实现](docs/development/2026-10-18-spatial-coverage-upgrade.md)、[实际实验与来源](docs/experiments/2026-10-18-spatial-coverage-upgrade.md)和[教材补充](book/updates/2026-10-18-spatial-coverage-upgrade.md)。
