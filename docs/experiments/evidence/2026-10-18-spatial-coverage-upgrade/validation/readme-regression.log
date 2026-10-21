@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_readme_leads_with_the_single_robot_home_loop _______________
+
+    def test_readme_leads_with_the_single_robot_home_loop():
+        """The product decision is a single robot completing household tasks. Fleet
+        and the multi-robot handoff stay reachable but must not compete for the
+        reader's attention at the top of the page."""
+        readme = (ROOT / "README.md").read_text()
+        head = readme[:2500]
+        assert "家庭场景" in head
+        assert "从客厅出发，去厨房拿杯子" in head
+>       assert "make home-furnished" in head
+E       AssertionError: assert 'make home-furnished' in '# 躺营 · Tangying Robot AgentOS\n\n[![License: MIT](https://img.shields.io/badge/License-MIT-167d72.svg)](LICENSE)\n[![...动构建运行镜像。\n\n```bash\ngit clone https://github.com/SUSTechWLA/tangying-robot-agent-os.git\ncd tangying-robot-agent-os\n'
+
+tests/test_repository.py:186: AssertionError
+============================= slowest 20 durations =============================
+
+(3 durations < 0.005s hidden.  Use -vv to show these durations.)
+=========================== short test summary info ============================
+FAILED tests/test_repository.py::test_readme_leads_with_the_single_robot_home_loop
+1 failed in 0.02s

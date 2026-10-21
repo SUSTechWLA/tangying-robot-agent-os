@@ -23,6 +23,7 @@ import numpy as np
 
 MAX_VOLUME_CELLS = 250_000
 MAX_PATH_WAYPOINTS = 4096
+MAX_TERRAIN_LAYERS = 32
 _IDENTITY_FIELDS = ("robotId", "mapId", "mapRevision", "frameId",
                     "worldFrameRevision", "calibrationRevision")
 _VOLUME_FIELDS = {"schemaVersion", *_IDENTITY_FIELDS, "resolution", "origin", "shape", "cells"}
@@ -93,7 +94,7 @@ def validate_volume(volume):
     A package loader must additionally authenticate mapRevision against the
     immutable package contents, including any terrain evidence.
     """
-    _exact(volume, _VOLUME_FIELDS, optional={"terrain"}, label="navigation volume")
+    _exact(volume, _VOLUME_FIELDS, optional={"terrain", "terrainLayers"}, label="navigation volume")
     if volume["schemaVersion"] != "navigation.volume.v1" or volume["frameId"] != "world":
         raise ValueError("volume requires navigation.volume.v1 in the world frame")
     result = {"schemaVersion": "navigation.volume.v1"}
@@ -144,14 +145,92 @@ def validate_volume(volume):
             detached["supported"].append(supported)
             detached["slopeRadians"].append(slope)
         result["terrain"] = detached
+    if "terrainLayers" in volume:
+        result["terrainLayers"] = _validate_terrain_layers(volume["terrainLayers"], shape,
+                                                          origin, resolution)
+    return result
+
+
+def _validate_terrain_layers(terrain, shape, origin, resolution):
+    """Versioned, measured surfaces and explicit adjacent-patch transitions.
+
+    Layer labels are topology, not vertical order. Merely being close in XYZ
+    never creates a cross-layer edge; a connection is separate measured evidence.
+    It still requires all commissioned geometry checks at planning time.
+    """
+    _exact(terrain, {"schemaVersion", "sourceId", "observedAtUnixMs", "layers", "connections"},
+           label="layered terrain")
+    if terrain["schemaVersion"] != "navigation.terrain.layers.v1":
+        raise ValueError("layered terrain schema is unsupported")
+    count = shape[0] * shape[1]
+    layers = terrain["layers"]
+    if (type(layers) is not list or not 1 <= len(layers) <= MAX_TERRAIN_LAYERS
+            or count * len(layers) > MAX_VOLUME_CELLS):
+        raise ValueError("layered terrain exceeds layer or patch-slot budget")
+    result = {"schemaVersion": "navigation.terrain.layers.v1",
+              "sourceId": _identifier(terrain["sourceId"], "layered terrain sourceId"),
+              "observedAtUnixMs": _integer(terrain["observedAtUnixMs"],
+                    "layered terrain observedAtUnixMs", 1, 9_007_199_254_740_991),
+              "layers": [], "connections": []}
+    by_id = {}
+    for layer in layers:
+        _exact(layer, {"layerId", "heights", "supported", "slopeRadians"}, label="terrain layer")
+        layer_id = _identifier(layer["layerId"], "terrain layerId")
+        if layer_id in by_id:
+            raise ValueError("terrain layerId must be unique")
+        if any(type(layer[key]) is not list or len(layer[key]) != count
+               for key in ("heights", "supported", "slopeRadians")):
+            raise ValueError("terrain layer arrays must match nx*ny")
+        detached = {"layerId": layer_id, "heights": [], "supported": [], "slopeRadians": []}
+        for height, supported, slope in zip(layer["heights"], layer["supported"],
+                                             layer["slopeRadians"], strict=True):
+            if type(supported) is not bool:
+                raise ValueError("layer support must be an explicit boolean measurement")
+            if supported:
+                height = _number(height, "layer height", minimum=origin[2],
+                                 maximum=origin[2] + shape[2] * resolution)
+                slope = _number(slope, "layer slope", minimum=0, maximum=math.pi / 2)
+            elif height is not None or slope is not None:
+                raise ValueError("unsupported layer must have null height and slope")
+            detached["heights"].append(height)
+            detached["supported"].append(supported)
+            detached["slopeRadians"].append(slope)
+        result["layers"].append(detached)
+        by_id[layer_id] = detached
+    connections = terrain["connections"]
+    if type(connections) is not list or len(connections) > MAX_VOLUME_CELLS:
+        raise ValueError("layer connection budget exceeded")
+    seen = set()
+    for connection in connections:
+        _exact(connection, {"from", "to"}, label="layer connection")
+        endpoints = []
+        for endpoint in (connection["from"], connection["to"]):
+            if type(endpoint) is not list or len(endpoint) != 3:
+                raise ValueError("layer connection endpoint requires layerId,x,y")
+            layer_id = _identifier(endpoint[0], "connection layerId")
+            if layer_id not in by_id:
+                raise ValueError("layer connection references an unknown layer")
+            x = _integer(endpoint[1], "connection x", 0, shape[0]-1)
+            y = _integer(endpoint[2], "connection y", 0, shape[1]-1)
+            if not by_id[layer_id]["supported"][y * shape[0] + x]:
+                raise ValueError("layer connection requires measured support at both endpoints")
+            endpoints.append((layer_id, x, y))
+        first, second = endpoints
+        if first[0] == second[0] or abs(first[1]-second[1]) + abs(first[2]-second[2]) != 1:
+            raise ValueError("cross-layer connections must join adjacent XY patches, never vertical portals")
+        key = tuple(sorted(endpoints))
+        if key in seen:
+            raise ValueError("duplicate bidirectional layer connection")
+        seen.add(key)
+        result["connections"].append({"from": list(first), "to": list(second)})
     return result
 
 
 def validate_policy(policy):
     """Validate explicit robot envelope and resource limits; never infer a mode."""
-    if type(policy) is not dict or policy.get("mode") not in {"volume3d", "terrain25d"}:
-        raise ValueError("spatial policy mode must be volume3d or terrain25d")
-    terrain_mode = policy["mode"] == "terrain25d"
+    if type(policy) is not dict or policy.get("mode") not in {"volume3d", "terrain25d", "terrain_layered"}:
+        raise ValueError("spatial policy mode must be volume3d, terrain25d or terrain_layered")
+    terrain_mode = policy["mode"] != "volume3d"
     _exact(policy, _POLICY_FIELDS | (_TERRAIN_POLICY_FIELDS if terrain_mode else set()),
            label="spatial policy")
     half = _vector(policy["bodyHalfExtents"], 3, "bodyHalfExtents")
@@ -194,15 +273,20 @@ class SpatialPathPlanner:
     configured referenceHeightM. Both local measured slope and adjacent
     sample height differences are bounded, including beneath the full envelope.
     This intentionally rejects some dynamically traversable steps and ramps.
-    A single height per XY cell cannot represent overlapping floors or bridges.
+    terrain25d is a single height per XY cell. terrain_layered keeps overlapping
+    measured surfaces separate and crosses them only at explicit, adjacent-patch
+    connections; a connection is never a teleport or permission to fly a chassis.
     """
 
     def __init__(self, volume, policy):
         self._volume = validate_volume(volume)
         self._policy = validate_policy(policy)
-        self._terrain_mode = self._policy["mode"] == "terrain25d"
-        if self._terrain_mode and "terrain" not in self._volume:
+        self._layered_mode = self._policy["mode"] == "terrain_layered"
+        self._terrain_mode = self._policy["mode"] != "volume3d"
+        if self._terrain_mode and not self._layered_mode and "terrain" not in self._volume:
             raise ValueError("terrain25d requires explicit measured terrain support")
+        if self._layered_mode and "terrainLayers" not in self._volume:
+            raise ValueError("terrain_layered requires explicit measured terrainLayers")
         self._origin = np.asarray(self._volume["origin"])
         self._shape = np.asarray(self._volume["shape"], dtype=int)
         self._resolution = self._volume["resolution"]
@@ -214,6 +298,23 @@ class SpatialPathPlanner:
             self._heights = np.asarray(self._terrain["heights"], dtype=float).reshape(tuple(self._shape[1::-1]))
             self._support = np.asarray(self._terrain["supported"], dtype=bool).reshape(self._heights.shape)
             self._slopes = np.asarray(self._terrain["slopeRadians"], dtype=float).reshape(self._heights.shape)
+        self._layer_connections = {}
+        if self._layered_mode:
+            layered = self._volume["terrainLayers"]
+            self._layers = layered["layers"]
+            layer_shape = tuple(self._shape[1::-1])
+            self._layer_heights = [np.asarray(layer["heights"], dtype=float).reshape(layer_shape)
+                                   for layer in self._layers]
+            self._layer_support = [np.asarray(layer["supported"], dtype=bool).reshape(layer_shape)
+                                   for layer in self._layers]
+            self._layer_slopes = [np.asarray(layer["slopeRadians"], dtype=float).reshape(layer_shape)
+                                  for layer in self._layers]
+            indices = {layer["layerId"]: index for index, layer in enumerate(self._layers)}
+            for connection in layered["connections"]:
+                first, second = [(endpoint[1], endpoint[2], indices[endpoint[0]])
+                                 for endpoint in (connection["from"], connection["to"])]
+                self._layer_connections.setdefault(first, set()).add(second)
+                self._layer_connections.setdefault(second, set()).add(first)
         self._checks = 0
         self._planning_lock = threading.RLock()
 
@@ -235,7 +336,11 @@ class SpatialPathPlanner:
                 upper = self._origin + (indices + 1) * self._resolution + self._envelope
                 if np.any(_intersects_boxes(a, b, lower, upper)):
                     return False
-            return not self._terrain_mode or self._terrain_clear(a, b, low[:2], high[:2])
+            if not self._terrain_mode:
+                return True
+            if self._layered_mode:
+                return self._layered_clear(a, b, low[:2], high[:2])
+            return self._terrain_clear(a, b, low[:2], high[:2])
 
         self._cached_segment = cached_segment
 
@@ -250,6 +355,8 @@ class SpatialPathPlanner:
     def _supported_endpoint_height(self, point):
         if not self._terrain_mode:
             return True
+        if self._layered_mode:
+            return self._point_layer(point) is not None
         column, row = self._cell(point)
         if not (0 <= column < self._shape[0] and 0 <= row < self._shape[1]
                 and self._support[row, column]):
@@ -257,21 +364,58 @@ class SpatialPathPlanner:
         expected = self._heights[row, column] + self._policy["referenceHeightM"]
         return abs(point[2] - expected) <= .02
 
-    def _terrain_clear(self, a, b, low, high):
+    def _point_layer(self, point):
+        column, row = np.floor((np.asarray(point[:2])-self._origin[:2])/self._resolution).astype(int)
+        if not 0 <= column < self._shape[0] or not 0 <= row < self._shape[1]:
+            return None
+        matches = [index for index, (heights, support) in enumerate(zip(
+                   self._layer_heights, self._layer_support, strict=True))
+                   if support[row, column]
+                   and abs(point[2] - heights[row, column] - self._policy["referenceHeightM"]) <= .02]
+        # No nearest-height inference, especially when two surfaces overlap.
+        return matches[0] if len(matches) == 1 else None
+
+    def _layered_clear(self, a, b, low, high):
+        first_layer, second_layer = self._point_layer(a), self._point_layer(b)
+        if first_layer is None or second_layer is None:
+            return False
+        if first_layer == second_layer:
+            return self._terrain_clear(a, b, low, high, self._layer_heights[first_layer],
+                                       self._layer_support[first_layer], self._layer_slopes[first_layer])
+        first, second = self._cell(a), self._cell(b)
+        if second not in self._layer_connections.get(first, ()):
+            return False
+        # At a declared seam, the start side of the shared XY cell boundary
+        # must use its own measured layer, and the far side the destination.
+        # Choosing whichever surface is nearest Z under the robot could silently
+        # jump from a lower floor to an overlapping upper floor.
+        axis = 0 if first[0] != second[0] else 1
+        coordinate = np.arange(self._shape[axis])
+        start_side = coordinate <= first[axis] if first[axis] < second[axis] else coordinate >= first[axis]
+        selector = start_side[None, :] if axis == 0 else start_side[:, None]
+        heights = np.where(selector, self._layer_heights[first_layer], self._layer_heights[second_layer])
+        support = np.where(selector, self._layer_support[first_layer], self._layer_support[second_layer])
+        slopes = np.where(selector, self._layer_slopes[first_layer], self._layer_slopes[second_layer])
+        return self._terrain_clear(a, b, low, high, heights, support, slopes)
+
+    def _terrain_clear(self, a, b, low, high, heights=None, support=None, slopes=None):
+        heights = self._heights if heights is None else heights
+        support = self._support if support is None else support
+        slopes = self._slopes if slopes is None else slopes
         yy, xx = np.mgrid[low[1]:high[1] + 1, low[0]:high[0] + 1]
         indices = np.stack((xx.ravel(), yy.ravel()), axis=1)
         lower = self._origin[:2] + indices * self._resolution - self._envelope[:2]
         upper = self._origin[:2] + (indices + 1) * self._resolution + self._envelope[:2]
         touched = indices[_intersects_boxes(a[:2], b[:2], lower, upper)]
         x, y = touched[:, 0], touched[:, 1]
-        if not np.all(self._support[y, x]) or np.any(self._slopes[y, x] > self._policy["maxSlopeRad"]):
+        if not np.all(support[y, x]) or np.any(slopes[y, x] > self._policy["maxSlopeRad"]):
             return False
         max_step = self._policy["maxStepM"]
         covered = set(map(tuple, touched))
         for column, row in covered:
             for dx, dy in ((1, 0), (0, 1)):
                 if ((column + dx, row + dy) in covered and
-                        abs(self._heights[row, column] - self._heights[row + dy, column + dx]) > max_step + 1e-9):
+                        abs(heights[row, column] - heights[row + dy, column + dx]) > max_step + 1e-9):
                     return False
         # Every intersected centreline cell constrains height; checking only
         # endpoints could admit a bridge over an unsupported dip or cliff.
@@ -289,7 +433,7 @@ class SpatialPathPlanner:
                 if delta[axis] != 0:
                     first, second = (lower[axis] - a[axis]) / delta[axis], (upper[axis] - a[axis]) / delta[axis]
                     enter, leave = max(enter, min(first, second)), min(leave, max(first, second))
-            expected = self._heights[row, column] + self._policy["referenceHeightM"]
+            expected = heights[row, column] + self._policy["referenceHeightM"]
             errors = [abs(a[2] + fraction * (b[2] - a[2]) - expected)
                       for fraction in (enter, leave)]
             if max(errors) > max_step + 1e-9:
@@ -313,9 +457,16 @@ class SpatialPathPlanner:
 
     def _cell(self, point):
         node = tuple(np.floor((np.asarray(point) - self._origin) / self._resolution).astype(int))
+        if self._layered_mode:
+            layer = self._point_layer(point)
+            return (*node[:2], -1 if layer is None else layer)
         return node[:2] if self._terrain_mode else node
 
     def _world(self, node):
+        if self._layered_mode:
+            x, y, layer = node
+            return [*map(float, self._origin[:2] + (np.asarray(node[:2]) + .5) * self._resolution),
+                    float(self._layer_heights[layer][y, x] + self._policy["referenceHeightM"])]
         if self._terrain_mode:
             x, y = node
             return [*map(float, self._origin[:2] + (np.asarray(node) + .5) * self._resolution),
@@ -323,6 +474,14 @@ class SpatialPathPlanner:
         return list(map(float, self._origin + (np.asarray(node) + .5) * self._resolution))
 
     def _valid(self, node):
+        if self._layered_mode:
+            if (len(node) != 3 or not 0 <= node[2] < len(self._layers)
+                    or any(index < 0 or index >= self._shape[axis]
+                           for axis, index in enumerate(node[:2]))
+                    or not self._layer_support[node[2]][node[1], node[0]]):
+                return False
+            point = self._world(node)
+            return self._point_layer(point) == node[2] and self.segment_clear(point, point)
         dimensions = 2 if self._terrain_mode else 3
         if any(index < 0 or index >= self._shape[axis] for axis, index in enumerate(node)):
             return False
@@ -332,8 +491,13 @@ class SpatialPathPlanner:
 
     def _connect(self, point):
         node = self._cell(point)
-        candidates = (tuple(node[axis] + delta[axis] for axis in range(len(node)))
-                      for delta in itertools.product((-1, 0, 1), repeat=len(node)))
+        if self._layered_mode:
+            candidates = {(node[0]+dx, node[1]+dy, node[2])
+                          for dx, dy in itertools.product((-1, 0, 1), repeat=2)}
+            candidates.update(self._layer_connections.get(node, ()))
+        else:
+            candidates = (tuple(node[axis] + delta[axis] for axis in range(len(node)))
+                          for delta in itertools.product((-1, 0, 1), repeat=len(node)))
         return sorted((candidate for candidate in candidates if self._valid(candidate)
                        and self.segment_clear(point, self._world(candidate))),
                       key=lambda candidate: (math.dist(point, self._world(candidate)), candidate))
@@ -381,8 +545,13 @@ class SpatialPathPlanner:
             if expanded >= self._policy["maxExpanded"]:
                 raise SpatialNavigationError("PLANNING_BUDGET_EXCEEDED", "expanded node budget exhausted")
             expanded += 1
-            for delta in neighbors:
-                neighbor = tuple(index + offset for index, offset in zip(node, delta, strict=True))
+            if self._layered_mode:
+                adjacent = sorted({(node[0]+dx, node[1]+dy, node[2]) for dx, dy in neighbors}
+                                  | self._layer_connections.get(node, set()))
+            else:
+                adjacent = (tuple(index + offset for index, offset in zip(node, delta, strict=True))
+                            for delta in neighbors)
+            for neighbor in adjacent:
                 if not self._valid(neighbor) or not self.segment_clear(self._world(node), self._world(neighbor)):
                     continue
                 candidate = distance + math.dist(self._world(node), self._world(neighbor))

@@ -1,0 +1,4 @@
+# Evidence hashes cover raw bytes, including unified-diff context whitespace.
+* -text
+*.patch whitespace=-blank-at-eol,-blank-at-eof
+*.diff whitespace=-blank-at-eol,-blank-at-eof

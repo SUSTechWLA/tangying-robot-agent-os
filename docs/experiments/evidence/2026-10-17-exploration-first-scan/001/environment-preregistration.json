@@ -1,0 +1,27 @@
+{
+  "experiment": "exploration-first-scan-20261017-001",
+  "imageId": "sha256:c7ad7cea987aba8308699ed3226531cd597d58fb99221dee616f2086e68b4a67",
+  "composeProject": "tangying-exploration-20261017-001",
+  "rosDomainId": 169,
+  "runtimePort": 50571,
+  "navigationPort": 18971,
+  "scene": "home_furnished",
+  "episodeIdentifier": 1017,
+  "physicsSeed": "not_controlled",
+  "poseSource": "Gazebo odometry / fused IMU and odometry; not GPS-denied hardware localization validation",
+  "rtabmapDatabaseInitiallyAbsent": true,
+  "workflowInventoryInitiallyEmpty": true,
+  "priorContainerToPause": "tangying-gazebo-4d6962a6c3d7-gazebo-house-1",
+  "oldContainerMappingState": "completed",
+  "sourceStrategy": "existing image with frozen maintained Python and proto overlays; ROS binaries remain image baseline",
+  "sourceHead": "980e8b4d8d7fd357341d7862b7cb79b34a711392",
+  "preparationNotes": [
+    "Initial config generation failed before container start because Path.open has no opener; fixed to built-in open with mode0600. No motion occurred."
+  ],
+  "assetHashes": {
+    "artifacts/sim-assets/xlerobot-home/home.sdf": "3c1d94f6305369933aa186a5a2edc06ae771ab48188f7f777cf4391f1cae3132",
+    "artifacts/sim-assets/xlerobot-home/commissioning.json": "ba4afdcc94524349707814dfb78987e58565e7f13b7ad8da1916bee5c73ee8c3"
+  },
+  "sourceFiles": 146,
+  "gitDiffSha256": "64a5b58caa580f0264284d7650c827e0aa7c06d03ea6f32240787c6d7d820134"
+}

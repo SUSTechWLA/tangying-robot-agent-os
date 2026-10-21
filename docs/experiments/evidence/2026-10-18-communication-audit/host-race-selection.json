@@ -1,0 +1,30 @@
+{
+  "excluded": [
+    "TestSingleRobotLongHorizonCampaign"
+  ],
+  "included": [
+    "TestSingleRobotCampaignSQLiteCloseReopen",
+    "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+    "TestSingleRobotCampaignBudgetBoundaries",
+    "TestDelegatedCompletionReadRecoversWithoutReplanningOrMovementReplay",
+    "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart",
+    "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline",
+    "TestDelegatedInterruptedCompletionAttemptRequiresReviewWithoutAnotherRead",
+    "TestDelegatedCompletionExhaustionCommitFailureCannotGrantAnotherRead",
+    "TestDelegatedLongGoalReplansRemainingStepsAndPersistsLineage",
+    "TestDelegatedUnknownPhysicalResultNeverReplansOrReplays",
+    "TestDelegatedRecoveryPluginCannotHideUnknownOutcome",
+    "TestDelegatedLostVerificationAfterWriteRequiresReconciliation",
+    "TestDelegatedEnvelopeRejectsModelTargetOutsideScope",
+    "TestDelegatedReplanCannotRepeatConfirmedWrites",
+    "TestDelegatedPlanBudgetSurvivesHostRestart",
+    "TestDelegatedIntentionalRepeatRequiresApprovedExecutionQuota",
+    "TestDelegatedModelHTTPPlanReceivesAuthorizedSchemaAndCompletion",
+    "TestDelegatedBudgetsAndCancellationPreventNewMovement",
+    "TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement",
+    "TestDelegatedVerifiedCrashRecoveryRechecksAuthority",
+    "TestDelegatedExpiredUnknownCheckpointKeepsUnknownClassification",
+    "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence",
+    "TestDelegatedRecoveredMutationClassificationMatchesFrozenCatalog"
+  ]
+}

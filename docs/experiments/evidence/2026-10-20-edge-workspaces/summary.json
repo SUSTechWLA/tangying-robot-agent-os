@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "edge.workspace.validation.v1",
+  "date": "2026-10-20",
+  "baseCommit": "558e7887aa8be62b9f66a9eff2569c0e9ae94ff2",
+  "branch": "codex/heterogeneous-spatial-exploration",
+  "scope": "Local Agent workspace isolation, history, UI and documentation; no robot motion",
+  "physicalExecution": false,
+  "gazeboExecution": false,
+  "environment": {
+    "platform": "Darwin",
+    "architecture": "arm64",
+    "versions": {
+      "go": "go version go1.26.2 darwin/arm64",
+      "node": "v24.14.1",
+      "python": "Python 3.11.9"
+    }
+  },
+  "runs": [
+    {
+      "name": "go",
+      "command": "go test -count=1 -json ./console ./cmd/local-agent ./web ./tests/docs",
+      "exitCode": 0,
+      "passedTestsAndSubtests": 383,
+      "failed": 0,
+      "skipped": 0,
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/console",
+          "elapsedSeconds": 2.035
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent",
+          "elapsedSeconds": 2.262
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/web",
+          "elapsedSeconds": 2.598
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/tests/docs",
+          "elapsedSeconds": 2.89
+        }
+      ],
+      "rawLog": "go.jsonl.gz",
+      "start": "2026-10-20T21:53:29.984562+08:00",
+      "end": "2026-10-20T21:53:32.874671+08:00"
+    },
+    {
+      "name": "go-race",
+      "command": "go test -race -count=1 -json ./console ./cmd/local-agent",
+      "exitCode": 0,
+      "passedTestsAndSubtests": 368,
+      "failed": 0,
+      "skipped": 0,
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/console",
+          "elapsedSeconds": 5.671
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent",
+          "elapsedSeconds": 7.792
+        }
+      ],
+      "rawLog": "go-race.jsonl.gz",
+      "start": "2026-10-20T21:53:30.870669+08:00",
+      "end": "2026-10-20T21:53:38.664126+08:00"
+    },
+    {
+      "name": "web",
+      "command": "cd web && npm test",
+      "exitCode": 0,
+      "passed": 529,
+      "rawLog": "web.log.gz"
+    },
+    {
+      "name": "python",
+      "command": ".venv/bin/python -m pytest -q tests/install/test_console_session.py tests/docs tests/test_repository.py",
+      "exitCode": 0,
+      "passed": 48,
+      "rawLog": "python.log.gz"
+    }
+  ],
+  "additionalChecks": [
+    {
+      "command": "go build -o bin/local-agent ./cmd/local-agent && go test -count=1 ./web ./tests/docs",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/build_docs_catalog.py --check",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "browser": {
+    "fixture": "console/testdata/workspace-preview/main.go",
+    "checks": "../../../frontend/assets/edge-workspaces-20261020/browser-checks.json",
+    "workflowCases": 4,
+    "responsiveCases": 6,
+    "widths": [
+      390,
+      980,
+      1440
+    ],
+    "consoleErrors": 0
+  },
+  "limitations": [
+    "Go pass counts include parent tests and subtests; race overlaps the functional suite, not additional independent experiments.",
+    "The SQLite integration uses real stores and HTTP/WebSocket services; the browser fixture has no physical execution.",
+    "Final web log includes preview Host/scoped path fixes; final Go embed/docs checks and binary build followed those changes.",
+    "Screenshots and test outcomes do not certify vendor controllers, radio links or unattended physical operation."
+  ]
+}

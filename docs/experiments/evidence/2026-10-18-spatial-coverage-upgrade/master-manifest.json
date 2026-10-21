@@ -1,0 +1,472 @@
+{
+  "schemaVersion": "research.evidence-index.v1",
+  "state": "finalized",
+  "fileCount": 116,
+  "totalBytes": 28412785,
+  "files": {
+    "README.md": {
+      "bytes": 3441,
+      "sha256": "130655544ef5b559e09d2d0db84784bb40c4baa5126b320fe4cf9cef56d8b203"
+    },
+    "analysis/development/method.json": {
+      "bytes": 2628,
+      "sha256": "086bc924b4803400fd55ceb8ff461026fc2419b38e271f1c79370255ae219db9"
+    },
+    "analysis/development/paired-differences.csv": {
+      "bytes": 111782,
+      "sha256": "0a0a8e4d8cb9318a977a88c3246b0e9f9ea7ba0fc302ef4180302938e15d035c"
+    },
+    "analysis/development/paired-differences.json": {
+      "bytes": 235156,
+      "sha256": "804a52ac7bf73f001182ae59950dab971bb9b9eec328f9bb39e551fdd640ba37"
+    },
+    "analysis/development/paired-effects.csv": {
+      "bytes": 3696,
+      "sha256": "141550b45dc1e52762bc0b25ee48ac4ddc72822cef1d339236e9bb30d1aa3ce4"
+    },
+    "analysis/development/provenance.json": {
+      "bytes": 2900,
+      "sha256": "5b50b23e9bba0819f2a199b7dbd494c7e1e925eb119cc26617c51e49a643b2e3"
+    },
+    "analysis/development/source/analyze_spatial_study.py": {
+      "bytes": 17697,
+      "sha256": "d02840c21266100c542f8808a27c0c5c94731cc1d2ca30f15e6c105476f9ea1c"
+    },
+    "analysis/development/source/spatial_exploration_benchmark.py": {
+      "bytes": 69643,
+      "sha256": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114"
+    },
+    "analysis/development/summary.json": {
+      "bytes": 56008,
+      "sha256": "e948ef759a4e144ac0b098e6d705e4f2986f9880d7cd607b7d9a6e4af663acfb"
+    },
+    "analysis/development/variants.csv": {
+      "bytes": 777,
+      "sha256": "6f20cba1b59b7cb542477c186d09d46f2965a815b236ee314fa7762e7377429e"
+    },
+    "analysis/holdout/method.json": {
+      "bytes": 2628,
+      "sha256": "086bc924b4803400fd55ceb8ff461026fc2419b38e271f1c79370255ae219db9"
+    },
+    "analysis/holdout/paired-differences.csv": {
+      "bytes": 168856,
+      "sha256": "31b6dcc582d9a5b97b91548e73b4a327c97ad1caf3837be1f0f31121400df850"
+    },
+    "analysis/holdout/paired-differences.json": {
+      "bytes": 353970,
+      "sha256": "50ad3386cdf1b4cc6237ba30705a435ec87ea26461ec9653dec55c9e0d15959a"
+    },
+    "analysis/holdout/paired-effects.csv": {
+      "bytes": 3800,
+      "sha256": "85d98b4665fefc7a81d2b4969ecf0863f916a8b15a713329edb5061b5eb2d55c"
+    },
+    "analysis/holdout/provenance.json": {
+      "bytes": 2896,
+      "sha256": "a0124e340724102fc72cc4208d2c02f7818c4e643650b624a53e7918889ec8ff"
+    },
+    "analysis/holdout/source/analyze_spatial_study.py": {
+      "bytes": 17697,
+      "sha256": "d02840c21266100c542f8808a27c0c5c94731cc1d2ca30f15e6c105476f9ea1c"
+    },
+    "analysis/holdout/source/spatial_exploration_benchmark.py": {
+      "bytes": 69643,
+      "sha256": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114"
+    },
+    "analysis/holdout/summary.json": {
+      "bytes": 75185,
+      "sha256": "cc1099083f07b7016ebf7b131e55433789a6d808a1baba066684e9fee4bbe42f"
+    },
+    "analysis/holdout/variants.csv": {
+      "bytes": 848,
+      "sha256": "39492aa275f8d703faaf9ef6782cc924ba889bd4eb34698fb862d9a399f958f0"
+    },
+    "archive-members.json": {
+      "bytes": 398826,
+      "sha256": "b1267f85e91ba813ba63f3f2bad3448a71a2544447288ad58f7e3ee9c470d61b"
+    },
+    "coverage-plans/disconnected-floors/manifest.json": {
+      "bytes": 2228,
+      "sha256": "8a97cfbc95c08dd2c31586f010fc6d1740c2d238f1046787a80320292afbdd65"
+    },
+    "coverage-plans/disconnected-floors/plan.json": {
+      "bytes": 1271,
+      "sha256": "1e1215714ce9ff01ed682ce73061d2e38ad5d9d22a639d6999bf33a6e333ad36"
+    },
+    "coverage-plans/disconnected-floors/request.json": {
+      "bytes": 32995,
+      "sha256": "bd67eb33ee7224899b6411106124ad6f89d9b8b5b9dba13c76c409a33ed7bb4b"
+    },
+    "coverage-plans/disconnected-floors/source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "coverage-plans/disconnected-floors/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "coverage-plans/disconnected-floors/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "coverage-plans/disconnected-floors/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "coverage-plans/disconnected-floors/source/scripts/plan_spatial_coverage.py": {
+      "bytes": 5567,
+      "sha256": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990"
+    },
+    "coverage-plans/full-room-coverage/manifest.json": {
+      "bytes": 2229,
+      "sha256": "abd3765d4c17fa51b8cc49905668c476f89c0f66e31bb49332672586fe51e380"
+    },
+    "coverage-plans/full-room-coverage/plan.json": {
+      "bytes": 39198,
+      "sha256": "96c8dcb8f600fe35f3bfc5d3dd79f9b814cabbc3418d396fa445e316a2e42ee1"
+    },
+    "coverage-plans/full-room-coverage/request.json": {
+      "bytes": 31007,
+      "sha256": "d9412c92517b809586954253a1cfa2e6a1e82bde7ae0806d720ec780c6db8019"
+    },
+    "coverage-plans/full-room-coverage/source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "coverage-plans/full-room-coverage/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "coverage-plans/full-room-coverage/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "coverage-plans/full-room-coverage/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "coverage-plans/full-room-coverage/source/scripts/plan_spatial_coverage.py": {
+      "bytes": 5567,
+      "sha256": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990"
+    },
+    "coverage-plans/layered-ramp/manifest.json": {
+      "bytes": 2228,
+      "sha256": "5d8b68681a073d7a513a790cf156eefaa34deec29080a5186ba54808e98c8ce2"
+    },
+    "coverage-plans/layered-ramp/plan.json": {
+      "bytes": 3283,
+      "sha256": "2b8899978e5a0c7c5fccf852928f9038be1e7888a761a1bad4fe9f4b5b97a9ae"
+    },
+    "coverage-plans/layered-ramp/request.json": {
+      "bytes": 37618,
+      "sha256": "2631c534c4de77ff99e739ae96f95f9305640f5e51176a7a6e02f7e8589aa48e"
+    },
+    "coverage-plans/layered-ramp/source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "coverage-plans/layered-ramp/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "coverage-plans/layered-ramp/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "coverage-plans/layered-ramp/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "coverage-plans/layered-ramp/source/scripts/plan_spatial_coverage.py": {
+      "bytes": 5567,
+      "sha256": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990"
+    },
+    "coverage-plans/mixed-air-ground/manifest.json": {
+      "bytes": 2228,
+      "sha256": "643234f848e223d2942174261ef867a50bc16647925d55791b8f38351a733768"
+    },
+    "coverage-plans/mixed-air-ground/plan.json": {
+      "bytes": 5578,
+      "sha256": "16269a0b56b458652a51627d76831e3e5e7894d52347e1d6e00a62dfe3cb7601"
+    },
+    "coverage-plans/mixed-air-ground/request.json": {
+      "bytes": 22231,
+      "sha256": "a671b830fd456ac09f79105743e32b0f22154ba7dff6d45b503b088789c08f8e"
+    },
+    "coverage-plans/mixed-air-ground/source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "coverage-plans/mixed-air-ground/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "coverage-plans/mixed-air-ground/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "coverage-plans/mixed-air-ground/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "coverage-plans/mixed-air-ground/source/scripts/plan_spatial_coverage.py": {
+      "bytes": 5567,
+      "sha256": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990"
+    },
+    "coverage-plans/results.json": {
+      "bytes": 1878,
+      "sha256": "8824c168d6af5afd7ff1e4fd5b6699328e4c6c06b55238010e32d7b601e0fd1f"
+    },
+    "fixture/normal/captures.jsonl": {
+      "bytes": 56362,
+      "sha256": "4334413656d34a5274c9179af5097f6bc4fbc0d7db845b3c99fbcbc3de6aea02"
+    },
+    "fixture/normal/commands.jsonl": {
+      "bytes": 14672,
+      "sha256": "126ac68166146aaab2dd833b6211ce9eda8a48f62860173c1d8a858afc34ea53"
+    },
+    "fixture/normal/coordination.jsonl": {
+      "bytes": 58418,
+      "sha256": "e285883993cee39267b9c733878e5bc5ed04f590b7d21a3fe787bdb27cc03991"
+    },
+    "fixture/normal/coverage-ledger.jsonl": {
+      "bytes": 37102,
+      "sha256": "f7cf40917ecef9d99c75bcabb5183ee2f0e5ab27974d15d2076c79542dfd9f59"
+    },
+    "fixture/normal/events.jsonl": {
+      "bytes": 138063,
+      "sha256": "791fc148e2e00a6ce73f072d3e39040b096855362720c95a8205b74cebb883b4"
+    },
+    "fixture/normal/manifest.json": {
+      "bytes": 2997,
+      "sha256": "e6ba58866ae4823cd17bf4060d11251aa068df74b7eccfc99b4bb91fbcd87652"
+    },
+    "fixture/normal/reports.jsonl": {
+      "bytes": 19005,
+      "sha256": "a976902498f39988c3d40e3c0a6d215f4149354eeba1a35b9fef141f118272c4"
+    },
+    "fixture/normal/request.json": {
+      "bytes": 31007,
+      "sha256": "d9412c92517b809586954253a1cfa2e6a1e82bde7ae0806d720ec780c6db8019"
+    },
+    "fixture/normal/source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "fixture/normal/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "fixture/normal/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "fixture/normal/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "fixture/normal/source/scripts/run_spatial_coverage_fixture.py": {
+      "bytes": 25045,
+      "sha256": "da91fa56cc435a800b75d2e910b803c727e8981994c1aaa974aec6c25440be54"
+    },
+    "fixture/normal/summary.json": {
+      "bytes": 934,
+      "sha256": "5a278c4fd106c5333178fec249ea1c7265155e586a66d993ae416bdba7820e80"
+    },
+    "fixture/recovery/captures.jsonl": {
+      "bytes": 55528,
+      "sha256": "5504e108c1bd9c6107a36328755c7df2f80441d43110b88e094f8c7e8f858bc4"
+    },
+    "fixture/recovery/commands.jsonl": {
+      "bytes": 15736,
+      "sha256": "4a5f16d5806e7c492c14d4e7df73e98c8c3f08d2658d214a9d80f899e4b24580"
+    },
+    "fixture/recovery/coordination.jsonl": {
+      "bytes": 64658,
+      "sha256": "b4cdc6e19ed4db908059c65b4471806f1ec64c2476cd0eccce707d1ca3c70e1d"
+    },
+    "fixture/recovery/coverage-ledger.jsonl": {
+      "bytes": 36616,
+      "sha256": "e6246775d16568b6af2629181e46151585f235a817249eedc3f927ddb3fe511c"
+    },
+    "fixture/recovery/events.jsonl": {
+      "bytes": 147240,
+      "sha256": "7c38d0d74a147111d317c80e2f18dbb862b18abe16c0417e6c96d587e102595f"
+    },
+    "fixture/recovery/manifest.json": {
+      "bytes": 2994,
+      "sha256": "9e08b042fd1316429e389e7539e32f9cda1be37149546bab13e2a1e7942fc76a"
+    },
+    "fixture/recovery/reports.jsonl": {
+      "bytes": 18703,
+      "sha256": "0d4c725dc9208870277a52f33bb5d3161680a842526d9f99182b5cc1adbab37c"
+    },
+    "fixture/recovery/request.json": {
+      "bytes": 31007,
+      "sha256": "d9412c92517b809586954253a1cfa2e6a1e82bde7ae0806d720ec780c6db8019"
+    },
+    "fixture/recovery/source/robot/gateway/tangying_robot_gateway/spatial_coverage.py": {
+      "bytes": 17712,
+      "sha256": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712"
+    },
+    "fixture/recovery/source/robot/gateway/tangying_robot_gateway/spatial_exploration.py": {
+      "bytes": 21452,
+      "sha256": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166"
+    },
+    "fixture/recovery/source/robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "bytes": 39673,
+      "sha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    },
+    "fixture/recovery/source/robot/gateway/tangying_robot_gateway/spatial_navigation.py": {
+      "bytes": 32455,
+      "sha256": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "fixture/recovery/source/scripts/run_spatial_coverage_fixture.py": {
+      "bytes": 25045,
+      "sha256": "da91fa56cc435a800b75d2e910b803c727e8981994c1aaa974aec6c25440be54"
+    },
+    "fixture/recovery/summary.json": {
+      "bytes": 932,
+      "sha256": "ec467fa6719bc611be64809812ae2d35b3b4e27b0af36945d8d5ec4537bdd8cb"
+    },
+    "raw-evidence.tar.gz": {
+      "bytes": 23226345,
+      "sha256": "695fcee5a6a1b0ddd7a9558f9598d860485d7280b50a57fff792c99a7a856202"
+    },
+    "study/development/config.json": {
+      "bytes": 1471,
+      "sha256": "4f09a352248953623d93856ddad5fbf4539681006470f4f953306e04657183a7"
+    },
+    "study/development/environment.json": {
+      "bytes": 277,
+      "sha256": "d35f824b102dd5ac58d62fb268ee2c4b4a4b8ca967333517e89e9fc14ed78264"
+    },
+    "study/development/episodes.csv": {
+      "bytes": 93972,
+      "sha256": "41921e6f1448cb7cf01f0d47feb80a7820a169b92bddefbb665cf678bf92950c"
+    },
+    "study/development/manifest.json": {
+      "bytes": 149302,
+      "sha256": "7686454be00651bd04790de4bb9f793b88ad285c71d403c0770527679adc4f34"
+    },
+    "study/development/preregistration.json": {
+      "bytes": 12330,
+      "sha256": "6705a7a2cf35c3e01494ef1b639cf2730d17008294102f9206995e32b2fade89"
+    },
+    "study/development/summary.json": {
+      "bytes": 503287,
+      "sha256": "0eaf7e0940ff65dc973e3cd75d092ed55888a1b0adf1ace29361029778b68818"
+    },
+    "study/execution-context.json": {
+      "bytes": 295,
+      "sha256": "6f1fbfbaa662b8228e0c227d89016507218cf9c3b1d5f624e71be4c1387217ca"
+    },
+    "study/holdout/config.json": {
+      "bytes": 1857,
+      "sha256": "b3fa96d99545e6e21a5f04b1013090c5e189875714a0b93820a1792d9eaffb60"
+    },
+    "study/holdout/environment.json": {
+      "bytes": 277,
+      "sha256": "d35f824b102dd5ac58d62fb268ee2c4b4a4b8ca967333517e89e9fc14ed78264"
+    },
+    "study/holdout/episodes.csv": {
+      "bytes": 140244,
+      "sha256": "dcc9b1cc2c9802f6687ef1d2751e1506a7172aa159d32393bd3199d5eedd5ce1"
+    },
+    "study/holdout/manifest.json": {
+      "bytes": 221869,
+      "sha256": "4a1e4e8c6f1a3635e99901b0c405bcc9a0ad9ca1ed6483c0b3314d4acdba2e87"
+    },
+    "study/holdout/preregistration.json": {
+      "bytes": 15796,
+      "sha256": "b1bca9adf7c798497d5edb16749fbbdaa78544b60cb959059218b409b16c6ddd"
+    },
+    "study/holdout/summary.json": {
+      "bytes": 751716,
+      "sha256": "50f935fa6a5e85719e286418e83e5aa7cd4dfb62028dc57f373ae1f074b7602c"
+    },
+    "study/holdout-frozen-config.json": {
+      "bytes": 1857,
+      "sha256": "b3fa96d99545e6e21a5f04b1013090c5e189875714a0b93820a1792d9eaffb60"
+    },
+    "study/selection-freeze.json": {
+      "bytes": 2687,
+      "sha256": "c2c657e8a517131167a0431e8c89fef1e44ce7f2d671e4d30e883719233b201c"
+    },
+    "study/selection-protocol.json": {
+      "bytes": 1414,
+      "sha256": "2ce6b04558404f6c5012fbb4d1fab864e653db218e45965f5bf3b978059c24e8"
+    },
+    "validation/README.md": {
+      "bytes": 1354,
+      "sha256": "b8f6b1b8ab83f44bf6c5cc122a75d4751c36ba933b0b6baffc6282bc6023d69c"
+    },
+    "validation/build.log": {
+      "bytes": 189,
+      "sha256": "748f954c8a83270cf085595edadc338a9422b9feabdf20d27fddbe2ad9860e59"
+    },
+    "validation/docs-final.json": {
+      "bytes": 2012,
+      "sha256": "91ae957bedc86469c952f196f4be52e8f2e5d9e9b490b60111ac3e7b3725641e"
+    },
+    "validation/docs-final.log": {
+      "bytes": 704,
+      "sha256": "2e6a0ed0caa4e73ab41e1cdb3a4b224afddf52e3d84a724ba1e1df95fa11ca4a"
+    },
+    "validation/final-focused.log": {
+      "bytes": 2983,
+      "sha256": "a928e73c9703b868845062e7ce1395a4043d0dcf2c60f9ce2c34c5ed4b695d5e"
+    },
+    "validation/frozen-vs-final-source.json": {
+      "bytes": 548,
+      "sha256": "b3ec86b26e8ea53308f9b31d883d9ffa538a22a04c8b3fec6dbd95e463413c9f"
+    },
+    "validation/generate.log": {
+      "bytes": 90,
+      "sha256": "a373eebf37c4724c7f81b8366d89fdcfca795564207eddcb470773cf8ec47fd2"
+    },
+    "validation/go-build-status.json": {
+      "bytes": 533,
+      "sha256": "7e2b1b4d7cdc56bc5ea072c62c4f148763764000b435413db8dd8a2451f5b134"
+    },
+    "validation/go.log": {
+      "bytes": 6621,
+      "sha256": "777fefd831013b2cb5e7e118f1f46f923cb303efcaaca9d97d166d522fe342b8"
+    },
+    "validation/lint-attempt02.log": {
+      "bytes": 482,
+      "sha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    },
+    "validation/lint.log": {
+      "bytes": 1579,
+      "sha256": "ba2c3052cd61ca96b45cd698494f897b233118f8531c1f6400f30aa07ffc2061"
+    },
+    "validation/python-all.log": {
+      "bytes": 9234,
+      "sha256": "00910068d3d0541b9b931b4f0077c48c25dca6cfa8df7fbce63c2a51831cc2dd"
+    },
+    "validation/python-status.json": {
+      "bytes": 421,
+      "sha256": "3e76e9e8eab39c7ea82668f35e943385b3171f6b5dfb012ab9d0fbab862e4bdd"
+    },
+    "validation/readme-regression-attempt02.log": {
+      "bytes": 340,
+      "sha256": "f4430d7cb7da4ed1816d3b8dca52be23d1d2491a26df7305b7989cbeee694264"
+    },
+    "validation/readme-regression.log": {
+      "bytes": 1439,
+      "sha256": "fa92b1637e6ee4c687c080c663cacdd747d95e0f40fc4b4ba3e55588325a52b1"
+    },
+    "validation/reproduction-status.json": {
+      "bytes": 3366,
+      "sha256": "0d1dcf4c906d8867fc62e1e79f7bc2b316334ca4ca7feff76449e35d66fb74c1"
+    },
+    "validation/resolved-checks.json": {
+      "bytes": 1375,
+      "sha256": "2ac437e23de950b0da06380d25d70082bf42fe08a233616935af9be475d24f56"
+    },
+    "validation/runtime-boundary.log": {
+      "bytes": 386,
+      "sha256": "603c3fe6d14cc5e7eb2fb1a8bc93072a891504b7123561b9e257331b6d612073"
+    }
+  }
+}

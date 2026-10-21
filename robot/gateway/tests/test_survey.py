@@ -9,6 +9,7 @@ nothing else, which is the property the extraction was for.
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -127,7 +128,8 @@ class FakeDriver:
     """
 
     def __init__(self, *, refuse: tuple[float, float] | None = None, move: bool = True,
-                 map_port=None, metres: float = 1.0, refuse_short: bool = False):
+                 map_port=None, metres: float = EXPLORATION["maxStepM"],
+                 refuse_short: bool = False):
         self.steps: list[tuple] = []
         self.looks = 0
         self.refuse = refuse
@@ -147,8 +149,13 @@ class FakeDriver:
             if short:
                 raise SurveyRefusal("NAV_ENVELOPE", at=point)
         if self.move and self.map_port is not None:
-            self.map_port.travelled += min(self.metres, max(0., remaining_m-.10))
-            self.map_port.pose = (float(waypoint[0]), float(waypoint[1]), 0.0)
+            x, y, _yaw = self.map_port.pose
+            distance = math.hypot(point[0]-x, point[1]-y)
+            moved = min(distance, self.metres, max(0., remaining_m-.10))
+            if distance:
+                self.map_port.pose = (x+(point[0]-x)*moved/distance,
+                                      y+(point[1]-y)*moved/distance, 0.0)
+            self.map_port.travelled += moved
         return self.move
 
     def look_around(self, grid, blind=None):
@@ -204,6 +211,8 @@ def test_the_loop_drives_towards_the_unmapped_side_without_a_workflow():
     assert driver.steps, "the survey should have asked the driver to move"
     assert driver.looks >= 1, "it should have looked around before driving"
     assert report.messages, "an operator should be told what is happening"
+    assert all("当前观测栅格已知比例" in message and "非全场景覆盖率" in message
+               for message in report.messages)
     # Which budget ends it depends on how the fake's map evolves; what matters is
     # that it drove, looked, said something, and named a real reason.
     assert result.exploration["stopReason"] in {
@@ -348,6 +357,8 @@ def test_the_frame_budget_stops_a_leg_before_it_cannot_be_saved():
     result, _map_port, driver, _report = run(map_port=map_port)
     assert result.exploration["stopReason"] == "frame_budget"
     assert not driver.steps, "it should stop before asking the driver to move"
+    assert driver.looks == 0, "a look-around is motion and needs frame budget too"
+    assert result.exploration["initialScanAttempted"] is False
 
 
 def test_the_travel_budget_stops_before_the_requested_limit():
@@ -366,13 +377,17 @@ def test_a_leg_whose_time_is_up_stops_even_with_budget_left():
     result, _map_port, driver, _report = run(step=EXPLORATION["legSeconds"] * 2)
     assert result.exploration["stopReason"] == "leg_timeout"
     assert not driver.steps, "a leg past its deadline must not ask the driver to move"
+    assert driver.looks == 0
 
 
 def test_cancellation_propagates_out_of_the_loop():
     map_port = FakeMap()
     map_port.cancelled = True
+    driver = FakeDriver()
     with pytest.raises(RuntimeError, match="cancelled"):
-        SurveyRunner().run_leg(map_port, FakeDriver(), FakeReport(), remaining_m=75.0, number=1)
+        SurveyRunner().run_leg(map_port, driver, FakeReport(), remaining_m=75.0, number=1)
+    assert driver.looks == 0
+    assert driver.steps == []
 
 
 def test_a_finished_map_is_reported_complete_and_not_merely_stopped():
@@ -388,6 +403,8 @@ def test_a_finished_map_is_reported_complete_and_not_merely_stopped():
     result = SurveyRunner().run_leg(NoFrontier(), FakeDriver(), FakeReport(),
                                     remaining_m=75.0, number=1)
     assert result.exploration["stopReason"] == "complete"
+    assert result.exploration["terminationMeaning"] == "frontier_exhausted"
+    assert result.exploration["coverageScope"] == "observed_grid_nonblind_frontiers"
     assert result.complete is True
 
 
@@ -403,3 +420,341 @@ def test_a_map_with_unreachable_unknown_is_not_called_complete():
     assert result.complete is False
     assert result.exploration["stopReason"] != "complete"
     assert result.exploration["frontierCells"] > 0, "the report says how much is left"
+
+
+@pytest.mark.parametrize("remaining_m", [0.0, 0.1, 0.15])
+def test_exhausted_travel_budget_never_authorizes_an_initial_sweep(remaining_m):
+    result, _, driver, _ = run(remaining_m=remaining_m)
+    assert result.exploration["stopReason"] == "travel_budget"
+    assert not result.exploration["initialScanAttempted"]
+    assert driver.looks == 0 and driver.steps == []
+
+
+def test_a_leg_stops_at_the_exact_deadline_before_scanning():
+    result, _, driver, _ = run(step=EXPLORATION["legSeconds"])
+    assert result.exploration["stopReason"] == "leg_timeout"
+    assert driver.looks == 0 and driver.steps == []
+
+
+@pytest.mark.parametrize("cell", [-1, OCCUPIED])
+def test_a_grid_without_observed_free_space_is_not_a_finished_survey(cell):
+    grid = Grid(cells=np.full((8, 8), cell, dtype=np.int16), resolution=.2,
+                origin=(0.0, 0.0))
+    result, _, driver, _ = run(map_port=FakeMap(grid=grid))
+    assert result.exploration["stopReason"] == "insufficient_map_evidence"
+    assert result.exploration["free"] == 0
+    assert result.exploration["frontierCells"] == 0
+    assert result.complete is False
+    assert driver.looks == 1 and driver.steps == []
+
+
+def test_continuation_legs_do_not_repeat_the_initial_sweep():
+    grid = Grid(cells=np.zeros((8, 8), dtype=np.int16), resolution=.2,
+                origin=(0.0, 0.0))
+    result, _, driver, _ = run(map_port=FakeMap(grid=grid), number=2)
+    assert result.complete is True
+    assert result.exploration["initialScanStatus"] == "skipped_continuation"
+    assert result.exploration["initialScanAttempted"] is False
+    assert driver.looks == 0
+
+
+def test_a_driver_can_measure_the_first_grid_without_a_premapped_scene():
+    class InitiallyEmpty(FakeMap):
+        measured = False
+
+        def live_grid(self):
+            if not self.measured:
+                return None, None
+            return super().live_grid()
+
+    class BootstrapDriver(FakeDriver):
+        def look_around(self, grid, blind=None):
+            super().look_around(grid, blind)
+            assert grid is None
+            self.map_port.measured = True
+
+    map_port = InitiallyEmpty(grid=Grid(cells=np.zeros((8, 8), dtype=np.int16),
+                                       resolution=.2, origin=(0.0, 0.0)))
+    driver = BootstrapDriver(map_port=map_port)
+    result, _, _, _ = run(map_port=map_port, driver=driver)
+    assert result.complete
+    assert result.exploration["initialScanStatus"] == "returned"
+    assert result.exploration["initialScanAttempted"]
+    assert driver.looks == 1 and driver.steps == []
+
+
+def test_no_measured_grid_after_the_sweep_remains_an_incomplete_result():
+    class NoGrid(FakeMap):
+        def live_grid(self):
+            return None, None
+
+    result, _, driver, _ = run(map_port=NoGrid())
+    assert not result.complete
+    assert result.exploration["stopReason"] == "no_frames"
+    assert driver.looks == 1 and driver.steps == []
+
+
+def test_a_refused_initial_sweep_is_not_retried_as_a_frontier_approach():
+    class DeclinesSweep(FakeDriver):
+        def look_around(self, grid, blind=None):
+            self.looks += 1
+            raise SurveyRefusal("TURN_UNSUPPORTED")
+
+    result, _, driver, _ = run(driver=DeclinesSweep())
+    assert not result.complete
+    assert result.exploration["stopReason"] == "initial_scan_refused"
+    assert result.exploration["initialScanStatus"] == "refused"
+    assert result.exploration["initialScanRefusal"] == "TURN_UNSUPPORTED"
+    assert driver.looks == 1 and driver.steps == []
+
+
+def test_the_sweep_must_leave_budget_for_any_subsequent_motion():
+    map_port = FakeMap()
+
+    class ConsumesFrames(FakeDriver):
+        def look_around(self, grid, blind=None):
+            super().look_around(grid, blind)
+            self.map_port.frames = 400 - EXPLORATION["frameMargin"]
+
+    result, _, driver, _ = run(map_port=map_port, driver=ConsumesFrames(map_port=map_port))
+    assert result.exploration["stopReason"] == "frame_budget"
+    assert driver.looks == 1 and driver.steps == []
+
+
+def test_a_sweep_that_observes_cancellation_cannot_be_followed_by_a_drive():
+    map_port = FakeMap()
+
+    class CancelsDuringSweep(FakeDriver):
+        def look_around(self, grid, blind=None):
+            super().look_around(grid, blind)
+            self.map_port.cancelled = True
+
+    driver = CancelsDuringSweep(map_port=map_port)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        run(map_port=map_port, driver=driver)
+    assert driver.looks == 1 and driver.steps == []
+
+
+@pytest.mark.parametrize("ending", ["frame_budget", "cancel"])
+def test_reaching_a_frontier_does_not_authorize_a_sweep_after_budget_or_cancel(
+        monkeypatch, ending):
+    from tangying_robot_gateway import survey
+
+    monkeypatch.setattr(survey, "explore_target", lambda *_args, **_kwargs:
+                        SimpleNamespace(viewpoint=(1.5, .5), path=[(.5, .5), (1.5, .5)]))
+    map_port = FakeMap()
+
+    class ConsumesLastStep(FakeDriver):
+        def drive_step(self, *args, **kwargs):
+            acted = super().drive_step(*args, **kwargs)
+            if ending == "cancel":
+                self.map_port.cancelled = True
+            else:
+                self.map_port.frames = 400 - EXPLORATION["frameMargin"]
+            return acted
+
+    driver = ConsumesLastStep(map_port=map_port)
+    runner = SurveyRunner(config={**EXPLORATION, "lookSpacingM": .5})
+    if ending == "cancel":
+        with pytest.raises(RuntimeError, match="cancelled"):
+            runner.run_leg(map_port, driver, FakeReport(), remaining_m=75.0, number=1)
+    else:
+        result = runner.run_leg(map_port, driver, FakeReport(), remaining_m=75.0, number=1)
+        assert result.exploration["stopReason"] == "frame_budget"
+    assert len(driver.steps) == 1 and driver.looks == 1
+
+
+def test_repeated_lost_routes_without_translation_stop_with_a_bounded_attempt_count(monkeypatch):
+    from tangying_robot_gateway import survey
+
+    map_port = FakeMap(grid=open_room_grid(), pose=(1., 5., 0.))
+    route_calls = []
+    monkeypatch.setattr(survey, "explore_target", lambda *_args, **_kwargs:
+                        SimpleNamespace(viewpoint=(14., 5.), path=[(1., 5.), (1.5, 5.)]))
+
+    def lost_route(*_args, **_kwargs):
+        route_calls.append(True)
+        return None, 0.0
+
+    monkeypatch.setattr(survey, "plan_route", lost_route)
+
+    class HeadingOnly(FakeDriver):
+        def drive_step(self, waypoint, *_args, **_kwargs):
+            self.steps.append(tuple(waypoint))
+            x, y, yaw = self.map_port.pose
+            self.map_port.pose = (x, y, yaw + .1)
+            return True
+
+    driver = HeadingOnly(map_port=map_port)
+    config = {**EXPLORATION, "maxIdleSteps": 3}
+    result = SurveyRunner(config=config).run_leg(map_port, driver, FakeReport(),
+                                               remaining_m=75.0, number=1)
+    assert not result.complete
+    assert result.exploration["stopReason"] == "no_progress"
+    assert result.exploration["routeFailuresSinceProgress"] == 3
+    assert len(route_calls) == len(driver.steps) == 3
+    assert result.travelled_m == 0.0
+
+
+def test_a_transient_lost_route_can_recover_and_translation_resets_its_counter(monkeypatch):
+    from tangying_robot_gateway import survey
+
+    map_port = FakeMap(grid=open_room_grid(), pose=(1., 5., 0.))
+    # A viewpoint is on measured free floor, before the unknown pocket starts
+    # at x=13.2 m. The strict waypoint selector must not cross that unknown space.
+    goal = (12.9, 5.)
+    route_calls = []
+
+    def choose(*_args, **_kwargs):
+        if map_port.travelled:
+            return None
+        return SimpleNamespace(viewpoint=goal, path=[map_port.pose[:2], (1.5, 5.)])
+
+    def route(*_args, **_kwargs):
+        route_calls.append(True)
+        return (None, 0.) if len(route_calls) < 3 else (
+            [map_port.pose[:2], goal], math.hypot(goal[0]-map_port.pose[0], goal[1]-map_port.pose[1]))
+
+    monkeypatch.setattr(survey, "explore_target", choose)
+    monkeypatch.setattr(survey, "plan_route", route)
+
+    class TurnsThenTranslates(FakeDriver):
+        def drive_step(self, waypoint, *_args, **_kwargs):
+            self.steps.append(tuple(waypoint))
+            x, y, yaw = self.map_port.pose
+            if len(route_calls) < 3:
+                self.map_port.pose = (x, y, yaw + .1)
+            else:
+                self.map_port.travelled += math.hypot(waypoint[0] - x, waypoint[1] - y)
+                self.map_port.pose = (*waypoint, 0.)
+            return True
+
+    driver = TurnsThenTranslates(map_port=map_port)
+    result = SurveyRunner(config={**EXPLORATION, "maxIdleSteps": 3}).run_leg(
+        map_port, driver, FakeReport(), remaining_m=75., number=1)
+    assert result.exploration["stopReason"] == "no_reachable_frontier"
+    assert result.exploration["routeFailuresSinceProgress"] == 0
+    assert goal[0]-1.-EXPLORATION["arrivalM"] <= result.travelled_m <= goal[0]-1.
+    assert math.hypot(map_port.pose[0]-goal[0], map_port.pose[1]-goal[1]) <= EXPLORATION["arrivalM"]
+
+
+def test_initial_sweep_counts_towards_the_leg_look_budget():
+    map_port = FakeMap()
+    driver = FakeDriver(map_port=map_port)
+    SurveyRunner(config={**EXPLORATION, "maxLooksPerLeg": 1}).run_leg(
+        map_port, driver, FakeReport(), remaining_m=75., number=1)
+    assert driver.looks == 1
+
+
+def test_a_zero_look_budget_leaves_scanning_to_the_supported_motion_driver():
+    map_port = FakeMap()
+    driver = FakeDriver(move=False, map_port=map_port)
+    result = SurveyRunner(config={**EXPLORATION, "maxLooksPerLeg": 0}).run_leg(
+        map_port, driver, FakeReport(), remaining_m=75., number=1)
+    assert driver.looks == 0
+    assert not result.exploration["initialScanAttempted"]
+    assert result.exploration["initialScanStatus"] == "disabled"
+
+
+def test_a_viewpoint_without_progress_is_not_turned_into_a_geometric_obstacle(monkeypatch):
+    from tangying_robot_gateway import survey
+
+    selections = []
+
+    def choose(*_args, **kwargs):
+        selections.append((list(kwargs["avoid_xy"]), list(kwargs["exclude_viewpoints"])))
+        return SimpleNamespace(viewpoint=(1.5, .5), path=[(.5, .5), (1.5, .5)])
+
+    monkeypatch.setattr(survey, "explore_target", choose)
+    result, _, driver, _ = run(driver=FakeDriver(move=False))
+    assert result.exploration["stopReason"] == "no_progress"
+    assert result.exploration["refused"] == 0
+    assert result.exploration["visitedViewpoints"] == 1
+    assert all(avoid == [] for avoid, _ in selections)
+    assert selections[0][1] == []
+    assert selections[1][1] == [(1.5, .5)]
+    assert driver.steps
+
+
+def test_actual_motion_refusals_remain_geometric_avoidance_evidence(monkeypatch):
+    from tangying_robot_gateway import survey
+
+    selections = []
+
+    def choose(*_args, **kwargs):
+        selections.append((list(kwargs["avoid_xy"]), list(kwargs["exclude_viewpoints"])))
+        if kwargs["avoid_xy"]:
+            return None
+        return SimpleNamespace(viewpoint=(1.5, .5), path=[(.5, .5), (1.5, .5)])
+
+    monkeypatch.setattr(survey, "explore_target", choose)
+    _, _, probe, _ = run(driver=FakeDriver(move=False))
+    refused_waypoint = probe.steps[0]
+    selections.clear()
+    monkeypatch.setattr(survey, "plan_route", lambda *_args, **_kwargs: (None, 0.))
+    result, _, _, _ = run(driver=FakeDriver(refuse=refused_waypoint))
+    assert result.exploration["stopReason"] == "no_reachable_frontier"
+    assert result.exploration["refused"] > 0
+    assert result.exploration["visitedViewpoints"] == 0
+    assert selections[0][0] == []
+    assert selections[1][0] == [refused_waypoint]
+    assert all(excluded == [] for _, excluded in selections)
+
+
+@pytest.mark.parametrize("starved_before_scan", [True, False])
+def test_depth_loss_limit_before_or_during_bootstrap_prevents_an_extra_drive(starved_before_scan):
+    class DepthMap(FakeMap):
+        rejected = EXPLORATION["depthStarvedLimit"] if starved_before_scan else 0
+
+        def depth_starved(self):
+            return self.rejected
+
+    class ExhaustsDepthDuringScan(FakeDriver):
+        def look_around(self, grid, blind=None):
+            super().look_around(grid, blind)
+            self.map_port.rejected = EXPLORATION["depthStarvedLimit"]
+
+    map_port = DepthMap()
+    driver = ExhaustsDepthDuringScan(map_port=map_port)
+    result, _, _, _ = run(map_port=map_port, driver=driver)
+    assert result.exploration["stopReason"] == "depth_starved"
+    assert not result.complete
+    assert driver.steps == []
+    assert driver.looks == (0 if starved_before_scan else 1)
+    assert result.exploration["initialScanAttempted"] is (not starved_before_scan)
+
+
+def test_depth_loss_below_the_limit_still_allows_a_new_view_and_frontier_attempt():
+    class RecoverableDepthMap(FakeMap):
+        def depth_starved(self):
+            return EXPLORATION["depthStarvedLimit"] - 1
+
+    result, _, driver, _ = run(map_port=RecoverableDepthMap(), driver=FakeDriver(move=False))
+    assert result.exploration["stopReason"] != "depth_starved"
+    assert driver.looks == 1
+    assert driver.steps
+
+
+def test_continuation_does_not_confuse_map_anchor_offset_with_actual_progress(monkeypatch):
+    from tangying_robot_gateway import survey
+
+    class OffsetWorldMap(FakeMap):
+        def current_pose(self):
+            return (self.pose[0]-10., self.pose[1]-20., .035, 1., 0., 0., 0.)
+
+    map_port = OffsetWorldMap(grid=open_room_grid(), pose=(1., 5., 0.))
+    monkeypatch.setattr(survey, "explore_target", lambda *_args, **_kwargs:
+                        SimpleNamespace(viewpoint=(12.9, 5.), path=[(1., 5.), (1.5, 5.)]))
+
+    class AcknowledgesWithoutMovement(FakeDriver):
+        def drive_step(self, waypoint, *_args, **_kwargs):
+            self.steps.append(tuple(waypoint))
+            return True
+
+    driver = AcknowledgesWithoutMovement(map_port=map_port)
+    result = SurveyRunner(config={**EXPLORATION, "maxIdleSteps": 3, "legSeconds": 50},
+                          clock=AdvancingClock(step=1.)).run_leg(
+        map_port, driver, FakeReport(), remaining_m=75., number=2)
+    assert result.exploration["stopReason"] == "no_progress"
+    assert len(driver.steps) == 3
+    assert result.travelled_m == 0.

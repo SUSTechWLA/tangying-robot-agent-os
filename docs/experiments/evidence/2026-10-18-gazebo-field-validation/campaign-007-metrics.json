@@ -1,0 +1,808 @@
+{
+  "schemaVersion": "gazebo.field-metrics.v1",
+  "taskCampaignSuccess": true,
+  "tasks": [
+    {
+      "seed": 3,
+      "robotId": "uav-a",
+      "taskId": "task-5db7b771963ffaf9c38e5d76",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.026954291239514757,
+      "maxArrivalSpeedMps": 0.06568869944558628,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-uav-a-24",
+        "gazebo-uav-a-26",
+        "gazebo-uav-a-134",
+        "gazebo-uav-a-136",
+        "gazebo-uav-a-210",
+        "gazebo-uav-a-212",
+        "gazebo-uav-a-288",
+        "gazebo-uav-a-290",
+        "gazebo-uav-a-364",
+        "gazebo-uav-a-366",
+        "gazebo-uav-a-440",
+        "gazebo-uav-a-442",
+        "gazebo-uav-a-553",
+        "gazebo-uav-a-555",
+        "gazebo-uav-a-664",
+        "gazebo-uav-a-666",
+        "gazebo-uav-a-740",
+        "gazebo-uav-a-742",
+        "gazebo-uav-a-851",
+        "gazebo-uav-a-853"
+      ]
+    },
+    {
+      "seed": 3,
+      "robotId": "ground-b",
+      "taskId": "task-c788fde6ae6dffd98bdea3d3",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.09278285290660136,
+      "maxArrivalSpeedMps": 0.06861557996123396,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-ground-b-24",
+        "gazebo-ground-b-26",
+        "gazebo-ground-b-122",
+        "gazebo-ground-b-124",
+        "gazebo-ground-b-237",
+        "gazebo-ground-b-239",
+        "gazebo-ground-b-350",
+        "gazebo-ground-b-352",
+        "gazebo-ground-b-464",
+        "gazebo-ground-b-466",
+        "gazebo-ground-b-575",
+        "gazebo-ground-b-577",
+        "gazebo-ground-b-673",
+        "gazebo-ground-b-675",
+        "gazebo-ground-b-769",
+        "gazebo-ground-b-771",
+        "gazebo-ground-b-884",
+        "gazebo-ground-b-886",
+        "gazebo-ground-b-939",
+        "gazebo-ground-b-941"
+      ]
+    },
+    {
+      "seed": 3,
+      "robotId": "ground-a",
+      "taskId": "task-12e41e89c051c631f89529e9",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.11818103752165614,
+      "maxArrivalSpeedMps": 0.06958413948930572,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-ground-a-24",
+        "gazebo-ground-a-26",
+        "gazebo-ground-a-132",
+        "gazebo-ground-a-134",
+        "gazebo-ground-a-244",
+        "gazebo-ground-a-246",
+        "gazebo-ground-a-356",
+        "gazebo-ground-a-358",
+        "gazebo-ground-a-469",
+        "gazebo-ground-a-471",
+        "gazebo-ground-a-580",
+        "gazebo-ground-a-582",
+        "gazebo-ground-a-678",
+        "gazebo-ground-a-680",
+        "gazebo-ground-a-776",
+        "gazebo-ground-a-778",
+        "gazebo-ground-a-891",
+        "gazebo-ground-a-893",
+        "gazebo-ground-a-946",
+        "gazebo-ground-a-948"
+      ]
+    },
+    {
+      "seed": 7,
+      "robotId": "uav-a",
+      "taskId": "task-6cca6ea598df2905868c8c04",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.030727814884936453,
+      "maxArrivalSpeedMps": 0.06846076437610675,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-uav-a-952",
+        "gazebo-uav-a-954",
+        "gazebo-uav-a-1065",
+        "gazebo-uav-a-1067",
+        "gazebo-uav-a-1140",
+        "gazebo-uav-a-1142",
+        "gazebo-uav-a-1218",
+        "gazebo-uav-a-1220",
+        "gazebo-uav-a-1295",
+        "gazebo-uav-a-1297",
+        "gazebo-uav-a-1371",
+        "gazebo-uav-a-1373",
+        "gazebo-uav-a-1482",
+        "gazebo-uav-a-1484",
+        "gazebo-uav-a-1592",
+        "gazebo-uav-a-1594",
+        "gazebo-uav-a-1670",
+        "gazebo-uav-a-1672",
+        "gazebo-uav-a-1779",
+        "gazebo-uav-a-1781"
+      ]
+    },
+    {
+      "seed": 7,
+      "robotId": "ground-b",
+      "taskId": "task-75a5c0fa150f37b7f60f86c4",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.09324561267273682,
+      "maxArrivalSpeedMps": 0.06993721703012971,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-ground-b-952",
+        "gazebo-ground-b-954",
+        "gazebo-ground-b-1052",
+        "gazebo-ground-b-1054",
+        "gazebo-ground-b-1164",
+        "gazebo-ground-b-1166",
+        "gazebo-ground-b-1275",
+        "gazebo-ground-b-1277",
+        "gazebo-ground-b-1385",
+        "gazebo-ground-b-1387",
+        "gazebo-ground-b-1496",
+        "gazebo-ground-b-1498",
+        "gazebo-ground-b-1593",
+        "gazebo-ground-b-1595",
+        "gazebo-ground-b-1692",
+        "gazebo-ground-b-1694",
+        "gazebo-ground-b-1802",
+        "gazebo-ground-b-1804",
+        "gazebo-ground-b-1858",
+        "gazebo-ground-b-1860"
+      ]
+    },
+    {
+      "seed": 7,
+      "robotId": "ground-a",
+      "taskId": "task-2edfa7a773d70a1b665d500f",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.09261892873729859,
+      "maxArrivalSpeedMps": 0.06900657047317131,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-ground-a-952",
+        "gazebo-ground-a-954",
+        "gazebo-ground-a-1061",
+        "gazebo-ground-a-1063",
+        "gazebo-ground-a-1173",
+        "gazebo-ground-a-1175",
+        "gazebo-ground-a-1284",
+        "gazebo-ground-a-1286",
+        "gazebo-ground-a-1394",
+        "gazebo-ground-a-1396",
+        "gazebo-ground-a-1504",
+        "gazebo-ground-a-1506",
+        "gazebo-ground-a-1600",
+        "gazebo-ground-a-1602",
+        "gazebo-ground-a-1698",
+        "gazebo-ground-a-1700",
+        "gazebo-ground-a-1808",
+        "gazebo-ground-a-1810",
+        "gazebo-ground-a-1864",
+        "gazebo-ground-a-1866"
+      ]
+    },
+    {
+      "seed": 19,
+      "robotId": "uav-a",
+      "taskId": "task-1a17e3c0292e22fe9148319c",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.03594550503697518,
+      "maxArrivalSpeedMps": 0.06619667044161455,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-uav-a-1870",
+        "gazebo-uav-a-1872",
+        "gazebo-uav-a-1980",
+        "gazebo-uav-a-1982",
+        "gazebo-uav-a-2056",
+        "gazebo-uav-a-2058",
+        "gazebo-uav-a-2132",
+        "gazebo-uav-a-2134",
+        "gazebo-uav-a-2210",
+        "gazebo-uav-a-2212",
+        "gazebo-uav-a-2289",
+        "gazebo-uav-a-2291",
+        "gazebo-uav-a-2399",
+        "gazebo-uav-a-2401",
+        "gazebo-uav-a-2509",
+        "gazebo-uav-a-2511",
+        "gazebo-uav-a-2585",
+        "gazebo-uav-a-2587",
+        "gazebo-uav-a-2695",
+        "gazebo-uav-a-2697"
+      ]
+    },
+    {
+      "seed": 19,
+      "robotId": "ground-b",
+      "taskId": "task-1dc2dfcc4ec6c92f61885e58",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.09136426202351579,
+      "maxArrivalSpeedMps": 0.069343062809994,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-ground-b-1870",
+        "gazebo-ground-b-1872",
+        "gazebo-ground-b-1967",
+        "gazebo-ground-b-1969",
+        "gazebo-ground-b-2080",
+        "gazebo-ground-b-2082",
+        "gazebo-ground-b-2191",
+        "gazebo-ground-b-2193",
+        "gazebo-ground-b-2304",
+        "gazebo-ground-b-2306",
+        "gazebo-ground-b-2414",
+        "gazebo-ground-b-2416",
+        "gazebo-ground-b-2511",
+        "gazebo-ground-b-2513",
+        "gazebo-ground-b-2608",
+        "gazebo-ground-b-2610",
+        "gazebo-ground-b-2719",
+        "gazebo-ground-b-2721",
+        "gazebo-ground-b-2775",
+        "gazebo-ground-b-2777"
+      ]
+    },
+    {
+      "seed": 19,
+      "robotId": "ground-a",
+      "taskId": "task-6b39a195c74c5379dffe6881",
+      "state": "SUCCEEDED",
+      "navigationCommands": 10,
+      "independentArrivalChecks": 10,
+      "expectedRouteRooms": [
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "bedroom",
+        "kitchen",
+        "living_room",
+        "kitchen",
+        "bedroom",
+        "living_room"
+      ],
+      "orderedApprovedRouteMatched": true,
+      "measuredReceipts": 20,
+      "maxArrivalPositionErrorM": 0.09454934618922589,
+      "maxArrivalSpeedMps": 0.06930599091240791,
+      "distinctCommandIds": 20,
+      "observationIds": [
+        "gazebo-ground-a-1870",
+        "gazebo-ground-a-1872",
+        "gazebo-ground-a-1978",
+        "gazebo-ground-a-1980",
+        "gazebo-ground-a-2091",
+        "gazebo-ground-a-2093",
+        "gazebo-ground-a-2203",
+        "gazebo-ground-a-2205",
+        "gazebo-ground-a-2314",
+        "gazebo-ground-a-2316",
+        "gazebo-ground-a-2424",
+        "gazebo-ground-a-2426",
+        "gazebo-ground-a-2521",
+        "gazebo-ground-a-2523",
+        "gazebo-ground-a-2619",
+        "gazebo-ground-a-2621",
+        "gazebo-ground-a-2729",
+        "gazebo-ground-a-2731",
+        "gazebo-ground-a-2785",
+        "gazebo-ground-a-2787"
+      ]
+    }
+  ],
+  "successCount": 9,
+  "taskCount": 9,
+  "navigationCommands": 90,
+  "independentArrivalChecks": 90,
+  "arrivalReceiptsMatchedToPhysics": true,
+  "arrivalThresholds": {
+    "receiptSpeedMps": 0.08,
+    "receiptOrientationRad": 0.15,
+    "positionToleranceSource": "per-robot goals.json",
+    "hubStatusSpeedMps": 0.07,
+    "hubStatusFrameIndependentlyVerified": false
+  },
+  "configuredRobotRoster": [
+    "ground-a",
+    "ground-b",
+    "uav-a"
+  ],
+  "trialRosterCoverage": [
+    {
+      "seed": 3,
+      "missingRobots": []
+    },
+    {
+      "seed": 7,
+      "missingRobots": []
+    },
+    {
+      "seed": 19,
+      "missingRobots": []
+    }
+  ],
+  "physicsCaptures": 2788,
+  "simulationDurationS": 278.7,
+  "minimumMeasuredBoundingSphereGapM": 0.05804864739417137,
+  "minimumDeclaredRadiusGapM": 0.10515542858071891,
+  "minimumWorldGeometryGapM": 0.05804864739417137,
+  "boundingSphereGapBasis": "max_advertised_and_world_box_outer_sphere",
+  "worldGeometrySha256": "845ef8fcde16072ac5ac2897bd744efbf76674ae5688a5f16cf7ba391ad0c64c",
+  "worldConservativeRadiiM": {
+    "uav-a": 0.3327160951922825,
+    "ground-b": 0.3535533905932738,
+    "ground-a": 0.3535533905932738
+  },
+  "maximumAdvertisedRadiiM": {
+    "ground-a": 0.33,
+    "ground-b": 0.33,
+    "uav-a": 0.34
+  },
+  "maximumMeasuredSpeedMps": {
+    "ground-a": 0.4754750000000024,
+    "ground-b": 0.47547500000000265,
+    "uav-a": 0.5128099076970494
+  },
+  "measuredPathLengthM": {
+    "ground-a": 107.10188668660739,
+    "ground-b": 107.18865985348289,
+    "uav-a": 103.14072256222428
+  },
+  "avoidanceReasons": {
+    "ground-a:idle": 23,
+    "ground-b:idle": 23,
+    "uav-a:idle": 23,
+    "ground-a:goal_stop": 3,
+    "ground-b:goal_stop": 3,
+    "uav-a:goal_stop": 2,
+    "uav-a:lease_expired": 317,
+    "ground-a:lease_expired": 43,
+    "ground-b:lease_expired": 66,
+    "ground-a:desired_velocity": 2182,
+    "ground-b:desired_velocity": 2182,
+    "uav-a:desired_velocity": 2417,
+    "ground-a:stale_peer_observation": 29,
+    "ground-a:avoiding_predicted_collision": 484,
+    "ground-b:avoiding_predicted_collision": 490,
+    "ground-a:scan_unavailable": 16,
+    "ground-b:future_observation": 11,
+    "uav-a:scan_unavailable": 18,
+    "ground-a:future_observation": 8,
+    "ground-b:scan_unavailable": 12,
+    "uav-a:future_observation": 10,
+    "ground-b:command_changed": 1,
+    "uav-a:command_changed": 1
+  },
+  "contactPairs": {
+    "ground-b:ground-b::base_link::body_collision:floor::floor_link::floor_collision": {
+      "contact": {
+        "collision1": {
+          "id": "50",
+          "name": "ground-b::base_link::body_collision"
+        },
+        "collision2": {
+          "id": "7",
+          "name": "floor::floor_link::floor_collision"
+        },
+        "depth": [
+          0.0008302400000502475,
+          0.0008302400000502475,
+          0.0008302400000502475,
+          0.0008302400000502475
+        ],
+        "header": {
+          "stamp": {
+            "nsec": 48000000
+          }
+        },
+        "normal": [
+          {
+            "z": 1
+          },
+          {
+            "z": 1
+          },
+          {
+            "z": 1
+          },
+          {
+            "z": 1
+          }
+        ],
+        "position": [
+          {
+            "x": 2.25,
+            "y": 1.2,
+            "z": 5.029310301551959e-14
+          },
+          {
+            "x": 2.25,
+            "y": 0.8,
+            "z": 5.029310301551959e-14
+          },
+          {
+            "x": 1.75,
+            "y": 0.8,
+            "z": 5.029310301551959e-14
+          },
+          {
+            "x": 1.75,
+            "y": 1.2,
+            "z": 5.029310301551959e-14
+          }
+        ],
+        "wrench": [
+          {
+            "body1Wrench": {
+              "force": {
+                "x": 1.8813521098401506e-10,
+                "y": 3.050077343325691e-10,
+                "z": 707.8120813549681
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": -1.8813521098401506e-10,
+                "y": -3.050077343325691e-10,
+                "z": -707.8120813549681
+              }
+            }
+          },
+          {
+            "body1Wrench": {
+              "force": {
+                "x": -1.2500092228082328e-09,
+                "y": 1.7934047531659177e-09,
+                "z": 707.8120813497108
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": 1.2500092228082328e-09,
+                "y": -1.7934047531659177e-09,
+                "z": -707.8120813497108
+              }
+            }
+          },
+          {
+            "body1Wrench": {
+              "force": {
+                "x": -1.3730729298633335e-09,
+                "y": 1.2186779528869537e-09,
+                "z": 707.812081354968
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": 1.3730729298633335e-09,
+                "y": -1.2186779528869537e-09,
+                "z": -707.812081354968
+              }
+            }
+          },
+          {
+            "body1Wrench": {
+              "force": {
+                "x": 2.434876442448255e-09,
+                "y": -3.3171810914260234e-09,
+                "z": 707.8120813497108
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": -2.434876442448255e-09,
+                "y": 3.3171810914260234e-09,
+                "z": -707.8120813497108
+              }
+            }
+          }
+        ]
+      },
+      "firstSimulationTime": 0.048,
+      "key": "ground-b:ground-b::base_link::body_collision:floor::floor_link::floor_collision",
+      "lastSimulationTime": 278.9,
+      "robotId": "ground-b",
+      "samples": 139427
+    },
+    "ground-a:ground-a::base_link::body_collision:floor::floor_link::floor_collision": {
+      "contact": {
+        "collision1": {
+          "id": "43",
+          "name": "ground-a::base_link::body_collision"
+        },
+        "collision2": {
+          "id": "7",
+          "name": "floor::floor_link::floor_collision"
+        },
+        "depth": [
+          0.0008302400000502475,
+          0.0008302400000502475,
+          0.0008302400000502475,
+          0.0008302400000502475
+        ],
+        "header": {
+          "stamp": {
+            "nsec": 48000000
+          }
+        },
+        "normal": [
+          {
+            "z": 1
+          },
+          {
+            "z": 1
+          },
+          {
+            "z": 1
+          },
+          {
+            "z": 1
+          }
+        ],
+        "position": [
+          {
+            "x": -1.75,
+            "y": -0.8,
+            "z": 5.029310301551959e-14
+          },
+          {
+            "x": -1.75,
+            "y": -1.2,
+            "z": 5.029310301551959e-14
+          },
+          {
+            "x": -2.25,
+            "y": -1.2,
+            "z": 5.029310301551959e-14
+          },
+          {
+            "x": -2.25,
+            "y": -0.8,
+            "z": 5.029310301551959e-14
+          }
+        ],
+        "wrench": [
+          {
+            "body1Wrench": {
+              "force": {
+                "x": 1.8813521098401506e-10,
+                "y": 3.050077343325691e-10,
+                "z": 707.8120813549681
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": -1.8813521098401506e-10,
+                "y": -3.050077343325691e-10,
+                "z": -707.8120813549681
+              }
+            }
+          },
+          {
+            "body1Wrench": {
+              "force": {
+                "x": -1.2500092228082328e-09,
+                "y": 1.7934047531659177e-09,
+                "z": 707.8120813497108
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": 1.2500092228082328e-09,
+                "y": -1.7934047531659177e-09,
+                "z": -707.8120813497108
+              }
+            }
+          },
+          {
+            "body1Wrench": {
+              "force": {
+                "x": -1.3730729298633335e-09,
+                "y": 1.2186779528869537e-09,
+                "z": 707.812081354968
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": 1.3730729298633335e-09,
+                "y": -1.2186779528869537e-09,
+                "z": -707.812081354968
+              }
+            }
+          },
+          {
+            "body1Wrench": {
+              "force": {
+                "x": 2.434876442448255e-09,
+                "y": -3.3171810914260234e-09,
+                "z": 707.8120813497108
+              }
+            },
+            "body2Wrench": {
+              "force": {
+                "x": -2.434876442448255e-09,
+                "y": 3.3171810914260234e-09,
+                "z": -707.8120813497108
+              }
+            }
+          }
+        ]
+      },
+      "firstSimulationTime": 0.048,
+      "key": "ground-a:ground-a::base_link::body_collision:floor::floor_link::floor_collision",
+      "lastSimulationTime": 278.9,
+      "robotId": "ground-a",
+      "samples": 139427
+    }
+  },
+  "unexpectedContactPairs": [],
+  "contactChannelCoverage": {
+    "ground-a": {
+      "firstMessageCount": 77,
+      "lastMessageCount": 139427,
+      "messagesAdvancedDuringCampaign": true,
+      "status": "observed"
+    },
+    "ground-b": {
+      "firstMessageCount": 77,
+      "lastMessageCount": 139427,
+      "messagesAdvancedDuringCampaign": true,
+      "status": "observed"
+    },
+    "uav-a": {
+      "firstMessageCount": null,
+      "lastMessageCount": null,
+      "messagesAdvancedDuringCampaign": false,
+      "status": "unverified"
+    }
+  },
+  "contactCoverageMissingRobots": [
+    "uav-a"
+  ],
+  "noObservedUnexpectedContacts": true,
+  "nonnegativeSampledGap": true,
+  "safetyMetricsPassed": false,
+  "safetyVerificationStatus": "not_fully_verified",
+  "safetyVerificationLimitations": [
+    "No contact messages or advancing message counter observed for uav-a"
+  ],
+  "samplingLimit": "state snapshots ~0.1 sim s; full contact topic history retained; no continuous distance certificate",
+  "localization": "gazebo_ground_truth_link_proxy",
+  "independentMapsOrHardwareTrials": false
+}

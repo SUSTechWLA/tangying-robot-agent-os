@@ -1,0 +1,630 @@
+{
+  "schemaVersion": "research.exploration-archive.v1",
+  "files": {
+    ".gitattributes": {
+      "bytes": 179,
+      "sha256": "6c72194db818fc2c7b7cac0270c3a14660a94d7129bce25f1e23e39b62206125"
+    },
+    "001/bounded-steps.jsonl": {
+      "bytes": 348291,
+      "sha256": "e24ca9258defb0945440f1eb0f3d6c973fc2fdee74fe6311214bebc53b9889ca"
+    },
+    "001/environment-postrun.json": {
+      "bytes": 1733,
+      "sha256": "85fe8ce78fe844f1e2b341b60ddcbe20013f1ae6dd58dffd9431b391fd97ed73"
+    },
+    "001/environment-preregistration.json": {
+      "bytes": 1425,
+      "sha256": "cb14ca232f16d1fbe14db3d1af6bd3b9c1060a1283c95f3cd59d5bdf6052c71b"
+    },
+    "001/external-raw.json": {
+      "bytes": 440,
+      "sha256": "86724c59f27f9940390b1c2a2d4b64892f2529a44d3eb7b0d367911a9f157083"
+    },
+    "001/gazebo/compose.json": {
+      "bytes": 1037,
+      "sha256": "c3e1aaeac5ca68e046806468d483337d0b246028c3aff7b24737909881688109"
+    },
+    "001/runtime/calls.jsonl": {
+      "bytes": 835870,
+      "sha256": "d7350738d942b7c054da0ae1079abbd004e68f71ca7e9b76e6797ad62278f30f"
+    },
+    "001/runtime/environment.json": {
+      "bytes": 1425,
+      "sha256": "cb14ca232f16d1fbe14db3d1af6bd3b9c1060a1283c95f3cd59d5bdf6052c71b"
+    },
+    "001/runtime/final-state.json": {
+      "bytes": 13505,
+      "sha256": "e15090b8545c9767dd179f97e117ad0cbe868be8de10185dcb2f15e23bc5f652"
+    },
+    "001/runtime/initial-state.json": {
+      "bytes": 816,
+      "sha256": "f9e69c342a938839b304c1a675b1cf5b50029234c803b3cdc7e5da339dc48f6c"
+    },
+    "001/runtime/manifest.json": {
+      "bytes": 4337,
+      "sha256": "d39fbaf8e1b3c50f6d8a685d59a699eda35ce078da7ac8cf239d596029834680"
+    },
+    "001/runtime/map-artifact-checks.json": {
+      "bytes": 1544,
+      "sha256": "f9e1751ac467ebe5cf8c2e3aa2ffe00ad8ef94c2199f0f38ec45477ceb8a08b9"
+    },
+    "001/runtime/map-package/cloud/lod0.bin": {
+      "bytes": 5000,
+      "sha256": "b9fc8753124f2bab2d314e7ee686bc819a5d299625e240ff4b1d68a129c13d98"
+    },
+    "001/runtime/map-package/cloud/lod1.bin": {
+      "bytes": 18950,
+      "sha256": "f34db8f7be9a218efac9f6af20bbc7dfc1493442f18133bd4be00e01be124468"
+    },
+    "001/runtime/map-package/cloud/lod2.bin": {
+      "bytes": 74615,
+      "sha256": "c4cd8a1d3f6f6489341ba83c6623fd12f47f63d7595cfb31fabbe4f1ce0053f3"
+    },
+    "001/runtime/map-package/cloud/lod3.bin": {
+      "bytes": 276095,
+      "sha256": "4f4126f16fa07d964bf2a7a82df8ea0b756c9d61bcf83ee799927b4effaa297e"
+    },
+    "001/runtime/map-package/cloud/lod4.bin": {
+      "bytes": 943640,
+      "sha256": "91a3294779e1d01067d22285de9e503b97fd4506ee577f1c47fa4e1521857beb"
+    },
+    "001/runtime/map-package/grid/occupancy.png": {
+      "bytes": 1208,
+      "sha256": "a4d184cd78d94da7960ad7a010bcf4e3633517201017b8c842ffcd6154ed397c"
+    },
+    "001/runtime/map-package/manifest.json": {
+      "bytes": 3287,
+      "sha256": "c0e29bf28c9e8064665af8291e1bc25a42f12fc3d2983227370522d652f6d030"
+    },
+    "001/runtime/map-package/navigation/map.pgm": {
+      "bytes": 38819,
+      "sha256": "8ba0b4e70a69fda682c5368107b90ed67f4f61c6de817988c4d68cf2af86bcc9"
+    },
+    "001/runtime/map-package/navigation/map.yaml": {
+      "bytes": 209,
+      "sha256": "8fbef34de61d8560ab254c8088b7301b44de7bf34fa6ad59b98e268fc57cfbeb"
+    },
+    "001/runtime/map-package/navigation/source.json": {
+      "bytes": 183,
+      "sha256": "d266199e2c8910ef983f1d88c755fbe08e9645c9304a300e988cbf84e238cbca"
+    },
+    "001/runtime/map-package/objects.json": {
+      "bytes": 293,
+      "sha256": "467f25c7626b832b173d127aecc31555e42fd3b2eb33b359a6c66d18682dc25b"
+    },
+    "001/runtime/map-package/semantics.json": {
+      "bytes": 5493,
+      "sha256": "78813942409a93b4041b3fe2f64979009785bfd9c596fadb54c32f696849f11e"
+    },
+    "001/runtime/map-package/slam-keyframes.json": {
+      "bytes": 2393608,
+      "sha256": "39243e43c70026d698f7bb864d1b213b8c416faf95c32fa4f0fd39f88fbe4363"
+    },
+    "001/runtime/map-package/slam-session.json": {
+      "bytes": 277860,
+      "sha256": "bc38d50ae07d057b63de36ba4381d45e6683264ae38b02e73e85d5074895f7c6"
+    },
+    "001/runtime/map-package/trajectory.geojson": {
+      "bytes": 7882,
+      "sha256": "c140a2797f1415f7b3b98c64554a2da26ad3bceae54de9078826c239dd15b49b"
+    },
+    "001/runtime/navigation-final.json": {
+      "bytes": 593,
+      "sha256": "143854cbbdd514b23d22657f7813730097e275f6775d3d6439116ab8e0b96a7f"
+    },
+    "001/runtime/preregistration.json": {
+      "bytes": 2162,
+      "sha256": "c41e40d39575fd1661153f416e5a90101208712d471e394e33cd59265e5bf8c9"
+    },
+    "001/runtime/progress.jsonl": {
+      "bytes": 771582,
+      "sha256": "09e517ecb8ffb69e0ab8358fb9ae5aa531b095396f7808ab9aded91fa9ae6709"
+    },
+    "001/runtime/report.json": {
+      "bytes": 1453,
+      "sha256": "95d14d093a97d5570b59e1632393c01823be8a386b89129ca8d7bd0244cb7238"
+    },
+    "001/runtime/runtime-info.json": {
+      "bytes": 9554,
+      "sha256": "4a5699ebf67f57fb77398151c09d5786884dba4a4751ff77ae5168212a48b8a9"
+    },
+    "001/runtime/service-catalog.json": {
+      "bytes": 29590,
+      "sha256": "c2c74ed78070c7fc11fff762c91167d6c1e55a026405a1db6dd2f128913295b3"
+    },
+    "001/runtime/source-after.json": {
+      "bytes": 18426,
+      "sha256": "bbc4433f084cf8851dfba5981fb655fb1c403e446e9ed3b47b1db48a9927fad1"
+    },
+    "001/runtime/source-before.json": {
+      "bytes": 18426,
+      "sha256": "bbc4433f084cf8851dfba5981fb655fb1c403e446e9ed3b47b1db48a9927fad1"
+    },
+    "001/runtime/source-dirty.patch": {
+      "bytes": 42919,
+      "sha256": "64a5b58caa580f0264284d7650c827e0aa7c06d03ea6f32240787c6d7d820134"
+    },
+    "001/source-dirty.patch": {
+      "bytes": 42919,
+      "sha256": "64a5b58caa580f0264284d7650c827e0aa7c06d03ea6f32240787c6d7d820134"
+    },
+    "001/source-manifest.json": {
+      "bytes": 19029,
+      "sha256": "6e18ad6bfaf854710874c18ba7035f6aa5bb77a43b095f25e905b6fc3acfcc26"
+    },
+    "002/bounded-steps.jsonl": {
+      "bytes": 290031,
+      "sha256": "022514cb19f5a300441060e5d3dd581115aaab3e93f1b11cc3cdb8f3c285d889"
+    },
+    "002/environment-postrun.json": {
+      "bytes": 1713,
+      "sha256": "699a164aa0b478e2e7d4190a1b530571eedc2f843f9f441e13c2ff6c983ac8ce"
+    },
+    "002/environment-preregistration.json": {
+      "bytes": 1405,
+      "sha256": "737b0587c5e4b85ef4fe6d939a91377795efe4ec077fcba73ef36fbb2b25d874"
+    },
+    "002/external-raw.json": {
+      "bytes": 440,
+      "sha256": "58e577dafab815da4fa07a4e079efff93d84984452c12b1d75802c5c2876d77e"
+    },
+    "002/gazebo/compose.json": {
+      "bytes": 1037,
+      "sha256": "2e16cffe240c0b15c4ec0d4789e6a9502dbb5e1f2b11cf6bdba24402f07e7424"
+    },
+    "002/runtime/calls.jsonl": {
+      "bytes": 635584,
+      "sha256": "567cdaa9303b1f2cb62667b68c272b3c11a8a5847549f17f4d49552e56b35b61"
+    },
+    "002/runtime/environment.json": {
+      "bytes": 1405,
+      "sha256": "737b0587c5e4b85ef4fe6d939a91377795efe4ec077fcba73ef36fbb2b25d874"
+    },
+    "002/runtime/final-state.json": {
+      "bytes": 14077,
+      "sha256": "7aeb4d2445cffa8bf1714c03b72e9977dad2120a1d950c0cd74b561b26f70872"
+    },
+    "002/runtime/initial-state.json": {
+      "bytes": 816,
+      "sha256": "a731f8efeb4f57269acca6e94fca4207b5168044633ef0801986ce7fa130d848"
+    },
+    "002/runtime/manifest.json": {
+      "bytes": 4338,
+      "sha256": "0a6e44ff87540911e51e8e4151f1959060cb86626276453e80a72fb12111f1aa"
+    },
+    "002/runtime/map-artifact-checks.json": {
+      "bytes": 1544,
+      "sha256": "f9e1751ac467ebe5cf8c2e3aa2ffe00ad8ef94c2199f0f38ec45477ceb8a08b9"
+    },
+    "002/runtime/map-package/cloud/lod0.bin": {
+      "bytes": 4295,
+      "sha256": "08ec423b8549c5e414d86b2e1d3e341abb609204cf15e05f2303b90bc9b37abe"
+    },
+    "002/runtime/map-package/cloud/lod1.bin": {
+      "bytes": 15515,
+      "sha256": "3a8c3121de57cedb9b8ec8d678b96aa99b84d4a230759507ebce6c4c3932d3b0"
+    },
+    "002/runtime/map-package/cloud/lod2.bin": {
+      "bytes": 61160,
+      "sha256": "7b4667f9f9b6677a753b90e8635eef728e9df40f3bce19c02afda06efe2ce604"
+    },
+    "002/runtime/map-package/cloud/lod3.bin": {
+      "bytes": 248375,
+      "sha256": "0f05e1adc23a1ce21b40ed46c81a2b783542e029463b86e782b5c01a56277065"
+    },
+    "002/runtime/map-package/cloud/lod4.bin": {
+      "bytes": 846380,
+      "sha256": "b1533273d231571a0ec621d355219ee0f5a3887409150efe1a529ce5b79b6faa"
+    },
+    "002/runtime/map-package/grid/occupancy.png": {
+      "bytes": 1193,
+      "sha256": "9c575c49d045e04eb16ceff876f28e6347082ad9afd833477ca08368c832a0d1"
+    },
+    "002/runtime/map-package/manifest.json": {
+      "bytes": 3287,
+      "sha256": "9d8ee598ebdbb55bf1cc5ff29c50a8029d2c7deb6ef2f22bf6494b7ff2feafc6"
+    },
+    "002/runtime/map-package/navigation/map.pgm": {
+      "bytes": 38819,
+      "sha256": "de81d4403bfbfb8888f2d5808d4b112a0fb170fe0a9cfe3896497cefba38b023"
+    },
+    "002/runtime/map-package/navigation/map.yaml": {
+      "bytes": 207,
+      "sha256": "a7924f29079a66ee200d0e9bf8ba94a35ffe7db9af64560e9ed4f4a175a50d65"
+    },
+    "002/runtime/map-package/navigation/source.json": {
+      "bytes": 183,
+      "sha256": "9bd5569c8029d90694a4c12de1cd8432bf6c7ae68ddf76784732bb054618bc06"
+    },
+    "002/runtime/map-package/objects.json": {
+      "bytes": 2089,
+      "sha256": "f8600c5feb2ba8ea969992394e903a50e7f4cdf49686d29ad36db09fd6231b2e"
+    },
+    "002/runtime/map-package/semantics.json": {
+      "bytes": 4975,
+      "sha256": "713d9f65e528d575fa187f118933a8153b24acef7d892a7a188c547405b24591"
+    },
+    "002/runtime/map-package/slam-keyframes.json": {
+      "bytes": 2309630,
+      "sha256": "9b3f46941fb57d62259bc55502a6890c9ef9ec0ec4d1e2a8002e243c865d4126"
+    },
+    "002/runtime/map-package/slam-session.json": {
+      "bytes": 242271,
+      "sha256": "6f9f035648bd9dd6d06bab288b4ed3b58c6d270fd212aa152e27ccd147f101f4"
+    },
+    "002/runtime/map-package/trajectory.geojson": {
+      "bytes": 7248,
+      "sha256": "2338cf0d47da4ce2bbb6c385117a00b0334bd750cb09a29447971d514189c14b"
+    },
+    "002/runtime/navigation-final.json": {
+      "bytes": 589,
+      "sha256": "fb38e4da6e7cfb3a1b9c4a853de2587a215ea33c26a1c699537d1d6459146024"
+    },
+    "002/runtime/preregistration.json": {
+      "bytes": 2162,
+      "sha256": "00c0353d1823f1259b892c1bd2ffb5ff70f958c3e83983dc8fbb3917283d24b6"
+    },
+    "002/runtime/progress.jsonl": {
+      "bytes": 585768,
+      "sha256": "f0925509b3e9812c6de67e2f2fca3ffef00845473c5018c50d3c50556f901084"
+    },
+    "002/runtime/report.json": {
+      "bytes": 1452,
+      "sha256": "23693170eb570f2b68d8c3b4ddb88502c2a044d53286f0badd2500a775907fe1"
+    },
+    "002/runtime/runtime-info.json": {
+      "bytes": 9554,
+      "sha256": "65b3789dfd6ca88a6cf40cd61476a73ab74e804a0073ad91a93a94804b32cdbf"
+    },
+    "002/runtime/service-catalog.json": {
+      "bytes": 29590,
+      "sha256": "d8eb7d68dab88370536468bb93320c7312d37a25c638d47a17f6215ddc5b9e11"
+    },
+    "002/runtime/source-after.json": {
+      "bytes": 18426,
+      "sha256": "3c43a81afddea422f9d8b12c9a6ee5c8b9d64c2e8f0eacdf46ca043927651199"
+    },
+    "002/runtime/source-before.json": {
+      "bytes": 18426,
+      "sha256": "3c43a81afddea422f9d8b12c9a6ee5c8b9d64c2e8f0eacdf46ca043927651199"
+    },
+    "002/runtime/source-dirty.patch": {
+      "bytes": 47074,
+      "sha256": "ec1becf98f38e97e658d9fb463b33c397de4e90c32e224300ad90a7d211052d4"
+    },
+    "002/source-dirty.patch": {
+      "bytes": 47074,
+      "sha256": "ec1becf98f38e97e658d9fb463b33c397de4e90c32e224300ad90a7d211052d4"
+    },
+    "002/source-manifest.json": {
+      "bytes": 19029,
+      "sha256": "911cb315842a4b1f234fc3b9aba3fce5ff0555cbe8cbe46c990d251ac8c4fa82"
+    },
+    "003/bounded-steps.jsonl": {
+      "bytes": 238379,
+      "sha256": "4c85cb9dac7bbaa4558614969a4ec1391aa64d843de209d2a8a2dd9e017fee96"
+    },
+    "003/environment-postrun.json": {
+      "bytes": 1716,
+      "sha256": "477a98fa0d32dcd41d37c906a5d24fd8d8a34715000e788e1680e4daa2481dd9"
+    },
+    "003/environment-preregistration.json": {
+      "bytes": 1408,
+      "sha256": "bd0c14d7d90e1ec01480b20eddfcca877940c8ffd89407739bbdc11b6c965da6"
+    },
+    "003/external-raw.json": {
+      "bytes": 440,
+      "sha256": "8a1a38296a4d71ec2b181a28dace428b8b6ff41d664179af89ad27a9d4dafc22"
+    },
+    "003/gazebo/compose.json": {
+      "bytes": 1037,
+      "sha256": "0322c760a837860210f2d0f1d9c6dd562a7115454bc4334cd6f33813c159afc2"
+    },
+    "003/runtime/calls.jsonl": {
+      "bytes": 499548,
+      "sha256": "8477660e63930fb8ff1e6cc0f774175adf39d3f11ae1463af2d603de07dd847a"
+    },
+    "003/runtime/environment.json": {
+      "bytes": 1408,
+      "sha256": "bd0c14d7d90e1ec01480b20eddfcca877940c8ffd89407739bbdc11b6c965da6"
+    },
+    "003/runtime/final-state.json": {
+      "bytes": 11188,
+      "sha256": "5ef6dd8aefe356f3ff9395fad7f80e14ee7bfb5187af33a4e209f9aaa553174d"
+    },
+    "003/runtime/initial-state.json": {
+      "bytes": 816,
+      "sha256": "65fdfc8e43aeefb1f2d7be255a1357c388df5ba875c485d80853868ddb38387e"
+    },
+    "003/runtime/manifest.json": {
+      "bytes": 4337,
+      "sha256": "446a8dee7d3ec0fe22cbd164cee1e7b5a9a2c4d653105e35af7913bd5a7abede"
+    },
+    "003/runtime/map-artifact-checks.json": {
+      "bytes": 1544,
+      "sha256": "f9e1751ac467ebe5cf8c2e3aa2ffe00ad8ef94c2199f0f38ec45477ceb8a08b9"
+    },
+    "003/runtime/map-package/cloud/lod0.bin": {
+      "bytes": 4670,
+      "sha256": "738d1c1e72b2561584285ed530b56acb56c2dad078eaa8da5572f98749209b87"
+    },
+    "003/runtime/map-package/cloud/lod1.bin": {
+      "bytes": 16325,
+      "sha256": "fb23f97fc56b1611b2eced13f82d8cadb5bdb8c6fbc855dab0f1ddbcd48fd5ff"
+    },
+    "003/runtime/map-package/cloud/lod2.bin": {
+      "bytes": 59660,
+      "sha256": "2c1f314cf3a9d6720ec6148326fe6870b66110451626538338f4e4bd0deb4bd0"
+    },
+    "003/runtime/map-package/cloud/lod3.bin": {
+      "bytes": 212960,
+      "sha256": "4dec0c2dc2f2774a791fd2beca78a9da593c8bf67ba76994c24c2bae335d7e5b"
+    },
+    "003/runtime/map-package/cloud/lod4.bin": {
+      "bytes": 698885,
+      "sha256": "ff5cf041f59d8e014b8167130d7c23bccddd689f7277580b28e4547d72d56266"
+    },
+    "003/runtime/map-package/grid/occupancy.png": {
+      "bytes": 1415,
+      "sha256": "2f558aa00aa7e2191fec68496806361ca91191fccc5efe6d0796ca97e257c79f"
+    },
+    "003/runtime/map-package/manifest.json": {
+      "bytes": 3285,
+      "sha256": "9a333c958657843250845c93a0bb4ea2b0fb6e64c26ea485691de57551b196a1"
+    },
+    "003/runtime/map-package/navigation/map.pgm": {
+      "bytes": 38641,
+      "sha256": "72ded748c0972a389622071e715de7bbfe452326fcab0a4276ba8de24e0691e2"
+    },
+    "003/runtime/map-package/navigation/map.yaml": {
+      "bytes": 210,
+      "sha256": "e4b5c8064f80389553c54e25b2acb6d1e72f29ff617f48cea8965219b9474ef3"
+    },
+    "003/runtime/map-package/navigation/source.json": {
+      "bytes": 183,
+      "sha256": "f2becf345087b1de2a24e8610138538c8bc49f8c40b3f7f608521f6a6ba163a5"
+    },
+    "003/runtime/map-package/objects.json": {
+      "bytes": 292,
+      "sha256": "856d0acb91f561cc4f7c0d33e91b5c3d155f10b8d6526892f39e3029aad0bf13"
+    },
+    "003/runtime/map-package/semantics.json": {
+      "bytes": 6109,
+      "sha256": "3ee609b0981a2e834e692c3fa6b994b798ade8240d1698209bd9c0f57ee90b87"
+    },
+    "003/runtime/map-package/slam-keyframes.json": {
+      "bytes": 1696516,
+      "sha256": "255a553467f27afcbd400ebec8c04d2a690652023bd9ec6bf3fa8de4469ce901"
+    },
+    "003/runtime/map-package/slam-session.json": {
+      "bytes": 209151,
+      "sha256": "68b97810b9bb4dcef06db15c2ce0df04d6ddef96ea90c2ddb9397d7dcd3ed5e1"
+    },
+    "003/runtime/map-package/trajectory.geojson": {
+      "bytes": 5863,
+      "sha256": "b2dc6a32c91b1f517652ebb74e70dee2fd9d6c3dff6426f21d139273a81e02e5"
+    },
+    "003/runtime/navigation-final.json": {
+      "bytes": 593,
+      "sha256": "c8a508ea55db94a255044e9fccf73f1a9a14bbc6bc1ed71fb4f3fadeedfc5c3d"
+    },
+    "003/runtime/preregistration.json": {
+      "bytes": 2481,
+      "sha256": "b9e486d7abe251913c9e99fc23050c3da0ce51502c0ea76585f430bd1b8a5775"
+    },
+    "003/runtime/progress.jsonl": {
+      "bytes": 454541,
+      "sha256": "a7360c815443fae30793e1cf55637831b07b9aaa912f749d812e0fdac90b7232"
+    },
+    "003/runtime/report.json": {
+      "bytes": 1448,
+      "sha256": "691df95c124212547b05ebef388a3c87bd42db397a81abb3837242dfb573b2ed"
+    },
+    "003/runtime/runtime-info.json": {
+      "bytes": 9554,
+      "sha256": "86d1501bae9062e4c3f8baa795e15da4c1dc8fc02eca914c33e253fe8c4a8200"
+    },
+    "003/runtime/service-catalog.json": {
+      "bytes": 29590,
+      "sha256": "85c53ea4482bdee7de61b32ab54f637d050554f519a027e45dbac26e483bf2c0"
+    },
+    "003/runtime/source-after.json": {
+      "bytes": 18426,
+      "sha256": "fdf284c4a27c34a5230dfd563d9cf65142bde205cb47bea1b5b440337874d8e9"
+    },
+    "003/runtime/source-before.json": {
+      "bytes": 18426,
+      "sha256": "fdf284c4a27c34a5230dfd563d9cf65142bde205cb47bea1b5b440337874d8e9"
+    },
+    "003/runtime/source-dirty.patch": {
+      "bytes": 47437,
+      "sha256": "be26b8a26955772de49af0f40e475623185bc5be8e8f5209d8972bcc967d872e"
+    },
+    "003/source-dirty.patch": {
+      "bytes": 47437,
+      "sha256": "be26b8a26955772de49af0f40e475623185bc5be8e8f5209d8972bcc967d872e"
+    },
+    "003/source-manifest.json": {
+      "bytes": 19029,
+      "sha256": "533edf9414a57d0e511b68d55c28bb927a6467158e7b6b159bc481ead4be3b89"
+    },
+    "004/bounded-steps.jsonl": {
+      "bytes": 286872,
+      "sha256": "12085e9963fb5a15e49262dc9c987af054f5acf087d5df297946ebfb99c0aef3"
+    },
+    "004/environment-postrun.json": {
+      "bytes": 1732,
+      "sha256": "ead5f7c691a391b6c6c93769b330dbf4a6aa5aa293cb3785e40cf23e53ee6647"
+    },
+    "004/environment-preregistration.json": {
+      "bytes": 1424,
+      "sha256": "118ffdb8a8a5f30473fca3bc5d49ef3cf2df639182c27e9da3f969291692fa51"
+    },
+    "004/external-raw.json": {
+      "bytes": 440,
+      "sha256": "51665b4f9843814ae76872e2b33209a9a693c8993ac0376d5981148fa0de32f0"
+    },
+    "004/gazebo/compose.json": {
+      "bytes": 1037,
+      "sha256": "23b4a451d95af13b5f0f165fd51aa4c536aacaef810795dc31200bf1ce0fdc05"
+    },
+    "004/runtime/calls.jsonl": {
+      "bytes": 675931,
+      "sha256": "808bbd530d3f664dd71549a00291b5adbe6b5b23f6ac96c64122dcbc3ac8411c"
+    },
+    "004/runtime/environment.json": {
+      "bytes": 1424,
+      "sha256": "118ffdb8a8a5f30473fca3bc5d49ef3cf2df639182c27e9da3f969291692fa51"
+    },
+    "004/runtime/final-state.json": {
+      "bytes": 14220,
+      "sha256": "3e3a62a5b9d267c889db3925ac2f1885d60d1c6f97f3dcafe1add372434b119a"
+    },
+    "004/runtime/initial-state.json": {
+      "bytes": 816,
+      "sha256": "38649a79e3f737dd4c00c6f760fb88884b3a0ea11969447b9b20254a653c8cb2"
+    },
+    "004/runtime/manifest.json": {
+      "bytes": 4337,
+      "sha256": "83e6dbebfca408585ce8901df5ba04553f2acec69c0df8aa538e2ca8845b65f7"
+    },
+    "004/runtime/map-artifact-checks.json": {
+      "bytes": 1544,
+      "sha256": "f9e1751ac467ebe5cf8c2e3aa2ffe00ad8ef94c2199f0f38ec45477ceb8a08b9"
+    },
+    "004/runtime/map-package/cloud/lod0.bin": {
+      "bytes": 5150,
+      "sha256": "87a34cc23f3b0b6dd6f0e932301e81b704bdb5a94c49df0ccb4c5d41b6707556"
+    },
+    "004/runtime/map-package/cloud/lod1.bin": {
+      "bytes": 18215,
+      "sha256": "851bf43738e5918b3bb0684f02ad691642862d36f160d964736014e603067833"
+    },
+    "004/runtime/map-package/cloud/lod2.bin": {
+      "bytes": 70220,
+      "sha256": "d283f73a32cf3de28f8f18b7cd2104b0b739c5817f33b1f7b2e8a8476dc2ce06"
+    },
+    "004/runtime/map-package/cloud/lod3.bin": {
+      "bytes": 256850,
+      "sha256": "a3b2f20918b5e03d7acce0ab5960cfc5ebdb72500cf574403d3ca5bd0bd6ca82"
+    },
+    "004/runtime/map-package/cloud/lod4.bin": {
+      "bytes": 854750,
+      "sha256": "485fa50ef09975cdfe072c859cac1957b62b8b9c24539859e7e222b57739eb3a"
+    },
+    "004/runtime/map-package/grid/occupancy.png": {
+      "bytes": 1782,
+      "sha256": "6d27c1c3da8f01c47adffac6813d8e6a32fb971fe41539f5ce056ac31cee27e0"
+    },
+    "004/runtime/map-package/manifest.json": {
+      "bytes": 3287,
+      "sha256": "9c278c95dd7f6dc17a49f6487ca7d2d5889df430184f6ed630be487262447083"
+    },
+    "004/runtime/map-package/navigation/map.pgm": {
+      "bytes": 38641,
+      "sha256": "5b809e0aa38e34fc28378a774d1c213148a9c2851a155911d99d8423b4639449"
+    },
+    "004/runtime/map-package/navigation/map.yaml": {
+      "bytes": 209,
+      "sha256": "26e4c669ca4060cc05aab8f692f9dd9071c98667dc98502f5019be90a5f5b902"
+    },
+    "004/runtime/map-package/navigation/source.json": {
+      "bytes": 183,
+      "sha256": "28f3802f9527993ffd49f54c7612d73bcf776f6aeb83020c74e14727a168a746"
+    },
+    "004/runtime/map-package/objects.json": {
+      "bytes": 293,
+      "sha256": "89943d02427a134a227705aa506b6526bc43094d9de872754f0ad6f2fdff586f"
+    },
+    "004/runtime/map-package/semantics.json": {
+      "bytes": 5600,
+      "sha256": "7d558ac7086d37e85bbb0d2dfb754e6ddd4576a1d60c04ca7081c3e0d5f62fe7"
+    },
+    "004/runtime/map-package/slam-keyframes.json": {
+      "bytes": 2208029,
+      "sha256": "c4f9085d6ae93a9c80863842f7b13abdfcec4a51a26f1a6ced039a8d0e2eb7fd"
+    },
+    "004/runtime/map-package/slam-session.json": {
+      "bytes": 284556,
+      "sha256": "469cad7f9beb6f906b5a8c6d31046837fa39629593e03f366cd30ec73f2926ce"
+    },
+    "004/runtime/map-package/trajectory.geojson": {
+      "bytes": 7787,
+      "sha256": "d9d47f8e1f41d622c0e664dcb082534a6ee49450dbef9fec70105c0bc500d767"
+    },
+    "004/runtime/navigation-final.json": {
+      "bytes": 592,
+      "sha256": "9267f4aa22624e6a482588effa46480aed4974e3f1276f039154b12c2f8b9dd2"
+    },
+    "004/runtime/preregistration.json": {
+      "bytes": 2706,
+      "sha256": "57852451558d33b175d24b2055a69dc19c75222375d71d0fa2d9a16b9ef30a04"
+    },
+    "004/runtime/progress.jsonl": {
+      "bytes": 625671,
+      "sha256": "1ebe039dbb28797ed978ca33ae68e218a326b0f99242b3c2ca6b4364a39e04b3"
+    },
+    "004/runtime/report.json": {
+      "bytes": 1578,
+      "sha256": "bc0e30204ac2d625e872f8d489dc5c75358b74279d435abb876d69c2ba3f2c4e"
+    },
+    "004/runtime/runtime-info.json": {
+      "bytes": 9554,
+      "sha256": "3f07a84fea0ff32ad7a56efaa7be70e599fc4bd10f9ed01e2a458a7af4532c38"
+    },
+    "004/runtime/service-catalog.json": {
+      "bytes": 29590,
+      "sha256": "4fe71445fa20ee2befb8d1fdc2d78cbb5971170134703640f901d51538007ee0"
+    },
+    "004/runtime/source-after.json": {
+      "bytes": 18426,
+      "sha256": "07fc4c42aaaec5061253d33b843e80cac37fa6a51711bfa0b9de08a25a4c7db0"
+    },
+    "004/runtime/source-before.json": {
+      "bytes": 18426,
+      "sha256": "07fc4c42aaaec5061253d33b843e80cac37fa6a51711bfa0b9de08a25a4c7db0"
+    },
+    "004/runtime/source-dirty.patch": {
+      "bytes": 52767,
+      "sha256": "eac3b7eb3855007cabec3b2e824c154af9adaa4baedf175b13d6cd8fd9e348a6"
+    },
+    "004/source-dirty.patch": {
+      "bytes": 52767,
+      "sha256": "eac3b7eb3855007cabec3b2e824c154af9adaa4baedf175b13d6cd8fd9e348a6"
+    },
+    "004/source-manifest.json": {
+      "bytes": 19029,
+      "sha256": "ce1522b9c0fd3a91add24425a01993500d34bb1c4af4d46a9079695dc3cf7fc2"
+    },
+    "README.md": {
+      "bytes": 2958,
+      "sha256": "2240b5b61e88923d74b8a0f5ee23eaabfa287cfb08ecf89d63b81b645852102a"
+    },
+    "environment-restored.json": {
+      "bytes": 324,
+      "sha256": "19607934e2d4f75727dfcaf1109799d227762c3b31819fdbd431d214a716a507"
+    },
+    "motion-stop-checks.json": {
+      "bytes": 2372,
+      "sha256": "3c11e8645851313691dbdfe67366fbdd54b1e931f8897ecdf8638e7217a87f7b"
+    },
+    "post004-software/full-gate.log": {
+      "bytes": 60908,
+      "sha256": "d09640740dc8e618b9e8d2f67226dd3226591735a278570f890d1492ac545311"
+    },
+    "post004-software/patch-from-004.diff": {
+      "bytes": 4505,
+      "sha256": "6a2a2bd96f2634c550eb6cc101d9b7016a6167ef349534c02587920f47718872"
+    },
+    "post004-software/source-manifest.json": {
+      "bytes": 11922,
+      "sha256": "fe8522be2201b58e8e74844f6b3e671697c3016420490732eb50ec11ca188373"
+    },
+    "post004-software/validation.json": {
+      "bytes": 1092,
+      "sha256": "c82c8d968312c727b95a6707af5f763eb4fc8b12fcdc07b0b96b3caf57075411"
+    }
+  },
+  "manifestExcludesItself": true
+}

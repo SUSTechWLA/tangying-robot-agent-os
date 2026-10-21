@@ -129,8 +129,8 @@ class SpatialNavigationDeployment:
             raise ValueError("spatial deployment requires matching mobile robot identity")
         if policy["mode"] == "volume3d" and (mobility.domain != "air" or mobility.pose_model != "se3"):
             raise ValueError("volume3d navigation requires an air/se3 robot")
-        if policy["mode"] == "terrain25d" and mobility.domain != "ground":
-            raise ValueError("terrain25d navigation requires a ground robot")
+        if policy["mode"] in {"terrain25d", "terrain_layered"} and mobility.domain != "ground":
+            raise ValueError("terrain navigation requires a ground robot")
         if mobility.navigation_preparation != "controller":
             raise ValueError("spatial navigation requires controller-owned preparation")
         if volume["calibrationRevision"] not in {s.transform_revision for s in profile.sensors}:

@@ -1,150 +1,191 @@
-# 第 17 章 云端大脑与边缘 Agent：目标委托、通讯与协作
+# 第 17 章 云边与机器人之间究竟传递什么
 
-**学习目标**：解释云端粗目标如何成为边缘子计划；画出控制、事实与数据通道；定位恢复与多机器人合作边界。
+本章是全书的通信总图。读完应能为一条消息确定发送者、接收者、字段、持久化位置和 ACK 的含义，并解释为什么数据共享不会自动获得动作授权。
 
-**先修知识**：第2、5–9章；长上下文在第18章，完整任务复盘在第19章。
+## 17.1 先分三条通道，再选传输技术
 
-**关键术语**：目标包络、共享Host、claim、执行Basis、completion receipt、资源监护权
-
-本章按数字版2.2.0固定源码 `821659dfd6782927d02924916ced5474a8142d74` 解释当前实现。推荐职责是云端制定全局目标和分工，边缘按现场事实细化并执行，Runtime/控制器负责实际运动、采集和停止。模型推理的位置不决定谁拥有任务权威。
-
-## 17.1 两种部署入口与共享边缘宿主
-
-| 入口 | 拥有的状态与责任 | 本机目标执行 |
+| 通道 | 主要内容 | 权威效果 |
 | --- | --- | --- |
-| Local自治 | 本地Task/Revision、批准、事件和SQLite；本地API与工作台 | 共享 `edgeagent.Host` 调用一台Runtime |
-| Fleet Worker | 云端任务源、设备身份、父claim续租、控制消息与证明交付 | 同一个Host，保存本机父/子执行账本 |
-| 云端模型Assist | 受限推理服务；只返回候选，不批准或派发 | 无独立任务生命周期权威 |
+| 云边任务控制 | 目标合同、批准、claim、执行 Basis、完成回执 | 在合同与当前执行权内委托任务 |
+| Agent 角色事件 | 原失败、诊断、恢复提案、进度 | 驱动协作；必须回查绑定与权限 |
+| 机器人间数据 | 观测、地图依据、覆盖建议、经验引用 | 提供信息；不授予运动或覆盖本地权威 |
 
-```text
-云端大脑：全局目标 / 分工 / 共享资源
-       ↓ POST /v1/objectives：持久未批准 edge.goal
-云端Task/Revision → 操作者批准 → Coordinator父claim
-                                      ↓
-                                 Edge Worker ─┐
-本地目标API → Local Task/Revision/批准 ─────────┤
-                                             ↓
-                           共享 Edge Host：Task / Ops / Recovery
-                              ↓ 子能力计划       ↑ 持久回执
-                           Executor → Runtime → ROS 2 / 控制器
-                                      ↓
-                         验证 / 父检查点 / 子账本 / 完成证明
+HTTP、gRPC、Redis Streams、ROS 2 都是承载方式。先问消息允许接收方改变什么，再选择传输；“用了可靠消息队列”并不能回答任务是否已完成。
+
+## 17.2 云端给目标，边缘负责现场细化
+
+云端提交 `robot.objective.v1`，批准目标与授权包络；Worker 领取后以当前 claim/Basis 进入共享 Host。Host 生成受限子计划，调用 Runtime，验证并留下完成证明。Local 入口也可运行同一 Host，只是没有云端领取这一步。
+
+![图 17-1：云边控制与回执时序](../assets/17-cloud-edge.svg)
+
+云端同事实现时最容易漏的是“完成上报丢响应”分支。若完成证明已经持久化，边缘应补传原证明；云端用不可变完成回执识别重复，不能要求机器人再跑一次才返回成功。
+
+## 17.3 Basis 的字段为什么不能只留 taskId
+
+[core/contextcontract/basis.go](../../core/contextcontract/basis.go) 的执行依据包含以下关键维度：
+
+| 维度 | 典型字段 | 区分的冲突 |
+| --- | --- | --- |
+| 业务版本 | taskId、taskRevision、executionDigest | 原目标与修改后的目标 |
+| 派发权 | claimVersion、resourceId、fencingToken | 当前 Worker 与旧持有者 |
+| 动作身份 | stepId、commandId、intentIndex | 相同工具的不同调用 |
+| 设备与能力 | robotId、adapter、catalogRevision | 错设备或能力语义变化 |
+| 世界依据 | WorldBasis 内的 revision、来源等 | 用旧世界解释新动作 |
+
+这些字段共同描述“这次动作为什么被允许”。只留 taskId，无法识别同任务的新 revision 或重复领取。序列号和 fence 还要保持精确整数，跨动态 JSON 边界时避免浮点舍入改变身份。
+
+## 17.4 点对点数据的实际信封
+
+[core/exchangecontract/contract.go](../../core/exchangecontract/contract.go) 的 Envelope 使用 `schemaVersion=agent.data.v1`，带 messageId、sender/recipient（agentId、robotId、domain）、stream、kind、sequence、createdAtMs、expiresAtMs、basis 与 payload。sequence 的 JSON 编码为字符串，以保留 uint64 精度。
+
+空间 Basis 包括 worldId、frameId、transformRevision，可带 mapId/mapRevision。payload 描述具体业务，而信封负责身份、顺序与时效。发送请求的 requestId 用于稳定发布身份；重试同一请求但改变内容应成为冲突，不能默默覆盖。
+
+![图 17-2：数据 ACK 与业务消费的区别](../assets/17-peer.svg)
+
+发送端 Outbox 保留待投递数据，接收端 Inbox 持久接受后返回 accepted 或 duplicate。业务消费者随后按 feed 游标读取。**投递成功、业务采纳和物理完成是三个独立结果**，监控与论文指标必须分开。
+
+下面是与实际 Envelope 字段一致的**教学消息**，不是本次抓取的运行日志。时间设为课堂时钟 T=1000000 毫秒，便于手算 60 秒 TTL；真实服务会按真实时钟拒绝这个过期示例。
+
+```json
+{
+  "schemaVersion": "agent.data.v1",
+  "messageId": "demo-message-42",
+  "sender": {"agentId": "uav-edge", "robotId": "uav-1", "domain": "lab"},
+  "recipient": {"agentId": "agv-edge", "robotId": "agv-1", "domain": "lab"},
+  "stream": "coverage-M",
+  "kind": "observation",
+  "sequence": "42",
+  "createdAtMs": 1000000,
+  "expiresAtMs": 1060000,
+  "basis": {
+    "worldId": "warehouse", "frameId": "world", "transformRevision": "R4",
+    "mapId": "M2", "mapRevision": "8"
+  },
+  "payload": {
+    "schemaVersion": "agent.coverage.advisory.v1",
+    "missionId": "M", "missionRevision": "3", "geometryId": "G7",
+    "observedAtMs": 999500,
+    "observedTargetIds": ["shelf-top-2"]
+  }
+}
 ```
 
-Local与Worker是同一目标宿主的替代入口，不能同时控制同一Runtime。切换前停止旧派发、核对在途/未知/持物，再建立设备和资源身份。进程控制租约、云端fence与设备watchdog分别约束不同边界，不提供未知动作的自动双主接管。
+假设 T=1001000、peer 已配置且目标属于当前集合：信封年龄是 1000 毫秒，观测年龄是 1500 毫秒，它们不是同一个数。信封未过期仍可能不满足消费者的 MaxAgeMS。例如 MaxAgeMS=1000 时，应拒绝采纳。现在只改 transformRevision，推演下一节的冲突。
 
-## 17.2 两条任务通道与批准对象
+## 17.5 一个跨机地图冲突的完整推演
 
-| 通道 | 创建时固定什么 | 执行时谁细化 |
+UAV 报告目标 shelf-top-2 已观察，任务为 M/revision 3，geometry=G7，map=M2/revision 8，transform=R4。AGV 当前任务相同但使用 transform=R5。即使 payload 中坐标数值一样，也不能合并：变换版本变化可能改变实际区域。
+
+当前 [edge/exchange/coverage.go](../../edge/exchange/coverage.go) 对 peer 身份、最新流序号、TTL、空间 Basis、mission revision、geometry、采集年龄与目标集合逐项检查。输出携带 rejected 原因，且 `advisoryOnly=true`、`grantsExecution=false`、`physicalCompletion=false`。如果持久快照被限额截断，返回空建议而不是假装读完全部数据。
+
+代价是保守拒绝可能造成重复巡视。收益是不会为了节省路程把不兼容地图的数据当作完成依据。未来可增加经验证的坐标重映射，但必须保留变换来源和误差范围，不能简单改 revision 字符串。
+
+## 17.6 多机器人合作还缺哪几项决定
+
+通信让 A 知道 B 说了什么；合作还需要谁分配子目标、共享资源怎么占用、冲突如何裁决、最终联合目标怎样验证。工作台切换器只路由访问，peer 覆盖建议只传信息，二者都不是任务调度器。
+
+当前存在按序交接和异构探索/覆盖的工程基础，但通用联合资源、任意设备动态编组、共同地图误差与无线网络故障下的实机群体长稳，仍需针对性验证。云端粗目标应给每台设备明确范围，边缘保持单机闭环并按协议上报。
+
+## 17.7 对接时用三个故障检验协议
+
+先丢一条通知：重新投递不能重复物理动作。再丢一条完成响应：原证明可以重传。最后让 peer 发布一条新 sequence 但旧地图依据的报告：接收方应拒绝业务采纳，不能为了“保持在线”回用更旧报告。
+
+这些软件行为可从 [edge/exchange/coverage_test.go](../../edge/exchange/coverage_test.go)、`edge/tasksource/` 和 `edge/worker/` 测试阅读。真实无线网络的带宽、乱序、重连和证书生命周期仍需另外实验。
+
+**本章交付**：为三条通道各画一条完整消息链，给每个 ACK 写一句准确承诺。详细字段与现有接线参见[通信、上下文与 Harness 专题](../../docs/architecture/edge-agent-communication-and-context.md)。
+
+## 17.8 信息跨域前，先回答五个问题
+
+本书的域是**身份、权威和数据生命周期的边界**，不只是不同机器或子网。云端任务协调、AGV 边缘、UAV 边缘、模型服务可以在一台开发机上模拟，也可以位于不同网络；不能由 IP 相近推断信任相同。
+
+![图 17-3：仓库中的本地感知与远端协调](../assets/domains-warehouse.png)
+
+这张 AI 辅助概念插画帮助理解空间关系：每台机器人有自己的现场信息，远端只接收约定的信息。它不表示真实设备拓扑或实验结果。准确通道见下一图。
+
+![图 17-4：三种跨域边界与不同的数据合同](../assets/17-domain-contracts.svg)
+
+发一条消息前，发送方与接收方应共同回答：谁有权声明它；对哪台机器人/哪个任务生效；依据哪个版本；保存在哪里、多久失效；接收后允许改变什么。任何一问无法回答，就不能靠换一种消息中间件补全语义。
+
+| 路径 | 最小必要信息 | 接收方怎样使用 | 不应附带的隐含权力 |
+| --- | --- | --- | --- |
+| 云→边任务委托 | 目标合同、批准范围、预算/期限、robot、任务 revision、当前 claim/Basis | Host 在包络内细化与执行 | 无界工具访问、跳过本机停止条件 |
+| 边→云进度与完成 | 原任务/命令绑定、状态、失败或未知、原完成证明及引用 | 对原版本更新进度或确认回执 | 把旧 revision 的完成算到新 revision |
+| robot A→robot B | agent.data.v1 身份、stream/sequence、TTL、空间 Basis、业务 payload | 先持久接收，再按业务条件决定采纳 | 代替 B 的本地动作授权 |
+| 角色→角色 | 原失败、causation/correlation、诊断、恢复建议及绑定 | 确定性恢复准入后才能行动 | Ops 的文字建议直接驱动设备 |
+| 边→模型服务 | 角色规则、目标/约束、有界语义事实、当轮工具 schema | 返回候选计划/调用 | 原始密钥、无限制数据库读取权 |
+| Agent→本机 Runtime | command、设备与能力参数、当前执行依据、期限 | journal/设备准入、派发与反馈 | HTTP 成功即视为物理完成 |
+
+这是语义核对表，不是把所有路径统一成一个 JSON 协议。现有云边目标、角色事件、peer 信封与模型 HTTP 请求各有自己的类型和入口；“统一通信层”应复用身份/追踪/重试设施，同时保留业务差异。
+
+## 17.9 为什么不把整个地图、整个历史都发给所有人
+
+教学设定：点云每帧 100000 点，每点 16 bytes，10 Hz；暂不计传输头与压缩：
+
+> 原始速率 R_raw = N_point × bytes_per_point × frequency
+> = 100000×16×10 = 16,000,000 bytes/s = 128 Mbit/s。　（17-1）
+
+若规划者只需每秒两份、每份 2 KiB 的区域状态，速率是 4096 bytes/s，约 32.8 kbit/s。两者相差约 3906 倍。但这不是“同等信息无损压缩了 3906 倍”：区域状态丢掉了大量几何信息，不能替代局部避障、配准或事故调查。
+
+因此按消费者分层：控制器与局部地图服务读取满足时延的传感器数据；语义规划读取障碍/区域/能力状态；任务协调读取目标进度；调查者按权限读取原始证据。模型若要识别图像，可由专门感知路径提交选定帧，不能据此声称现有文本规划请求包含了所有 RGB-D/点云。
+
+跨域大对象宜采用“元数据+内容引用”的扩展：来源、采集时间、frame/map、内容类型、字节数、SHA、受控读取地址。**这是大对象协议的设计建议**，不是说当前 agent.data.v1 已提供通用对象存储。现有 payload 上限为 64 KiB，更适合受限消息；原始对象仍要有独立的保留策略、访问控制与丢失处理。引用失效时应报告证据缺失，不能把引用当作证据本身。
+
+## 17.10 两种 Basis 看起来相似，为什么不能互换
+
+执行 Basis 回答“这次动作在什么授权和状态下被允许”，含 task/claim/command/设备/目录与世界依据。数据交换 Basis 回答“这份观测在哪个空间定义中成立”，含 world/frame/transform/map。后一种并不包含足以授权运动的全部内容。
+
+用教学版本组表达一次决策依赖：
+
+> C = (taskRevision, claimVersion, catalogRevision, mapRevision, transformRevision)。　（17-2）
+
+C 不是当前代码新增的一种协议对象，而是把不同合同的必要条件放在一起思考。也不能对它取一个数字 max：地图 R9 比 R8 新，不表示任务 revision 2 比 3 更合适。这里的一致性是各维度满足其合同的兼容关系，而非“全部字段取最新”。
+
+![图 17-5：多维版本相容，不能按一个时间戳覆盖](../assets/17-version-cut.svg)
+
+例如本地决策用 `(3,12,C7,8,R5)`，收到同行的 mission revision 3、map 8、transform R4。任务号和地图号看似相同，但空间依据不相容；现有 CoverageView 拒绝采纳。若未来支持 R4→R5 重投影，必须先验证该变换的有效范围、时间、来源和误差，生成新的派生事实并保留原引用，不能直接改标签。
+
+## 17.11 坐标变换的数值例子：为什么误差也要传播
+
+以下二维截面用于解释三维同类问题，参数均为教学假设。A 机器人观测点 p_A=(1,0) m，A 到共享世界的旋转为 90°、平移为 t=(2,1) m：
+
+> p_W = R_WA p_A + t_WA；R_WA = [[0,−1],[1,0]]。
+> 因而 p_W = (2,2) m。　（17-3）
+
+B 若错误使用零旋转，得到 (3,1) m，偏差为 √2 m。两边都把 frame 字符串叫作 map，不能使这两个位置相同。三维通常使用齐次变换 T 和带时间的变换链，来源与版本必须随数据保存。
+
+在线性化、小误差且两类误差独立的假设下，令 Σ_p 为观测协方差，Σ_T 为变换参数协方差，J_T 为对变换参数的雅可比：
+
+> Σ_W ≈ RΣ_pRᵀ + J_TΣ_TJ_Tᵀ。　（17-4）
+
+存在相关性时还需交叉项。这个推导说明“配准成功”并不等于位置确定：安全距离与覆盖判断可能需要不确定性余量。**当前 peer 覆盖合同主要检查精确版本与集合，不实现这里的协方差融合**。未来扩展应同时补误差模型与消费者规则，而非只加一个 confidence 浮点数。
+
+## 17.12 一个目标如何在云、AGV、UAV 与模型之间流动
+
+教学目标：“AGV 巡检 B、C 后回 A，UAV 提供高位货架观察；禁止进入 D；不能确认运动结果时停止扩大任务。”它用于合同推演，不是本版新增实测，也不假设已经有通用自动群体分配器。
+
+| 时点 | 发生的交换 | 新增的事实与下一步 |
 | --- | --- | --- |
-| `/v1/tasks` 兼容通道 | 有序能力计划和目录，随后批准 | 执行器按已冻结调用推进 |
-| `/v1/objectives` 目标通道 | 粗目标、授权、完成条件与预算，随后批准 | 边缘Host分代生成包络内子计划 |
+| t₀ | 云端给各边缘明确目标范围与授权 | 每台 Host 有独立目标/预算，不能用共享一句话代替分工合同 |
+| t₁ | AGV 读本机进度与新鲜空间状态 | 模型看到经筛选事实与目录，输出候选计划 |
+| t₂ | UAV 持久发送 shelf-top-2 观察 | Outbox 可重发；接收 Inbox ACK 只保证该信封被接受 |
+| t₃ | AGV 消费同行 feed | R4/R5 不兼容则记录 rejected，不改变本地完成账本 |
+| t₄ | AGV 发 command-c61，响应丢失 | 本机 pending/原 command 保留，不能根据云端催促重做 |
+| t₅ | Ops 调查，取得完整匹配子证据或证据不足 | 前者按恢复规则补记，后者保持 unknown/受控停止 |
+| t₆ | 边缘发送原完成证明，云端响应丢失 | 补传原证明；新任务 revision 不能吸收旧结果 |
 
-现有自然语言页面和旧系统Agent/MCP草案工具仍走冻结计划通道。新通道需要显式提交 `robot.objective.v1` 合同；创建只保存单个 `edge.goal` 父节点，不调用云端规划器、不自动批准。批准后父目标和权限不因子计划代数变化。
+模型可能在 t₁、t₅ 参与不同角色的候选生成，但并不拥有 t₄ 的物理事实。云端可以变更业务目标，仍不能凭一条新自然语言擦除未决命令。协作的核心是让每个角色贡献可追溯的新信息，而不是让所有角色重复思考同一段聊天。
 
-目标创建以认证调用者与 `idempotencyKey` 确定身份。相同请求重试返回原Task并保留批准/进度，改合同复用键返回冲突；当前在线目录准入仍适用。Fleet操作者可以创建/批准，设备凭据不能给自己授予目标。后续批准、查询和取消复用任务路由，取消请求仍需设备停止反馈。
+## 17.13 三种跨域方案怎样选择
 
-## 17.3 目标包络怎样限制自主性
-
-| 合同字段 | 执行含义 |
-| --- | --- |
-| robotId / catalogRevision | 绑定本机与规范化能力目录 |
-| goal | 自然语言业务目标，最多4,000字节 |
-| grants | 工具、参数Schema和相同写调用次数；默认1次 |
-| effects / resources | 允许的效果；v1资源只能是已绑定机器人的 `robot` |
-| completion | 1–16个已注册只读服务的键路径/精确值谓词，全部成立 |
-| budget / expiresAt | 持久计划/步骤/读预算与期限，不因重启重置 |
-
-Local目录返回 `goalCatalogRevision` 与按工具名索引的 `goalCapabilities`；Fleet通过设备goal-catalog读取。它与低层Runtime服务目录摘要不同。参数包络可限定房间ID、路线或高度范围；执行前还校验Provider原始Schema、效果与资源。自然语言约束没有对应合同或验证器时不能自动成为安全规则。
-
-单目标上限为8代计划、128次子能力调用、4,096次Host业务读取和86,400秒；每代能力计划最多16 calls。一次复合 `robot.task` 内部可能有多个物理/验证子步骤，控制循环和遥测另有预算。要记录各层单位，不能把这些上限解释为所有动作和读取的共同计数。
-
-共享物品、电梯、区域或空域仍由全局协调层处理，本版目标合同不能取得这些资源。更长任务应提出新的明确目标与完成条件，不自动延长原期限或批准范围。
-
-## 17.4 Harness与Task/Ops/Recovery的实际装配
-
-Task使用 `capabilityagent.Planner` 读取受限目录和本机语义观测，输出子计划；Executor复用能力执行与复合机器人Runner，逐步验证效果。Ops从持久子回执判断明确未准入、只读失败或结果未知。RecoveryPolicy只给出建议，默认 `BoundedRecovery` 选择剩余重规划、对账或停止，最终由Host检查权威、预算与重复效果。
-
-这些是逻辑角色，不要求分别调用LLM。Ops/Recovery没有命令端口，即便换成模型策略也不能解除unknown或扩张grant。Local原 `agentruntime` 事件总线继续承担原本调查协作；Worker没有原样继承整套总线，也不是新增的跨机器远程Agent宿主。
-
-Harness共享模型/工具循环、上下文、参数约束和trace，按角色装配目录与路由。GOAL、INTENT、PLANNING、RECOVERY、SYSTEM可以分别配置，但配置名不等于该角色已经在对应部署启用。源码应同时读[Host](../../internal/edgeagent/host.go)、[监督策略](../../internal/edgeagent/supervision.go)和[Local装配](../../cmd/local-agent/agentruntime.go)。
-
-## 17.5 通讯分别承担什么权威
-
-| 通道/合同 | 内容 | 消费后的边界 |
+| 方案 | 优点 | 代价与适用条件 |
 | --- | --- | --- |
-| Local `agent.event.v1` | 执行事实、诊断、建议与因果身份 | 实时收到不等于落盘；恢复核对持久链 |
-| 云边 `execution.context.v1` | task/revision、claim、Basis与执行摘要 | 通知仅唤醒；按实时批准与租约准入 |
-| `robot.objective.v1` / Host事件 | 目标包络、子计划、进度、finding/decision和证明 | 建议与进度不扩大父授权 |
-| `context.completion.v2` | 精确结果回执与可重入收尾 | 重传旧结果，不产生新动作 |
-| `agent.data.v1` | 地图/状态等advisory业务数据 | ACK只代表收取，不批准、不证明到达 |
+| 中心收全部数据并逐步决策 | 全局分析方便，入口简单 | 带宽/时延与中心可用性压力大，现场停止仍需本机 |
+| 所有 Agent 复制全量上下文 | 原型容易互相“看见” | 隐私、过期事实、权限混淆与冲突成本随规模上升 |
+| 边缘拥有执行账本，交换受限合同和事实 | 本机闭环明确，异构差异留在 Harness 内 | 需认真设计版本、拒绝、补传与联合任务验证 |
 
-Fleet任务源使用Redis Streams或HTTP长轮询。Worker先把通知持久写入本机inbox再ACK，重复通知去重后领取当前claim。设备HTTP凭据、FleetGateway mTLS、Runtime安全字段分别约束不同边界。任务事件/outbox与状态在同库提交，实体动作仍不属于数据库事务。
+本系统沿第三种方向构建：复用 Host 与执行生命周期，消息表达明确的业务承诺。它不意味着已经实现任意机器人、任意网络和任意联合目标的自动协作。论文可研究分配策略、压缩策略或通信调度，但应保持动作权威与物理验证不被这些策略隐式改变。
 
-目标父事件包括 `EDGE_PLAN_CREATED`、`EDGE_CHILD_EVENT`、`EDGE_OPS_FINDING`、`EDGE_RECOVERY_DECISION`。父目标、代数、子任务、步骤和命令标识连接执行历史。模型看有限进度；云端最终核验已申报子计划、逐步验证、次数和完成谓词，进度消息遗漏可以从本地账本补传，不能用重新执行补消息。
-
-## 17.6 Basis、持久预算与恢复表
-
-Basis绑定task/revision、aggregate/claim version、intent/step/command、robot/adapter/catalog、executionDigest、资源owner/fence及世界来源基线。摘要检验内容一致性，不是签名、审批或新鲜物理观测。fence/sequence使用精确typed uint64，不能经float64舍入后再比较。
-
-边缘在同库CAS保存ACCEPTED后才允许工作；每次规划/工具动作前重新检查批准内容、原父claim、目录与设备。云断连失去父claim续租后停止，没有离线继续授权。
-
-| 持久事实 | 允许恢复 | 禁止行为 |
-| --- | --- | --- |
-| 无checkpoint | 当前权威有效后先落盘接受 | 落盘失败仍派发 |
-| 安全目标检查点，无在途动作 | 重入原claim，使用原预算与子计划 | 新建任务或重置额度绕过历史 |
-| 子动作已完成、父确认丢失 | 同时核对StepCompleted与完整CAPABILITY_VERIFIED，追加EDGE_STEP_RECOVERED | 仅凭开始/回执或错配证据重放 |
-| 写可能生效，验证缺失 | 保留UNKNOWN_OUTCOME并对账 | Recovery建议或新command使其变可重试 |
-| 已验证结果，报告待交付 | 只补传原计划/证明/completion | 重做运动补回执 |
-| COMPLETED | 不动作，补ACK | 将旧成功归给新revision |
-
-父检查点保存代数、步骤/读预留、完成效果、Pending与完成读状态。完整子账本核对已确认效果次数；只给模型最近8项不会降低检查范围。`CanResumeGoal`只是本地只读预检，实际Run仍检查实时权威。
-
-全部子动作确认后，完成条件瞬态不可用可做全目标最多两次持久只读重试，不重规划。读取确认落盘中断则要求复核；权限拒绝、取消和总期限超时不重试。初次运行与续跑共用原claim的失败上报，取消后的有界诊断上报也不产生动作权。
-
-## 17.7 完成证明、中心收尾与物理信任
-
-中心v2 receipt、成功状态、pendingCompletion与finalization outbox在同一存储事务提交。边缘丢失完成响应后只重发原结果；即使revision已经切换，中心也只确认旧精确回执，不推进新计划。finalization按原grants/effects释放租约、投影归属并尊重更高fence与取消；pending未闭合不得领取新工作，收尾不调用Runtime。
-
-目标的父证明还需关联每代子计划、逐步设备认证的验证和全部完成谓词。过了执行期限可交付既有证明，但不能再动作；原父权威失效仍需对账。云端检验合同和设备证据，不能独立测量机器人是否真的到达，`eventDigest`也不是硬件远程证明。
-
-同机器人并发Worker必须共享执行DB，CAS不是跨不同库的锁。成功事务前外部Transfer、失效且未投影的共享grant、旧leader混跑等窗口仍需对账；不能把v2收尾概括为覆盖全部物理exactly-once。
-
-## 17.8 多机器人合作与异构移动
-
-已有双机器人流程由A把红方块放入交接区，B取出送到目标区；Coordinator按前序成功领取下一Intent。物料稳定在区内、A不再持有、命令后来源新鲜与owner/fence转换分别验证。共同world、物料ID和标定必须对应，“A已交给B”的消息不能替代交接证据。
-
-目标Host只绑定一台robot/catalog，v1只有robot资源；既有按序交接与新单机目标通道不能直接相加成通用异构并行编队。跨机器人目标分配、共享区域预约、联合取消和联合后置条件仍需上层协议与实际验收。见[双机操作](../../docs/operations/robocasa-handoff.md)。
-
-异构差异通过RobotProfile、能力Manifest、验证器和ROS 2适配器表达。UGV、足式和多旋翼可以共用navigation/verify_arrival语义，实际准备、限位、制动/平衡/降落由设备实现。二维Nav2保留；地形和三维空间通道检查地图/部署摘要、完整定位与路径身份。外部SLAM负责估计，Provider保存测量与地图；目标宿主不接管高频运动控制。
-
-2026-10-14三类记录式控制器实验支持DDS/gRPC空间协议闭环，2026-10-15 Gazebo只验证单台地面机器人巡检；它们不构成无人机飞行、足式步态或真实型号认证。`auto`驱动归一规则也不是任意Adapter通配符。
-
-## 17.9 独立数据面与跨域冲突
-
-edge-exchange使用独立SQLite inbox/outbox、TLS 1.3与peer凭据，信封含sender/receiver、domain、单调sequence、TTL、空间/上下文身份和有界payload。双方重启用原信封继续投递，去重后ACK；它没有机器人命令端口。
-
-```text
-A本地事实 → outbox → 认证传输 → B/云端inbox → 数据ACK
-                                      ↓
-                     显式消费者核对身份/时效/地图与任务范围
-                                      ↓
-                     查询、建议或待审批方案 → 正式任务通道
-```
-
-相同mapId却摘要不同要保留冲突、拒绝关联；新修订先记录建议，不能覆盖当前地图。跨机器人pose需共同world变换，标签与空间包也各有版本。云端同事可实现合同与业务消费者，不需要共享边缘私钥或模型key。接口与双进程验证见[设备数据交换](../../docs/development/edge-data-exchange.md)。
-
-高频感知和控制留在设备，上传任务需要的语义字段或选定证据。模型Assist只推理；原始trace即使没有Authorization也可能含业务资料，公开发布另做权限与脱敏。部署指南见[边缘实测](../../docs/operations/edge-field-testing.md)和[目标接口](../../docs/guides/delegated-edge-goals.md)。
-
-## 17.10 小结与源码路线
-
-按 [目标合同](../../core/objective/contract.go)→[任务创建](../../tasks/objective.go)→[共享Host](../../internal/edgeagent/host.go)→[Worker](../../edge/worker/worker.go)→[云端证明](../../fleet/coordinator/completion.go)阅读，再检查[恢复](../../internal/edgeagent/recovery.go)、[完成只读恢复](../../internal/edgeagent/completion.go)与[收尾](../../fleet/coordinator/finalization.go)。
-
-云端与边缘共享可核对的目标、权限和事实身份，不必共享同一份聊天。边缘自主性来自有界目标委托，稳定性来自持久预算、逐步验证及未知时停止。对应软件与实际Gazebo证据在第19章分别讨论。
-
-[上一章：工程对照](ch16-coding-agent-contrast.md) · [下一章：长程上下文](ch18-long-horizon-context.md)
-
-## 17.11 分层习题
+## 17.14 分层习题
 
 基础题 B：解释Local、Fleet和Assist为何不是三套等价任务权威。
 

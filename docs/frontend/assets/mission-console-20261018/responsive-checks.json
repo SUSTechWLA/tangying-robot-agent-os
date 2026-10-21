@@ -1,0 +1,153 @@
+{
+  "preview": "http://127.0.0.1:18131/",
+  "backend": "unavailable HTTP 502; no motion commands issued",
+  "checks": [
+    {
+      "focused": "page-title",
+      "page": "workspace",
+      "scrollWidth": 390,
+      "title": "工作台",
+      "width": 390
+    },
+    {
+      "focused": "page-title",
+      "page": "problems",
+      "scrollWidth": 390,
+      "title": "问题处理",
+      "width": 390
+    },
+    {
+      "focused": "page-title",
+      "page": "tasks",
+      "scrollWidth": 390,
+      "title": "任务记录",
+      "width": 390
+    },
+    {
+      "focused": "page-title",
+      "page": "calibration",
+      "scrollWidth": 390,
+      "title": "整机标定",
+      "width": 390
+    },
+    {
+      "focused": "page-title",
+      "page": "mapping",
+      "scrollWidth": 390,
+      "title": "SLAM 建图",
+      "width": 390
+    },
+    {
+      "focused": "page-title",
+      "page": "devices",
+      "scrollWidth": 390,
+      "title": "我的机器人",
+      "width": 390
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "workspace",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "problems",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "tasks",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "calibration",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "mapping",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "devices",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "diagnostics",
+      "scrollWidth": 980,
+      "width": 980
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "workspace",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "problems",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "tasks",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "calibration",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "mapping",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "devices",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "diagnostics",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "audience": "developer",
+      "focused": "page-title",
+      "page": "diagnostics",
+      "scrollWidth": 390,
+      "width": 390
+    }
+  ]
+}

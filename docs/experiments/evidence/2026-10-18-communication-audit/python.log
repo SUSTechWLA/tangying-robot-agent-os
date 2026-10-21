@@ -1,0 +1,17 @@
+........................................................................ [ 69%]
+................................                                         [100%]
+============================= slowest 20 durations =============================
+0.50s call     robot/gateway/tests/test_ros2_profile.py::test_same_millisecond_cached_capture_is_not_new_execution_evidence
+0.41s call     robot/gateway/tests/test_ros2_profile.py::test_success_without_post_command_capture_is_not_accepted
+0.07s call     robot/gateway/tests/test_ros2_profile.py::test_ros2_runtime_embeds_exact_post_completion_capture_for_go_evidence
+0.03s call     robot/gateway/tests/test_ros2_profile.py::test_long_single_robot_sequence_keeps_capture_cache_bounded_and_fresh[legged]
+0.03s call     robot/gateway/tests/test_ros2_profile.py::test_long_single_robot_sequence_keeps_capture_cache_bounded_and_fresh[ugv]
+0.02s call     robot/gateway/tests/test_ros2_profile.py::test_long_single_robot_sequence_keeps_capture_cache_bounded_and_fresh[uav]
+0.02s call     robot/gateway/tests/test_mobility_contract.py::test_mobility_templates_cross_actual_grpc_and_default_to_disarmed[ugv]
+0.01s setup    robot/gateway/tests/test_mobility_contract.py::test_commissioned_mobility_uses_shared_admission_journal_and_callback[ugv]
+0.01s call     robot/gateway/tests/test_mobility_contract.py::test_commissioned_mobility_uses_shared_admission_journal_and_callback[ugv]
+0.01s call     robot/gateway/tests/test_mobility_contract.py::test_mobility_templates_cross_actual_grpc_and_default_to_disarmed[uav]
+0.01s call     robot/gateway/tests/test_mobility_contract.py::test_mobility_templates_cross_actual_grpc_and_default_to_disarmed[legged]
+
+(9 durations < 0.005s hidden.  Use -vv to show these durations.)
+104 passed in 1.46s

@@ -1,0 +1,588 @@
+[
+  {
+    "case": "three-heterogeneous-identities-to-peer-and-cloud-consumption",
+    "views": {
+      "ugv": {
+        "schemaVersion": "agent.coverage.view.v1",
+        "missionId": "unknown-room-survey",
+        "missionRevision": "contract-r1",
+        "geometryId": "grid-1",
+        "basis": {
+          "worldId": "room",
+          "frameId": "shared-map",
+          "transformRevision": "registered-world-1",
+          "mapId": "grid",
+          "mapRevision": "1"
+        },
+        "cursor": "2",
+        "prunedThrough": "0",
+        "completeRead": true,
+        "advisoryOnly": true,
+        "grantsExecution": false,
+        "physicalCompletion": false,
+        "evaluatedAtMs": 1792338887346,
+        "proposedCoveredTargetIds": [
+          "2",
+          "3"
+        ],
+        "remainingTargetIds": [
+          "1"
+        ],
+        "contributions": [
+          {
+            "messageId": "sha256:ff63f8b6eab69101aa56e2e0c9ea9d5923d7752d6a24250c6b4ae90b8f1541f2",
+            "sender": {
+              "agentId": "edge-uav",
+              "robotId": "uav",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "1",
+            "observedAtMs": 1792338886367,
+            "targetIds": [
+              "2"
+            ]
+          },
+          {
+            "messageId": "sha256:271facc3157bb2bf7c3d3ab23cf6a7ada01cb7da1489f63fea545dc3153946d8",
+            "sender": {
+              "agentId": "edge-legged",
+              "robotId": "legged",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "2",
+            "observedAtMs": 1792338886370,
+            "targetIds": [
+              "3"
+            ]
+          }
+        ],
+        "rejected": []
+      },
+      "uav": {
+        "schemaVersion": "agent.coverage.view.v1",
+        "missionId": "unknown-room-survey",
+        "missionRevision": "contract-r1",
+        "geometryId": "grid-1",
+        "basis": {
+          "worldId": "room",
+          "frameId": "shared-map",
+          "transformRevision": "registered-world-1",
+          "mapId": "grid",
+          "mapRevision": "1"
+        },
+        "cursor": "2",
+        "prunedThrough": "0",
+        "completeRead": true,
+        "advisoryOnly": true,
+        "grantsExecution": false,
+        "physicalCompletion": false,
+        "evaluatedAtMs": 1792338887347,
+        "proposedCoveredTargetIds": [
+          "1",
+          "3"
+        ],
+        "remainingTargetIds": [
+          "2"
+        ],
+        "contributions": [
+          {
+            "messageId": "sha256:bbff078815348a4f216563bebbd0dc6714a7fce9205282b89536ed6159a26fa9",
+            "sender": {
+              "agentId": "edge-ugv",
+              "robotId": "ugv",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "1",
+            "observedAtMs": 1792338886364,
+            "targetIds": [
+              "1"
+            ]
+          },
+          {
+            "messageId": "sha256:a040e1905475f170d587cdf20ccdf126c8fb592b025b09cca8844e22f24c6b44",
+            "sender": {
+              "agentId": "edge-legged",
+              "robotId": "legged",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "2",
+            "observedAtMs": 1792338886370,
+            "targetIds": [
+              "3"
+            ]
+          }
+        ],
+        "rejected": []
+      },
+      "legged": {
+        "schemaVersion": "agent.coverage.view.v1",
+        "missionId": "unknown-room-survey",
+        "missionRevision": "contract-r1",
+        "geometryId": "grid-1",
+        "basis": {
+          "worldId": "room",
+          "frameId": "shared-map",
+          "transformRevision": "registered-world-1",
+          "mapId": "grid",
+          "mapRevision": "1"
+        },
+        "cursor": "2",
+        "prunedThrough": "0",
+        "completeRead": true,
+        "advisoryOnly": true,
+        "grantsExecution": false,
+        "physicalCompletion": false,
+        "evaluatedAtMs": 1792338887348,
+        "proposedCoveredTargetIds": [
+          "1",
+          "2"
+        ],
+        "remainingTargetIds": [
+          "3"
+        ],
+        "contributions": [
+          {
+            "messageId": "sha256:738008da21f11d6b12ff8bcfc0b864a0e3e6cca061b9520039761303b7431e32",
+            "sender": {
+              "agentId": "edge-ugv",
+              "robotId": "ugv",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "1",
+            "observedAtMs": 1792338886364,
+            "targetIds": [
+              "1"
+            ]
+          },
+          {
+            "messageId": "sha256:508e0dc2ba2e15061e508dfa2a2d05191bbd6b7483d02c312969d9f5ed9e2084",
+            "sender": {
+              "agentId": "edge-uav",
+              "robotId": "uav",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "2",
+            "observedAtMs": 1792338886367,
+            "targetIds": [
+              "2"
+            ]
+          }
+        ],
+        "rejected": []
+      },
+      "cloud": {
+        "schemaVersion": "agent.coverage.view.v1",
+        "missionId": "unknown-room-survey",
+        "missionRevision": "contract-r1",
+        "geometryId": "grid-1",
+        "basis": {
+          "worldId": "room",
+          "frameId": "shared-map",
+          "transformRevision": "registered-world-1",
+          "mapId": "grid",
+          "mapRevision": "1"
+        },
+        "cursor": "3",
+        "prunedThrough": "0",
+        "completeRead": true,
+        "advisoryOnly": true,
+        "grantsExecution": false,
+        "physicalCompletion": false,
+        "evaluatedAtMs": 1792338887349,
+        "proposedCoveredTargetIds": [
+          "1",
+          "2",
+          "3"
+        ],
+        "remainingTargetIds": [],
+        "contributions": [
+          {
+            "messageId": "sha256:582453c4018203f008067ac8a8a01ef69b2f1c61d6b46dedb1c9b01c918b4165",
+            "sender": {
+              "agentId": "edge-ugv",
+              "robotId": "ugv",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "1",
+            "observedAtMs": 1792338886364,
+            "targetIds": [
+              "1"
+            ]
+          },
+          {
+            "messageId": "sha256:0abbdfc9d40adf13b81d29495ddba43ce5fc3decce5a1b102fed71108167b315",
+            "sender": {
+              "agentId": "edge-uav",
+              "robotId": "uav",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "2",
+            "observedAtMs": 1792338886367,
+            "targetIds": [
+              "2"
+            ]
+          },
+          {
+            "messageId": "sha256:5519899dfab926541f7f7c0f7256929b5351f34bc2013dece1c03fb292d15340",
+            "sender": {
+              "agentId": "edge-legged",
+              "robotId": "legged",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "sequence": "1",
+            "feedRevision": "3",
+            "observedAtMs": 1792338886370,
+            "targetIds": [
+              "3"
+            ]
+          }
+        ],
+        "rejected": []
+      }
+    }
+  },
+  {
+    "case": "actual-python-explorer-adapter-rescores-without-completing-local-ledger",
+    "proposal": {
+      "candidates": [
+        {
+          "targetId": "local-needed",
+          "score": 2.8,
+          "expectedObservedVoxelIds": [
+            1
+          ]
+        },
+        {
+          "targetId": "peer-covered",
+          "score": 2.0,
+          "expectedObservedVoxelIds": [
+            2
+          ]
+        }
+      ],
+      "diagnostics": {
+        "peerAdvice": {
+          "available": true,
+          "advisoryOnly": true,
+          "weight": 0.25,
+          "proposedTargets": 2,
+          "cursor": "2"
+        }
+      }
+    },
+    "localLedger": {
+      "schemaVersion": "exploration.coverage.v1",
+      "missionId": "unknown-room-survey",
+      "worldFrameRevision": "registered-world-1",
+      "geometryId": "grid-1",
+      "metric": "classified_voxel_coverage",
+      "scope": "declared_targets",
+      "observedVoxels": 0,
+      "targetVoxels": 3,
+      "coverage": 0.0,
+      "conflictingVoxels": 0,
+      "repeatedObservations": 0,
+      "totalObservations": 0,
+      "repeatRatio": null,
+      "lastEventHash": "4b7c7bbbe65d63649a564910a450c5d4369c9c2f13a1d2cf1c56115515a14b8f"
+    }
+  },
+  {
+    "case": "offline-cloud-and-sender-restart-preserve-paginated-consumption",
+    "cursorBefore": "3",
+    "feedAfter": {
+      "schemaVersion": "agent.data.feed.v1",
+      "after": "3",
+      "next": "6",
+      "head": "6",
+      "prunedThrough": "0",
+      "more": false,
+      "items": [
+        {
+          "revision": "4",
+          "envelope": {
+            "schemaVersion": "agent.data.v1",
+            "messageId": "sha256:98190b45ac17dec22d790bf2ce5cf2fc7a79b5663fd69ec21f68e8004a05235f",
+            "sender": {
+              "agentId": "edge-uav",
+              "robotId": "uav",
+              "domain": "lab"
+            },
+            "recipient": {
+              "agentId": "edge-cloud",
+              "robotId": "cloud",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "kind": "observation",
+            "sequence": "2",
+            "createdAtMs": 1792338887368,
+            "expiresAtMs": 1792338892368,
+            "basis": {
+              "worldId": "room",
+              "frameId": "shared-map",
+              "transformRevision": "registered-world-1",
+              "mapId": "grid",
+              "mapRevision": "1"
+            },
+            "payload": {
+              "geometryId": "grid-1",
+              "missionId": "unknown-room-survey",
+              "missionRevision": "contract-r1",
+              "observedAtMs": 1792338887365,
+              "observedTargetIds": [
+                "2"
+              ],
+              "schemaVersion": "agent.coverage.advisory.v1"
+            }
+          }
+        },
+        {
+          "revision": "5",
+          "envelope": {
+            "schemaVersion": "agent.data.v1",
+            "messageId": "sha256:363b52fa2692812355b82181ca98adfaaa3d59c408723abeaab1566407ff08ad",
+            "sender": {
+              "agentId": "edge-legged",
+              "robotId": "legged",
+              "domain": "lab"
+            },
+            "recipient": {
+              "agentId": "edge-cloud",
+              "robotId": "cloud",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "kind": "observation",
+            "sequence": "2",
+            "createdAtMs": 1792338887372,
+            "expiresAtMs": 1792338892372,
+            "basis": {
+              "worldId": "room",
+              "frameId": "shared-map",
+              "transformRevision": "registered-world-1",
+              "mapId": "grid",
+              "mapRevision": "1"
+            },
+            "payload": {
+              "geometryId": "grid-1",
+              "missionId": "unknown-room-survey",
+              "missionRevision": "contract-r1",
+              "observedAtMs": 1792338887370,
+              "observedTargetIds": [
+                "3"
+              ],
+              "schemaVersion": "agent.coverage.advisory.v1"
+            }
+          }
+        },
+        {
+          "revision": "6",
+          "envelope": {
+            "schemaVersion": "agent.data.v1",
+            "messageId": "sha256:6ec383afaf19b7fa5b4f5dbe8e99c958ae3bf4747cc7d9bc36708a0ed8ec5634",
+            "sender": {
+              "agentId": "edge-ugv",
+              "robotId": "ugv",
+              "domain": "lab"
+            },
+            "recipient": {
+              "agentId": "edge-cloud",
+              "robotId": "cloud",
+              "domain": "lab"
+            },
+            "stream": "coverage/depth",
+            "kind": "observation",
+            "sequence": "2",
+            "createdAtMs": 1792338887363,
+            "expiresAtMs": 1792338892363,
+            "basis": {
+              "worldId": "room",
+              "frameId": "shared-map",
+              "transformRevision": "registered-world-1",
+              "mapId": "grid",
+              "mapRevision": "1"
+            },
+            "payload": {
+              "geometryId": "grid-1",
+              "missionId": "unknown-room-survey",
+              "missionRevision": "contract-r1",
+              "observedAtMs": 1792338887360,
+              "observedTargetIds": [
+                "1"
+              ],
+              "schemaVersion": "agent.coverage.advisory.v1"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "case": "scope-freshness-and-bounded-read-refusals",
+    "view": {
+      "schemaVersion": "agent.coverage.view.v1",
+      "missionId": "unknown-room-survey",
+      "missionRevision": "contract-r1",
+      "geometryId": "grid-1",
+      "basis": {
+        "worldId": "room",
+        "frameId": "shared-map",
+        "transformRevision": "registered-world-1",
+        "mapId": "grid",
+        "mapRevision": "1"
+      },
+      "cursor": "14",
+      "prunedThrough": "0",
+      "completeRead": true,
+      "advisoryOnly": true,
+      "grantsExecution": false,
+      "physicalCompletion": false,
+      "evaluatedAtMs": 1792338898381,
+      "proposedCoveredTargetIds": [
+        "1",
+        "2",
+        "3"
+      ],
+      "remainingTargetIds": [],
+      "contributions": [
+        {
+          "messageId": "sha256:381c065c3e3fcce948b8126f037351caa6a57e78512c97d67e544a1b0f5be0b9",
+          "sender": {
+            "agentId": "edge-ugv",
+            "robotId": "ugv",
+            "domain": "lab"
+          },
+          "stream": "coverage/depth",
+          "sequence": "3",
+          "feedRevision": "12",
+          "observedAtMs": 1792338896050,
+          "targetIds": [
+            "1"
+          ]
+        },
+        {
+          "messageId": "sha256:4133552872981158681a6e0c18be480b32c8380583def0bc4e5af4f572c53d89",
+          "sender": {
+            "agentId": "edge-uav",
+            "robotId": "uav",
+            "domain": "lab"
+          },
+          "stream": "coverage/depth",
+          "sequence": "3",
+          "feedRevision": "13",
+          "observedAtMs": 1792338896499,
+          "targetIds": [
+            "2"
+          ]
+        },
+        {
+          "messageId": "sha256:ba47fd3e21b6dfa743104493f722c7d8be38d3ca2c5fffa82227e891317db00e",
+          "sender": {
+            "agentId": "edge-legged",
+            "robotId": "legged",
+            "domain": "lab"
+          },
+          "stream": "coverage/depth",
+          "sequence": "3",
+          "feedRevision": "14",
+          "observedAtMs": 1792338897388,
+          "targetIds": [
+            "3"
+          ]
+        }
+      ],
+      "rejected": [
+        {
+          "messageId": "sha256:582453c4018203f008067ac8a8a01ef69b2f1c61d6b46dedb1c9b01c918b4165",
+          "reason": "superseded"
+        },
+        {
+          "messageId": "sha256:0abbdfc9d40adf13b81d29495ddba43ce5fc3decce5a1b102fed71108167b315",
+          "reason": "superseded"
+        },
+        {
+          "messageId": "sha256:5519899dfab926541f7f7c0f7256929b5351f34bc2013dece1c03fb292d15340",
+          "reason": "superseded"
+        },
+        {
+          "messageId": "sha256:98190b45ac17dec22d790bf2ce5cf2fc7a79b5663fd69ec21f68e8004a05235f",
+          "reason": "superseded"
+        },
+        {
+          "messageId": "sha256:363b52fa2692812355b82181ca98adfaaa3d59c408723abeaab1566407ff08ad",
+          "reason": "superseded"
+        },
+        {
+          "messageId": "sha256:6ec383afaf19b7fa5b4f5dbe8e99c958ae3bf4747cc7d9bc36708a0ed8ec5634",
+          "reason": "superseded"
+        },
+        {
+          "messageId": "sha256:0477a7a716c07f01b5b388477bb212f507dc2742c02d26caa612da9bcd183840",
+          "reason": "envelope_not_fresh"
+        },
+        {
+          "messageId": "sha256:89cc5708f18c25a74828f5d1c9583e89e14d888b3551bdc75289eb3c10fdacb6",
+          "reason": "spatial_basis_mismatch"
+        },
+        {
+          "messageId": "sha256:00f914670437a8b3c7b620f0c4eb2784525b8c56d86aad3c286b3beca2512a88",
+          "reason": "task_scope_mismatch"
+        },
+        {
+          "messageId": "sha256:978ab76f642ee04938e93fee3385c164074affa0a288477d6eeb0a9862164af4",
+          "reason": "observation_not_fresh"
+        },
+        {
+          "messageId": "sha256:8939bb24ef71b077fd03dae613013df9a3583c1f39ace400b793e9a196ca6446",
+          "reason": "target_outside_scope"
+        }
+      ]
+    },
+    "incompleteView": {
+      "schemaVersion": "agent.coverage.view.v1",
+      "missionId": "unknown-room-survey",
+      "missionRevision": "contract-r1",
+      "geometryId": "grid-1",
+      "basis": {
+        "worldId": "room",
+        "frameId": "shared-map",
+        "transformRevision": "registered-world-1",
+        "mapId": "grid",
+        "mapRevision": "1"
+      },
+      "cursor": "14",
+      "prunedThrough": "0",
+      "completeRead": false,
+      "advisoryOnly": true,
+      "grantsExecution": false,
+      "physicalCompletion": false,
+      "evaluatedAtMs": 1792338898383,
+      "proposedCoveredTargetIds": [],
+      "remainingTargetIds": [
+        "1",
+        "2",
+        "3"
+      ],
+      "contributions": [],
+      "rejected": []
+    }
+  }
+]

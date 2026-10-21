@@ -1,0 +1,78 @@
+--- 004/robot/gateway/tangying_robot_gateway/robot_workflow.py
++++ final/robot/gateway/tangying_robot_gateway/robot_workflow.py
+@@ -871,8 +871,13 @@
+                     max(0., float(remaining_m)-.10) if remaining_m is not None else distance)
+         if reach < EXPLORATION["minStepM"]:
+             return False
+-        self._move_and_sample([pose[0]+reach*math.cos(heading),pose[1]+reach*math.sin(heading),
+-                               base[2],math.cos(heading/2),0.,0.,math.sin(heading/2)],
++        target = [pose[0]+reach*math.cos(heading), pose[1]+reach*math.sin(heading), heading]
++        if self._base_anchor is not None:
++            # Continuations plan in the inherited map frame; drivers accept
++            # driver-world commands. Transform once, here at the port boundary.
++            target = relative(self._planning_anchor(), target)
++        self._move_and_sample([target[0],target[1],base[2],
++                               math.cos(target[2]/2),0.,0.,math.sin(target[2]/2)],
+                               bounded=True,fatal=False)
+         return True
+ 
+@@ -917,8 +922,9 @@
+         try:
+             base = self._current_pose()
+             first_pose = previous = pose_se2(list(base))
++            query_pose = compose(self._planning_anchor(), first_pose)
+             unseen = (1. if grid is None else grid.unknown_fraction(
+-                first_pose[0], first_pose[1], EXPLORATION["lookRadiusM"]))
++                query_pose[0], query_pose[1], EXPLORATION["lookRadiusM"]))
+             evidence["initialUnknownFraction"] = unseen
+             if unseen > EXPLORATION["lookDenseThreshold"]:
+                 sweeps = EXPLORATION["lookSweepsMax"]
+@@ -992,7 +998,8 @@
+                 # direction. Missing depth remains missing evidence throughout.
+                 grid = self._grid_object(live) if live is not None else None
+                 if grid is not None and sweep+1 >= EXPLORATION["lookSweepsMin"]:
+-                    unseen = grid.unknown_fraction(previous[0], previous[1],
++                    query_pose = compose(self._planning_anchor(), previous)
++                    unseen = grid.unknown_fraction(query_pose[0], query_pose[1],
+                                                    EXPLORATION["lookRadiusM"])
+                     if unseen <= EXPLORATION["lookThreshold"]:
+                         evidence["status"] = "sufficient_local_evidence"
+--- 004/robot/gateway/tangying_robot_gateway/survey.py
++++ final/robot/gateway/tangying_robot_gateway/survey.py
+@@ -43,7 +43,6 @@
+     still_open,
+     traversable_for,
+ )
+-from .geometry import pose_se2
+ 
+ #: Everything the survey loop's behaviour depends on. Kept in one dict because
+ #: these numbers are only meaningful relative to each other: the arrival radius
+@@ -381,7 +380,6 @@
+                                waypointDistanceM=math.hypot(waypoint[0]-pose[0], waypoint[1]-pose[1]),
+                                minStepM=config["minStepM"])
+             report.publish_exploration(dict(exploration))
+-            before = list(base)
+             try:
+                 acted = driver.drive_step(
+                     waypoint, base, pose, after_pose=None,
+@@ -400,15 +398,18 @@
+                 report.publish_message(decision["message"])
+                 continue
+             after = map_port.planning_pose()
+-            was = pose_se2(before)
++            # Compare in one frame. ``base`` is driver-world; both these poses
++            # are planning-map, including a continuation's nonzero anchor.
++            was = pose
+             moved = math.hypot(after[0] - was[0], after[1] - was[1])
++            yaw_moved = abs(math.atan2(math.sin(after[2]-was[2]), math.cos(after[2]-was[2])))
+             if map_port.depth_starved() >= config["depthStarvedLimit"]:
+                 # Too many views in a row measured almost nothing, so the leg has
+                 # nothing to register even though it can still drive. Ending here
+                 # publishes what was mapped instead of failing the session: a
+                 # partial map with a named reason beats no map at all.
+                 return finish("depth_starved")
+-            if not acted or (moved < 1e-3 and abs(after[2] - was[2]) < 1e-3):
++            if not acted or (moved < 1e-3 and yaw_moved < 1e-3):
+                 # Standing at the viewpoint already, or unable to leave it.
+                 # Either way this target has nothing left to give, so retire it
+                 # instead of re-selecting it on the next pass.

@@ -15,6 +15,8 @@
 
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
+**边缘与云端开发共同入口：**[消息传递、上下文管理与核心 Harness](docs/architecture/edge-agent-communication-and-context.md)，逐层说明本机 Agent、跨机器人、云边和 ROS 2 通道传什么、如何去重与恢复、谁维护执行权和事实；[当前上线就绪评估与本轮复测](docs/development/2026-10-18-edge-communication-readiness.md)给出受控集成与正式无人值守上线的边界。
+
 单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
 
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
@@ -49,6 +51,8 @@ make home-furnished  # 首次体验启动这一套：Gazebo 家庭，http://127.
 
 打开工作台后，先查看机器人连接与相机，再按 [Gazebo 指南](docs/guides/gazebo-default.md)完成标定、建图/启用和定位准备，核对草案后批准首个巡检任务。`make sim-start` 是另一套使用 8787 端口的默认场景入口，可按需求选择。
 
+**多机器人本地工作台：**[按设备切换、查看状态与回溯任务](docs/operations/edge-robot-workspaces.md)。每台机器人运行独立 Local Agent 和数据目录，同一工作台通过显式工作空间访问各设备；切换查看不会暂停或迁移正在执行的任务。[本轮变化与验证](docs/development/2026-10-20-edge-robot-workspaces.md)说明身份、地图、会话和上下文隔离。
+
 工作台的底盘、头部 RGB-D 均来自 Gazebo 相机。建图通过注册的 mapping 服务运行，导航使用 RTAB-Map / Nav2；地图、日志和 journal 按场景持久化。场景切换、验收命令与当前功能边界见 [Gazebo 默认引擎指南](docs/guides/gazebo-default.md)。2026-09-27 同一场景的巡检、厨房往返、拿杯放盘并返回客厅已完成严格自然语言验收；4 个任务、34 步与 76 张原始图像记录见[本次闭环报告](docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md)。以运行时 capability catalogue 与对应版本实测报告为准。
 
 开头的杯具转运任务来自旧 MuJoCo 家庭基线，需要显式选择该后端复现：
@@ -60,6 +64,14 @@ SIM_STACK_ENGINE=mujoco make home-furnished
   --output artifacts/acceptance/my-household-run-1 \
   --scenario patrol --scenario inspect-kitchen --scenario mug-transfer --timeout 600
 ```
+
+已知地图巡检与多层地面增量见[覆盖规划与扩展接口](docs/development/2026-10-18-spatial-coverage-upgrade.md)、[实际实验/图表](docs/experiments/2026-10-18-spatial-coverage-upgrade.md)和[教材补充](book/updates/2026-10-18-spatial-coverage-upgrade.md)：显式 ROI、分层支撑、可替换策略与 Runner 软件闭环。两次已知地图软件覆盖均为 315/315；另有 350 次未知探索消融全部保留 partial，不混为实机或全场景覆盖证明。计划文件不授予运动权限，实际执行沿用当前 Runtime/控制器准入。
+
+异构三维探索研究增量见[设计与模块接口](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)、[配对消融协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)、[实际软件实验与证据](docs/experiments/2026-10-18-spatial-exploration.md)和[教材补充](book/updates/2026-10-17-heterogeneous-spatial-exploration.md)：共用三维观察策略，按本体认证路径，用版本化分工与覆盖账本支持回放和量化比较。当前为软件闭环与可替换 provider，不是已接入 ROS 1 OmniPlanner，也不代表新的 Gazebo/实机三维探索或任意全场景覆盖。
+
+当前边缘与异构协作评估见[执行、通信和运维升级](docs/development/2026-10-18-edge-swarm-readiness.md)与[多轮验收记录](docs/experiments/2026-10-18-edge-swarm-readiness.md)：三类机器人共享 ROS 2 harness，覆盖建议按任务和地图校验，传感器及未决动作可追溯。实机厂商控制器、跨机器人地图对齐和并行动力学仍需逐项接入验证。
+
+新增 [Gazebo 物理闭环](docs/development/2026-10-18-gazebo-field-validation.md)：Local Agent 经 gRPC、ROS 2 与经典力控制器驱动仿真刚体，记录实际测量、停止与并发避碰。真实 lidar 回波参与局部避碰，标定和跨机点云注册另行实验；多机共用集中式实验 hub、真值定位和配置外参，未验证无线分布式自治或在线 SLAM。采用经典控制，无强化学习，不代替大疆飞控、宇树步态或实机验收。结果与失败见[实验报告](docs/experiments/2026-10-18-gazebo-field-validation.md)，学习入口见[教材补充](book/updates/2026-10-18-gazebo-field-validation.md)。
 
 ## 项目框架
 
@@ -332,11 +344,11 @@ make navigation-status
 
 **建图阶段的行为是刻意设计的安全门禁**：全局代价地图的 `allow_unknown=false`，Nav2 拒绝规划穿过尚未建图的区域。所以冷启动后只能导航到已覆盖范围（例如客厅），去厨房会以 `NAV_FAILED NAV2_ACTION_ENDED` 结束——这不是缺陷，而是"不知道的地方不进去"。因此正确顺序是：
 
-1. **建图**：`--mode mapping` 下低速探索覆盖五个房间，确认视觉词典、占据图与定位都在更新；
+1. **建图**：`--mode mapping` 下按场景、传感器与预算逐步探索，确认视觉词典、占据图与定位更新；房间覆盖范围以实际地图和验收证据为准；
 2. **执行**：`--mode localization --scene home` 复用同一张地图，再运行自然语言路线；
 3. **抓取**：Gazebo 使用 `--scene home_furnished` 的陶瓷杯与收纳盘；MuJoCo 使用 `--scene home_task --home-assets artifacts/sim-assets/furnished-home`。不带家庭资产包的彩色模型仅保留为历史测试基线。
 
-工作台支持手动有界移动扫描，以及驱动注册的巡航路线扫描。后者使用已配置路线，尚未实现未知住宅的自主 frontier 探索。RTAB-Map 操作详见[家庭场景操作](docs/guides/home-scene-operations.md)。
+首次进入未知场景使用 `mapping.build(mode=explore)`：有界主动环视、基于实测自由空间的 frontier 选点、局部受阻重规划、预算停止与分段地图发布。`survey` 使用驱动注册路线，手动扫描用于调试；三种模式分别留痕。当前自主探索适配器是平面移动机器人，三维点云保存不等于三维自主探索。开始方式、模块边界与最新验收见[首次扫描升级记录](docs/development/2026-10-17-exploration-first-scan.md)和[实验协议](docs/experiments/2026-10-17-exploration-first-scan-protocol.md)；地图发布成功不代表全环境覆盖。RTAB-Map 操作详见[家庭场景操作](docs/guides/home-scene-operations.md)。
 
 ## 六、真机（Sim2Real）
 
@@ -421,7 +433,7 @@ robot-agent demo
 
 云边和算法扩展的当前能力、模块职责与后续门槛见[模块化与扩展性评价](docs/architecture/modular-extensibility.md)；新的建图实现按[SLAM Provider 指南](docs/development/slam-providers.md)接入。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版2.2.0教材与工程参考版：四篇、19章、9附录、离线HTML/EPUB；以通用原理、当前实现与完整长任务讲清分布式机器人AgentOS。提供57道分层习题、[十二组实验](book/appendix/F-learning-labs.md)、[16周课程](book/appendix/G-course-design.md)和[工程手册](book/appendix/H-engineering-playbook.md)，面向软件、机器人、科研与大学教学。正文纳入目标委托、共享 Edge Host、持久恢复和最新单机器人实验；旧版出版身份与历史实验分别保留。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.1.0：19 章、22 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖执行权威、Harness、失败恢复、跨域消息、模型输入、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
 
 ## 十、这个仓库故意不做什么
 
@@ -457,7 +469,7 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · [分类文档](docs/catalog.md) · 源码含 1451 个 Go 测试函数 + 2208 个 Python 测试函数（静态计数，非已运行结果；通过/跳过以 CI 和实验记录为准）
+MIT License · [分类文档](docs/catalog.md) · 源码含 1462 个 Go 测试函数 + 2573 个 Python 测试函数（静态计数，非已运行结果；通过/跳过以 CI 和实验记录为准）
 
 ### Agent 上下文评测
 

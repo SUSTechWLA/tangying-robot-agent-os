@@ -1,0 +1,11 @@
+{
+  "sourceDifferences": {
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": {
+      "frozenSha256": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+      "finalSha256": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+    }
+  },
+  "reason": "Final lint merged nested scope-admission if conditions; frozen study implementation remains archived. No planner/scene/config change. Final fixtures and source-bound plans rerun after formatting.",
+  "stepBytecodeEqual": true,
+  "stepNamesEqual": true
+}

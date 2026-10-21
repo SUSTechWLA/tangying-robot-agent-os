@@ -1,0 +1,364 @@
+{
+  "robotId": "gazebo-firstscan-20261017-001",
+  "adapter": "gazebo",
+  "skills": [
+    "navigation.navigate",
+    "navigation.pre_position",
+    "verify_arrival",
+    "observe_scene",
+    "arm.move",
+    "recover_to_safe_pose",
+    "emergency_stop",
+    "resolve_targets",
+    "plan_grasp",
+    "manipulation.pick",
+    "verify_grasp",
+    "manipulation.place",
+    "verify_placement"
+  ],
+  "cameras": [
+    "base-rgbd",
+    "head-rgbd"
+  ],
+  "manipulationReady": true,
+  "softwareVersion": "0.7.0",
+  "capabilities": [
+    {
+      "name": "navigation.navigate",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 600000,
+      "safetyLevel": "physical_motion",
+      "mutatesWorld": true
+    },
+    {
+      "name": "navigation.pre_position",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 600000,
+      "safetyLevel": "physical_motion",
+      "mutatesWorld": true
+    },
+    {
+      "name": "verify_arrival",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "read_only"
+    },
+    {
+      "name": "observe_scene",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "read_only"
+    },
+    {
+      "name": "arm.move",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "physical_motion",
+      "mutatesWorld": true
+    },
+    {
+      "name": "recover_to_safe_pose",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "physical_motion",
+      "mutatesWorld": true
+    },
+    {
+      "name": "emergency_stop",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "physical_motion"
+    },
+    {
+      "name": "resolve_targets",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "read_only"
+    },
+    {
+      "name": "plan_grasp",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "read_only"
+    },
+    {
+      "name": "manipulation.pick",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 600000,
+      "safetyLevel": "physical_motion",
+      "mutatesWorld": true
+    },
+    {
+      "name": "verify_grasp",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "read_only"
+    },
+    {
+      "name": "manipulation.place",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 600000,
+      "safetyLevel": "physical_motion",
+      "mutatesWorld": true
+    },
+    {
+      "name": "verify_placement",
+      "description": "RGB-D 测量、房间导航、关节控制、仿真吸附与物理状态验证",
+      "available": true,
+      "cancellable": true,
+      "defaultTimeoutMs": 30000,
+      "safetyLevel": "read_only"
+    }
+  ],
+  "protocolVersion": "1.0",
+  "runtimeVersion": "0.7.0",
+  "catalogRevision": "873e3ac5b992dc553686a8aa80d0d7af6873171d61ac0daeeebd34222b634996",
+  "adapterVersion": "gazebo-0.7.0",
+  "robotProfile": {
+    "adapterVersion": "gazebo-0.7.0",
+    "schemaVersion": "robot.profile.v1",
+    "modelId": "xlerobot",
+    "tools": [
+      "navigation.navigate",
+      "navigation.pre_position",
+      "verify_arrival",
+      "observe_scene",
+      "arm.move",
+      "recover_to_safe_pose",
+      "emergency_stop",
+      "resolve_targets",
+      "plan_grasp",
+      "manipulation.pick",
+      "verify_grasp",
+      "manipulation.place",
+      "verify_placement"
+    ],
+    "internallyPlannedTools": [
+      "manipulation.pick",
+      "manipulation.place",
+      "recover_to_safe_pose"
+    ],
+    "embodiment": "mobile_manipulator",
+    "robotId": "gazebo-firstscan-20261017-001",
+    "joints": [
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 2.1,
+        "lower": -2.1,
+        "name": "left_arm_shoulder_pan"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.45,
+        "lower": -0.1,
+        "name": "left_arm_shoulder_lift"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.14159,
+        "lower": -0.2,
+        "name": "left_arm_elbow_flex"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 1.8,
+        "lower": -1.8,
+        "name": "left_arm_wrist_flex"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.14159,
+        "lower": -3.14159,
+        "name": "left_arm_wrist_roll"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.14159,
+        "lower": -3.14159,
+        "name": "left_arm_gripper"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 2.1,
+        "lower": -2.1,
+        "name": "right_arm_shoulder_pan"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.45,
+        "lower": -0.1,
+        "name": "right_arm_shoulder_lift"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.14159,
+        "lower": -0.2,
+        "name": "right_arm_elbow_flex"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 1.8,
+        "lower": -1.8,
+        "name": "right_arm_wrist_flex"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.14159,
+        "lower": -3.14159,
+        "name": "right_arm_wrist_roll"
+      },
+      {
+        "unit": "rad",
+        "kind": "revolute",
+        "upper": 3.14159,
+        "lower": -3.14159,
+        "name": "right_arm_gripper"
+      }
+    ],
+    "endEffectors": [
+      {
+        "kind": "suction",
+        "jointNames": [
+          "left_arm_gripper"
+        ],
+        "id": "left_suction"
+      },
+      {
+        "kind": "suction",
+        "jointNames": [
+          "right_arm_gripper"
+        ],
+        "id": "right_suction"
+      }
+    ],
+    "sensors": [
+      {
+        "frameId": "base_camera_optical_frame",
+        "maxAgeMs": 1000.0,
+        "sourceId": "gazebo-firstscan-20261017-001/base-rgbd",
+        "transformRevision": "6e4fbe3b5f286a3affaea8da201ce5ed5e0948a61d5597bdf4773219505f78ee",
+        "sourceType": "rgbd_camera"
+      },
+      {
+        "frameId": "head_camera_optical_frame",
+        "maxAgeMs": 1000.0,
+        "sourceId": "gazebo-firstscan-20261017-001/head-rgbd",
+        "transformRevision": "6e4fbe3b5f286a3affaea8da201ce5ed5e0948a61d5597bdf4773219505f78ee",
+        "sourceType": "rgbd_camera"
+      }
+    ],
+    "actionLimits": {
+      "right_arm_gripper.pos": {
+        "unit": "rad",
+        "max": 3.14159,
+        "min": -3.14159
+      },
+      "left_arm_shoulder_pan.pos": {
+        "unit": "rad",
+        "max": 2.1,
+        "min": -2.1
+      },
+      "right_arm_shoulder_pan.pos": {
+        "unit": "rad",
+        "max": 2.1,
+        "min": -2.1
+      },
+      "left_arm_shoulder_lift.pos": {
+        "unit": "rad",
+        "max": 3.45,
+        "min": -0.1
+      },
+      "left_arm_gripper.pos": {
+        "unit": "rad",
+        "max": 3.14159,
+        "min": -3.14159
+      },
+      "navigation.y": {
+        "unit": "m",
+        "max": 8.5,
+        "min": -3.0
+      },
+      "navigation.z": {
+        "unit": "m",
+        "max": 1.0,
+        "min": 0.0
+      },
+      "right_arm_shoulder_lift.pos": {
+        "unit": "rad",
+        "max": 3.45,
+        "min": -0.1
+      },
+      "left_arm_wrist_flex.pos": {
+        "unit": "rad",
+        "max": 1.8,
+        "min": -1.8
+      },
+      "left_arm_wrist_roll.pos": {
+        "unit": "rad",
+        "max": 3.14159,
+        "min": -3.14159
+      },
+      "right_arm_wrist_flex.pos": {
+        "unit": "rad",
+        "max": 1.8,
+        "min": -1.8
+      },
+      "right_arm_elbow_flex.pos": {
+        "unit": "rad",
+        "max": 3.14159,
+        "min": -0.2
+      },
+      "right_arm_wrist_roll.pos": {
+        "unit": "rad",
+        "max": 3.14159,
+        "min": -3.14159
+      },
+      "navigation.x": {
+        "unit": "m",
+        "max": 6.0,
+        "min": -6.0
+      },
+      "left_arm_elbow_flex.pos": {
+        "unit": "rad",
+        "max": 3.14159,
+        "min": -0.2
+      }
+    },
+    "adapterId": "gazebo"
+  }
+}

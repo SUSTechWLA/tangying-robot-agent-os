@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-21",
+  "implementationSnapshot": "9e6a58f6ad48c6d9441e95511ddb4d503ea6449e",
+  "robotMotion": false,
+  "liveModelCalls": false,
+  "scope": "Software regressions corresponding to rewritten textbook mechanisms. Book source was being edited; runtime source was unchanged.",
+  "checks": [
+    {
+      "name": "contracts",
+      "command": "go test -count=1 ./core/objective ./core/agentcontext ./core/closedloop ./core/harness ./edge/exchange ./console",
+      "exitCode": 0,
+      "output": "ok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/core/objective\t0.501s\nok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext\t4.834s\nok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop\t1.735s\nok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/core/harness\t3.148s\nok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange\t3.888s\nok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/console\t4.340s\n"
+    },
+    {
+      "name": "recovery",
+      "command": "go test -count=1 ./internal/edgeagent -run 'TestDelegatedVerifiedCrash|TestDelegatedExpiredUnknown|TestDelegatedUnknownPhysical|TestDelegatedEnvelope|TestDelegatedReplanCannotRepeat'",
+      "exitCode": 0,
+      "output": "ok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent\t4.530s\n"
+    },
+    {
+      "name": "spatial",
+      "command": ".venv/bin/python -m pytest -q -o addopts='' robot/gateway/tests/test_spatial_mapping.py robot/gateway/tests/test_spatial_navigation.py robot/gateway/tests/test_spatial_localization.py",
+      "exitCode": 0,
+      "output": "........................................................................ [ 27%]\n........................................................................ [ 54%]\n........................................................................ [ 81%]\n.................................................                        [100%]\n265 passed in 1.80s\n"
+    }
+  ]
+}

@@ -67,6 +67,8 @@ type config struct {
 	robotServerName      string
 	robotSafetyProfile   string
 	robotID              string
+	workspacesFile       string
+	workspaces           *console.WorkspaceRegistry
 	checkConfig          bool
 	admitRuntimeContract bool
 	llmProvider          string
@@ -105,6 +107,7 @@ func parseConfig(arguments []string) (config, error) {
 	flags.StringVar(&result.robotServerName, "robot-server-name", values["ROBOT_SERVER_NAME"], "expected Robot Runtime TLS server name")
 	flags.StringVar(&result.robotSafetyProfile, "robot-safety-profile", values["ROBOT_SAFETY_PROFILE"], "explicit runtime safety profile for a commissioned endpoint")
 	flags.StringVar(&result.robotID, "robot-id", configValue(values, "LOCAL_ROBOT_ID", "robot-local"), "identity of the one robot controlled by this agent")
+	flags.StringVar(&result.workspacesFile, "workspaces-file", configValue(values, "LOCAL_WORKSPACES_FILE", os.Getenv("LOCAL_WORKSPACES_FILE")), "operator-provisioned edge.workspaces.v1 JSON registry")
 	flags.BoolVar(&result.checkConfig, "check-config", false, "validate deployment configuration without contacting or moving the robot")
 	flags.BoolVar(&result.admitRuntimeContract, "admit-runtime-contract", false, "record a missing Runtime contract after explicit reconciliation, then exit without dispatching tasks")
 	flags.StringVar(&result.llmProvider, "llm-provider", configValue(values, "AGENT_PROVIDER", "deterministic"), "agent provider: deterministic or openai")
@@ -130,6 +133,13 @@ func parseConfig(arguments []string) (config, error) {
 	}
 	if strings.TrimSpace(result.robotID) == "" {
 		return config{}, errors.New("local robot ID is required")
+	}
+	result.workspaces, err = console.LoadWorkspacesFile(result.workspacesFile)
+	if err != nil {
+		return config{}, err
+	}
+	if err := result.workspaces.ValidateIdentity(result.robotID); err != nil {
+		return config{}, err
 	}
 	values["AGENT_PROVIDER"] = result.llmProvider
 	values["AGENT_BASE_URL"] = result.llmBaseURL
@@ -242,7 +252,8 @@ func readConfigFile(path string) (map[string]string, error) {
 		"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true,
 		"ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true,
 		"ROBOT_SAFETY_PROFILE": true, "LOCAL_ROBOT_ID": true,
-		"AGENT_PROVIDER": true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
+		"LOCAL_WORKSPACES_FILE": true,
+		"AGENT_PROVIDER":        true, "AGENT_BASE_URL": true, "AGENT_API_KEY": true,
 		"AGENT_MODEL": true, "AGENT_ORCHESTRATION_SAMPLES": true,
 		"AGENT_CLOUD_ASSIST_URL": true, "AGENT_CLOUD_ASSIST_DEVICE_TOKEN": true, "AGENT_CLOUD_ASSIST_CA": true,
 		"LOCAL_POLICY_MODE": true, "LOCAL_POLICY_ENDPOINT": true, "LOCAL_POLICY_TIMEOUT": true,
@@ -393,6 +404,9 @@ func run(configuration config) error {
 		return fmt.Errorf("verify local robot identity: %w", err)
 	}
 	if err := configuration.bindRuntimeIdentity(runtimeInfo.RobotID); err != nil {
+		return err
+	}
+	if err := configuration.workspaces.ValidateIdentity(configuration.robotID); err != nil {
 		return err
 	}
 	if configuration.admitRuntimeContract {
@@ -747,6 +761,7 @@ func run(configuration config) error {
 	})
 	consoleServer := console.NewServer(
 		service, application, console.WithSettings(settings), console.WithRuntime(router), console.WithWorld(world), console.WithEvidence(store), console.WithCamera(robot), console.WithNavigation(navigation), console.WithRobotServices(robot), console.WithLatency(stepTimings), console.WithPlanningAttempts(planningAttempts),
+		console.WithWorkspaceIdentity(configuration.robotID), console.WithWorkspaces(configuration.workspaces),
 	)
 	// Publish this process's console session for the local tools that need it —
 	// the acceptance scripts, and the curl examples in the docs.

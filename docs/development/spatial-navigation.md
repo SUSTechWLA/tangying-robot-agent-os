@@ -2,17 +2,22 @@
 
 阅读顺序：先读[异构机器人与 ROS 2](heterogeneous-mobility.md)，再读本页；建图数据格式与发布见[空间测量建图](spatial-mapping.md)。本页描述当前实现，实验结果和未测项见[2026-10-14 实验记录](../experiments/2026-10-14-spatial-navigation.md)。
 
-## 三种导航通道
+2026-10-18 增加[已知覆盖和多层地面](2026-10-18-spatial-coverage-upgrade.md)：显式 ROI 的预测观察计划、可替换后端与 `terrain_layered` 支撑图。下述旧三类 ROS 2 记录式任务仍按原版本引用，不计作新分层导航或实体覆盖验证。
+
+2026-10-17 新增[异构三维探索研究层](2026-10-17-heterogeneous-spatial-exploration.md)：`SpatialExplorer` 共用本页几何可达性，`SpatialMissionRunner` 通过地图/驱动/报告端口接线，任务协调与覆盖账本支持恢复和[配对消融](../experiments/2026-10-17-spatial-exploration-protocol.md)；[10-18 实际软件结果](../experiments/2026-10-18-spatial-exploration.md)单独保存。它不自动启用 ROS 2 三维探索，不替代本页定位、部署、控制器与路径握手；当前离线几何任务不证明实机动力学。
+
+## 导航通道
 
 | 通道 | 地图与定位 | 适用机器人 | 负责执行的模块 |
 | --- | --- | --- | --- |
 | 现有平面 2D | SE2 SLAM、二维栅格、Nav2 | 平面无人车；提供平面导航控制器的足式平台 | 既有 `tangying_navigation` / Nav2 |
 | `terrain25d` | 体素障碍 + 单层高程、支撑、坡度；完整七元定位 | 无人车、足式；按各自限值准入 | Profiled ROS 2 地面控制器 |
+| `terrain_layered` | 体素障碍 + 多层支撑面和显式相邻跨层连接；完整定位 | 有对应地面控制器的无人车、足式 | 分层几何规划 + Profiled 控制器准入；本轮不证明真实楼梯/步态能力 |
 | `volume3d` | 三态三维体素 + SE3 定位 | 声明 air/se3 的无人机 | Profiled ROS 2 飞行控制器 |
 
 **保存三维点云不等于具备三维导航。** 点云是表面测量，导航还需要可通行空间、可靠定位、机器人包络和可执行路径。旧 `RobotWorkflow`、Dense SLAM、二维 `semantic.plan` 和 Nav2 接口继续明确限定平面；没有通过删除 z 校验将它们改称 3D。
 
-空间导航采用独立模块，允许地图、SLAM 算法与设备厂商独立扩展。新注册测量融合器不估计位姿、不进行闭环优化；外部 ROS 2 SLAM/VIO/LIO 适配器负责这些工作。多层楼板、桥下桥上和任意落脚规划超出当前单层 `terrain25d`。
+空间导航采用独立模块，允许地图、SLAM 算法与设备厂商独立扩展。注册测量融合器不估计位姿、不进行闭环优化；外部 ROS 2 SLAM/VIO/LIO 适配器负责这些工作。`terrain25d` 继续保持单层语义；多层楼板与桥上桥下使用显式 `terrainLayers` 支撑图，不能自动从占据体素或 XY 重叠推断跨层边。任意落脚、承载力和步态规划仍由设备侧完成。
 
 ## 从任务到动作
 
@@ -58,6 +63,8 @@ flowchart LR
 
 地形模式另外检查整个扫掠足迹的支撑与坡度、相邻高程步高、参考点相对地面的高度。高程和支撑来自明确的测量来源，不能从二维俯视无障碍推断。起终点须接近所登记的支撑高度，不能用大的步高限值授权悬浮。控制器仍负责实时障碍、轨迹跟踪、制动、非完整约束、飞控稳定或足式步态；几何路径不证明动力学可达。Ackermann 等车辆需控制器拒绝无法跟踪的折线，或后续接入专用曲率约束规划器。
 
+分层地面使用层内四邻接及显式层间边；跨层边仅连接相邻 XY 且两端有支撑的不同层，仍检查完整扫掠和坡度/步高，禁止同 XY 垂直 portal。起终点必须唯一匹配对应层，不能以“最近层”默默解释歧义。格式、层数/节点预算与可替换规划端口见[本轮记录](2026-10-18-spatial-coverage-upgrade.md#4-多层地面与空中移动如何共存)。
+
 ## 部署配置
 
 先完成具体机器人 Profile 的型号、标定、限幅、workspace、停止程序和调试。仓库 `examples/robots/*.commissioning.profile.json` 是待替换模板，示例包络数值不适用于任何具体设备。
@@ -90,7 +97,7 @@ flowchart LR
 }
 ```
 
-地形策略将 `mode` 改成 `terrain25d`，并必须提供 `maxSlopeRad/maxStepM/referenceHeightM`；地图必须附带 `navigation.terrain.v1` 支撑、高程和坡度数组。`referenceHeightM` 必须大于 `bodyHalfExtents[2] + margin`；起终点参考高度距相应支撑面加 referenceHeightM 的误差上限固定为 0.02 m。机器人 Profile 的域、位姿模型和 workspace 必须允许对应路线。
+单层地形策略将 `mode` 改成 `terrain25d`，并必须提供 `maxSlopeRad/maxStepM/referenceHeightM`；地图必须附带 `navigation.terrain.v1` 支撑、高程和坡度数组。多层使用 `mode=terrain_layered` 和 `terrainLayers` 中的 `navigation.terrain.layers.v1`，沿用上述地面限值；最多 32 层且总 XY 层节点、连接数分别不超过 250,000。`referenceHeightM` 必须大于 `bodyHalfExtents[2] + margin`；起终点参考高度距相应支撑面加 referenceHeightM 的误差上限固定为 0.02 m。机器人 Profile 的域、位姿模型和 workspace 必须允许对应路线。
 
 相对路径以部署文件所在目录为基准。若 `volume.json` 旁有 `manifest.json`，加载器验证整个测量包和重放结果；坏包不能退回未校验的普通文件。独立体素文件作为外部调试地图输入，全内容仍参与部署摘要；它本身不证明来自实测。
 
@@ -116,5 +123,6 @@ flowchart LR
 | 非完整车辆曲率、轨迹时间参数化 | 专门运动规划器与控制器准入 |
 | 新无人机飞控、厂商底盘、足式平台 | Profiled ROS 2 controller adapter，保留命令/路径/证据协议 |
 | 多机器人联合避碰、跨地图融合 | 显式世界配准、资源与协调模块；当前数据通信不自动产生联合轨迹 |
+| 三维 frontier/NBV、覆盖、异构目标分配 | [spatial_exploration / spatial_mission](2026-10-17-heterogeneous-spatial-exploration.md)；替换策略或 provider，保留世界/网格、路径与观测合同；目前有序协作，不含联合避碰 |
 
-当前交付可作为 ROS 2 空间导航的联调与实机前软件验证基础。体素预算、静态地图、单层地形和保守包络是明确约束；长期运行、动态复杂环境、具体设备飞行/步态以及小时级可靠性需要单独实验，不能由本页的软件测试替代。
+当前交付可作为 ROS 2 空间导航的联调与实机前软件验证基础。体素预算、静态地图、有限单层/显式分层支撑和保守包络是明确约束；长期运行、动态复杂环境、具体设备飞行/步态以及小时级可靠性需要单独实验，不能由本页的软件测试替代。

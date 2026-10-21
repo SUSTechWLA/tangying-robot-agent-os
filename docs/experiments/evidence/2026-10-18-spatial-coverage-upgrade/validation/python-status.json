@@ -1,0 +1,20 @@
+{
+  "runtime-boundary": {
+    "command": [
+      ".venv/bin/pytest",
+      "-q",
+      "tests/contract/test_sim_real_runtime_boundary.py"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 2.7109358310699463
+  },
+  "python-all": {
+    "command": [
+      ".venv/bin/pytest",
+      "-q",
+      "--ignore=tests/contract/test_sim_real_runtime_boundary.py"
+    ],
+    "exitCode": 1,
+    "elapsedSeconds": 563.5114109516144
+  }
+}

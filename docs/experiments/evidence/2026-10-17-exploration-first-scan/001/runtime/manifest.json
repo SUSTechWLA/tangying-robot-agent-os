@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "research.exploration-evidence.v1",
+  "state": "finalized",
+  "files": {
+    "calls.jsonl": {
+      "sha256": "d7350738d942b7c054da0ae1079abbd004e68f71ca7e9b76e6797ad62278f30f",
+      "bytes": 835870
+    },
+    "environment.json": {
+      "sha256": "cb14ca232f16d1fbe14db3d1af6bd3b9c1060a1283c95f3cd59d5bdf6052c71b",
+      "bytes": 1425
+    },
+    "final-state.json": {
+      "sha256": "e15090b8545c9767dd179f97e117ad0cbe868be8de10185dcb2f15e23bc5f652",
+      "bytes": 13505
+    },
+    "initial-state.json": {
+      "sha256": "f9e69c342a938839b304c1a675b1cf5b50029234c803b3cdc7e5da339dc48f6c",
+      "bytes": 816
+    },
+    "map-artifact-checks.json": {
+      "sha256": "f9e1751ac467ebe5cf8c2e3aa2ffe00ad8ef94c2199f0f38ec45477ceb8a08b9",
+      "bytes": 1544
+    },
+    "map-package/cloud/lod0.bin": {
+      "sha256": "b9fc8753124f2bab2d314e7ee686bc819a5d299625e240ff4b1d68a129c13d98",
+      "bytes": 5000
+    },
+    "map-package/cloud/lod1.bin": {
+      "sha256": "f34db8f7be9a218efac9f6af20bbc7dfc1493442f18133bd4be00e01be124468",
+      "bytes": 18950
+    },
+    "map-package/cloud/lod2.bin": {
+      "sha256": "c4cd8a1d3f6f6489341ba83c6623fd12f47f63d7595cfb31fabbe4f1ce0053f3",
+      "bytes": 74615
+    },
+    "map-package/cloud/lod3.bin": {
+      "sha256": "4f4126f16fa07d964bf2a7a82df8ea0b756c9d61bcf83ee799927b4effaa297e",
+      "bytes": 276095
+    },
+    "map-package/cloud/lod4.bin": {
+      "sha256": "91a3294779e1d01067d22285de9e503b97fd4506ee577f1c47fa4e1521857beb",
+      "bytes": 943640
+    },
+    "map-package/grid/occupancy.png": {
+      "sha256": "a4d184cd78d94da7960ad7a010bcf4e3633517201017b8c842ffcd6154ed397c",
+      "bytes": 1208
+    },
+    "map-package/manifest.json": {
+      "sha256": "c0e29bf28c9e8064665af8291e1bc25a42f12fc3d2983227370522d652f6d030",
+      "bytes": 3287
+    },
+    "map-package/navigation/map.pgm": {
+      "sha256": "8ba0b4e70a69fda682c5368107b90ed67f4f61c6de817988c4d68cf2af86bcc9",
+      "bytes": 38819
+    },
+    "map-package/navigation/map.yaml": {
+      "sha256": "8fbef34de61d8560ab254c8088b7301b44de7bf34fa6ad59b98e268fc57cfbeb",
+      "bytes": 209
+    },
+    "map-package/navigation/source.json": {
+      "sha256": "d266199e2c8910ef983f1d88c755fbe08e9645c9304a300e988cbf84e238cbca",
+      "bytes": 183
+    },
+    "map-package/objects.json": {
+      "sha256": "467f25c7626b832b173d127aecc31555e42fd3b2eb33b359a6c66d18682dc25b",
+      "bytes": 293
+    },
+    "map-package/semantics.json": {
+      "sha256": "78813942409a93b4041b3fe2f64979009785bfd9c596fadb54c32f696849f11e",
+      "bytes": 5493
+    },
+    "map-package/slam-keyframes.json": {
+      "sha256": "39243e43c70026d698f7bb864d1b213b8c416faf95c32fa4f0fd39f88fbe4363",
+      "bytes": 2393608
+    },
+    "map-package/slam-session.json": {
+      "sha256": "bc38d50ae07d057b63de36ba4381d45e6683264ae38b02e73e85d5074895f7c6",
+      "bytes": 277860
+    },
+    "map-package/trajectory.geojson": {
+      "sha256": "c140a2797f1415f7b3b98c64554a2da26ad3bceae54de9078826c239dd15b49b",
+      "bytes": 7882
+    },
+    "navigation-final.json": {
+      "sha256": "143854cbbdd514b23d22657f7813730097e275f6775d3d6439116ab8e0b96a7f",
+      "bytes": 593
+    },
+    "preregistration.json": {
+      "sha256": "c41e40d39575fd1661153f416e5a90101208712d471e394e33cd59265e5bf8c9",
+      "bytes": 2162
+    },
+    "progress.jsonl": {
+      "sha256": "09e517ecb8ffb69e0ab8358fb9ae5aa531b095396f7808ab9aded91fa9ae6709",
+      "bytes": 771582
+    },
+    "report.json": {
+      "sha256": "95d14d093a97d5570b59e1632393c01823be8a386b89129ca8d7bd0244cb7238",
+      "bytes": 1453
+    },
+    "runtime-info.json": {
+      "sha256": "4a5699ebf67f57fb77398151c09d5786884dba4a4751ff77ae5168212a48b8a9",
+      "bytes": 9554
+    },
+    "service-catalog.json": {
+      "sha256": "c2c74ed78070c7fc11fff762c91167d6c1e55a026405a1db6dd2f128913295b3",
+      "bytes": 29590
+    },
+    "source-after.json": {
+      "sha256": "bbc4433f084cf8851dfba5981fb655fb1c403e446e9ed3b47b1db48a9927fad1",
+      "bytes": 18426
+    },
+    "source-before.json": {
+      "sha256": "bbc4433f084cf8851dfba5981fb655fb1c403e446e9ed3b47b1db48a9927fad1",
+      "bytes": 18426
+    },
+    "source-dirty.patch": {
+      "sha256": "64a5b58caa580f0264284d7650c827e0aa7c06d03ea6f32240787c6d7d820134",
+      "bytes": 42919
+    }
+  },
+  "manifestExcludesItself": true,
+  "passed": true
+}

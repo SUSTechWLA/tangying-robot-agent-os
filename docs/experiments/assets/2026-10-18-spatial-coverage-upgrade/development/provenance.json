@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "research.spatial-exploration-figure.v1",
+  "input": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/spatial-coverage-upgrade-20261018-001/development",
+  "inputs": {
+    "summary.json": "0eaf7e0940ff65dc973e3cd75d092ed55888a1b0adf1ace29361029778b68818",
+    "episodes.csv": "41921e6f1448cb7cf01f0d47feb80a7820a169b92bddefbb665cf678bf92950c",
+    "manifest.json": "7686454be00651bd04790de4bb9f793b88ad285c71d403c0770527679adc4f34"
+  },
+  "scriptSha256": "eb07639793e18b450dbb22f6cc81a5ef4b868334b0fba7e80d7e419b321f20fb",
+  "matplotlibVersion": "3.10.8",
+  "episodeN": 140,
+  "pairedSeeds": {
+    "warehouse_aisles": [
+      3,
+      7,
+      19,
+      43
+    ],
+    "staggered_doorways": [
+      3,
+      7,
+      19,
+      43
+    ],
+    "elevated_occlusion": [
+      3,
+      7,
+      19,
+      43
+    ],
+    "sealed_chamber": [
+      3,
+      7,
+      19,
+      43
+    ],
+    "delayed_exchange_recovery": [
+      3,
+      7,
+      19,
+      43
+    ]
+  },
+  "variants": [
+    "baseline",
+    "nearest_frontier",
+    "no_global_reposition",
+    "no_visibility_gain",
+    "no_assignment_overlap",
+    "no_shared_coverage_guidance",
+    "no_coordination"
+  ],
+  "variantLabels": {
+    "baseline": "Baseline",
+    "nearest_frontier": "Nearest frontier",
+    "no_global_reposition": "No global reposition",
+    "no_visibility_gain": "No visibility gain",
+    "no_assignment_overlap": "Assignment overlap off",
+    "no_shared_coverage_guidance": "Shared coverage guidance off",
+    "no_coordination": "No coordination (both)"
+  },
+  "metrics": [
+    "coverageFraction",
+    "pathLengthM",
+    "messageBytes"
+  ],
+  "sampleInterpretation": "Descriptive paired samples; no statistical or physical optimality claim.",
+  "validation": "Cross-checked summary/CSV and manifest hashes, not a new sensor or path replay.",
+  "files": {
+    "paired-exploration.png": "77368073ae2682e17adcfb36f17e77112fd7177cfd5179f3dff187ef06f57069",
+    "paired-exploration.svg": "1212b41600b2f37b956f23018425bc15f8505b0add9dc7d35c58764a92ca297e",
+    "plotted-values.csv": "4b5a56b7c97ee783184777fd83bcf047ff2bf9fe6f0adedbdc4231616121c7f8"
+  }
+}

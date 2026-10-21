@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 680" role="img" aria-labelledby="title description">
+<title id="title">图 8-1　重启读取证据，再选择分支</title><desc id="description">同一 PENDING 状态可能对应不同物理世界；没有证据就保持未知。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="680" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 8-1　重启读取证据，再选择分支</text>
+<rect x="350" y="85" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="366" y="114" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">重启读取检查点</text>
+<text x="366" y="143" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">任务 / command / 当前权限</text>
+<text x="366" y="167" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">核对持久记录和原证据</text>
+<rect x="30" y="290" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="46" y="319" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">尚无接单记录</text>
+<text x="46" y="348" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">核对当前执行权</text>
+<text x="46" y="372" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">再判断是否首次执行</text>
+<rect x="350" y="290" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="319" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">ACCEPTED / Pending</text>
+<text x="366" y="348" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">可能已经发生物理效果</text>
+<text x="366" y="372" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">读取精确绑定的子账本</text>
+<rect x="670" y="290" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="686" y="319" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">EXECUTED</text>
+<text x="686" y="348" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">原完成证明已经落盘</text>
+<text x="686" y="372" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">只补传报告，等原确认</text>
+<line x1="430" y1="190" x2="160" y2="290" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="295.0" y="230" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">无接单</text>
+<line x1="480" y1="190" x2="480" y2="290" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="247" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">有未决</text>
+<line x1="530" y1="190" x2="800" y2="290" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="665.0" y="230" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">已验证</text>
+<rect x="140" y="505" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="156" y="534" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">证据不足 / 权限不符</text>
+<text x="156" y="563" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保留 UNKNOWN / 停止</text>
+<text x="156" y="587" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">不重复原物理动作</text>
+<rect x="560" y="505" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="576" y="534" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">完整匹配且当前可恢复</text>
+<text x="576" y="563" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">只补父账本或原报告</text>
+<text x="576" y="587" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">不再次执行原动作</text>
+<line x1="430" y1="395" x2="270" y2="505" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="350.0" y="455" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">不能确认</text>
+<line x1="530" y1="395" x2="690" y2="505" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="610.0" y="455" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">完整证据</text>
+<text x="30" y="652" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">状态名不是重试许可：读过哪个持久事实，决定可以做哪个动作。</text>
+</svg>

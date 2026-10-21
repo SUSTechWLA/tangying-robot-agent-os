@@ -350,6 +350,7 @@ mujoco-start: build
 # Publication builds use an isolated renderer environment, without robot/GPU dependencies.
 .PHONY: book-check book-setup book-release
 book-check:
+	$(PYTHON) scripts/build_book_figures.py --check
 	$(PYTHON) scripts/build_book.py --check
 
 book-setup:
@@ -357,4 +358,5 @@ book-setup:
 	.venv-book/bin/pip install -r book/requirements.txt
 
 book-release:
+	$(PYTHON) scripts/build_book_figures.py --check
 	.venv-book/bin/python scripts/build_book.py --release

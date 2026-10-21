@@ -1,0 +1,2 @@
+2026/10/18 23:54:46 edge exchange ready: agent=edge-uav receive=127.0.0.1:59708 admin=127.0.0.1:59709
+2026/10/18 23:54:48 exchange delivery pending: peer=edge-cloud message=sha256:98190b45ac17dec22d790bf2ce5cf2fc7a79b5663fd69ec21f68e8004a05235f error=Post "http://127.0.0.1:59712/v1/exchange/receive": dial tcp 127.0.0.1:59712: connect: connection refused

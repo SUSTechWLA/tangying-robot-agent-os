@@ -57,9 +57,19 @@ import (
 // new reach is an endpoint serving the token to whoever asks, and there is none:
 // a token fetched by asking is a token that means "whoever asked".
 
-// SessionCookieName is the cookie the console page carries. It is the browser's
-// half of the session: the page needs no code to send it.
+// SessionCookieName is the legacy cookie name, retained for local clients that
+// already send it. Browsers receive a host-and-port-scoped name instead; cookies
+// themselves are not port-scoped, so two local agents must not overwrite each
+// other's browser credential.
 const SessionCookieName = "tangying_session"
+
+// SessionCookieNameForHost isolates browser credentials for consoles listening
+// on different ports of the same host. This prevents cookie collisions, not
+// cross-origin access: the write guard still checks the token and Origin.
+func SessionCookieNameForHost(host string) string {
+	digest := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(host))))
+	return SessionCookieName + "_" + hex.EncodeToString(digest[:16])
+}
 
 // SessionHeaderName is the non-browser half, for tests and CLI tools.
 const SessionHeaderName = "X-Tangying-Session"
@@ -112,11 +122,13 @@ func (g *sessionGuard) matches(r *http.Request) bool {
 	if subtle.ConstantTimeCompare([]byte(r.Header.Get(SessionHeaderName)), []byte(g.token)) == 1 {
 		return true
 	}
-	cookie, err := r.Cookie(SessionCookieName)
-	if err != nil {
-		return false
+	for _, name := range []string{SessionCookieNameForHost(r.Host), SessionCookieName} {
+		cookie, err := r.Cookie(name)
+		if err == nil && subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(g.token)) == 1 {
+			return true
+		}
 	}
-	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(g.token)) == 1
+	return false
 }
 
 // ensureCookie hands the page its token, so the browser can call the console
@@ -129,19 +141,20 @@ func (g *sessionGuard) ensureCookie(w http.ResponseWriter, r *http.Request) {
 	if g == nil || g.token == "" || r.Method != http.MethodGet {
 		return
 	}
-	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value == g.token {
+	name := SessionCookieNameForHost(r.Host)
+	if cookie, err := r.Cookie(name); err == nil && cookie.Value == g.token {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     name,
 		Value:    g.token,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		// No Secure flag: the local console is documented as loopback HTTP, and
-		// a Secure cookie would simply never be sent there. If the console is
-		// ever served over TLS this must be set from the request scheme rather
-		// than left off.
+		// Loopback HTTP remains supported. A directly served TLS console must
+		// not downgrade its credential onto HTTP; forwarded headers are not
+		// trusted to choose this flag.
+		Secure: r.TLS != nil,
 	})
 }
 

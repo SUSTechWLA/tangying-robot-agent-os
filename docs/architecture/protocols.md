@@ -1,5 +1,7 @@
 # Robot Runtime 协议不变量
 
+跨层协议的当前阅读入口是[边缘 AgentOS 消息、上下文与 Harness](edge-agent-communication-and-context.md)：从本机事件、跨机器人数据、云边控制到 Runtime/ROS 2，分别给出字段、传递顺序、持久化与失败边界。
+
 Agent 本地事件与云边执行是另外两层协议，分别使用 `agent.event.v1` 与 `execution.context.v1 / context.completion.v2`，不能用一条事件消息替代 Runtime 命令授权。三层如何连接、精确身份和跨域一致性见[长程协作实现导读](long-horizon-collaboration.md)。
 
 > 完整 HTTP、WebSocket、FleetGateway 与 RobotRuntime 调用规范见[生产接口参考](../production/api-reference.md)，字段语义见[数据契约](../production/data-contracts.md)。

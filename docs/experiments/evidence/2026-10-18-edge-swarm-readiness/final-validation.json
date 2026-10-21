@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "edge.final.integration-validation.v1",
+  "date": "2026-10-18",
+  "recordedAt": "2026-10-18T06:22:32.446973+00:00",
+  "baseCommit": "c1245771d56af351e997637c1b45263532a07e1c",
+  "checks": [
+    {
+      "id": "final_ops_race",
+      "command": "go test -race ./agentruntime ./internal/localapp ./edge/worker -count=1",
+      "exitCode": 0,
+      "log": "ops-final-review-race.log",
+      "logSha256": "8d7ccc61ce484718182dca832bbdc0302fcbaac7c4deab547b0f6dadb62e7abf"
+    },
+    {
+      "id": "vendor_binding_tests",
+      "command": ".venv/bin/pytest -q tests/install/test_ros2_device_preflight.py",
+      "exitCode": 0,
+      "log": "vendor-bindings/pytest.log",
+      "logSha256": "4639b7c50b0a5b0b408fb26c25fcc77830948acd83cddb3be8758c65087a632e"
+    },
+    {
+      "id": "local_build",
+      "command": "make build fleet-build",
+      "exitCode": 0,
+      "log": "build-final.log",
+      "logSha256": "fabe6654596e4f837ba7ff7519ae7f9b5bf1cb892accf3779834f03c4af81951"
+    },
+    {
+      "id": "linux_arm64_build",
+      "command": "make edge-orin-build",
+      "exitCode": 0,
+      "log": "build-arm64-final.log",
+      "logSha256": "7fb7364b40dda14e11bd63bf51eb711a1d12d013c2dcc2e4b2c50e427b0eee34"
+    },
+    {
+      "id": "lint",
+      "command": "make lint",
+      "exitCode": 0,
+      "log": "lint-final.log",
+      "logSha256": "2024e3832f4f064c2a07d27243b72e99510d1f1967ee7ba4782382a3c8d22e8a"
+    },
+    {
+      "id": "docs_and_book",
+      "command": ".venv/bin/pytest -q tests/docs tests/book",
+      "exitCode": 0,
+      "log": "docs-python-final.log",
+      "logSha256": "59f4e43b4c7774d511a6aa0e74858f324ada5122b94440db8f8076705411dafe"
+    },
+    {
+      "id": "go_docs",
+      "command": "go test ./tests/docs",
+      "exitCode": 0,
+      "log": "docs-go-final.log",
+      "logSha256": "ec7c61c172ade9336f1cef24f7cdd15f23fedf8b170ba40288351bd6712cac40"
+    },
+    {
+      "id": "book_source",
+      "command": ".venv/bin/python scripts/build_book.py --check",
+      "exitCode": 0,
+      "log": "book-final.log",
+      "logSha256": "61e59679a948f7c8d83dd350e33c9c705e984f96ed160ce2d0646209b57b919f"
+    }
+  ],
+  "sourceHashes": {
+    "agentruntime/faultmatrix_test.go": "a39a8171a1656fb7899b0dd086ae1ead078b58e64f047375c8273e0973dfe0a9",
+    "agentruntime/ledgerfilter_test.go": "e6244077324ae0528eb6bdc93b13c7145423b0187755e3d6ab34c1b8dcbf8dc5",
+    "agentruntime/ops_visibility.go": "33078bd305f7427a7ac8a1324d6a121a3920567d4e3d13e2f22198f862649d1c",
+    "agentruntime/ops_visibility_test.go": "74bcd34779d38c32a3345733dbd168e3e29c9617063d4192452b18c2ea2d6bb1",
+    "agentruntime/opsagent.go": "fc5c7b5669c0d43846594358b6d404fe00b2d2b55bd8befecc87d88265eb2899",
+    "agentruntime/opsagent_test.go": "445478c686174d14dc72cd210c83f5d7240a552815388acfb3ef2942baf31c73",
+    "agentruntime/opsrules.go": "90fdcb546e2dc8c7692bcdca270fe5de17dde0b230546ea6d7a2fd2403f7a02d",
+    "agentruntime/supervision_gap_test.go": "a411e3a8f8cc9fad5087d576554ab4d34fdc15d94d592eea3c7ba0ea6522151a",
+    "core/exchangecontract/coverage.go": "59b26e33d3f5b33f80799095e8eb840c776bf596ab5bb633dd4715c9eb7057fb",
+    "core/exchangecontract/feed.go": "83a9412c4ff6154cc698336bf1492b1dc88ffbcd148e612a60d5d79a3933b0ee",
+    "edge/exchange/coverage.go": "875f7bb385442500f14882862cfe8eae0e4f24e6fc52eed9c44325d6c9492caf",
+    "edge/exchange/coverage_test.go": "75d95f734754d9f2b804144ef43652942563287720ded33431576eaab8c70d3f",
+    "edge/exchange/http.go": "f1b6664b3939b3d5a0936d1c53aea0e6a940efa8f147d47f4ef0322582e8f841",
+    "examples/experiments/heterogeneous_trio_fixture.json": "ed42393a11a75929e061a62ef2ae57028a3d4575bfd225f1b37e2d9dbe8d8289",
+    "examples/robots/bindings/agv-nav2.binding.json": "2bb07b1639021a9507a83029060f53cddc89da1dfd7dbb3577a8d595d70154fd",
+    "examples/robots/bindings/agv-nav2.gateway.json": "bab795088fcd4fa43d54e324902252231543810640b656508364bbdd34cbe6c7",
+    "examples/robots/bindings/dji-uav.binding.json": "76a0a862990a9cc228f5510888e689633e52fb123cf1e84b1be0798bba19a52f",
+    "examples/robots/bindings/dji-uav.gateway.json": "f83648b7ca4f849bf0abfa6092ccf7bf16bc0455522a76a69f350e1de9728f81",
+    "examples/robots/bindings/unitree-legged.binding.json": "b0403e445f93c05d13e2b6dffaeb12bbb5da6fce50308e741dd20aa402dc7669",
+    "examples/robots/bindings/unitree-legged.gateway.json": "50d747848b915416d7ef28d9391ebcdfd240cf24dcfd69ab2fe91018319ee1bc",
+    "middleware/sqlite/exchange.go": "03a0c403c982d05fd807b384541be6dc5757eece21f640ff37fa60be4f69ada9",
+    "middleware/sqlite/exchange_feed.go": "8818280852d4c7a49c6412252d507bbf628842debaf132619502bffe26607600",
+    "robot/gateway/tangying_robot_gateway/ros2_profile.py": "c5743a48630f880881b8a8245b0d9e05748b27381683e7b77eaf997ef83b3eb0",
+    "robot/gateway/tangying_robot_gateway/spatial_peer_exchange.py": "b3f251cd92d97b343eefc2a66425443dd467dc77dc7a8d7dab78b6659d18dbd2",
+    "robot/gateway/tests/test_ros2_profile.py": "6c0c3ddc746b57098eec95567da54da6ca7553cbf1073e8aea09902620f9e792",
+    "robot/gateway/tests/test_spatial_peer_exchange.py": "8e7aa866ea8b46eb1a432500180cd021d9e59940cebbbdb69f3f81754a1c75c8",
+    "scripts/ros2_device_preflight.py": "74e79406f7a04e0a3e59feea3b267bef327b039652a4882f0484899de5a91497",
+    "scripts/run_edge_cooperation_harness.py": "4887f3942a4218ad3dff3bee99e9fc9b849b4a16115c87a7e26dc4ef970fd93f",
+    "scripts/run_edge_robustness_campaign.py": "0ad2533a2e6846fe3051c804fc3f2aba4eb6cf0b30d4f2052ccab378ccbe3bc7",
+    "scripts/run_heterogeneous_exploration_fixture.py": "14bd468521babbc5c69c104935b07c6991ca87890fdbd393608b1f4d7c6a8c06",
+    "scripts/run_ros2_edge_acceptance.py": "6d8d14804033607f350669850ed0f206bcf4ebd85b06a57ecde8894bc4585651",
+    "scripts/run_ros2_edge_campaign.py": "d8d9909ffc7b457c82748645c4f6c66b418c553a2a727b829954ec4a37a135cc",
+    "tests/install/test_ros2_device_preflight.py": "f163b8884f682f7d3da5a8a357c9fef3b2684a4c9dbf81fea69a212fa491f3d9",
+    "tests/install/test_ros2_edge_campaign.py": "7d4e223337f0b2a90d876ed46bb7c1eaba2b12bcd5977a6558c226ec9e0f9860",
+    "tests/scripts/test_heterogeneous_exploration_fixture.py": "0a20010be8a319f62c01105a7c56c79a9ad149a7e931848faebd40de2d722756",
+    "docs/operations/ros2-device-bindings.md": "8ebf1e8b877019e8d9b79e201b94682b56a9dc4550c391e01651e3b3d73ac0b7"
+  },
+  "binaries": {
+    "bin/local-agent": {
+      "sha256": "e3149b7c3c8785bfd3159bd9bd2a0acf6e42902e7fd303b7217fbcb75abf7285",
+      "bytes": 82108930,
+      "role": "build only; not rerun against DDS in final review"
+    },
+    "bin/edge-worker": {
+      "sha256": "99e559f580afa52b67da1f227bb619ea99c9e60f576e00b12560748176673c11",
+      "bytes": 32662002,
+      "role": "build only; not rerun against DDS in final review"
+    },
+    "bin/edge-exchange": {
+      "sha256": "015c32a0dcfdb9194a7fe07d8fe57c372190df9347e566ece173b6fca22478b5",
+      "bytes": 16704306,
+      "role": "build only; not rerun against DDS in final review"
+    },
+    "bin/orin-arm64/local-agent": {
+      "sha256": "d8c26902433e4dad73e99671f7ff2271d870135d6ecea36698e350437a187d2b",
+      "bytes": 80631089,
+      "role": "build only; not rerun against DDS in final review"
+    },
+    "bin/orin-arm64/edge-worker": {
+      "sha256": "b1be9245b7ae27166bf54b9ba87be20c002304047d815270996f55efee9e528e",
+      "bytes": 31317015,
+      "role": "build only; not rerun against DDS in final review"
+    },
+    "bin/orin-arm64/edge-exchange": {
+      "sha256": "603cfbb7a4e7910e00c741065a28c4d8cc126e2ffba69031c81e1f49b73e70cb",
+      "bytes": 16195165,
+      "role": "build only; not rerun against DDS in final review"
+    }
+  },
+  "hardwareValidation": false,
+  "ddsRerun": false,
+  "physicsRerun": false,
+  "initialLintFailure": "lint.log: new preflight script executable bit/import/noqa/type style issues fixed; final lint passed",
+  "dockerFinalRead": "Docker daemon unavailable during final status query; no additional container or physics run; earlier restoration receipt retained",
+  "supplementPreparation": "First source filter included public verifier and hit assertion before archive creation; excluded evidence from application-source set, then packaged."
+}

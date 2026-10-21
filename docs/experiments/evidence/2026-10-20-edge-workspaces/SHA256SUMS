@@ -1,0 +1,10 @@
+c871cd2e5a8ef1922bd4efb54ce274e05c7d698e4894b51298abc0ca9ff9b0cd  docs/experiments/evidence/2026-10-20-edge-workspaces/README.md
+1e879ea6140b1d09216f649ddf6a239cf8894c13803564dac09a8ed5596ca5a8  docs/experiments/evidence/2026-10-20-edge-workspaces/go-race.jsonl.gz
+cceb94900b1879a914f4e575e5f640722907da021b8c7b30bc06c7de6760fafa  docs/experiments/evidence/2026-10-20-edge-workspaces/go.jsonl.gz
+249e6652417a652a51edd426f7359d721a571987373e8bca3d84658708af015c  docs/experiments/evidence/2026-10-20-edge-workspaces/python.log.gz
+f7732dbd79b68d8b5f58b341ff3f21cfb17e83acbc760ac1f9b740a6bcc4fd61  docs/experiments/evidence/2026-10-20-edge-workspaces/source-manifest.json
+df12c3666aa3640fb467de6412081399a3c06b868a564b900b01f3c4669767d9  docs/experiments/evidence/2026-10-20-edge-workspaces/summary.json
+edaeea55c1dbcd4b9ac4a0bee11bc9bd465f57864c90db7524b4f7a3cdf622ef  docs/experiments/evidence/2026-10-20-edge-workspaces/web.log.gz
+0e6adeaacb5d56b29d7c25404663114fa0383adeacb97166a4ce66919d45bc2e  docs/frontend/assets/edge-workspaces-20261020/browser-checks.json
+58aa57f9930d7828e8a2007bf4c59c60c801f692c933b72dd9c2bb843a5c5668  docs/frontend/assets/edge-workspaces-20261020/desktop-devices.png
+d1800da0a46ec179a08d29da5a4dfc5c5aeb9451685633b7ffb6d3b0aa0f73a3  docs/frontend/assets/edge-workspaces-20261020/desktop-task-history.png

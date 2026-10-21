@@ -1,0 +1,754 @@
+diff --git a/robot/gateway/tangying_robot_gateway/exploration.py b/robot/gateway/tangying_robot_gateway/exploration.py
+index bd680126f..70a839fe8 100644
+--- a/robot/gateway/tangying_robot_gateway/exploration.py
++++ b/robot/gateway/tangying_robot_gateway/exploration.py
+@@ -1,4 +1,4 @@
+-"""Frontier exploration: choose where to look next so a survey finishes in one pass.
++"""Frontier exploration: choose a reachable viewpoint for the next scan.
+ 
+ A fixed waypoint route cannot know what a room contains, so it always leaves
+ something unscanned and the operator has to go back. Frontier exploration
+@@ -9,9 +9,9 @@ The pieces here are deliberately pure - a grid in, a decision out - so the
+ policy can be tested on synthetic maps without a robot, and so the runtime that
+ executes it stays a thin loop. Three properties matter and each has a test:
+ 
+-* An unknown cell is never planned through. Only measured floor counts as
+-  traversable, because driving into unmapped space on the strength of a guess is
+-  how a survey becomes a collision.
++* Unknown space grants no motion authority. Measured floor and a trusted local
++  robot footprint can be traversable; the latter only bridges the camera's
++  near-field gap and never overrides obstacles, clearance or refusals.
+ * Clearance is the commissioned envelope, not the chassis radius. A path that
+   fits the robot but not its safety envelope is a path the driver will refuse,
+   and a planner that keeps proposing refused paths wastes the whole survey.
+@@ -142,19 +142,31 @@ class Grid:
+ 
+         Used to decide whether standing somewhere and turning is worth its
+         keyframes, so it counts unknown cells only: occupied and free are both
+-        settled knowledge.
++        settled knowledge. The disc is centred on the containing grid cell;
++        cells beyond the current map extent count as unknown. A first RGB-D
++        view often creates a tiny, mostly free map, whose clipped bounds must
++        not make the unobserved directions look measured.
+         """
++        if not math.isfinite(radius_m) or radius_m < 0:
++            raise ValueError("observation radius must be non-negative and finite")
+         reach = max(1, math.ceil(radius_m / self.resolution))
+         row, column = self.row(y), self.column(x)
++        offsets = np.arange(-reach, reach + 1)
++        disc = (offsets[:, None] ** 2 + offsets[None, :] ** 2
++                <= (radius_m / self.resolution) ** 2)
++        total = int(disc.sum())
+         r0, r1 = max(0, row - reach), min(self.cells.shape[0], row + reach + 1)
+         c0, c1 = max(0, column - reach), min(self.cells.shape[1], column + reach + 1)
+         if r0 >= r1 or c0 >= c1:
+             return 1.0
+         window = self.cells[r0:r1, c0:c1]
+-        return float(np.count_nonzero(window < 0)) / float(window.size)
++        inside = disc[r0 - (row - reach):r1 - (row - reach),
++                      c0 - (column - reach):c1 - (column - reach)]
++        known = int(np.count_nonzero(inside & (window >= 0)))
++        return (total - known) / total
+ 
+ 
+-def _traversable_with_avoid(grid, radius_m, avoid_xy):
++def _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable=None):
+     """Where the robot may be planned, minus the approaches it was refused.
+ 
+     The exclusion is deliberately smaller than the planning clearance: what the
+@@ -162,29 +174,39 @@ def _traversable_with_avoid(grid, radius_m, avoid_xy):
+     neighbourhood of every refusal eventually walls off regions the robot can
+     reach by another route.
+     """
+-    traversable = traversable_mask(grid.cells, radius_m / grid.resolution)
++    clear = clearance_mask(grid.cells, radius_m / grid.resolution)
++    traversable = (grid.cells == 0) & clear
++    if extra_traversable is not None:
++        extra = np.asarray(extra_traversable, dtype=bool)
++        if extra.shape != grid.cells.shape:
++            raise ValueError("footprint mask must match occupancy grid")
++        # Only a trusted, locally evidenced robot footprint may bridge the
++        # camera's near-field gap. It cannot override measured obstacles, the
++        # commissioned clearance, or a driver's refused approach below.
++        traversable |= extra & (grid.cells < OCCUPIED) & clear
++    return _exclude_neighbourhoods(grid, traversable, avoid_xy)
++
++
++def _exclude_neighbourhoods(grid, mask, points):
++    """Remove local coordinates from an owned mask without changing the map."""
+     reach = max(1, math.ceil(AVOID_RADIUS_M / grid.resolution))
+-    for x, y in avoid_xy:
++    for x, y in points:
+         column, row = grid.column(x), grid.row(y)
+         r0, r1 = max(0, row - reach), min(grid.cells.shape[0], row + reach + 1)
+         c0, c1 = max(0, column - reach), min(grid.cells.shape[1], column + reach + 1)
+-        traversable[r0:r1, c0:c1] = False
+-    return traversable
++        mask[r0:r1, c0:c1] = False
++    return mask
+ 
+ 
+ def plan_route(grid, *, robot_xy, goal_xy, radius_m, avoid_xy=(), extra_traversable=None):
+     """Route to an already chosen viewpoint under the same clearance rules."""
+-    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy)
+-    if extra_traversable is not None:
+-        traversable = traversable | extra_traversable
++    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable)
+     return plan_path(grid, traversable, robot_xy, goal_xy)
+ 
+ 
+ def traversable_for(grid, radius_m, avoid_xy=(), extra_traversable=None):
+     """The planning mask the explorer uses, exposed for waypoint validation."""
+-    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy)
+-    if extra_traversable is not None:
+-        traversable = traversable | extra_traversable
++    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable)
+     return traversable
+ 
+ 
+@@ -240,15 +262,15 @@ def clearance_mask(cells, radius_cells):
+     # to the other. Reachable in production the moment a clearance envelope is
+     # wider than the map it is planning on - which is exactly what a caller asking
+     # for a large envelope on a small grid does.
+-    if reach >= max(height, width):
+-        reach = max(height, width) - 1
+-    reach = max(0, reach)
+-    if reach == 0:
+-        return ~blocked
+     # The obstacle itself is never clear either, even though the shift loop
+     # below only ever considers its neighbours.
+     clear = ~blocked
+-    offsets = [(dr, dc) for dr in range(-reach, reach + 1) for dc in range(-reach, reach + 1)
++    # Bound the enumeration by the map, while keeping the requested physical
++    # radius. Shrinking the radius itself to max(height, width)-1 left distant
++    # corners clear on a rectangular map even for an envelope covering it all.
++    row_reach, column_reach = min(reach, height - 1), min(reach, width - 1)
++    offsets = [(dr, dc) for dr in range(-row_reach, row_reach + 1)
++               for dc in range(-column_reach, column_reach + 1)
+                if 0 < dr * dr + dc * dc <= reach * reach]
+     for dr, dc in offsets:
+         r0, r1 = max(0, dr), min(height, height + dr)
+@@ -454,17 +476,23 @@ def _nearest_via_tree(tree, points, coordinates, row, column, reach_cells):
+ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
+                    min_frontier_area_m2=MIN_FRONTIER_AREA_M2, candidates=10,
+                    avoid_xy=(), blind=None,
+-                   extra_traversable=None, max_clusters=MAX_FRONTIER_CLUSTERS):
+-    """The frontier worth driving to next, or ``None`` when the survey is done.
++                   extra_traversable=None, max_clusters=MAX_FRONTIER_CLUSTERS,
++                   exclude_viewpoints=()):
++    """The frontier worth driving to next, or ``None`` when none is eligible.
+ 
+-    ``None`` is a real answer, not a failure: it means every remaining unknown
+-    cell is either unreachable through measured free space or not worth the
+-    travel, which is exactly the condition for calling a map complete.
++    ``None`` only describes this observed grid and its planning limits. The
++    caller must distinguish a fully settled reachable map from an empty map,
++    disconnected frontiers or an exhausted budget; it is not proof that an
++    entire previously unknown environment has been covered.
+ 
+     ``avoid_xy`` carries viewpoints the driver already refused. A refusal is
+     local evidence about a specific approach, so the survey routes around it and
+     keeps going instead of either retrying or giving up on the house.
+ 
++    ``exclude_viewpoints`` retires already visited or uninformative targets.
++    Those positions remain traversable: a failed observation at the current
++    pose is not physical evidence that the robot cannot drive away from it.
++
+     ``blind`` marks the space the sensor has already proved it cannot see from
+     where the robot has been - for a forward-facing base camera, the floor
+     around and behind its own path. Those cells stay unknown in the map and
+@@ -486,34 +514,48 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
+     labels, count = _components(frontier)
+     if not count:
+         return None
+-    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy)
+-    if extra_traversable is not None:
+-        traversable = traversable | extra_traversable
++    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable)
+     unknown = (cells < 0).astype(np.int64)
+     integral = np.zeros((unknown.shape[0] + 1, unknown.shape[1] + 1), dtype=np.int64)
+     np.cumsum(np.cumsum(unknown, axis=0), axis=1, out=integral[1:, 1:])
+-    reach = max(1, math.ceil(sensor_radius_m / grid.resolution))
+-    tree, tree_points, tree_coordinates = _traversable_tree(traversable)
+-    if tree is None:
+-        return None
+-    near = max(1, math.ceil(0.6 / grid.resolution))
+-
+     sizes = np.bincount(labels[frontier].ravel(), minlength=count)
+     start = grid.nearest_free_cell(*robot_xy)
+     if start is None:
+         return None
++    from scipy import ndimage
++
++    # The nearest floor cell may belong to an isolated map fragment. Restrict
++    # viewpoint lookup to this robot's reachable component before spending the
++    # bounded cluster/search budget. Four-connected components have the same
++    # reachability as A*'s corner-safe diagonals: every allowed diagonal also
++    # has both orthogonal steps available. Open only the same start cell that
++    # plan_path permits a parked robot to leave.
++    reachable = traversable.copy()
++    reachable[start] = True
++    connected, _ = ndimage.label(reachable)
++    # The exceptional start is a departure allowance, never a new observation
++    # target: otherwise an approach refused at this pose is selected again as
++    # the nearest viewpoint and the survey retires the same target forever.
++    reachable = (connected == connected[start]) & traversable
++    viewpoints_mask = _exclude_neighbourhoods(grid, reachable.copy(), exclude_viewpoints)
++    tree, tree_points, tree_coordinates = _traversable_tree(viewpoints_mask)
++    if tree is None:
++        return None
++    reach = max(1, math.ceil(sensor_radius_m / grid.resolution))
++    near = max(1, math.ceil(0.6 / grid.resolution))
++    approach_distance = ndimage.distance_transform_edt(~viewpoints_mask)
++    approachable = np.zeros(count, dtype=bool)
++    approachable[labels[frontier & (approach_distance <= reach)]] = True
+     # A frontier mask is mostly a long ragged edge, so it labels as hundreds of
+     # fragments. Scanning the whole grid once per fragment is what made a live
+     # survey look like a stopped robot; bounding boxes keep the cost proportional
+     # to the fragments actually considered.
+     # The floor is an area, so it has to be converted at *this* grid's resolution.
+     floor_cells = max(1, round(min_frontier_area_m2 / (grid.resolution ** 2)))
+-    biggest = [int(label) for label in np.argsort(sizes)[::-1][:max_clusters]
+-               if sizes[label] >= floor_cells]
++    biggest = [int(label) for label in np.argsort(sizes)[::-1]
++               if sizes[label] >= floor_cells and approachable[label]][:max_clusters]
+     if not biggest:
+         return None
+-    from scipy import ndimage
+-
+     # find_objects numbers objects from 1 and returns one slice per object, so
+     # shifting the 0-based cluster labels lines index ``label`` up with cluster
+     # ``label``.
+@@ -552,6 +594,13 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
+                                               row, column, reach)
+                 if viewpoint is None:
+                     continue
++            # A nearby approach can still be on the other side of an observed
++            # wall. Unknown cells can promise information, but a measured
++            # obstacle cannot be looked through. This is a sensing visibility
++            # check; it never grants motion through the unknown cells.
++            if not _straight_line_clear(grid, grid.centre(*viewpoint),
++                                        grid.centre(row, column), cells < OCCUPIED):
++                continue
+             distance = math.hypot(viewpoint[0] - start[0], viewpoint[1] - start[1])
+             graded.append((distance, viewpoint))
+         if not graded:
+@@ -686,13 +735,25 @@ def _straight_line_clear(grid, start, end, traversable):
+     """
+     steps = max(1, int(math.hypot(end[0] - start[0], end[1] - start[1])
+                        / (grid.resolution * 0.5)))
++    start_cell = (grid.row(start[1]), grid.column(start[0]))
++    previous = start_cell
+     for index in range(1, steps + 1):
+         fraction = index / steps
+         x = start[0] + (end[0] - start[0]) * fraction
+         y = start[1] + (end[1] - start[1]) * fraction
+         row, column = grid.row(y), grid.column(x)
+-        if not grid.inside(row, column) or not traversable[row, column]:
++        if not grid.inside(row, column):
++            return False
++        # A half-cell sampling interval can still step diagonally across the
++        # exact corner of two blocked cells. Match A*'s corner rule instead of
++        # declaring that zero-width gap visible/drivable.
++        if (row != previous[0] and column != previous[1]
++                and not (traversable[previous[0], column]
++                         and traversable[row, previous[1]])):
++            return False
++        if (row, column) != start_cell and not traversable[row, column]:
+             return False
++        previous = (row, column)
+     return True
+ 
+ 
+diff --git a/robot/gateway/tangying_robot_gateway/robot_workflow.py b/robot/gateway/tangying_robot_gateway/robot_workflow.py
+index a0cdfbeda..ac4d75e96 100644
+--- a/robot/gateway/tangying_robot_gateway/robot_workflow.py
++++ b/robot/gateway/tangying_robot_gateway/robot_workflow.py
+@@ -47,6 +47,10 @@ from .survey import EXPLORATION, SurveyRefusal, SurveyRunner
+ SURVEY = SurveyRunner()
+ #: Turn spread of one look-around, chosen to overlap the base camera's 73 deg FOV.
+ LOOK_AROUND_STEP_RAD = 1.5707963267948966
++LOOK_AROUND_SECONDS = 120.0
++# Only commissioned geometric refusals permit a different approach. A loss of
++# localization, authority, transport or an unknown driver failure must stop.
++SPATIAL_REFUSALS = frozenset({"NAV_ENVELOPE", "NAV_MODEL_COLLISION"})
+ DEFAULT_EXPLORE_LEGS = 4
+ DEFAULT_EXPLORE_TRAVEL_M = 75.0
+ 
+@@ -111,6 +115,9 @@ class RobotWorkflow:
+         self._object_errors: list[str] = []
+         #: Frames skipped because too little depth was measured to register them.
+         self._depth_starved = 0
++        self._depth_rejected = 0
++        self._initial_scan_pending = True
++        self._scan_evidence = {"looks": [], "legs": []}
+         # Drivers with restart-unstable odometry must use a new frame epoch and
+         # register an explicit relocalization service before reusing old maps.
+         self.world_frame_revision = world_frame_revision or uuid.uuid4().hex
+@@ -351,7 +358,10 @@ class RobotWorkflow:
+         with self._lock:
+             return copy.deepcopy({"state":self.state,"sessionId":self.session_id,"operationId":self.operation_id,"mapId":self.map_id,
+                 "message":self.message,"activeMap":self.active,"preview":self._preview,
+-                "exploration":self._exploration,**self._summary})
++                "exploration":self._exploration,
++                "scanEvidence":{**self._scan_evidence,
++                    "consecutiveInsufficientDepth":self._depth_starved,
++                    "depthRejectedFrames":self._depth_rejected},**self._summary})
+ 
+     def _handle_session_fault(self, error):
+         """End a session on a fault, keeping whatever was already measured.
+@@ -423,6 +433,9 @@ class RobotWorkflow:
+             self.name = str(parameters.get("name", "家庭地图"))[:120]
+             self._exploration = {}
+             self._explore_complete = False
++            self._depth_starved = self._depth_rejected = 0
++            self._initial_scan_pending = True
++            self._scan_evidence = {"looks": [], "legs": []}
+             self._leg_anchor = None
+             self.state,self.message = "moving","正在采集第一帧。"
+             self._preview = {"points":[],"colors":[]}
+@@ -552,12 +565,16 @@ class RobotWorkflow:
+                 # survey keeps driving (the view changes as it moves), and a leg
+                 # that keeps hitting it ends gracefully instead.
+                 self._depth_starved += 1
++                self._depth_rejected += 1
+                 return
+             if not added: return
+             progress = self.slam.progress()
+             if (not isinstance(progress, SlamProgress) or progress.frame_count != self.slam.frame_count
+                     or not 1 <= progress.frame_count <= self.slam.max_frames):
+                 raise ValueError("SLAM progress does not match the bounded provider session")
++            # A valid registered view breaks the consecutive depth-loss streak.
++            # Duplicate/rejected keyframes do not manufacture sensor recovery.
++            self._depth_starved = 0
+             self._observe_objects(observation, progress.latest_odometry)
+         with self._lock:
+             self._summary = progress.summary()
+@@ -659,7 +676,7 @@ class RobotWorkflow:
+             last = complete or index == legs-1 or budget-spent <= 1.
+             with self._lock:
+                 self.state,self.message = "finalizing",(
+-                    "未知区域已探索完，正在生成地图。" if complete else
++                    "当前观测地图的可达前沿已耗尽，正在生成地图。" if complete else
+                     f"第 {index+1} 段扫描完成，正在保存终版地图。" if last else
+                     f"第 {index+1} 段扫描完成，正在保存后继续探索。")
+             if self._summary["travelledM"] < .15:
+@@ -669,7 +686,10 @@ class RobotWorkflow:
+                 with self._lock:
+                     if self._base_map_id:
+                         self.map_id = self._base_map_id
+-                        self.state,self.message = "completed","地图已保存；剩余未知区域当前不可达。"
++                        reason = self._exploration.get("stopReason", "unknown")
++                        self.state = "failed" if reason in {
++                            "no_frames", "insufficient_map_evidence", "depth_starved"} else "completed"
++                        self.message = f"保留上一段地图；本段无足够平移证据，停止原因：{reason}。"
+                     else:
+                         self.state,self.message = "failed",(
+                             "自动探索未能开始：从当前位置找不到可通行的未知区域，"
+@@ -701,6 +721,8 @@ class RobotWorkflow:
+         self.map_id = "scan-"+self.session_id[:12]
+         self._cancel = threading.Event()
+         self._pause_requested,self._user_cancel = False,False
++        self._depth_starved = 0
++        self._initial_scan_pending = False
+         with self._lock:
+             self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,
+                              "loopClosures":0,"trajectory":[]}
+@@ -740,6 +762,10 @@ class RobotWorkflow:
+         # caller reads once the leg has ended.
+         self._exploration = result.exploration
+         self._explore_complete = result.complete
++        with self._lock:
++            self._scan_evidence["legs"].append({**result.exploration,
++                "travelledM":result.travelled_m, "frontiersExhausted":result.complete})
++            del self._scan_evidence["legs"][:-6]
+         return result.travelled_m
+ 
+ 
+@@ -856,48 +882,99 @@ class RobotWorkflow:
+             remaining -= step
+ 
+     def _look_around(self, grid, blind=None):
+-        """Turn in place while a corner of the map is still unmeasured.
++        """Acquire bounded new views, including when the first depth view failed.
+ 
+-        Standing still and rotating is the cheapest coverage there is: no travel,
+-        no new pose error, and the keyframes it costs are bounded by asking only
+-        where the local map is still mostly unknown.
+-
+-        Takes the grid rather than the raw SLAM document: the survey loop speaks in
+-        grids, and translating back and forth at every port crossing would put the
+-        SLAM document's shape into the loop's vocabulary.
++        This planar body adapter requests commissioned in-place turns only. The
++        evidence records measured yaw and accepted keyframes, not a claim that
++        requested rotations covered every surface (or that every body can turn).
+         """
+-        if grid is None:
+-            return
++        self._check_cancel()
++        initial = self._initial_scan_pending
++        self._initial_scan_pending = False
++        started = time.monotonic()
+         reserve = self.slam.max_frames-EXPLORATION["frameMargin"]-40
+-        base = self._current_pose()
+-        pose = pose_se2(list(base))
+-        unseen = grid.unknown_fraction(pose[0],pose[1],EXPLORATION["lookRadiusM"])
+-        if unseen > EXPLORATION["lookDenseThreshold"]:
+-            sweeps = EXPLORATION["lookSweepsMax"]
+-        elif unseen > EXPLORATION["lookThreshold"]:
+-            sweeps = EXPLORATION["lookSweepsMin"]
+-        else:
+-            return
+-        for _ in range(sweeps):
+-            if self.slam.frame_count >= reserve:
+-                return
++        evidence = {"phase": "initial_scan" if initial else "frontier_scan",
++                    "status": "running", "acceptedFrameDelta": 0,
++                    "measuredYawTravelRad": 0., "maxTranslationM": 0.,
++                    "completedSweeps": 0, "coverageClaim": "not_measured"}
++        first_frames = self.slam.frame_count
++        with self._lock:
++            self._scan_evidence["looks"].append(dict(evidence))
++            del self._scan_evidence["looks"][:-12]
++        try:
+             base = self._current_pose()
+-            pose = pose_se2(list(base))
+-            try:
+-                self._turn_by(LOOK_AROUND_STEP_RAD,base)
+-            except ServiceError as error:
+-                if error.code not in {"NAV_ENVELOPE", "NAV_MODEL_COLLISION"}:
+-                    raise
+-                # The driver acknowledged zero velocity at this rejected turn.
+-                # Stop the optional sweep; let the frontier loop choose a safe
+-                # translation instead of treating one view as a session fault.
+-                with self._lock:
+-                    self.message = f"环视被安全层拒绝（{error.code}），重新选择可通行区域。"
+-                return
+-            live,_blind = self._live_grid()
+-            if live is None:
++            first_pose = previous = pose_se2(list(base))
++            unseen = (1. if grid is None else grid.unknown_fraction(
++                first_pose[0], first_pose[1], EXPLORATION["lookRadiusM"]))
++            evidence["initialUnknownFraction"] = unseen
++            if unseen > EXPLORATION["lookDenseThreshold"]:
++                sweeps = EXPLORATION["lookSweepsMax"]
++            elif unseen > EXPLORATION["lookThreshold"]:
++                sweeps = EXPLORATION["lookSweepsMin"]
++            else:
++                evidence["status"] = "sufficient_local_evidence"
+                 return
+-            grid = self._grid_object(live)
++            stalled = 0
++            for sweep in range(sweeps):
++                remaining = LOOK_AROUND_STEP_RAD
++                # Check the bounds between each <=0.5 rad command, not only
++                # between quarter-turns. The motion driver retains its own
++                # timeout, collision guard and stop acknowledgement.
++                while remaining > 1e-9:
++                    self._check_cancel()
++                    if self.slam.frame_count >= reserve:
++                        evidence["status"] = "frame_budget"
++                        return
++                    if self._depth_starved >= EXPLORATION["depthStarvedLimit"]:
++                        evidence["status"] = "depth_starved"
++                        return
++                    if time.monotonic()-started >= LOOK_AROUND_SECONDS:
++                        evidence["status"] = "time_budget"
++                        return
++                    step = min(.5, remaining)
++                    try:
++                        self._turn_by(step, self._current_pose())
++                    except ServiceError as error:
++                        if error.code not in SPATIAL_REFUSALS:
++                            raise
++                        evidence.update(status="safety_refused", refusalCode=error.code)
++                        with self._lock:
++                            self.message = f"环视被安全层拒绝（{error.code}），重新选择可通行区域。"
++                        return
++                    measured = pose_se2(list(self._current_pose()))
++                    delta = math.atan2(math.sin(measured[2]-previous[2]),
++                                       math.cos(measured[2]-previous[2]))
++                    evidence["measuredYawTravelRad"] += abs(delta)
++                    evidence["maxTranslationM"] = max(evidence["maxTranslationM"],
++                        float(np.linalg.norm(measured[:2]-first_pose[:2])))
++                    previous = measured
++                    with self._lock:
++                        self._scan_evidence["looks"][-1] = dict(evidence)
++                    stalled = stalled+1 if abs(delta) < .02 else 0
++                    if stalled >= 2:
++                        evidence["status"] = "no_yaw_progress"
++                        return
++                    remaining -= step
++                evidence["completedSweeps"] = sweep+1
++                live, _blind = self._live_grid()
++                # A failed first view must not prevent looking in another
++                # direction. Missing depth remains missing evidence throughout.
++                grid = self._grid_object(live) if live is not None else None
++                if grid is not None and sweep+1 >= EXPLORATION["lookSweepsMin"]:
++                    unseen = grid.unknown_fraction(previous[0], previous[1],
++                                                   EXPLORATION["lookRadiusM"])
++                    if unseen <= EXPLORATION["lookThreshold"]:
++                        evidence["status"] = "sufficient_local_evidence"
++                        return
++            evidence["status"] = "bounded_sweep_finished"
++        except BaseException:
++            evidence["status"] = "cancelled" if self._cancel.is_set() else "fault"
++            raise
++        finally:
++            with self._lock:
++                evidence["acceptedFrameDelta"] = max(0, self.slam.frame_count-first_frames)
++                evidence["elapsedSeconds"] = round(time.monotonic()-started, 3)
++                self._scan_evidence["looks"][-1] = dict(evidence)
+ 
+     def _planning_clearance(self):
+         """The distance the planner keeps from observed obstacles, in metres."""
+@@ -1266,6 +1343,15 @@ class RobotWorkflow:
+                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
+                           "mapFromWorld":anchor.tolist(),"footprintRadiusM":self.footprint_radius,
+                           "navigationEvidenceVersion":2}
++            if self._exploration or self._scan_evidence["looks"]:
++                provenance["exploration"] = copy.deepcopy({
++                    "coverageScope":"observed_grid_nonblind_frontiers",
++                    "wholeSceneCoverage":"not_measured",
++                    "frontiersExhausted":self._explore_complete,
++                    "finalLeg":self._exploration,
++                    **self._scan_evidence,
++                    "depthRejectedFrames":self._depth_rejected,
++                    "consecutiveInsufficientDepth":self._depth_starved})
+             # Objects were accumulated in the frame the live geometry used; the
+             # map is written in the final anchor's frame, so the layer has to make
+             # the same crossing the point cloud just did.
+@@ -1304,7 +1390,11 @@ class RobotWorkflow:
+                         f"扫描中断（{fault.get('code','FAULT')}）：已保存并启用已测绘部分，"
+                         "请处理后继续扫描以补全未知区域。")
+                 else:
+-                    self.state,self.message = ("completed" if terminal else "finalizing"),"扫描完成，导航地图已启用，三维地图已保存。"
++                    self.state = "completed" if terminal else "finalizing"
++                    self.message = "扫描完成，导航地图已启用，三维地图已保存。"
++                    if self._exploration:
++                        reason = self._exploration.get("stopReason", "unknown")
++                        self.message = f"已保存并启用实测地图；探索停止原因：{reason}，全场景覆盖率未测量。"
+                 self._summary["trajectory"] = trail
+                 self._summary["pointCount"] = manifest["pointCount"]
+         self._release_session()
+@@ -1756,7 +1846,7 @@ class _WorkflowSurveyDriver:
+             return self._workflow._drive_step(waypoint, base, pose,
+                                               after_pose=after_pose, remaining_m=remaining_m)
+         except ServiceError as error:
+-            if error.code in {"STALE_CAPTURE", "SENSOR_STALE", "CALIBRATION_CHANGED", "CANCELLED"}:
++            if error.code not in SPATIAL_REFUSALS:
+                 # A sensor/authority fault says nothing about geometric clearance.
+                 # Propagate it; do not blacklist a frontier or claim coverage.
+                 raise
+diff --git a/robot/gateway/tangying_robot_gateway/survey.py b/robot/gateway/tangying_robot_gateway/survey.py
+index 6e3d6fd39..09251aa73 100644
+--- a/robot/gateway/tangying_robot_gateway/survey.py
++++ b/robot/gateway/tangying_robot_gateway/survey.py
+@@ -196,8 +196,9 @@ class LegResult:
+ 
+     travelled_m: float
+     exploration: dict[str, Any] = field(default_factory=dict)
+-    #: True only when the map is finished: unknown space the planner could not
+-    #: reach is a different, reportable outcome.
++    #: True only when the observed grid's nonblind frontier set is exhausted.
++    #: Remaining unreachable frontiers are partial, and neither outcome proves
++    #: the entire initially unknown scene has been observed.
+     complete: bool = False
+ 
+ 
+@@ -223,23 +224,66 @@ class SurveyRunner:
+         # refusal as the end of the survey would be wrong: the obstacle is local,
+         # so the planner is told to route around it and pick something else.
+         refused: list[tuple[float, float]] = []
++        # Arriving without revealing more is evidence about a viewpoint's value,
++        # not an obstacle. These sites remain traversable, including the cell the
++        # robot is standing in; only choosing the same viewpoint is suppressed.
++        visited_viewpoints: list[tuple[float, float]] = []
+         consecutive = 0
+         idle = 0
++        route_failures = 0
+         looks = 0
+         last_look = 0.0
+         # Sticky target. Re-picking the best frontier on every step made the
+         # robot walk to the middle of a room and oscillate between four equally
+         # good corners; a target is held until it is reached or goes stale.
+         target_xy = None
+-        exploration: dict[str, Any] = {}
+-        driver.look_around(*map_port.live_grid())
++        # A look-around is a motion request too. It must not precede cancellation
++        # or budget checks, and opening another leg does not authorize another
++        # initial sweep. The driver owns whether this body can turn safely.
++        initial_scan: dict[str, Any] = {
++            "initialScanAttempted": False,
++            "initialScanStatus": "not_started" if number == 1 else "skipped_continuation",
++            # Frontiers describe this observed grid, excluding declared blind
++            # cells. They cannot prove all rooms of an unknown building exist in
++            # the grid, nor that every surface has been reconstructed.
++            "coverageScope": "observed_grid_nonblind_frontiers",
++        }
++        exploration: dict[str, Any] = {"leg": number, **initial_scan}
+ 
+         def finish(reason: str, complete: bool = False) -> LegResult:
+             exploration["stopReason"] = reason
++            exploration["terminationMeaning"] = "frontier_exhausted" if complete else "partial"
++            exploration["routeFailuresSinceProgress"] = route_failures
++            exploration["refused"] = len(refused)
++            exploration["visitedViewpoints"] = len(visited_viewpoints)
+             report.publish_exploration(dict(exploration))
+             return LegResult(travelled_m=map_port.travelled_m() - started,
+                              exploration=dict(exploration), complete=complete)
+ 
++        map_port.check_cancel()
++        stopped = self.stop_reason(map_port, started=started, remaining_m=remaining_m,
++                                   deadline=deadline)
++        if stopped:
++            return finish(stopped)
++        if number == 1 and config["maxLooksPerLeg"] > 0:
++            initial_scan.update(initialScanAttempted=True, initialScanStatus="attempted")
++            exploration.update(initial_scan)
++            report.publish_exploration(dict(exploration))
++            try:
++                driver.look_around(*map_port.live_grid())
++            except SurveyRefusal as error:
++                initial_scan.update(initialScanStatus="refused", initialScanRefusal=error.code)
++                exploration.update(initial_scan)
++                return finish("initial_scan_refused")
++            # Returned describes the port call, not a promise of a full turn or
++            # a localization result. Measured sweep evidence belongs to the driver.
++            initial_scan["initialScanStatus"] = "returned"
++            exploration.update(initial_scan)
++            looks += 1
++        elif number == 1:
++            initial_scan["initialScanStatus"] = "disabled"
++            exploration.update(initial_scan)
++
+         while True:
+             map_port.check_cancel()
+             stopped = self.stop_reason(map_port, started=started, remaining_m=remaining_m,
+@@ -250,6 +294,13 @@ class SurveyRunner:
+             if live is None:
+                 return finish("no_frames")
+             grid = live
++            # A blank grid has no frontier because a frontier needs known free
++            # space. That is missing evidence, never successful exploration.
++            # Nor does a grid consisting solely of obstacles establish a route.
++            if not np.any(grid.cells == 0):
++                exploration.update(coverage_report(grid.cells))
++                exploration.update(frontierCells=0, target=None)
++                return finish("insufficient_map_evidence")
+             base = map_port.current_pose()
+             pose = map_port.planning_pose()
+             clearance = map_port.planning_clearance()
+@@ -263,26 +314,29 @@ class SurveyRunner:
+                     grid, robot_xy=(pose[0], pose[1]),
+                     sensor_radius_m=config["sensorRadiusM"], radius_m=clearance,
+                     min_frontier_area_m2=config["minFrontierAreaM2"], avoid_xy=refused,
++                    exclude_viewpoints=visited_viewpoints,
+                     blind=blind,
+                     extra_traversable=map_port.self_mask(grid, pose[0], pose[1], clearance))
+                 if target is None:
+-                    # Nothing reachable is still unknown: this is the completion
+-                    # condition, not a failure, and it is worth saying so plainly.
+-                    # The counts go into the report so "complete" can be checked
+-                    # rather than taken on faith.
++                    # Count remaining nonblind frontiers, not an imagined whole
++                    # building. A finite grid can contain no frontier while an
++                    # undiscovered room lies beyond its observed extent.
+                     open_frontier = frontier_mask(grid.cells)
+                     if blind is not None:
+                         open_frontier = open_frontier & ~blind
+                     unplanned = int(open_frontier.sum())
+-                    # "Complete" has to mean the map is finished, not that the
+-                    # planner ran out of ideas. Unknown space the planner could
+-                    # not reach is a different, reportable outcome - and calling
+-                    # it complete would end the survey on a lie.
++                    # Remaining frontiers the planner could not reach are a
++                    # partial result. No remaining frontier only exhausts the
++                    # declared coverage scope; it does not prove global coverage.
+                     finished = unplanned == 0
+-                    exploration = {**coverage_report(grid.cells), "leg": number,
++                    exploration = {**coverage_report(grid.cells), **initial_scan, "leg": number,
+                                    "refused": len(refused), "target": None,
++                                   "visitedViewpoints": len(visited_viewpoints),
+                                    "stopReason": "complete" if finished
+                                    else "no_reachable_frontier",
++                                   "terminationMeaning": "frontier_exhausted" if finished
++                                   else "partial",
++                                   "routeFailuresSinceProgress": route_failures,
+                                    "frontierCells": unplanned,
+                                    "blindCells": 0 if blind is None else int(blind.sum())}
+                     report.publish_exploration(dict(exploration))
+@@ -296,16 +350,21 @@ class SurveyRunner:
+                     radius_m=clearance, avoid_xy=refused,
+                     extra_traversable=map_port.self_mask(grid, pose[0], pose[1], clearance))
+                 if path is None:
++                    route_failures += 1
+                     target_xy = None
++                    if route_failures >= config["maxIdleSteps"]:
++                        return finish("no_progress")
+                     continue
+-            exploration = {**coverage_report(grid.cells), "leg": number,
++            exploration = {**coverage_report(grid.cells), **initial_scan, "leg": number,
+                            "refused": len(refused), "stopReason": "",
++                           "visitedViewpoints": len(visited_viewpoints),
+                            "target": [round(v, 3) for v in target_xy]}
+             report.publish_exploration(dict(exploration))
+             report.publish_message(
+                 f"自动探索第 {number} 段：前往未知区域 "
+                 f"({target_xy[0]:.1f}, {target_xy[1]:.1f})，"
+-                f"地图已探明 {1 - exploration['unknownFraction']:.0%}。")
++                f"当前观测栅格已知比例 {1 - exploration['unknownFraction']:.0%}"
++                "（非全场景覆盖率）。")
+             traversable = traversable_for(
+                 grid, clearance, avoid_xy=refused,
+                 extra_traversable=map_port.self_mask(grid, pose[0], pose[1], clearance))
+@@ -345,14 +404,16 @@ class SurveyRunner:
+                 # Either way this target has nothing left to give, so retire it
+                 # instead of re-selecting it on the next pass.
+                 idle += 1
+-                if tuple(target_xy) not in refused:
+-                    refused.append(tuple(target_xy))
++                if tuple(target_xy) not in visited_viewpoints:
++                    visited_viewpoints.append(tuple(target_xy))
+                 target_xy = None
+                 if idle >= config["maxIdleSteps"]:
+                     return finish("no_progress")
+                 continue
+             consecutive = 0
+             idle = 0
++            if moved >= 1e-3:
++                route_failures = 0
+             # Turning is expensive in both time and keyframes, so a look-around
+             # waits until the robot is actually standing at the unknown edge and
+             # has covered some ground since the last one.
+@@ -362,12 +423,19 @@ class SurveyRunner:
+             if standing_at_edge:
+                 # Reached it. Whether or not it revealed everything expected,
+                 # coming back here cannot reveal more.
+-                if tuple(target_xy) not in refused:
+-                    refused.append(tuple(target_xy))
++                if tuple(target_xy) not in visited_viewpoints:
++                    visited_viewpoints.append(tuple(target_xy))
+                 target_xy = None
+             if (standing_at_edge and looks < config["maxLooksPerLeg"]
+                     and travelled - last_look >= config["lookSpacingM"]):
+-                driver.look_around(live, blind)
++                map_port.check_cancel()
++                stopped = self.stop_reason(map_port, started=started, remaining_m=remaining_m,
++                                           deadline=deadline)
++                if stopped:
++                    return finish(stopped)
++                # The last drive changed the map; choose the optional sweep from
++                # current observations rather than the pre-drive grid.
++                driver.look_around(*map_port.live_grid())
+                 looks += 1
+                 last_look = map_port.travelled_m() - started
+ 
+@@ -426,6 +494,6 @@ class SurveyRunner:
+             # Saving is the point of stopping here: the leg still fits the frame
+             # budget, so it can be published and continued rather than lost.
+             return "frame_budget"
+-        if self._clock() > deadline:
++        if self._clock() >= deadline:
+             return "leg_timeout"
+         return None

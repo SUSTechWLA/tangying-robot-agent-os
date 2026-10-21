@@ -47,6 +47,10 @@ from .survey import EXPLORATION, SurveyRefusal, SurveyRunner
 SURVEY = SurveyRunner()
 #: Turn spread of one look-around, chosen to overlap the base camera's 73 deg FOV.
 LOOK_AROUND_STEP_RAD = 1.5707963267948966
+LOOK_AROUND_SECONDS = 120.0
+# Only commissioned geometric refusals permit a different approach. A loss of
+# localization, authority, transport or an unknown driver failure must stop.
+SPATIAL_REFUSALS = frozenset({"NAV_ENVELOPE", "NAV_MODEL_COLLISION"})
 DEFAULT_EXPLORE_LEGS = 4
 DEFAULT_EXPLORE_TRAVEL_M = 75.0
 
@@ -111,6 +115,9 @@ class RobotWorkflow:
         self._object_errors: list[str] = []
         #: Frames skipped because too little depth was measured to register them.
         self._depth_starved = 0
+        self._depth_rejected = 0
+        self._initial_scan_pending = True
+        self._scan_evidence = {"looks": [], "legs": []}
         # Drivers with restart-unstable odometry must use a new frame epoch and
         # register an explicit relocalization service before reusing old maps.
         self.world_frame_revision = world_frame_revision or uuid.uuid4().hex
@@ -351,7 +358,10 @@ class RobotWorkflow:
         with self._lock:
             return copy.deepcopy({"state":self.state,"sessionId":self.session_id,"operationId":self.operation_id,"mapId":self.map_id,
                 "message":self.message,"activeMap":self.active,"preview":self._preview,
-                "exploration":self._exploration,**self._summary})
+                "exploration":self._exploration,
+                "scanEvidence":{**self._scan_evidence,
+                    "consecutiveInsufficientDepth":self._depth_starved,
+                    "depthRejectedFrames":self._depth_rejected},**self._summary})
 
     def _handle_session_fault(self, error):
         """End a session on a fault, keeping whatever was already measured.
@@ -423,6 +433,9 @@ class RobotWorkflow:
             self.name = str(parameters.get("name", "家庭地图"))[:120]
             self._exploration = {}
             self._explore_complete = False
+            self._depth_starved = self._depth_rejected = 0
+            self._initial_scan_pending = True
+            self._scan_evidence = {"looks": [], "legs": []}
             self._leg_anchor = None
             self.state,self.message = "moving","正在采集第一帧。"
             self._preview = {"points":[],"colors":[]}
@@ -552,12 +565,16 @@ class RobotWorkflow:
                 # survey keeps driving (the view changes as it moves), and a leg
                 # that keeps hitting it ends gracefully instead.
                 self._depth_starved += 1
+                self._depth_rejected += 1
                 return
             if not added: return
             progress = self.slam.progress()
             if (not isinstance(progress, SlamProgress) or progress.frame_count != self.slam.frame_count
                     or not 1 <= progress.frame_count <= self.slam.max_frames):
                 raise ValueError("SLAM progress does not match the bounded provider session")
+            # A valid registered view breaks the consecutive depth-loss streak.
+            # Duplicate/rejected keyframes do not manufacture sensor recovery.
+            self._depth_starved = 0
             self._observe_objects(observation, progress.latest_odometry)
         with self._lock:
             self._summary = progress.summary()
@@ -659,7 +676,7 @@ class RobotWorkflow:
             last = complete or index == legs-1 or budget-spent <= 1.
             with self._lock:
                 self.state,self.message = "finalizing",(
-                    "未知区域已探索完，正在生成地图。" if complete else
+                    "当前观测地图的可达前沿已耗尽，正在生成地图。" if complete else
                     f"第 {index+1} 段扫描完成，正在保存终版地图。" if last else
                     f"第 {index+1} 段扫描完成，正在保存后继续探索。")
             if self._summary["travelledM"] < .15:
@@ -669,7 +686,10 @@ class RobotWorkflow:
                 with self._lock:
                     if self._base_map_id:
                         self.map_id = self._base_map_id
-                        self.state,self.message = "completed","地图已保存；剩余未知区域当前不可达。"
+                        reason = self._exploration.get("stopReason", "unknown")
+                        self.state = "failed" if reason in {
+                            "no_frames", "insufficient_map_evidence", "depth_starved"} else "completed"
+                        self.message = f"保留上一段地图；本段无足够平移证据，停止原因：{reason}。"
                     else:
                         self.state,self.message = "failed",(
                             "自动探索未能开始：从当前位置找不到可通行的未知区域，"
@@ -689,27 +709,41 @@ class RobotWorkflow:
             self._open_leg(index+2)
 
     def _open_leg(self, number):
-        """Re-arm the session so the next leg extends the map just published."""
+        """Extend the map without re-arming cancelled operation authority."""
+        self._check_cancel()
         next_provider = self._new_slam_provider()
-        self._reservation = self.reserve()
-        self._base_map_id = self.map_id
-        self._base_anchor = list(self._leg_anchor) if self._leg_anchor else None
-        self.slam = next_provider
-        self._slam_info = self.slam.info
-        self._base_grid_cache = None
-        self.session_id = uuid.uuid4().hex
-        self.map_id = "scan-"+self.session_id[:12]
-        self._cancel = threading.Event()
-        self._pause_requested,self._user_cancel = False,False
-        with self._lock:
-            self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,
-                             "loopClosures":0,"trajectory":[]}
-            self._preview = {"points":[],"colors":[]}
-            self.state,self.message = "exploring",f"自动探索第 {number} 段：继续从已保存地图扩展。"
-        # Every leg needs its own first capture. Without it the leg starts with an
-        # empty scan, plans on no grid at all, and reports that the house has
-        # nothing left to explore.
-        self._sample()
+        try:
+            with self._lock:
+                self._check_cancel()
+                if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                    self._expire_operation_lease()
+                    self._check_cancel()
+                self._reservation = self.reserve()
+                # Cancellation can win while the driver acquires its resource.
+                # Never replace the operation's Event or clear its user/lease
+                # flags at a leg boundary; the watchdog owns that authority.
+                self._check_cancel()
+                if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                    self._expire_operation_lease()
+                    self._check_cancel()
+                self._base_map_id = self.map_id
+                self._base_anchor = list(self._leg_anchor) if self._leg_anchor else None
+                self.slam = next_provider
+                self._slam_info = self.slam.info
+                self._base_grid_cache = None
+                self.session_id = uuid.uuid4().hex
+                self.map_id = "scan-"+self.session_id[:12]
+                self._depth_starved = 0
+                self._initial_scan_pending = False
+                self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,
+                                 "loopClosures":0,"trajectory":[]}
+                self._preview = {"points":[],"colors":[]}
+                self.state,self.message = "exploring",f"自动探索第 {number} 段：继续从已保存地图扩展。"
+            # A continuation still needs its own first real capture.
+            self._sample()
+        except BaseException:
+            self._release_session()
+            raise
 
     # -- the survey loop, which lives in survey.py --------------------------
     #
@@ -740,6 +774,10 @@ class RobotWorkflow:
         # caller reads once the leg has ended.
         self._exploration = result.exploration
         self._explore_complete = result.complete
+        with self._lock:
+            self._scan_evidence["legs"].append({**result.exploration,
+                "travelledM":result.travelled_m, "frontiersExhausted":result.complete})
+            del self._scan_evidence["legs"][:-6]
         return result.travelled_m
 
 
@@ -822,7 +860,7 @@ class RobotWorkflow:
         """
         dx,dy = waypoint[0]-pose[0],waypoint[1]-pose[1]
         distance = math.hypot(dx,dy)
-        if distance < .05:
+        if distance < EXPLORATION["minStepM"]:
             return False
         heading = math.atan2(dy,dx)
         error = math.atan2(math.sin(heading-pose[2]),math.cos(heading-pose[2]))
@@ -831,10 +869,15 @@ class RobotWorkflow:
             return True
         reach = min(EXPLORATION["maxStepM"],distance,
                     max(0., float(remaining_m)-.10) if remaining_m is not None else distance)
-        if reach < .05:
+        if reach < EXPLORATION["minStepM"]:
             return False
-        self._move_and_sample([pose[0]+reach*math.cos(heading),pose[1]+reach*math.sin(heading),
-                               base[2],math.cos(heading/2),0.,0.,math.sin(heading/2)],
+        target = [pose[0]+reach*math.cos(heading), pose[1]+reach*math.sin(heading), heading]
+        if self._base_anchor is not None:
+            # Continuations plan in the inherited map frame; drivers accept
+            # driver-world commands. Transform once, here at the port boundary.
+            target = relative(self._planning_anchor(), target)
+        self._move_and_sample([target[0],target[1],base[2],
+                               math.cos(target[2]/2),0.,0.,math.sin(target[2]/2)],
                               bounded=True,fatal=False)
         return True
 
@@ -856,48 +899,120 @@ class RobotWorkflow:
             remaining -= step
 
     def _look_around(self, grid, blind=None):
-        """Turn in place while a corner of the map is still unmeasured.
+        """Acquire bounded new views, including when the first depth view failed.
 
-        Standing still and rotating is the cheapest coverage there is: no travel,
-        no new pose error, and the keyframes it costs are bounded by asking only
-        where the local map is still mostly unknown.
-
-        Takes the grid rather than the raw SLAM document: the survey loop speaks in
-        grids, and translating back and forth at every port crossing would put the
-        SLAM document's shape into the loop's vocabulary.
+        This planar body adapter requests commissioned in-place turns only. The
+        evidence records measured yaw and accepted keyframes, not a claim that
+        requested rotations covered every surface (or that every body can turn).
         """
-        if grid is None:
-            return
+        self._check_cancel()
+        initial = self._initial_scan_pending
+        self._initial_scan_pending = False
+        started = time.monotonic()
         reserve = self.slam.max_frames-EXPLORATION["frameMargin"]-40
-        base = self._current_pose()
-        pose = pose_se2(list(base))
-        unseen = grid.unknown_fraction(pose[0],pose[1],EXPLORATION["lookRadiusM"])
-        if unseen > EXPLORATION["lookDenseThreshold"]:
-            sweeps = EXPLORATION["lookSweepsMax"]
-        elif unseen > EXPLORATION["lookThreshold"]:
-            sweeps = EXPLORATION["lookSweepsMin"]
-        else:
-            return
-        for _ in range(sweeps):
-            if self.slam.frame_count >= reserve:
-                return
+        evidence = {"phase": "initial_scan" if initial else "frontier_scan",
+                    "status": "running", "acceptedFrameDelta": 0,
+                    "measuredYawTravelRad": 0., "maxTranslationM": 0.,
+                    "measuredYawAdvanceRad": 0., "commandCount": 0,
+                    "completedSweeps": 0, "coverageClaim": "not_measured"}
+        first_frames = self.slam.frame_count
+        with self._lock:
+            self._scan_evidence["looks"].append(dict(evidence))
+            del self._scan_evidence["looks"][:-12]
+        try:
             base = self._current_pose()
-            pose = pose_se2(list(base))
-            try:
-                self._turn_by(LOOK_AROUND_STEP_RAD,base)
-            except ServiceError as error:
-                if error.code not in {"NAV_ENVELOPE", "NAV_MODEL_COLLISION"}:
-                    raise
-                # The driver acknowledged zero velocity at this rejected turn.
-                # Stop the optional sweep; let the frontier loop choose a safe
-                # translation instead of treating one view as a session fault.
-                with self._lock:
-                    self.message = f"环视被安全层拒绝（{error.code}），重新选择可通行区域。"
+            first_pose = previous = pose_se2(list(base))
+            query_pose = compose(self._planning_anchor(), first_pose)
+            unseen = (1. if grid is None else grid.unknown_fraction(
+                query_pose[0], query_pose[1], EXPLORATION["lookRadiusM"]))
+            evidence["initialUnknownFraction"] = unseen
+            if unseen > EXPLORATION["lookDenseThreshold"]:
+                sweeps = EXPLORATION["lookSweepsMax"]
+            elif unseen > EXPLORATION["lookThreshold"]:
+                sweeps = EXPLORATION["lookSweepsMin"]
+            else:
+                evidence["status"] = "sufficient_local_evidence"
                 return
-            live,_blind = self._live_grid()
-            if live is None:
-                return
-            grid = self._grid_object(live)
+            evidence["rotationTargetRad"] = sweeps*LOOK_AROUND_STEP_RAD
+            stalled = 0
+            for sweep in range(sweeps):
+                commands = 0
+                # Check the bounds between each <=0.5 rad command, not only
+                # between quarter-turns. The motion driver retains its own
+                # timeout, collision guard and stop acknowledgement.
+                while True:
+                    self._check_cancel()
+                    remaining = (sweep+1)*LOOK_AROUND_STEP_RAD-evidence["measuredYawAdvanceRad"]
+                    evidence["rotationResidualRad"] = max(0.,
+                        evidence["rotationTargetRad"]-evidence["measuredYawAdvanceRad"])
+                    if remaining <= EXPLORATION["headingToleranceRad"]:
+                        break
+                    if commands >= 8:
+                        evidence["status"] = "command_budget"
+                        return
+                    if self.slam.frame_count >= reserve:
+                        evidence["status"] = "frame_budget"
+                        return
+                    if self._depth_starved >= EXPLORATION["depthStarvedLimit"]:
+                        evidence["status"] = "depth_starved"
+                        return
+                    if time.monotonic()-started >= LOOK_AROUND_SECONDS:
+                        evidence["status"] = "time_budget"
+                        return
+                    # Requests inside the driver's arrival deadband can return
+                    # success without motion, especially with capture latency.
+                    # Keep the correction above that band; any small overshoot
+                    # is measured and carried into the next cumulative target.
+                    step = min(.5, max(2*EXPLORATION["headingToleranceRad"], remaining))
+                    commands += 1
+                    evidence["commandCount"] += 1
+                    try:
+                        self._turn_by(step, self._current_pose())
+                    except ServiceError as error:
+                        if error.code not in SPATIAL_REFUSALS:
+                            raise
+                        evidence.update(status="safety_refused", refusalCode=error.code)
+                        with self._lock:
+                            self.message = f"环视被安全层拒绝（{error.code}），重新选择可通行区域。"
+                        return
+                    measured = pose_se2(list(self._current_pose()))
+                    delta = math.atan2(math.sin(measured[2]-previous[2]),
+                                       math.cos(measured[2]-previous[2]))
+                    evidence["measuredYawTravelRad"] += abs(delta)
+                    # Signed progress prevents oscillation from masquerading
+                    # as a full sweep. Carry quarter-turn residuals forward so
+                    # driver arrival tolerance cannot accumulate a blind sector.
+                    evidence["measuredYawAdvanceRad"] += delta
+                    evidence["maxTranslationM"] = max(evidence["maxTranslationM"],
+                        float(np.linalg.norm(measured[:2]-first_pose[:2])))
+                    previous = measured
+                    with self._lock:
+                        self._scan_evidence["looks"][-1] = dict(evidence)
+                    stalled = stalled+1 if delta < .02 else 0
+                    if stalled >= 2:
+                        evidence["status"] = "no_yaw_progress"
+                        return
+                evidence["completedSweeps"] = sweep+1
+                live, _blind = self._live_grid()
+                # A failed first view must not prevent looking in another
+                # direction. Missing depth remains missing evidence throughout.
+                grid = self._grid_object(live) if live is not None else None
+                if grid is not None and sweep+1 >= EXPLORATION["lookSweepsMin"]:
+                    query_pose = compose(self._planning_anchor(), previous)
+                    unseen = grid.unknown_fraction(query_pose[0], query_pose[1],
+                                                   EXPLORATION["lookRadiusM"])
+                    if unseen <= EXPLORATION["lookThreshold"]:
+                        evidence["status"] = "sufficient_local_evidence"
+                        return
+            evidence["status"] = "bounded_sweep_finished"
+        except BaseException:
+            evidence["status"] = "cancelled" if self._cancel.is_set() else "fault"
+            raise
+        finally:
+            with self._lock:
+                evidence["acceptedFrameDelta"] = max(0, self.slam.frame_count-first_frames)
+                evidence["elapsedSeconds"] = round(time.monotonic()-started, 3)
+                self._scan_evidence["looks"][-1] = dict(evidence)
 
     def _planning_clearance(self):
         """The distance the planner keeps from observed obstacles, in metres."""
@@ -1266,6 +1381,15 @@ class RobotWorkflow:
                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
                           "mapFromWorld":anchor.tolist(),"footprintRadiusM":self.footprint_radius,
                           "navigationEvidenceVersion":2}
+            if self._exploration or self._scan_evidence["looks"]:
+                provenance["exploration"] = copy.deepcopy({
+                    "coverageScope":"observed_grid_nonblind_frontiers",
+                    "wholeSceneCoverage":"not_measured",
+                    "frontiersExhausted":self._explore_complete,
+                    "finalLeg":self._exploration,
+                    **self._scan_evidence,
+                    "depthRejectedFrames":self._depth_rejected,
+                    "consecutiveInsufficientDepth":self._depth_starved})
             # Objects were accumulated in the frame the live geometry used; the
             # map is written in the final anchor's frame, so the layer has to make
             # the same crossing the point cloud just did.
@@ -1304,7 +1428,11 @@ class RobotWorkflow:
                         f"扫描中断（{fault.get('code','FAULT')}）：已保存并启用已测绘部分，"
                         "请处理后继续扫描以补全未知区域。")
                 else:
-                    self.state,self.message = ("completed" if terminal else "finalizing"),"扫描完成，导航地图已启用，三维地图已保存。"
+                    self.state = "completed" if terminal else "finalizing"
+                    self.message = "扫描完成，导航地图已启用，三维地图已保存。"
+                    if self._exploration:
+                        reason = self._exploration.get("stopReason", "unknown")
+                        self.message = f"已保存并启用实测地图；探索停止原因：{reason}，全场景覆盖率未测量。"
                 self._summary["trajectory"] = trail
                 self._summary["pointCount"] = manifest["pointCount"]
         self._release_session()
@@ -1756,7 +1884,7 @@ class _WorkflowSurveyDriver:
             return self._workflow._drive_step(waypoint, base, pose,
                                               after_pose=after_pose, remaining_m=remaining_m)
         except ServiceError as error:
-            if error.code in {"STALE_CAPTURE", "SENSOR_STALE", "CALIBRATION_CHANGED", "CANCELLED"}:
+            if error.code not in SPATIAL_REFUSALS:
                 # A sensor/authority fault says nothing about geometric clearance.
                 # Propagate it; do not blacklist a frontier or claim coverage.
                 raise

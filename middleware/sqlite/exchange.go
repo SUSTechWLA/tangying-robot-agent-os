@@ -47,6 +47,7 @@ func OpenExchange(path string, capacity int) (*ExchangeStore, error) {
 	CREATE TABLE IF NOT EXISTS exchange_cursor (direction TEXT NOT NULL, stream TEXT NOT NULL, sequence INTEGER NOT NULL, PRIMARY KEY(direction,stream));
 	CREATE TABLE IF NOT EXISTS exchange_inbox (id TEXT PRIMARY KEY, stream TEXT NOT NULL, sequence INTEGER NOT NULL, envelope BLOB NOT NULL, received_ms INTEGER NOT NULL, UNIQUE(stream,sequence));
 	CREATE TABLE IF NOT EXISTS exchange_outbox (id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, request_hash TEXT NOT NULL, stream TEXT NOT NULL, sequence INTEGER NOT NULL, envelope BLOB NOT NULL, expires_ms INTEGER NOT NULL, acked_ms INTEGER, UNIQUE(stream,sequence));
+	CREATE TABLE IF NOT EXISTS exchange_feed (revision INTEGER PRIMARY KEY AUTOINCREMENT, message_id TEXT UNIQUE NOT NULL);
 	CREATE INDEX IF NOT EXISTS exchange_pending_idx ON exchange_outbox(acked_ms,expires_ms);
 	`)
 	if err != nil {
@@ -62,7 +63,23 @@ func OpenExchange(path string, capacity int) (*ExchangeStore, error) {
 		db.Close()
 		return nil, errors.New("unsupported exchange journal schema")
 	}
-	return &ExchangeStore{db: db, capacity: capacity}, nil
+	// A one-time migration assigns existing inbox bodies durable receipt ordinals.
+	// Taking the same write lock as admission prevents interleaved backfills.
+	s := &ExchangeStore{db: db, capacity: capacity}
+	tx, err := s.transaction(context.Background())
+	if err == nil {
+		_, err = tx.Exec(`INSERT INTO exchange_feed(message_id) SELECT id FROM exchange_inbox WHERE NOT EXISTS(SELECT 1 FROM exchange_feed f WHERE f.message_id=exchange_inbox.id) ORDER BY rowid`)
+		if err == nil {
+			err = tx.Commit()
+		} else {
+			tx.Rollback()
+		}
+	}
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *ExchangeStore) Close() error { return s.db.Close() }
@@ -241,6 +258,9 @@ func (s *ExchangeStore) Accept(ctx context.Context, e x.Envelope, nowMS int64) (
 	if _, err = tx.ExecContext(ctx, `INSERT INTO exchange_cursor(direction,stream,sequence) VALUES('in',?,?) ON CONFLICT(direction,stream) DO UPDATE SET sequence=excluded.sequence`, stream, e.Sequence); err != nil {
 		return x.Receipt{}, err
 	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO exchange_feed(message_id) VALUES(?)`, e.MessageID); err != nil {
+		return x.Receipt{}, err
+	}
 	receipt.Disposition = "accepted"
 	return receipt, tx.Commit()
 }
@@ -319,6 +339,14 @@ func (s *ExchangeStore) Prune(ctx context.Context, nowMS int64) error {
 		return err
 	}
 	defer tx.Rollback()
+	// Conservative gap watermark: any removed unseen receipt requires a resync,
+	// even when different TTLs leave earlier receipts retained.
+	if _, err := tx.ExecContext(ctx, `INSERT INTO exchange_meta(key,value) VALUES('feed_pruned_through',COALESCE((SELECT MAX(f.revision) FROM exchange_feed f JOIN exchange_inbox i ON i.id=f.message_id WHERE CAST(json_extract(i.envelope,'$.expiresAtMs') AS INTEGER)<=?),0)) ON CONFLICT(key) DO UPDATE SET value=MAX(CAST(value AS INTEGER),CAST(excluded.value AS INTEGER))`, nowMS-x.RetentionMS); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM exchange_feed WHERE message_id IN (SELECT id FROM exchange_inbox WHERE CAST(json_extract(envelope,'$.expiresAtMs') AS INTEGER)<=?)`, nowMS-x.RetentionMS); err != nil {
+		return err
+	}
 	// Incoming expiresAtMs is decoded once at GC time. Schema/field validity was
 	// checked before admission. Deleted sequence identities remain protected by
 	// their permanent stream cursor even after exact-ID receipt retention ends.

@@ -1,0 +1,23 @@
+.....................................................                    [100%]
+============================= slowest 20 durations =============================
+0.23s call     tests/book/test_publication.py::test_exports_are_deterministic_and_all_epub_links_resolve
+0.21s call     tests/book/test_publication.py::test_identical_publication_can_be_rebuilt_in_place
+0.18s call     tests/book/test_publication.py::test_textbook_sources_and_generator_are_exactly_recoverable[2.1.0]
+0.18s call     tests/book/test_publication.py::test_textbook_sources_and_generator_are_exactly_recoverable[2.0.0]
+0.16s call     tests/book/test_publication.py::test_1_2_0_content_and_original_generator_are_exactly_recoverable
+0.15s call     tests/docs/test_production_docs.py::test_every_documentation_link_and_make_target_resolves
+0.14s call     tests/book/test_publication.py::test_1_1_3_sources_are_exactly_recoverable
+0.14s call     tests/book/test_publication.py::test_previous_edition_can_be_recovered_without_overwriting_history
+0.14s call     tests/book/test_publication.py::test_every_chapter_and_appendix_is_in_the_publication
+0.12s call     tests/book/test_publication.py::test_html_and_epub_navigation_reach_every_section
+0.11s call     tests/book/test_publication.py::test_back_to_contents_cannot_target_a_non_spine_navigation_document
+0.11s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[symlink]
+0.11s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[edition]
+0.11s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[source]
+0.11s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[unknown]
+0.04s call     tests/book/test_publication.py::test_documentation_links_advance_without_repinning_implementation
+0.02s call     tests/book/test_publication.py::test_1_1_1_release_record_matches_the_previous_snapshot
+0.02s call     tests/book/test_publication.py::test_1_1_0_release_record_matches_the_previous_snapshot
+0.02s call     tests/book/test_publication.py::test_1_1_2_release_record_matches_the_previous_snapshot
+0.02s call     tests/docs/console_session_contract_test.py::test_no_script_talks_to_the_console_without_being_classified
+53 passed in 2.39s

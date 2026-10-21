@@ -31,7 +31,7 @@
     return new RobotServiceError(code, message, Number(response?.status || 0));
   }
 
-  function createServiceClient(fetchImpl = globalThis.fetch?.bind(globalThis)) {
+  function createServiceClient(fetchImpl = globalThis.TangyingEdgeWorkspace?.fetch || globalThis.fetch?.bind(globalThis)) {
     if (!fetchImpl) throw new RobotServiceError("FETCH_UNAVAILABLE", "浏览器不能连接机器人服务。");
     return {
       async list() {
@@ -551,7 +551,8 @@
     if (state.route !== "mapping") return;
     const image = $("#mapping-camera");
     if (!image) return;
-    image.src = `/v1/scene/frame?t=${Date.now()}`;
+    const path = `/v1/scene/frame?t=${Date.now()}`;
+    image.src = globalThis.TangyingEdgeWorkspace?.url(path) || path;
   }
 
   async function activateSelectedMap() {
@@ -561,7 +562,9 @@
     await globalThis.TangyingWorkflowMap?.selectSavedMap?.(mapId, state.mapping?.activeMap || null);
   }
 
+  let routeGeneration = 0;
   async function enterRoute(route) {
+    const generation = ++routeGeneration;
     state.route = route;
     if (state.timer) { clearInterval(state.timer); state.timer = 0; }
     if (![/^(calibration|mapping)$/].some(pattern => pattern.test(route))) return;
@@ -576,10 +579,10 @@
       announce(route === "calibration" ? "#calibration-feedback" : "#mapping-feedback", formatError(error), "danger");
       return;
     }
-    if (state.route !== route) return;
+    if (state.route !== route || generation !== routeGeneration) return;
     if (route === "calibration") await refreshCalibration();
     if (route === "mapping") await refreshMapping();
-    if (state.route !== route) return;
+    if (state.route !== route || generation !== routeGeneration) return;
     state.timer = setInterval(() => {
       if (state.route === "calibration") void refreshCalibration({ polling: true });
       if (state.route === "mapping") void refreshMapping({ polling: true });

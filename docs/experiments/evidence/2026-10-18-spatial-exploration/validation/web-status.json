@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "test-web"
+  ],
+  "exitCode": 0
+}

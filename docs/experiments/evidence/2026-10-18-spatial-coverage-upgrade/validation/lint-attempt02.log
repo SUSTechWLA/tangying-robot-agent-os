@@ -1,0 +1,6 @@
+gofmt -l $(find agent agentruntime cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
+test ! -s /tmp/tangying-gofmt.out
+.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots orchestration/eval
+All checks passed!
+.venv/bin/python -m tangying_robot_gateway.llm_tools --check
+/Users/wanglian/Projects/tangying-robot-agent-os/tools.json is up to date (29 tools)

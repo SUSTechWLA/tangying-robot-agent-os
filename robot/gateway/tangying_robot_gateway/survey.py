@@ -43,7 +43,6 @@ from .exploration import (
     still_open,
     traversable_for,
 )
-from .geometry import pose_se2
 
 #: Everything the survey loop's behaviour depends on. Kept in one dict because
 #: these numbers are only meaningful relative to each other: the arrival radius
@@ -68,6 +67,9 @@ EXPLORATION = {
     #: One bounded step per re-plan: the drive changes the map it was planned on.
     "lookaheadM": 0.6,
     "maxStepM": 0.5,
+    #: Match the planar driver's minimum actionable translation. Waypoint
+    #: visibility starts at the measured pose, not a quantized cell centre.
+    "minStepM": 0.05,
     #: Stop a leg before the 400-frame session budget so it can still be saved
     #: and continued instead of failing at the cap with the leg unpublished.
     "frameMargin": 45,
@@ -196,8 +198,9 @@ class LegResult:
 
     travelled_m: float
     exploration: dict[str, Any] = field(default_factory=dict)
-    #: True only when the map is finished: unknown space the planner could not
-    #: reach is a different, reportable outcome.
+    #: True only when the observed grid's nonblind frontier set is exhausted.
+    #: Remaining unreachable frontiers are partial, and neither outcome proves
+    #: the entire initially unknown scene has been observed.
     complete: bool = False
 
 
@@ -223,22 +226,65 @@ class SurveyRunner:
         # refusal as the end of the survey would be wrong: the obstacle is local,
         # so the planner is told to route around it and pick something else.
         refused: list[tuple[float, float]] = []
+        # Arriving without revealing more is evidence about a viewpoint's value,
+        # not an obstacle. These sites remain traversable, including the cell the
+        # robot is standing in; only choosing the same viewpoint is suppressed.
+        visited_viewpoints: list[tuple[float, float]] = []
         consecutive = 0
         idle = 0
+        route_failures = 0
         looks = 0
         last_look = 0.0
         # Sticky target. Re-picking the best frontier on every step made the
         # robot walk to the middle of a room and oscillate between four equally
         # good corners; a target is held until it is reached or goes stale.
         target_xy = None
-        exploration: dict[str, Any] = {}
-        driver.look_around(*map_port.live_grid())
+        # A look-around is a motion request too. It must not precede cancellation
+        # or budget checks, and opening another leg does not authorize another
+        # initial sweep. The driver owns whether this body can turn safely.
+        initial_scan: dict[str, Any] = {
+            "initialScanAttempted": False,
+            "initialScanStatus": "not_started" if number == 1 else "skipped_continuation",
+            # Frontiers describe this observed grid, excluding declared blind
+            # cells. They cannot prove all rooms of an unknown building exist in
+            # the grid, nor that every surface has been reconstructed.
+            "coverageScope": "observed_grid_nonblind_frontiers",
+        }
+        exploration: dict[str, Any] = {"leg": number, **initial_scan}
 
         def finish(reason: str, complete: bool = False) -> LegResult:
             exploration["stopReason"] = reason
+            exploration["terminationMeaning"] = "frontier_exhausted" if complete else "partial"
+            exploration["routeFailuresSinceProgress"] = route_failures
+            exploration["refused"] = len(refused)
+            exploration["visitedViewpoints"] = len(visited_viewpoints)
             report.publish_exploration(dict(exploration))
             return LegResult(travelled_m=map_port.travelled_m() - started,
                              exploration=dict(exploration), complete=complete)
+
+        map_port.check_cancel()
+        stopped = self.stop_reason(map_port, started=started, remaining_m=remaining_m,
+                                   deadline=deadline)
+        if stopped:
+            return finish(stopped)
+        if number == 1 and config["maxLooksPerLeg"] > 0:
+            initial_scan.update(initialScanAttempted=True, initialScanStatus="attempted")
+            exploration.update(initial_scan)
+            report.publish_exploration(dict(exploration))
+            try:
+                driver.look_around(*map_port.live_grid())
+            except SurveyRefusal as error:
+                initial_scan.update(initialScanStatus="refused", initialScanRefusal=error.code)
+                exploration.update(initial_scan)
+                return finish("initial_scan_refused")
+            # Returned describes the port call, not a promise of a full turn or
+            # a localization result. Measured sweep evidence belongs to the driver.
+            initial_scan["initialScanStatus"] = "returned"
+            exploration.update(initial_scan)
+            looks += 1
+        elif number == 1:
+            initial_scan["initialScanStatus"] = "disabled"
+            exploration.update(initial_scan)
 
         while True:
             map_port.check_cancel()
@@ -250,6 +296,13 @@ class SurveyRunner:
             if live is None:
                 return finish("no_frames")
             grid = live
+            # A blank grid has no frontier because a frontier needs known free
+            # space. That is missing evidence, never successful exploration.
+            # Nor does a grid consisting solely of obstacles establish a route.
+            if not np.any(grid.cells == 0):
+                exploration.update(coverage_report(grid.cells))
+                exploration.update(frontierCells=0, target=None)
+                return finish("insufficient_map_evidence")
             base = map_port.current_pose()
             pose = map_port.planning_pose()
             clearance = map_port.planning_clearance()
@@ -263,26 +316,29 @@ class SurveyRunner:
                     grid, robot_xy=(pose[0], pose[1]),
                     sensor_radius_m=config["sensorRadiusM"], radius_m=clearance,
                     min_frontier_area_m2=config["minFrontierAreaM2"], avoid_xy=refused,
+                    exclude_viewpoints=visited_viewpoints,
                     blind=blind,
                     extra_traversable=map_port.self_mask(grid, pose[0], pose[1], clearance))
                 if target is None:
-                    # Nothing reachable is still unknown: this is the completion
-                    # condition, not a failure, and it is worth saying so plainly.
-                    # The counts go into the report so "complete" can be checked
-                    # rather than taken on faith.
+                    # Count remaining nonblind frontiers, not an imagined whole
+                    # building. A finite grid can contain no frontier while an
+                    # undiscovered room lies beyond its observed extent.
                     open_frontier = frontier_mask(grid.cells)
                     if blind is not None:
                         open_frontier = open_frontier & ~blind
                     unplanned = int(open_frontier.sum())
-                    # "Complete" has to mean the map is finished, not that the
-                    # planner ran out of ideas. Unknown space the planner could
-                    # not reach is a different, reportable outcome - and calling
-                    # it complete would end the survey on a lie.
+                    # Remaining frontiers the planner could not reach are a
+                    # partial result. No remaining frontier only exhausts the
+                    # declared coverage scope; it does not prove global coverage.
                     finished = unplanned == 0
-                    exploration = {**coverage_report(grid.cells), "leg": number,
+                    exploration = {**coverage_report(grid.cells), **initial_scan, "leg": number,
                                    "refused": len(refused), "target": None,
+                                   "visitedViewpoints": len(visited_viewpoints),
                                    "stopReason": "complete" if finished
                                    else "no_reachable_frontier",
+                                   "terminationMeaning": "frontier_exhausted" if finished
+                                   else "partial",
+                                   "routeFailuresSinceProgress": route_failures,
                                    "frontierCells": unplanned,
                                    "blindCells": 0 if blind is None else int(blind.sum())}
                     report.publish_exploration(dict(exploration))
@@ -296,24 +352,34 @@ class SurveyRunner:
                     radius_m=clearance, avoid_xy=refused,
                     extra_traversable=map_port.self_mask(grid, pose[0], pose[1], clearance))
                 if path is None:
+                    route_failures += 1
                     target_xy = None
+                    if route_failures >= config["maxIdleSteps"]:
+                        return finish("no_progress")
                     continue
-            exploration = {**coverage_report(grid.cells), "leg": number,
+            exploration = {**coverage_report(grid.cells), **initial_scan, "leg": number,
                            "refused": len(refused), "stopReason": "",
+                           "visitedViewpoints": len(visited_viewpoints),
                            "target": [round(v, 3) for v in target_xy]}
             report.publish_exploration(dict(exploration))
             report.publish_message(
                 f"自动探索第 {number} 段：前往未知区域 "
                 f"({target_xy[0]:.1f}, {target_xy[1]:.1f})，"
-                f"地图已探明 {1 - exploration['unknownFraction']:.0%}。")
+                f"当前观测栅格已知比例 {1 - exploration['unknownFraction']:.0%}"
+                "（非全场景覆盖率）。")
             traversable = traversable_for(
                 grid, clearance, avoid_xy=refused,
                 extra_traversable=map_port.self_mask(grid, pose[0], pose[1], clearance))
             waypoint = next_waypoint(grid, path, lookahead_m=config["lookaheadM"],
-                                     traversable=traversable)
+                                     traversable=traversable,
+                                     robot_xy=(pose[0], pose[1]), min_step_m=config["minStepM"])
             if waypoint is None:
-                return finish("no_route")
-            before = list(base)
+                exploration["minStepM"] = config["minStepM"]
+                return finish("no_executable_waypoint")
+            exploration.update(nextWaypoint=[round(v, 6) for v in waypoint],
+                               waypointDistanceM=math.hypot(waypoint[0]-pose[0], waypoint[1]-pose[1]),
+                               minStepM=config["minStepM"])
+            report.publish_exploration(dict(exploration))
             try:
                 acted = driver.drive_step(
                     waypoint, base, pose, after_pose=None,
@@ -332,27 +398,32 @@ class SurveyRunner:
                 report.publish_message(decision["message"])
                 continue
             after = map_port.planning_pose()
-            was = pose_se2(before)
+            # Compare in one frame. ``base`` is driver-world; both these poses
+            # are planning-map, including a continuation's nonzero anchor.
+            was = pose
             moved = math.hypot(after[0] - was[0], after[1] - was[1])
+            yaw_moved = abs(math.atan2(math.sin(after[2]-was[2]), math.cos(after[2]-was[2])))
             if map_port.depth_starved() >= config["depthStarvedLimit"]:
                 # Too many views in a row measured almost nothing, so the leg has
                 # nothing to register even though it can still drive. Ending here
                 # publishes what was mapped instead of failing the session: a
                 # partial map with a named reason beats no map at all.
                 return finish("depth_starved")
-            if not acted or (moved < 1e-3 and abs(after[2] - was[2]) < 1e-3):
+            if not acted or (moved < 1e-3 and yaw_moved < 1e-3):
                 # Standing at the viewpoint already, or unable to leave it.
                 # Either way this target has nothing left to give, so retire it
                 # instead of re-selecting it on the next pass.
                 idle += 1
-                if tuple(target_xy) not in refused:
-                    refused.append(tuple(target_xy))
+                if tuple(target_xy) not in visited_viewpoints:
+                    visited_viewpoints.append(tuple(target_xy))
                 target_xy = None
                 if idle >= config["maxIdleSteps"]:
                     return finish("no_progress")
                 continue
             consecutive = 0
             idle = 0
+            if moved >= 1e-3:
+                route_failures = 0
             # Turning is expensive in both time and keyframes, so a look-around
             # waits until the robot is actually standing at the unknown edge and
             # has covered some ground since the last one.
@@ -362,12 +433,19 @@ class SurveyRunner:
             if standing_at_edge:
                 # Reached it. Whether or not it revealed everything expected,
                 # coming back here cannot reveal more.
-                if tuple(target_xy) not in refused:
-                    refused.append(tuple(target_xy))
+                if tuple(target_xy) not in visited_viewpoints:
+                    visited_viewpoints.append(tuple(target_xy))
                 target_xy = None
             if (standing_at_edge and looks < config["maxLooksPerLeg"]
                     and travelled - last_look >= config["lookSpacingM"]):
-                driver.look_around(live, blind)
+                map_port.check_cancel()
+                stopped = self.stop_reason(map_port, started=started, remaining_m=remaining_m,
+                                           deadline=deadline)
+                if stopped:
+                    return finish(stopped)
+                # The last drive changed the map; choose the optional sweep from
+                # current observations rather than the pre-drive grid.
+                driver.look_around(*map_port.live_grid())
                 looks += 1
                 last_look = map_port.travelled_m() - started
 
@@ -426,6 +504,11 @@ class SurveyRunner:
             # Saving is the point of stopping here: the leg still fits the frame
             # budget, so it can be published and continued rather than lost.
             return "frame_budget"
-        if self._clock() > deadline:
+        if self._clock() >= deadline:
             return "leg_timeout"
+        # A sweep can exhaust usable depth before the next frontier is chosen.
+        # Stop before requesting another turn or drive, including before the
+        # initial sweep if a prior acquisition already established sensor loss.
+        if map_port.depth_starved() >= self.config["depthStarvedLimit"]:
+            return "depth_starved"
         return None

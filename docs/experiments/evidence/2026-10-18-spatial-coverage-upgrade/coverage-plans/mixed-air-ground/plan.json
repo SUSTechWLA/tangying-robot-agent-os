@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "coverage.plan.v1",
+  "missionId": "fixture-mixed-air-ground",
+  "geometryId": "1a9515a2615e72e52e3b8f2c645ddbbf40b23313b3f6d9cb76c2980013cff30e",
+  "predictionOnly": true,
+  "status": "predicted_complete",
+  "stopReason": "predicted_scope_covered",
+  "targetVoxels": 2,
+  "predictedCoveredVoxels": 2,
+  "predictedCoverage": 1.0,
+  "observedCoverage": null,
+  "unresolvedVoxelIds": [],
+  "pathLengthM": 0.0,
+  "planCalls": 15,
+  "evaluatedViewpoints": 87,
+  "legs": [
+    {
+      "robotId": "uav",
+      "targetId": "1a9515a2615e72e52e3b8f2c645ddbbf40b23313b3f6d9cb76c2980013cff30e:coverage:73b687555b8fa680ea74a5f8a39e79e5c837b21c39f6ac7a15609cee3ffa71d9",
+      "pose": [
+        6.5,
+        4.5,
+        4.5,
+        0.7071067811865476,
+        0.0,
+        -0.0,
+        0.7071067811865475
+      ],
+      "score": 1.0,
+      "expectedObservedVoxelIds": [
+        396
+      ],
+      "visibleUnknownVoxelIds": [],
+      "informationGain": 1,
+      "objectiveKind": "explicit_scope_coverage",
+      "path": {
+        "schemaVersion": "navigation.path.v1",
+        "mode": "volume3d",
+        "robotId": "uav",
+        "mapId": "mixed-inspection-fixture",
+        "mapRevision": "fixture-v1",
+        "frameId": "world",
+        "worldFrameRevision": "fixture-world-v1",
+        "calibrationRevision": "fixture-calibration-v1",
+        "waypoints": [
+          [
+            6.5,
+            4.5,
+            4.5,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            6.5,
+            4.5,
+            4.5,
+            0.7071067811865476,
+            0.0,
+            -0.0,
+            0.7071067811865475
+          ]
+        ],
+        "expandedNodes": 0,
+        "clearanceModel": "commissioned_axis_aligned_envelope"
+      },
+      "pathLengthM": 0.0
+    },
+    {
+      "robotId": "ugv",
+      "targetId": "1a9515a2615e72e52e3b8f2c645ddbbf40b23313b3f6d9cb76c2980013cff30e:coverage:42e38b86fe3f8d1849753944b15f0c02157125cf2fd8a34ede931fdd4ec8dcd8",
+      "pose": [
+        2.5,
+        2.5,
+        1.5,
+        0.7071067811865476,
+        -0.0,
+        -0.0,
+        -0.7071067811865475
+      ],
+      "score": 1.0,
+      "expectedObservedVoxelIds": [
+        93
+      ],
+      "visibleUnknownVoxelIds": [],
+      "informationGain": 1,
+      "objectiveKind": "explicit_scope_coverage",
+      "path": {
+        "schemaVersion": "navigation.path.v1",
+        "mode": "terrain25d",
+        "robotId": "ugv",
+        "mapId": "mixed-inspection-fixture",
+        "mapRevision": "fixture-v1",
+        "frameId": "world",
+        "worldFrameRevision": "fixture-world-v1",
+        "calibrationRevision": "fixture-calibration-v1",
+        "waypoints": [
+          [
+            2.5,
+            2.5,
+            1.5,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            2.5,
+            2.5,
+            1.5,
+            0.7071067811865476,
+            -0.0,
+            -0.0,
+            -0.7071067811865475
+          ]
+        ],
+        "expandedNodes": 0,
+        "clearanceModel": "commissioned_axis_aligned_envelope"
+      },
+      "pathLengthM": 0.0
+    }
+  ],
+  "diagnostics": [
+    {
+      "robotId": "uav",
+      "objectiveKind": "explicit_scope_coverage",
+      "targetVoxels": 2,
+      "remainingTargetVoxels": 2,
+      "evaluatedViewpoints": 24,
+      "planCalls": 5,
+      "rejectedPaths": {},
+      "rayBudgetExhaustions": 0,
+      "predictionOnly": true,
+      "strategy": "gain_per_meter",
+      "sampledPositions": 3,
+      "availablePositions": 240,
+      "viewpointSamplingTruncated": true,
+      "pathSamplingTruncated": false,
+      "scopeAlreadyObserved": false,
+      "peerRefusals": 0,
+      "travelRefusals": 0
+    },
+    {
+      "robotId": "ugv",
+      "objectiveKind": "explicit_scope_coverage",
+      "targetVoxels": 2,
+      "remainingTargetVoxels": 2,
+      "evaluatedViewpoints": 20,
+      "planCalls": 5,
+      "rejectedPaths": {},
+      "rayBudgetExhaustions": 0,
+      "predictionOnly": true,
+      "strategy": "gain_per_meter",
+      "sampledPositions": 5,
+      "availablePositions": 40,
+      "viewpointSamplingTruncated": true,
+      "pathSamplingTruncated": false,
+      "scopeAlreadyObserved": false,
+      "peerRefusals": 0,
+      "travelRefusals": 0
+    },
+    {
+      "robotId": "uav",
+      "objectiveKind": "explicit_scope_coverage",
+      "targetVoxels": 2,
+      "remainingTargetVoxels": 1,
+      "evaluatedViewpoints": 23,
+      "planCalls": 0,
+      "rejectedPaths": {},
+      "rayBudgetExhaustions": 0,
+      "predictionOnly": true,
+      "strategy": "gain_per_meter",
+      "sampledPositions": 3,
+      "availablePositions": 240,
+      "viewpointSamplingTruncated": true,
+      "pathSamplingTruncated": false,
+      "scopeAlreadyObserved": false,
+      "peerRefusals": 0,
+      "travelRefusals": 0
+    },
+    {
+      "robotId": "ugv",
+      "objectiveKind": "explicit_scope_coverage",
+      "targetVoxels": 2,
+      "remainingTargetVoxels": 1,
+      "evaluatedViewpoints": 20,
+      "planCalls": 5,
+      "rejectedPaths": {},
+      "rayBudgetExhaustions": 0,
+      "predictionOnly": true,
+      "strategy": "gain_per_meter",
+      "sampledPositions": 5,
+      "availablePositions": 40,
+      "viewpointSamplingTruncated": true,
+      "pathSamplingTruncated": false,
+      "scopeAlreadyObserved": false,
+      "peerRefusals": 0,
+      "travelRefusals": 0
+    }
+  ],
+  "executionModel": "serial_with_stationary_peer_envelope_checks",
+  "physicalValidation": false,
+  "continuousSceneCompletenessProven": false
+}

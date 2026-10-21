@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+- 精修工作台视觉呈现：分层表面与环境光、品牌导航、主操作/安全按钮层级、场景空态、任务与统计卡、自定义复选框和轻量动效；全部落在样式与图标层，不改变可见控件结构、接口、轮询或状态语义。见[前端说明](docs/frontend/console-v1.md#视觉与交互规范)。
+
+- 增强异构 ROS 2 边缘 harness、持久通信消费和运维可观察性；未知命令保持关联，遥测/任务库失明不误报恢复。新增三机型重复任务、通信故障和探索验收。见[实现记录](docs/development/2026-10-18-edge-swarm-readiness.md)与[分层实验](docs/experiments/2026-10-18-edge-swarm-readiness.md)。
+
+- 扩展已知地图覆盖与多层地面导航：显式 ROI、可替换规划/传感器、本地预测计划、分层支撑和 Runner 软件闭环，以及独立协调消融。两次 315/315 已知覆盖和 350 次全部 partial 的未知探索分别保存；见[实现](docs/development/2026-10-18-spatial-coverage-upgrade.md)、[实际实验与来源](docs/experiments/2026-10-18-spatial-coverage-upgrade.md)和[教材补充](book/updates/2026-10-18-spatial-coverage-upgrade.md)。
+
+- 增加异构三维探索研究层：有界观察选点与射线收益、复用本体几何路径准入、版本化覆盖账本与未知执行 fence、可替换地图/驱动/报告端口，以及配对消融、指标重算和来源归档。当前为软件闭环，不自动启用 ROS 2 三维探索；范围见[设计记录](docs/development/2026-10-17-heterogeneous-spatial-exploration.md)和[实验协议](docs/experiments/2026-10-17-spatial-exploration-protocol.md)。
+
+- 增强首次未知场景探索：实测带方向 yaw 闭环初始扫描、地图外未知统计、可达/遮挡候选与无增益视点退役，修复足迹重开拒绝区、深度失效累计及换段取消覆盖；扫描证据和停止原因进入地图来源，新增不可覆盖的验收记录器。见[实施记录](docs/development/2026-10-17-exploration-first-scan.md)及[全部实验尝试](docs/experiments/2026-10-17-exploration-first-scan.md)。
+
 - 发布独立书籍 2.2.0，将云端粗目标授权、Local/Worker 共享 Host、边缘规划/诊断/恢复、分层预算与上下文写入正文；同步架构、API、部署和学习资料，新增实验 11/12 并归档 2.1.0 完整来源。引用 2026-10-15 软件与实际 Gazebo 全部尝试，保留失败和证据范围。[变更审校](docs/development/2026-10-16-architecture-book-refresh.md)。
 
 - 增强单机器人长程恢复：统一续跑后的云端失败上报，恢复有完整子账本证明的已确认动作，增加完成条件瞬态读取的持久有界恢复；未知效果、证据错配、取消、期限和预算仍拒绝继续。新增连续 32–128 动作 campaign、云边丢包/重建矩阵与研究证据采集器；见[实施记录](docs/development/2026-10-15-single-robot-robustness.md)。

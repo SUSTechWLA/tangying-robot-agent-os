@@ -1,0 +1,7 @@
+{
+  "profilePath": "../uav.commissioning.profile.json",
+  "commissioningId": "replace-with-uav-commissioning-id",
+  "namespace": "/dji_1",
+  "stateMaxAgeMs": 500,
+  "stopTimeoutMs": 1000
+}

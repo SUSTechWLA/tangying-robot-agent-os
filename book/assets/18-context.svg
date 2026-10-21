@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 735" role="img" aria-labelledby="title description">
+<title id="title">图 18-1　两条上下文路径，共同坚持事实与视图分离</title><desc id="description">Host 进度与 actionloop managed context 不共享同一个压缩预算。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="735" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 18-1　两条上下文路径，共同坚持事实与视图分离</text>
+<rect x="30" y="95" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="124" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">完整执行账本</text>
+<text x="46" y="153" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">Host checkpoint.Completed</text>
+<text x="46" y="177" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">批准、预算、未决状态</text>
+<rect x="540" y="95" width="390" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="556" y="124" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">阶段来源 Document</text>
+<text x="556" y="153" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">完整源对象与 DataJSON</text>
+<text x="556" y="177" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">guard / 当前状态 / 历史</text>
+<rect x="30" y="295" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="324" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">Host 进度投影</text>
+<text x="46" y="353" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">精确数量 + 最近 8 项</text>
+<text x="46" y="377" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">8000 字节上限，超限拒绝</text>
+<rect x="540" y="295" width="390" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="556" y="324" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">ProjectManaged</text>
+<text x="556" y="353" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保护状态热留，历史冷存</text>
+<text x="556" y="377" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">视图与请求分别受预算约束</text>
+<line x1="225" y1="200" x2="225" y2="295" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="225.0" y="250" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">生成受限规划输入</text>
+<line x1="735" y1="200" x2="735" y2="295" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="735.0" y="250" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">生成阶段视图与源 SHA</text>
+<rect x="30" y="515" width="390" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="46" y="544" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">Host 候选子计划</text>
+<text x="46" y="573" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">模型只看有界进度</text>
+<text x="46" y="597" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">完整账本仍决定准入</text>
+<rect x="540" y="515" width="390" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="556" y="544" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">actionloop 模型决策</text>
+<text x="556" y="573" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">可按受限 scope 回查冷页</text>
+<text x="556" y="597" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">归档实际请求和工具轨迹</text>
+<line x1="225" y1="400" x2="225" y2="515" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="225.0" y="458" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">规划请求</text>
+<line x1="735" y1="400" x2="735" y2="515" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="735.0" y="458" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">阶段请求 / 冷页读取</text>
+<text x="30" y="674" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">两条路径都不能用模型摘要覆盖权威事实；必要状态放不下时，停止扩大任务。</text>
+<text x="30" y="706" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">冷档案可读取 ≠ 模型实际读取；哈希绑定字节 ≠ 证明规划正确。</text>
+</svg>

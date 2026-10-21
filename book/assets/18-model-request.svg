@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 710" role="img" aria-labelledby="title description">
+<title id="title">图 18-2　模型输入与执行权分离</title><desc id="description">模型返回候选；当前事实与权限在执行前再次校验。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="710" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 18-2　模型输入与执行权分离</text>
+<rect x="30" y="90" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">权威事实 / 阶段源</text>
+<text x="46" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">目标、约束、当前观测</text>
+<text x="46" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">旧记录、未决命令、scope</text>
+<rect x="540" y="90" width="390" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="556" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">独立工具目录</text>
+<text x="556" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">当轮 allowlist 与 schema</text>
+<text x="556" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">工具别名映射、能力版本</text>
+<rect x="30" y="280" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="309" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">ProjectManaged → user</text>
+<text x="46" y="338" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保留 guards，历史可冷存</text>
+<text x="46" y="362" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">system：角色规则与目标</text>
+<rect x="540" y="280" width="390" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="556" y="309" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">序列化模型请求</text>
+<text x="556" y="338" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">messages + tools + 输出预算</text>
+<text x="556" y="362" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保存原正文与 request SHA</text>
+<line x1="225" y1="195" x2="225" y2="280" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="225.0" y="240" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">投影</text>
+<line x1="420" y1="330" x2="540" y2="330" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="316" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">组装</text>
+<line x1="735" y1="195" x2="735" y2="280" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="735.0" y="240" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">当轮目录</text>
+<rect x="540" y="490" width="390" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="556" y="519" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">模型服务 / 可丢弃缓存</text>
+<text x="556" y="548" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">一次允许的工具调用候选</text>
+<text x="556" y="572" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">缓存不是任务事实或授权</text>
+<rect x="30" y="490" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="519" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">确定性准入 → Runtime</text>
+<text x="46" y="548" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">核对当前合同 / Basis / 预算</text>
+<text x="46" y="572" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">未知效果不得普通自动重放</text>
+<line x1="735" y1="385" x2="735" y2="490" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="735.0" y="440" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">HTTP 请求</text>
+<line x1="540" y1="542" x2="420" y2="542" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="528" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">候选</text>
+<text x="30" y="647" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">当前 managed 路径是两条 messages；历史在 Document 内，不是无限聊天追加。</text>
+<text x="30" y="682" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">API 凭据在传输鉴权头；模型正文与缓存不授予额外读写权限。</text>
+</svg>

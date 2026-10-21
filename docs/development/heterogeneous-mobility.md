@@ -1,5 +1,7 @@
 # 无人车、无人机与足式机器人的边缘接入合同
 
+2026-10-18 harness 增量：[执行与运维修复](2026-10-18-edge-swarm-readiness.md)增加未知命令锁存、并发拒绝、状态时间回退检测和 `robot_state.harnessHealth`。停止 ACK 明确为进入程序，`physicalStopVerified=false`；[重复 ROS 2 验收](../experiments/2026-10-18-edge-agent-ros-campaign.md)不替代真实飞行/步态/制动验证。
+
 本指南对应 `robot.profile.v1` 的可选 `mobility` 扩展与 `robot.mobility.v1`。首批无人车、无人机、足式统一走 ROS2 接口。平台提供统一准入、日志、幂等恢复和数据合同；每种实机仍需要厂商 ROS2 适配器、底层控制器与现场调试。仓库中的三个 commissioning profile 是接入模板，不是已经通过实机验收的设备配置。
 
 ## 职责与支持范围

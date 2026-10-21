@@ -47,3 +47,17 @@
 引用本书注明书名、版次、日期、章节；引用代码注明完整提交与路径；引用实验注明原报告与数据/制品身份。研究方案应继续阅读相应领域原论文，不把本书的工程建议当作证明。
 
 旧版包含更多历史统计与完整源码片段，恢复方式见[出版说明](../front/01-publication-notes.md)。本版用固定源码链接代替复制实现，减少正文与代码漂移；学习过程可在本地批注或保存自己的版本差异。
+
+## E.4 模型计算与缓存专题的一手资料
+
+本节核验日期：2026-10-22。产品文档会变化，实验须另外固定服务版本与模型能力；书中不把服务商性能数字当成项目实测。
+
+| 编号 | 来源 | 在本书中的使用 |
+| --- | --- | --- |
+| E15 | Vaswani et al. *Attention Is All You Need*. 2017. [原论文](https://arxiv.org/abs/1706.03762) | 第 18 章注意力基础；在因果解码条件下推导 K/V 可复用 |
+| E16 | Kwon et al. *Efficient Memory Management for Large Language Model Serving with PagedAttention*. 2023. [原论文](https://arxiv.org/abs/2309.06180) | KV 分块管理与共享；不将其性能结果外推到机器人 |
+| E17 | vLLM maintainers. [Automatic Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) | 共享输入前缀与 prefill 收益；不减少输出 token 本身的 decode 工作 |
+| E18 | vLLM maintainers. [Prefix caching design](https://docs.vllm.ai/en/latest/design/prefix_caching/) | 前缀块与兼容条件、cache_salt 隔离；当前项目尚未接入该缓存参数 |
+| E19 | OpenAI. [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) | 托管服务的模型相关能力与用量；字段/TTL/计费按实际模型版本核对 |
+
+本书公式是明确假设下的教学推导：注意力省略多头拼接与网络其余部分；显存忽略元数据/分片；延迟忽略复杂调度耦合；空间误差使用线性化与独立性假设。使用时先检查假设是否适合自己的部署，再用实测修正。

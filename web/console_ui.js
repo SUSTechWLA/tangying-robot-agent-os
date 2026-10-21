@@ -31,6 +31,11 @@
     return Object.hasOwn(states, state) ? states[state] : { label: "状态待确认", tone: "pending", detail: "等待服务返回可确认的状态。" };
   }
   function topConnectionPresentation(route, state) {
+    if (route === "devices" && state.mode !== "fleet") {
+      if (state.runtimeConnected === true) return { label: "Runtime 已连接", tone: "good", detail: "当前机器人身份已核对；执行条件仍需通过准备检查。" };
+      if (state.runtimeConnected === false) return { label: "Runtime 未连接", tone: "warning", detail: "实时状态待确认；边缘 Agent 可达时仍可回溯历史任务。" };
+      return { label: "正在核对机器人", tone: "pending", detail: "读取当前工作空间的机器人连接状态。" };
+    }
     if (route === "tasks") {
       if (state.historyAvailable === true) return { label: "任务记录可读取", tone: "good", detail: "历史证据用于复盘；当前现场状态请在工作台核对。" };
       if (state.historyAvailable === false) return { label: "任务记录读取失败", tone: "warning", detail: "请检查控制台连接后刷新记录。" };
@@ -200,6 +205,14 @@
   };
   for (const link of all("[data-nav]")) link.addEventListener("click", (event) => {
     event.preventDefault(); navigate(link.hash, true);
+  });
+  $(".skip-link")?.addEventListener("click", (event) => {
+    // This anchor moves within the current page. Letting it change the hash
+    // would send #page-title through the route fallback and leave that page.
+    event.preventDefault();
+    const heading = $("#page-title");
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: "start", behavior: "instant" });
   });
   globalThis.addEventListener("hashchange", () => navigate(location.hash, true));
   $("#audience-toggle").hidden = operatorEdition;

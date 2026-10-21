@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "spatial.experiment.v1",
+  "studyId": "heterogeneous-exploration-generalization-v2",
+  "split": "holdout",
+  "seedPartitions": {
+    "development": [
+      3,
+      7,
+      19,
+      43
+    ],
+    "holdout": [
+      101,
+      137,
+      173,
+      211,
+      257,
+      293
+    ]
+  },
+  "selectionFreeze": {
+    "selectedVariant": "baseline",
+    "receiptSha256": "c2c657e8a517131167a0431e8c89fef1e44ce7f2d671e4d30e883719233b201c",
+    "frozenAt": "2026-10-17T16:48:19.582090+00:00",
+    "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+    "studyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7"
+  },
+  "selectionProtocol": "Tune on development only; freeze the implementation and design hashes before inspecting holdout results. Split labels alone do not prove blinded selection.",
+  "backend": "production_voxel",
+  "scenes": [
+    "warehouse_aisles",
+    "staggered_doorways",
+    "elevated_occlusion",
+    "sealed_chamber",
+    "delayed_exchange_recovery"
+  ],
+  "seeds": [
+    101,
+    137,
+    173,
+    211,
+    257,
+    293
+  ],
+  "variants": [
+    "baseline",
+    "nearest_frontier",
+    "no_global_reposition",
+    "no_visibility_gain",
+    "no_assignment_overlap",
+    "no_shared_coverage_guidance",
+    "no_coordination"
+  ],
+  "cooperation": {
+    "assignment_overlap": true,
+    "shared_coverage_guidance": true
+  },
+  "mapExchangeDelayRounds": 2,
+  "maxRounds": 18,
+  "coverageThreshold": 1.0,
+  "sensor": {
+    "range_m": 3.6,
+    "horizontal_fov_rad": 3.141592653589793,
+    "vertical_fov_rad": 2.0943951023931953
+  },
+  "exploration": {
+    "strategy": "information_gain",
+    "use_global_reposition": true,
+    "visibility_gain": true,
+    "max_candidates": 32,
+    "max_rays": 49,
+    "max_ray_steps": 8192,
+    "max_plan_calls": 6
+  }
+}

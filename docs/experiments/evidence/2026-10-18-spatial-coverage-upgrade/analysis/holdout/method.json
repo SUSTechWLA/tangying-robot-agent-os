@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "spatial.analysis-method.v1",
+  "selectionCriterion": [
+    "completedFraction descending",
+    "meanCoverage descending",
+    "meanSuccessfulPathLengthM ascending",
+    "meanObservationJSONBytes ascending",
+    "variant lexicographic ascending"
+  ],
+  "metricDirections": {
+    "completed": "maximize",
+    "coverageFraction": "maximize",
+    "pathLengthM": "minimize",
+    "planningMsTotal": "minimize",
+    "messageBytes": "minimize"
+  },
+  "episodeMeans": "All episodes, including partial/failure, have equal weight. pathLengthM sums succeeded geometry legs; do not divide by legs or retain only completed episodes.",
+  "pairedDifference": "variant minus baseline within the exact same sceneId/seed and frozen input; relativeDelta is null when baseline is zero.",
+  "cluster": "occupancyGeometryHash; average paired condition deltas inside each geometry, then give each geometry equal weight.",
+  "bootstrap": {
+    "seed": 20261018,
+    "replicates": 5000,
+    "sampling": "Geometry clusters with replacement, preserving all paired fault conditions and all metrics/arms together.",
+    "interval": "Descriptive 2.5th and 97.5th percentiles, linearly interpolated at (replicates-1)*q.",
+    "minimumDistinctGeometryClusters": 2
+  },
+  "communication": "meanObservationJSONBytes is the arithmetic mean of episode.messageBytes over all episodes; the historical field name is retained for compatibility and is not limited to raw observations. Count all actual recorded communication channels, including observation_upload, occupancy_relay, coverage_delta (coverage IDs), coverage_reconnect_snapshot (coverage IDs), reconnect_snapshot (occupancy), and the legacy combined observation_upload_and_relay channel when present. Delayed maps count only when sent; unsent queued packets are not transmitted bytes. These are canonical JSON payload bytes, excluding network framing, TLS, task leases, controller traffic and other unmeasured transport overhead.",
+  "inputCommunicationDescription": "Canonical observation payload upload plus relay and reconnect snapshot; excludes network framing, TLS and lease/control messages.",
+  "limitations": [
+    "No multiple-comparison adjustment or significance decision.",
+    "Intervals describe this fixed study's empirical layouts; no universal optimality or population generalization claim.",
+    "Planning wall time depends on host load; this is not physical robot or network validation.",
+    "Configured seeds/paired task conditions are not necessarily independent physical maps; cluster normalization prevents duplicate geometry from increasing its weight."
+  ]
+}

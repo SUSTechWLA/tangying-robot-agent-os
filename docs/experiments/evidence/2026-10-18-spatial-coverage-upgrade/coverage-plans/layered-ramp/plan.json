@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "coverage.plan.v1",
+  "missionId": "fixture-layered-ramp",
+  "geometryId": "65dad3a7427d66621be96dfb547151962da6fdd0c7efbe75dbde8642573a1c7f",
+  "predictionOnly": true,
+  "status": "predicted_complete",
+  "stopReason": "predicted_scope_covered",
+  "targetVoxels": 1,
+  "predictedCoveredVoxels": 1,
+  "predictedCoverage": 1.0,
+  "observedCoverage": null,
+  "unresolvedVoxelIds": [],
+  "pathLengthM": 3.23606797749979,
+  "planCalls": 8,
+  "evaluatedViewpoints": 680,
+  "legs": [
+    {
+      "robotId": "ugv",
+      "targetId": "65dad3a7427d66621be96dfb547151962da6fdd0c7efbe75dbde8642573a1c7f:coverage:50e35b69101d1c5912f2e91c94a6d1344baecf930fbe1541716cd807b45afdde",
+      "pose": [
+        3.75,
+        0.75,
+        1.5,
+        1.0,
+        0.0,
+        -0.0,
+        0.0
+      ],
+      "score": 0.26766108272719624,
+      "expectedObservedVoxelIds": [
+        318
+      ],
+      "visibleUnknownVoxelIds": [],
+      "informationGain": 1,
+      "objectiveKind": "explicit_scope_coverage",
+      "path": {
+        "schemaVersion": "navigation.path.v1",
+        "mode": "terrain_layered",
+        "robotId": "ugv",
+        "mapId": "layered-ramp-fixture",
+        "mapRevision": "fixture-v1",
+        "frameId": "world",
+        "worldFrameRevision": "fixture-world-v1",
+        "calibrationRevision": "fixture-calibration-v1",
+        "waypoints": [
+          [
+            0.75,
+            0.75,
+            0.5,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            1.25,
+            0.75,
+            0.5,
+            1.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          [
+            1.75,
+            0.75,
+            0.75,
+            1.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          [
+            2.25,
+            0.75,
+            1.0,
+            1.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          [
+            2.75,
+            0.75,
+            1.25,
+            1.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          [
+            3.25,
+            0.75,
+            1.5,
+            1.0,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          [
+            3.75,
+            0.75,
+            1.5,
+            1.0,
+            0.0,
+            -0.0,
+            0.0
+          ]
+        ],
+        "expandedNodes": 6,
+        "clearanceModel": "commissioned_axis_aligned_envelope"
+      },
+      "pathLengthM": 3.23606797749979
+    }
+  ],
+  "diagnostics": [
+    {
+      "robotId": "ugv",
+      "objectiveKind": "explicit_scope_coverage",
+      "targetVoxels": 1,
+      "remainingTargetVoxels": 1,
+      "evaluatedViewpoints": 680,
+      "planCalls": 8,
+      "rejectedPaths": {},
+      "rayBudgetExhaustions": 0,
+      "predictionOnly": true,
+      "strategy": "gain_per_meter",
+      "sampledPositions": 170,
+      "availablePositions": 170,
+      "viewpointSamplingTruncated": false,
+      "pathSamplingTruncated": true,
+      "scopeAlreadyObserved": false,
+      "peerRefusals": 0,
+      "travelRefusals": 0
+    }
+  ],
+  "executionModel": "serial_with_stationary_peer_envelope_checks",
+  "physicalValidation": false,
+  "continuousSceneCompletenessProven": false
+}

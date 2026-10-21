@@ -1,0 +1,22 @@
+gofmt -l $(find agent agentruntime cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
+test ! -s /tmp/tangying-gofmt.out
+.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots orchestration/eval
+SIM102 Use a single `if` statement instead of nested `if` statements
+   --> robot/gateway/tangying_robot_gateway/spatial_mission.py:624:13
+    |
+622 |               coverage_candidates = [candidate for candidate in proposal.get("candidates", [])
+623 |                                      if candidate.get("objectiveKind") == "explicit_scope_coverage"]
+624 | /             if scope is not None or coverage_candidates:
+625 | |                 if (type(scope) is not dict or scope.get("schemaVersion") != "coverage.scope.v1"
+626 | |                         or scope.get("geometryId") != self.ledger.geometry_id
+627 | |                         or set(CoverageLedger._ids(scope.get("targetVoxelIds", []))) != self.ledger.targets
+628 | |                         or any(not set(_candidate_targets(candidate)) <= self.ledger.targets
+629 | |                                for candidate in coverage_candidates)):
+    | |______________________________________________________________________^
+630 |                       raise MissionError("COVERAGE_SCOPE_MISMATCH", "proposal and evidence ledger must share the target scope")
+631 |               if not proposal.get("candidates"):
+    |
+help: Combine `if` statements using `and`
+
+Found 1 error.
+make: *** [lint] Error 1

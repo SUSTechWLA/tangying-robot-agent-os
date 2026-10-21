@@ -1,0 +1,4 @@
+mkdir -p bin
+go build -ldflags "-X main.version=v0.7.0" -o bin/robot-agent ./cmd/robot-agent
+go build -o bin/local-agent ./cmd/local-agent
+go build -o bin/edge-exchange ./cmd/edge-exchange

@@ -1,0 +1,19 @@
+{
+  "strategy": "reconcile",
+  "effects": 1,
+  "state": "COMPLETED",
+  "events": [
+    {
+      "event": "pending_committed",
+      "command": "c1"
+    },
+    {
+      "event": "effect_happened_reply_lost",
+      "effects": 1
+    },
+    {
+      "event": "bound_receipt_reconciled",
+      "command": "c1"
+    }
+  ]
+}

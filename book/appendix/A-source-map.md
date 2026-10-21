@@ -2,23 +2,23 @@
 
 ## A.1 先追职责，再追调用
 
-本版代码复核为 821659df。包名是导航入口，接口和行为以该快照为准；源码文件/目录链接在导出时固定到它；配套文档另固定到本轮文档快照，见出版说明。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
+本版代码复核为 9e6a58f6。包名是导航入口，接口和行为以该快照为准；源码文件/目录链接在导出时固定到它；配套文档另固定到本轮文档快照，见出版说明。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
 
 | 问题 | 先读入口 | 再查对象 | 对应章 |
 | --- | --- | --- | --- |
-| 实际装配了什么？ | `cmd/local-agent/main.go`、`cmd/local-agent/agentruntime.go`、`cmd/edge-worker/main.go`、`cmd/fleet-control-plane/main.go` | 路由、数据库、角色与发布口 | 2、6、9、17 |
-| 目标如何成为获批内容？ | `core/objective/contract.go`、`tasks/objective.go`、`tasks/` | 未批准 edge.goal 包络、批准摘要、兼容冻结计划 | 7、14、17 |
-| 边缘怎样自主细化目标？ | `internal/edgeagent/host.go`、`internal/capabilityagent/planner.go`、`internal/edgeagent/supervision.go` | 共享 Host、Task/Ops/Recovery、子计划与剩余额度 | 6、7、9、17 |
+| 实际装配了什么？ | [cmd/local-agent/main.go](../../cmd/local-agent/main.go)、[cmd/local-agent/agentruntime.go](../../cmd/local-agent/agentruntime.go)、[cmd/edge-worker/main.go](../../cmd/edge-worker/main.go)、[cmd/fleet-control-plane/main.go](../../cmd/fleet-control-plane/main.go) | 路由、数据库、角色与发布口 | 2、6、9、17 |
+| 目标如何成为获批内容？ | [core/objective/contract.go](../../core/objective/contract.go)、[tasks/objective.go](../../tasks/objective.go)、`tasks/` | 未批准 edge.goal 包络、批准摘要、兼容冻结计划 | 7、14、17 |
+| 边缘怎样自主细化目标？ | [internal/edgeagent/host.go](../../internal/edgeagent/host.go)、[internal/capabilityagent/planner.go](../../internal/capabilityagent/planner.go)、[internal/edgeagent/supervision.go](../../internal/edgeagent/supervision.go) | 共享 Host、Task/Ops/Recovery、子计划与剩余额度 | 6、7、9、17 |
 | 什么工具对模型可见？ | `core/capability/`、`core/skills/`、`internal/agentharness/` | Schema、effects、目录与角色 | 5、16 |
 | 如何判定物理完成？ | `core/closedloop/`、`core/harness/` | gate、evaluator、证据基线 | 3、4 |
 | 世界事实来自哪里？ | `core/worldmodel/`、`fleet/worldhub/` | 来源、序号、实体与版本 | 4、17 |
 | 谁可发布和处理事件？ | `core/agentcontract/`、`agentruntime/` | 注册身份、topic、sink、丢弃计数 | 6、11 |
 | 只读恢复凭什么继续？ | `internal/autorecovery/`、`internal/recoveryexec/` | 原失败、异常、计划、执行/复验 | 6、11、19 |
 | 上下文如何保存与裁剪？ | `core/agentcontext/`、`internal/actionloop/`、`tasks/` | guard、冷制品、分页、请求 SHA | 18 |
-| 云边执行依据是什么？ | `core/contextcontract/basis.go`、`fleet/coordinator/` | claim、批准摘要、resource/fence | 8、17 |
-| Host 恢复如何区分已确认与未知？ | `internal/edgeagent/recovery.go`、`completion.go`、对应测试 | 双重绑定证据、EDGE_STEP_RECOVERED、持久读重试 | 8、11、18 |
-| 重启为何不能重做动作？ | `edge/worker/context.go`、`fleet/coordinator/completion.go`、`fleet/coordinator/finalization.go` | checkpoint、receipt、pending、outbox | 8、17 |
-| 如何接入新本体？ | `robot/gateway/tangying_robot_gateway/plugin_backend.py`、`robot/gateway/tangying_robot_gateway/` | Profile、Backend、观测、停止、journal | 5、10 |
+| 云边执行依据是什么？ | [core/contextcontract/basis.go](../../core/contextcontract/basis.go)、`fleet/coordinator/` | claim、批准摘要、resource/fence | 8、17 |
+| Host 恢复如何区分已确认与未知？ | [internal/edgeagent/recovery.go](../../internal/edgeagent/recovery.go)、`completion.go`、对应测试 | 双重绑定证据、EDGE_STEP_RECOVERED、持久读重试 | 8、11、18 |
+| 重启为何不能重做动作？ | [edge/worker/context.go](../../edge/worker/context.go)、[fleet/coordinator/completion.go](../../fleet/coordinator/completion.go)、[fleet/coordinator/finalization.go](../../fleet/coordinator/finalization.go) | checkpoint、receipt、pending、outbox | 8、17 |
+| 如何接入新本体？ | [robot/gateway/tangying_robot_gateway/plugin_backend.py](../../robot/gateway/tangying_robot_gateway/plugin_backend.py)、`robot/gateway/tangying_robot_gateway/` | Profile、Backend、观测、停止、journal | 5、10 |
 
 ### 新空间与边缘模块的查阅入口
 
@@ -60,6 +60,20 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 ## A.4 最小阅读闭环：两种入口、同一执行核心
 
-先读 `console/objective.go` 与 `fleet/objective.go` 的创建/幂等边界，再读 `internal/edgeagent/host.go` 的持久准入和循环、`internal/capabilityagent/planner.go` 的模型规划与 Host 的进度视图、`supervision.go` 的只读诊断及恢复提案。文件是否存在与名称以代码快照为准；通过 Local 与 Worker 的调用处检查它们如何向同一个 Host 提供 Runtime、存储和权限校验。
+先读 [console/objective.go](../../console/objective.go) 与 [fleet/objective.go](../../fleet/objective.go) 的创建/幂等边界，再读 `internal/edgeagent/host.go` 的持久准入和循环、`internal/capabilityagent/planner.go` 的模型规划与 Host 的进度视图、`supervision.go` 的只读诊断及恢复提案。文件是否存在与名称以代码快照为准；通过 Local 与 Worker 的调用处检查它们如何向同一个 Host 提供 Runtime、存储和权限校验。
 
-测试阅读顺序：`host_test.go` 的授权/配额 → `recovery_test.go` 的已验证提交窗口与未知写 → `completion_test.go` 的持久读重试 → `campaign_test.go` 的连续任务。`edge/agent/runner.go` 的内部 legacy 路径仍检查物理 STARTED 历史，不能把绕开递归父 Pending 解释为关闭全局恢复守卫。
+测试阅读顺序：`host_test.go` 的授权/配额 → `recovery_test.go` 的已验证提交窗口与未知写 → `completion_test.go` 的持久读重试 → `campaign_test.go` 的连续任务。[edge/agent/runner.go](../../edge/agent/runner.go) 的内部 legacy 路径仍检查物理 STARTED 历史，不能把绕开递归父 Pending 解释为关闭全局恢复守卫。
+
+## A.5 用一个反例读懂一个机制
+
+每次只读到能回答最后一栏，再扩展调用链。函数名可用 `rg -n` 定位。
+
+| 重点 | 实现与测试入口 | 读者要回答的问题 |
+| --- | --- | --- |
+| 第 7、8 章 | `internal/edgeagent/recovery.go`、`recovery_test.go` 的 `TestDelegatedUnknownPhysicalResultNeverReplansOrReplays` | 为什么已有失败提示仍不允许重新移动？ |
+| 第 8 章 | 同目录 `TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement` | 哪个已持久事实使“补记账”与“重新执行”分开？ |
+| 第 9 章 | [console/workspaces.go](../../console/workspaces.go)、[console/workspaces_integration_test.go](../../console/workspaces_integration_test.go) | 切换机器人后，同名任务和晚到响应如何不串台？ |
+| 第 17 章 | [core/exchangecontract/contract.go](../../core/exchangecontract/contract.go)、`coverage.go`、`coverage_test.go` | 较新但不合格的报告为何不能退回旧报告并当作当前事实？ |
+| 第 18 章 | [core/agentcontext/managed.go](../../core/agentcontext/managed.go)、[internal/actionloop/context.go](../../internal/actionloop/context.go) | 保护状态、冷档案、模型请求分别由哪一层生成？ |
+
+若文件在更新分支改名，先检出出版说明指定快照，或在对应包内搜索测试名；不要用相似函数替代语义核验。

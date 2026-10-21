@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,7 +53,7 @@ func respond(w http.ResponseWriter, value any, err error) {
 	w.Header().Set("Cache-Control", "no-store")
 	if err != nil {
 		status := http.StatusBadRequest
-		if errors.Is(err, x.ErrConflict) || errors.Is(err, x.ErrStale) {
+		if errors.Is(err, x.ErrConflict) || errors.Is(err, x.ErrStale) || errors.Is(err, x.ErrResyncRequired) {
 			status = http.StatusConflict
 		}
 		if errors.Is(err, x.ErrExpired) {
@@ -125,6 +126,44 @@ func (s *Service) AdminHandler(token string) (http.Handler, error) {
 	mux.HandleFunc("GET /v1/exchange/inbox", func(w http.ResponseWriter, r *http.Request) {
 		items, err := s.Inbox(r.Context(), 100)
 		respond(w, items, err)
+	})
+	mux.HandleFunc("GET /v1/exchange/feed", func(w http.ResponseWriter, r *http.Request) {
+		values := r.URL.Query()
+		if len(values) > 2 || len(values["after"]) != 1 || len(values["limit"]) != 1 {
+			respond(w, nil, errors.New("feed requires exactly after and limit"))
+			return
+		}
+		after, err := strconv.ParseUint(values.Get("after"), 10, 63)
+		if err != nil {
+			respond(w, nil, err)
+			return
+		}
+		limit, err := strconv.Atoi(values.Get("limit"))
+		if err != nil {
+			respond(w, nil, err)
+			return
+		}
+		feed, err := s.Feed(r.Context(), after, limit)
+		if errors.Is(err, x.ErrResyncRequired) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(struct {
+				Error string `json:"error"`
+				Feed  x.Feed `json:"feed"`
+			}{err.Error(), feed})
+			return
+		}
+		respond(w, feed, err)
+	})
+	mux.HandleFunc("POST /v1/exchange/coverage-view", func(w http.ResponseWriter, r *http.Request) {
+		var query x.CoverageQuery
+		if err := decode(w, r, &query); err != nil {
+			respond(w, nil, err)
+			return
+		}
+		view, err := s.CoverageView(r.Context(), query)
+		respond(w, view, err)
 	})
 	mux.HandleFunc("GET /v1/exchange/status", func(w http.ResponseWriter, r *http.Request) {
 		counts, err := s.Counts(r.Context())

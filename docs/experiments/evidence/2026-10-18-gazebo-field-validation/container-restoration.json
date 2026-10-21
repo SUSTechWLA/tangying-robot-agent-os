@@ -1,0 +1,11 @@
+{
+  "restored": true,
+  "recordedAt": "2026-10-18T09:33:02.752238+00:00",
+  "containerId": "ebc94e6c3e3d7b8cf4d496fa1e10f9686dd1ca807ca75dfcb71fb89ef5a1b75e",
+  "containerName": "tangying-gazebo-4d6962a6c3d7-gazebo-house-1",
+  "state": "exited",
+  "entrypointSha256": "c2711c239e25e9738b40d0c85668d9a25a308e22b89438c1d5494ada84a53466",
+  "entrypointBytesMatchOriginal": true,
+  "newContainersCreated": 0,
+  "priorState": "exited"
+}

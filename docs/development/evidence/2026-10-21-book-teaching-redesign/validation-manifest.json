@@ -1,0 +1,47 @@
+{
+  "edition": "3.0.0",
+  "date": "2026-10-21",
+  "implementationSnapshot": "9e6a58f6ad48c6d9441e95511ddb4d503ea6449e",
+  "physicalExecution": false,
+  "classroomSources": {
+    "book/labs/context_projection.py": "6d33586b84a87048b3ed9ab28500f8a386cc290347491637bc0d7626dc3c3e7d",
+    "book/labs/uncertain_outcome.py": "66956f8aa7711c3e90e65dbda593e17f157634a6d79d50f62c524fd2c57a9050"
+  },
+  "publication": {
+    "LICENSE": "5ff10dbe139e863c4f76cedfd8b6269b29c4efa81650264e0a0ec4a121b6ccb0",
+    "SHA256SUMS": "4f07139fb60e1d3a50c760ec1560d2dd401cf4553bc4c240f004d1ea6e7d1cc9",
+    "assets/01-question.svg": "d5e61c3c78d81c5ceceb38cc60c02ea8add7cde967dc769206cb14cea5439637",
+    "assets/02-architecture.svg": "813df50504b9058b95e77a01fd6ee8a4db3ce3d290d5a0890be91ef45516f049",
+    "assets/03-execution.svg": "074e10702aa56ffc19d44c484efae17ba396d78f4fdb399e705717e22edeb1af",
+    "assets/04-world.svg": "5556758e58c63d3efb17173b179b592ee632f80d7bf455dfbd4229c5fd10820c",
+    "assets/05-harness.svg": "61158b4e2625d9cd4b4777d24b0df171545292b102d048aebea6fae080594946",
+    "assets/06-roles.svg": "dac7995deb5871bcf2e42d56da23e593526dd2d67a255c5b273a3ff6c2c948ee",
+    "assets/07-planning.svg": "24e2b08a84e0de22174cf943b3fdd64a499d871fa96abcc4a56c63b02dff7dc6",
+    "assets/08-checkpoint.svg": "4d458492671f7ca8e4b57540e91c76766d87ad3eda93f8bc27716c8a3aabd827",
+    "assets/09-workspaces.svg": "125f3fd4d347045284578879fabefa5010a4756c0eea5c124eef1f138e487022",
+    "assets/10-heterogeneity.svg": "10b69e06184168af1b2eef81289d26a7df6446790f4dbb811c005fb1f42253a4",
+    "assets/11-recovery.svg": "062a5378216a0f29ec8157be536d5035fa8fe40886de4daf1621c8ef0b73901a",
+    "assets/12-experiment.svg": "b51f75527b062378106f85ffbd1bf66b4376faba9e6e5c96c4af422a8fec2a7a",
+    "assets/15-research.svg": "4b313b27eebf41f7143bb6227afaa76f7a68511b73b34f0ffea351accf6bd28e",
+    "assets/17-cloud-edge.svg": "c2009aea9a3be351e64da9a71fb0dcafa09a0932b8854b8e636e7fc3a3e6a152",
+    "assets/17-peer.svg": "72aa3412ea47616aed371b7bbf4a807f9535b2a098b41578c0e2a2fd977c0f11",
+    "assets/18-context.svg": "37333668040d71f1b031a45985c8776f1d37c5a904a068c2ab2401de7e47c76c",
+    "book.epub": "9ab6f5cd6e8477273ab24687174380d4c76f77c39f760877a8cafe640405f64c",
+    "book.md": "4b2ec6f87cb494f13901f5dd81f867d7ee64101c16ca99d12cfbfcc3d54eb89d",
+    "index.html": "067bc2a2f6a94002da8ee086e14a8505882c489dcbea9a36af1570af54d7fdaf",
+    "provenance.json": "ca85842a6276aaf7b744d088680038adfcfb9b2015b0bd11fbccd1088e69de88"
+  },
+  "offlineBundle": {
+    "localPath": "artifacts/book/tangying-agentos-3.0.0.zip",
+    "sha256": "7a3bc53b86ba50e000a1b1c5d5acd760671260c2403cc13737fdf0f46c8452d9"
+  },
+  "localClassroomDatabases": {
+    "artifacts/book-teaching-validation/2026-10-21/lost-reply/guarded/controller.sqlite": "9c18270f3fce92075b28fa1524a63af08ecc4dce980bef5a6aea4ac567c52e48",
+    "artifacts/book-teaching-validation/2026-10-21/lost-reply/naive/controller.sqlite": "3797cf13b80a2b529ed9b11858ac2666ac0892c8c6bcedb6389218449b9e7c8e",
+    "artifacts/book-teaching-validation/2026-10-21/lost-reply/reconciled/controller.sqlite": "3797cf13b80a2b529ed9b11858ac2666ac0892c8c6bcedb6389218449b9e7c8e"
+  },
+  "notes": [
+    "JSON teaching outputs are committed alongside this manifest; SQLite files and generated books stay in artifacts.",
+    "SVG figures were rendered locally; browser preview was blocked for file://, so browser/reader layout was not verified."
+  ]
+}

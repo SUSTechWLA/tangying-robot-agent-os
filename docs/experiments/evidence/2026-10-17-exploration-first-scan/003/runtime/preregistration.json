@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "exploration.first-scan.acceptance.v1",
+  "passed": false,
+  "scope": "gazebo_runtime_mapping_build_explore",
+  "physicalCertification": false,
+  "naturalLanguageHostTest": false,
+  "wholeEnvironmentCoverage": false,
+  "coverageGroundTruth": "not_measured",
+  "startedAtUnixMs": 1792170220033,
+  "runtime": "127.0.0.1:50573",
+  "parameters": {
+    "mode": "explore",
+    "name": "first-scene-exploration",
+    "maxTravelM": 8.0,
+    "maxLegs": 1
+  },
+  "gitHead": "980e8b4d8d7fd357341d7862b7cb79b34a711392",
+  "gitStatus": " M CHANGELOG.md\n M README.md\n M \"artifacts/marketing/shorts/S04-\\346\\257\\217\\344\\270\\200\\346\\255\\245\\351\\203\\275\\347\\225\\231\\350\\203\\275\\347\\277\\273\\346\\227\\247\\350\\264\\246\\347\\232\\204\\350\\257\\201\\346\\215\\256.md\"\n M \"artifacts/marketing/\\350\\256\\262\\344\\273\\200\\344\\271\\210-\\347\\237\\255\\346\\226\\207\\350\\277\\236\\350\\275\\275\\350\\256\\241\\345\\210\\222.md\"\n M book/README.md\n M docs/README.md\n M docs/catalog.md\n M docs/development/README.md\n M docs/experiments/README.md\n M docs/guides/robot-service-workflow.md\n M docs/learning/README.md\n M robot/gateway/tangying_robot_gateway/exploration.py\n M robot/gateway/tangying_robot_gateway/robot_workflow.py\n M robot/gateway/tangying_robot_gateway/survey.py\n M robot/gateway/tests/test_exploration.py\n M robot/gateway/tests/test_robot_services.py\n M robot/gateway/tests/test_survey.py\n?? book/updates/2026-10-17-exploration-first-scan.md\n?? docs/development/2026-10-17-exploration-first-scan.md\n?? docs/experiments/2026-10-17-exploration-first-scan-protocol.md\n?? docs/experiments/2026-10-17-exploration-first-scan.md\n?? scripts/validate_exploration_first_scan.py\n?? tests/scripts/\n",
+  "dirtyPatchSha256": "be26b8a26955772de49af0f40e475623185bc5be8e8f5209d8972bcc967d872e",
+  "sourceRoot": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-003/source",
+  "sourceSetSha256": "880405b4c3bbd2f501efa51f2bf0383ab7c1b052cefe1c12734f645e03a6f355",
+  "mapRoot": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/exploration-first-scan-20261017-003/gazebo/maps/home_furnished/workflow",
+  "operationLeaseMs": 30000,
+  "timeoutS": 900.0,
+  "pythonVersion": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "externalEnvironmentProvenance": "bd0c14d7d90e1ec01480b20eddfcca877940c8ffd89407739bbdc11b6c965da6"
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "spatial.analysis-provenance.v1",
+  "state": "finalized",
+  "inputCampaign": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout",
+  "inputManifestHash": "4a1e4e8c6f1a3635e99901b0c405bcc9a0ad9ca1ed6483c0b3314d4acdba2e87",
+  "inputSummaryHash": "50f935fa6a5e85719e286418e83e5aa7cd4dfb62028dc57f373ae1f074b7602c",
+  "inputConfigHash": "9df278d45b059021b7341008288840b7fb41b44e28698d3ee2d0619cd92bc08f",
+  "inputStudyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7",
+  "campaignSourceHashes": {
+    "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+    "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+    "robot/gateway/tangying_robot_gateway/spatial_mission.py": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+    "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+  },
+  "analysisSourceHashes": {
+    "analyze_spatial_study.py": "d02840c21266100c542f8808a27c0c5c94731cc1d2ca30f15e6c105476f9ea1c",
+    "spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114"
+  },
+  "methodHash": "a012df8e1f494b0591c3f30ea95f6859f77feab58a436b37f3a65b0ed33ff504",
+  "verification": {
+    "schemaVersion": "spatial.replay.v1",
+    "verifiedEpisodes": 210,
+    "passed": true
+  },
+  "runtime": {
+    "python": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "files": {
+    "method.json": {
+      "sha256": "086bc924b4803400fd55ceb8ff461026fc2419b38e271f1c79370255ae219db9",
+      "bytes": 2628
+    },
+    "paired-differences.csv": {
+      "sha256": "31b6dcc582d9a5b97b91548e73b4a327c97ad1caf3837be1f0f31121400df850",
+      "bytes": 168856
+    },
+    "paired-differences.json": {
+      "sha256": "50ad3386cdf1b4cc6237ba30705a435ec87ea26461ec9653dec55c9e0d15959a",
+      "bytes": 353970
+    },
+    "paired-effects.csv": {
+      "sha256": "85d98b4665fefc7a81d2b4969ecf0863f916a8b15a713329edb5061b5eb2d55c",
+      "bytes": 3800
+    },
+    "source/analyze_spatial_study.py": {
+      "sha256": "d02840c21266100c542f8808a27c0c5c94731cc1d2ca30f15e6c105476f9ea1c",
+      "bytes": 17697
+    },
+    "source/spatial_exploration_benchmark.py": {
+      "sha256": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+      "bytes": 69643
+    },
+    "summary.json": {
+      "sha256": "cc1099083f07b7016ebf7b131e55433789a6d808a1baba066684e9fee4bbe42f",
+      "bytes": 75185
+    },
+    "variants.csv": {
+      "sha256": "39492aa275f8d703faaf9ef6782cc924ba889bd4eb34698fb862d9a399f958f0",
+      "bytes": 848
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "profilePath": "../ugv.commissioning.profile.json",
+  "commissioningId": "replace-with-ugv-commissioning-id",
+  "namespace": "/agv_1",
+  "stateMaxAgeMs": 500,
+  "stopTimeoutMs": 1000
+}

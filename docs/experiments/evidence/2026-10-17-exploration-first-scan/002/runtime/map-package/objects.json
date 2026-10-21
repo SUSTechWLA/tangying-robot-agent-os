@@ -1,0 +1,83 @@
+{
+  "associationGateM": 0.12,
+  "calibrationRevision": "6ea4c8aa4034c40658da5bb05ff469a5a6055272aaebb5e0ca25434c390245bb",
+  "entityPolls": 100,
+  "frameId": "map",
+  "mapId": "scan-96f3c4bdaf2b",
+  "maxAgeMs": 86400000,
+  "objects": [
+    {
+      "ageMs": 7979,
+      "attributes": {
+        "name": "陶瓷杯",
+        "recognition": "rgbd_metric_shape"
+      },
+      "category": "cup",
+      "confidence": 0.9,
+      "evidenceFrameId": "map",
+      "firstSeenUnixMs": 1792170074186,
+      "history": [
+        [
+          2.803501089063431,
+          3.6335281314188164,
+          0.8088033840183664
+        ]
+      ],
+      "id": "cup-name=陶瓷杯-recognition=rgbd_metric_shape-000",
+      "lastSeenUnixMs": 1792170074186,
+      "observationId": "ceramic-mug",
+      "observedFrom": [
+        2.4504933934971325,
+        2.47602163599906,
+        0.6936453612271265
+      ],
+      "pose": [
+        2.803501089063431,
+        3.6335281314188164,
+        0.8088033840183664
+      ],
+      "sightings": 1,
+      "sourceId": "gazebo-firstscan-20261017-002/head-rgbd"
+    },
+    {
+      "ageMs": 3366,
+      "attributes": {
+        "name": "陶瓷杯",
+        "recognition": "rgbd_metric_shape"
+      },
+      "category": "cup",
+      "confidence": 0.9,
+      "evidenceFrameId": "map",
+      "firstSeenUnixMs": 1792170076678,
+      "history": [
+        [
+          2.2770049600220497,
+          3.405654359345556,
+          0.7914721438470935
+        ],
+        [
+          2.277502644973364,
+          3.4042302634234605,
+          0.7915985661021581
+        ]
+      ],
+      "id": "cup-name=陶瓷杯-recognition=rgbd_metric_shape-001",
+      "lastSeenUnixMs": 1792170078799,
+      "observationId": "ceramic-mug",
+      "observedFrom": [
+        2.450493393497127,
+        2.476021635999069,
+        1.685101841773463
+      ],
+      "pose": [
+        2.277502644973364,
+        3.4042302634234605,
+        0.7915985661021581
+      ],
+      "sightings": 2,
+      "sourceId": "gazebo-firstscan-20261017-002/head-rgbd"
+    }
+  ],
+  "schemaVersion": "map.objects.v1",
+  "sightings": 3
+}

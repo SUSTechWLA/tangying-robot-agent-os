@@ -1,6 +1,14 @@
 # 学习路线：从系统全貌到可检查实践
 
-当前教材为[数字版 2.2.0](../../book/README.md)，实现复核固定到 `821659df`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
+教材 3.1.0（2026-10-22）深化跨域消息、模型实际输入、上下文、KV cache 和分布式一致性，提供 22 幅图、公式算例、两个无硬件实验与课堂脚本；已实现机制与缓存接入建议明确区分。
+
+理解“有地图之后怎样完整巡检”时，阅读[已知覆盖与多层移动补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)、[当前接口](../development/2026-10-18-spatial-coverage-upgrade.md)及[计划/Runner/350 次探索实际实验](../experiments/2026-10-18-spatial-coverage-upgrade.md)，区分预测覆盖、新采集证据、分层支撑与设备可执行性。
+
+研究异构三维探索时，阅读[教材补充](../../book/updates/2026-10-17-heterogeneous-spatial-exploration.md) → [当前模块与边界](../development/2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融协议](../experiments/2026-10-17-spatial-exploration-protocol.md) → [实际软件结果与图表](../experiments/2026-10-18-spatial-exploration.md)。先区分路径、观察、覆盖、分工和真实控制，再设计可解释的量化实验。
+
+首次进入未知环境时，补读[探索学习补充](../../book/updates/2026-10-17-exploration-first-scan.md)与[当前操作指南](../guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索)：区分初始观察、前沿规划、局部控制、地图发布与全环境覆盖。
+
+当前教材为[数字版 3.1.0](../../book/README.md)，实现复核固定到 `9e6a58f6`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
 
 [返回文档导航](../README.md) · [开发升级](../development/README.md) · [部署运维](../operations/README.md) · [研究论文](../research/README.md)
 
@@ -31,7 +39,7 @@
 | 机器人/感知/控制工程师 | [物理1](../../book/chapters/ch01-physical-constraints.md)、[观测4](../../book/chapters/ch04-world-model.md)、[接入10](../../book/chapters/ch10-sim2real.md)、[部署13](../../book/chapters/ch13-install-deploy-ops.md) | 按[异构接入指南](../guides/hardware-agent-integration.md)整理 Profile、驱动、标定、停止和验证证据 |
 | 科研与论文作者 | [闭环3](../../book/chapters/ch03-closed-loop-contract.md)、[故障8](../../book/chapters/ch08-distributed-fault-assumptions.md)、[评测12](../../book/chapters/ch12-evaluation-training.md)、[边界15](../../book/chapters/ch15-future-directions.md)、[长任务19](../../book/chapters/ch19-long-horizon-walkthrough.md) | 从[研究问题与证据地图](../research/README.md)选一个可证伪问题，先写预登记 |
 | 系统集成与运维 | [单机9](../../book/chapters/ch09-local-single-machine.md)、[部署13](../../book/chapters/ch13-install-deploy-ops.md)、[云边17](../../book/chapters/ch17-cloud-edge-agent-harness.md) | 进入[运维导航](../operations/README.md)，确认部署角色、数据目录、权限和故障处理顺序 |
-| 大学课程或系统自学 | [完整书籍](../../book/README.md) → [16周课程](../../book/appendix/G-course-design.md) | 配合[57题指导](../../book/appendix/I-exercise-guide.md)和[十二组实验](../../book/appendix/F-learning-labs.md)，按产物验收学习效果 |
+| 大学课程或系统自学 | [完整书籍](../../book/README.md) → [16周课程](../../book/appendix/G-course-design.md) | 配合[57题指导](../../book/appendix/I-exercise-guide.md)和[十四组实验](../../book/appendix/F-learning-labs.md)，按产物验收学习效果 |
 
 ## 三、实践按环境分级
 
@@ -47,7 +55,7 @@
 
 ## 书籍与系统增量如何一起读
 
-书籍数字版 2.2.0 的实现复核固定到 `821659df`，正文与合订本纳入分层目标、共享 Host、目标检查点、有限上下文投影、点云语义和 ROS 2 空间通道。软件版本、书籍版号和实验二进制是不同身份；原实验按原提交/环境引用，正文更新不表示重新运行实验。
+书籍数字版 3.1.0 的实现复核固定到 `9e6a58f6`，正文与合订本纳入分层目标、共享 Host、目标检查点、有限上下文投影、点云语义和 ROS 2 空间通道。软件版本、书籍版号和实验二进制是不同身份；原实验按原提交/环境引用，正文更新不表示重新运行实验。
 
 | 书中的概念 | 当前操作参考 | 复核范围 |
 | --- | --- | --- |

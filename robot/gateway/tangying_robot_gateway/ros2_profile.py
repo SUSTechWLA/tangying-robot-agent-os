@@ -27,7 +27,7 @@ from .contracts import (
     validate_tool_parameters,
 )
 from .plugin_backend import PluginBackend, ReconstructionTracker
-from .runtime import Result
+from .runtime import Result, validate_result
 from .spatial_localization import (
     SpatialNavigationDeployment,
     canonical_json,
@@ -132,15 +132,20 @@ class Ros2ProfileBridge:
         self._lock = threading.RLock()
         self._state = self._observation = None
         self._state_sequence = 0
+        self._state_observed_ms = 0
         self._state_received = self._observation_received = 0.0
         self._state_error = "NO_DRIVER_STATE"
         self._observation_error = "NO_RECONSTRUCTION"
         self._tracker = ReconstructionTracker()
         self._captures = OrderedDict()
+        self._source_captures = {}
         self._accepted_sequences = {}
         self._capture_context = threading.local()
         self._stopped = False
         self._active_command = ""
+        self._uncertain_command = ""
+        self._last_execution = {"state": "idle", "commandId": ""}
+        self._last_stop = {"state": "not_requested", "commandId": ""}
         self._last_readiness_failure = {}
 
     def _identity(self, robot_id, revision):
@@ -159,6 +164,8 @@ class Ros2ProfileBridge:
                     raise ValueError("ROS2 commissioning or stop procedure mismatch")
                 if state.sequence <= self._state_sequence:
                     raise ValueError("ROS2 driver state sequence regressed or repeated")
+                if state.observed_at_unix_ms < self._state_observed_ms:
+                    raise ValueError("ROS2 driver state observation time regressed")
                 if not 0 <= int(time.time() * 1000) - state.observed_at_unix_ms <= self.state_max_age_ms:
                     raise ValueError("ROS2 driver state is stale or future dated")
                 if (state.command_loss_timeout_ms > mobility.safe_stop.command_loss_timeout_ms
@@ -169,6 +176,7 @@ class Ros2ProfileBridge:
                 if len(set(state.supported_tools)) != len(state.supported_tools) or set(state.supported_tools) != expected:
                     raise ValueError("ROS2 controller tool set disagrees with profile")
                 self._state_sequence = state.sequence
+                self._state_observed_ms = state.observed_at_unix_ms
                 self._state, self._state_received, self._state_error = state, time.monotonic(), ""
             except Exception as exc:
                 self._state, self._state_error = None, str(exc)
@@ -213,6 +221,12 @@ class Ros2ProfileBridge:
                 if self.spatial_navigation is not None:
                     self._localization_sequences[localized["sourceId"]] = (localized["sequence"], canonical_json(localized))
                 self._observation_received = previous[1]
+                # Per-source diagnostics retain metadata only. A quiet sensor
+                # must not pin its entire reconstruction after the bounded
+                # execution-evidence cache has evicted that capture.
+                self._source_captures[observed.source_id] = {
+                    "sequence": observed.sequence, "observationId": observed.observation_id,
+                    "observedAtUnixMs": observed.observed_at_unix_ms, "receivedMonotonic": previous[1]}
                 self._accepted_sequences[observed.source_id] = observed.sequence
                 self._observation, self._observation_error = observed, ""
             except Exception as exc:
@@ -245,6 +259,8 @@ class Ros2ProfileBridge:
                 return False
             if self._stopped:
                 return unavailable("LOCAL_STOP_LATCHED")
+            if self._uncertain_command:
+                return unavailable("EXECUTION_OUTCOME_UNKNOWN")
             if state is None:
                 return unavailable(self._state_error)
             if not all((state.commissioned, state.armed, state.healthy, state.watchdog_active)) or state.faults:
@@ -269,16 +285,76 @@ class Ros2ProfileBridge:
                     "commissioningId": self.commissioning_id, "driverStateSequence": self._state_sequence,
                     "driverStateError": self._state_error, "observationError": self._observation_error,
                     "lastReadinessFailure": copy.deepcopy(self._last_readiness_failure),
-                    "locallyStopped": self._stopped, "spatialNavigationRevision": self.spatial_navigation_revision}
+                    "locallyStopped": self._stopped, "spatialNavigationRevision": self.spatial_navigation_revision,
+                    "harnessHealth": self.health()}
+
+    def health(self):
+        """Read-only diagnostics; fresh evidence does not clear a stop/unknown latch.
+
+        This is a process-local health snapshot, not an assertion that a safe-stop
+        procedure has physically finished. The common runtime journal retains
+        command outcomes across process restarts.
+        """
+        with self._lock:
+            now_ms, now_mono = int(time.time() * 1000), time.monotonic()
+            sensors = []
+            for sensor in self.profile.sensors:
+                capture = self._source_captures.get(sensor.source_id)
+                item = {"sourceId": sensor.source_id, "sourceType": sensor.source_type,
+                        "frameId": sensor.frame_id, "transformRevision": sensor.transform_revision,
+                        "maxAgeMs": sensor.max_age_ms, "state": "never_received",
+                        "sequence": None, "observationId": "", "observedAtUnixMs": None,
+                        "wallAgeMs": None, "receiveAgeMs": None}
+                if capture is not None:
+                    wall_age = now_ms - capture["observedAtUnixMs"]
+                    receive_age = (now_mono - capture["receivedMonotonic"]) * 1000
+                    item.update(sequence=capture["sequence"], observationId=capture["observationId"],
+                                observedAtUnixMs=capture["observedAtUnixMs"],
+                                wallAgeMs=wall_age, receiveAgeMs=receive_age,
+                                state="fresh" if 0 <= wall_age <= sensor.max_age_ms and 0 <= receive_age <= sensor.max_age_ms else "expired")
+                sensors.append(item)
+            driver = self._state
+            wall_age = None if driver is None else now_ms - driver.observed_at_unix_ms
+            receive_age = None if driver is None else (now_mono - self._state_received) * 1000
+            return {"schemaVersion": "ros2.harness.health.v1", "robotId": self.profile.robot_id,
+                    "profileRevision": self.revision, "commissioningId": self.commissioning_id,
+                    "observedAtUnixMs": now_ms, "activeCommandId": self._active_command,
+                    "uncertainCommandId": self._uncertain_command, "locallyStopped": self._stopped,
+                    "lastExecution": copy.deepcopy(self._last_execution),
+                    "safeStop": copy.deepcopy(self._last_stop), "sensors": sensors,
+                    "driver": {"sequence": self._state_sequence, "wallAgeMs": wall_age,
+                        "receiveAgeMs": receive_age,
+                        "fresh": driver is not None and 0 <= wall_age <= self.state_max_age_ms and 0 <= receive_age <= self.state_max_age_ms,
+                        "commissioned": None if driver is None else driver.commissioned,
+                        "armed": None if driver is None else driver.armed,
+                        "healthy": None if driver is None else driver.healthy,
+                        "watchdogActive": None if driver is None else driver.watchdog_active,
+                        "faults": [] if driver is None else list(driver.faults),
+                        "error": self._state_error}, "observationError": self._observation_error}
 
     def execute(self, command):
         physical = command.capability in PHYSICAL_TOOLS
         start_ms = int(time.time() * 1000)
         start_monotonic = time.monotonic()
+        # Freeze caller-owned parameters before acquiring the single execution
+        # slot. A serialization error must not strand that slot as "active".
+        try:
+            validate_tool_parameters(command.capability, command.parameters, self.profile,
+                                     target_ref=command.target_ref)
+            parameters_json = json.dumps(command.parameters, separators=(",", ":"), allow_nan=False)
+            parameters = json.loads(parameters_json)
+        except (ValueError, TypeError, KeyError) as exc:
+            return Result(False, "TOOL_PARAMETERS_INVALID", str(exc), confidence=0.0)
         with self._lock:
+            if self._uncertain_command:
+                return Result(False, "EXECUTION_OUTCOME_UNKNOWN", confidence=0.0)
+            if self._active_command:
+                return Result(False, "ROS2_COMMAND_ACTIVE", confidence=0.0)
             if self._stopped or (physical and not self.ready()):
                 return Result(False, "ROS2_DRIVER_NOT_READY", confidence=0.0)
             self._active_command = command.command_id
+            self._last_execution = {"state": "preparing", "commandId": command.command_id,
+                                    "taskId": command.task_id, "startedAtUnixMs": start_ms}
             admission_sequences = dict(self._accepted_sequences)
         goal = {
             "schema_version": "ros2.execution.v1", "robot_id": self.profile.robot_id,
@@ -286,7 +362,7 @@ class Ros2ProfileBridge:
             "commissioning_id": self.commissioning_id, "catalog_revision": command.catalog_revision,
             "task_id": command.task_id, "command_id": command.command_id,
             "capability": command.capability, "target_ref": command.target_ref,
-            "parameters_json": json.dumps(command.parameters, separators=(",", ":"), allow_nan=False),
+            "parameters_json": parameters_json,
             "lease_ms": command.lease_ms, "deadline_unix_ms": command.deadline_unix_ms,
             "idempotency_key": command.idempotency_key, "safety_profile": command.safety_profile,
             "approval_id": command.approval_id, "world_revision_basis": command.world_revision_basis,
@@ -302,6 +378,7 @@ class Ros2ProfileBridge:
                 raise TimeoutError("ROS2 command deadline expired")
 
         navigation_plan = None
+        dispatched = False
         try:
             tick()
             if self.spatial_navigation is not None and command.capability == "navigation.navigate":
@@ -311,7 +388,7 @@ class Ros2ProfileBridge:
                         self._captures[observed.observation_id][2]["spatial_localization"], observed,
                         received_monotonic=self._observation_received)
                 navigation_plan, goal["navigation_plan_json"] = self.spatial_navigation.plan(
-                    localized, command.parameters["goalPose"], command.command_id)
+                    localized, parameters["goalPose"], command.command_id)
                 # Static search can outlive the capture: never dispatch a route
                 # rooted at a position that changed while planning.
                 tick()
@@ -319,6 +396,9 @@ class Ros2ProfileBridge:
                     current = self._captures[self._observation.observation_id][2]["spatial_localization"]
                     if not pose_reached(current["pose"], localized["pose"]):
                         raise ValueError("ROS2 localization changed during spatial planning")
+            with self._lock:
+                self._last_execution["state"] = "dispatched"
+                dispatched = True
             result = self.transport.execute(goal, tick=tick)
             tick()
             self._identity(result["robot_id"], result["profile_revision"])
@@ -347,14 +427,28 @@ class Ros2ProfileBridge:
                                 if self.spatial_navigation is not None and command.capability in {"navigation.navigate", "verify_arrival"}:
                                     actual = self.spatial_navigation.localization(captured[2]["spatial_localization"], observed,
                                                                                  received_monotonic=captured[1])
-                                    target = command.parameters.get("goalPose")
+                                    target = parameters.get("goalPose")
                                     if target is None or not pose_reached(actual["pose"], target):
                                         raise ValueError("ROS2 success lacks measured xyz/quaternion arrival")
                                 break
                     if time.monotonic() >= deadline:
                         raise ValueError(f"ROS2 successful action lacks its fresh post-command observation: {observation_id}")
                     time.sleep(.005)
-            return Result(result["success"], result["code"], result["message"], observation_id, confidence)
+            outcome = validate_result(Result(result["success"], result["code"], result["message"], observation_id, confidence))
+            if outcome.code == "EXECUTION_OUTCOME_UNKNOWN":
+                raise RuntimeError("ROS2 controller reported unknown execution outcome")
+            with self._lock:
+                self._last_execution.update(state="succeeded" if outcome.success else "failed",
+                                            code=outcome.code, observationId=outcome.observation_id,
+                                            completedAtUnixMs=int(time.time() * 1000))
+            return outcome
+        except Exception as exc:
+            with self._lock:
+                if dispatched:
+                    self._uncertain_command = command.command_id
+                self._last_execution.update(state="unknown" if dispatched else "not_dispatched",
+                                            error=str(exc)[:1024], completedAtUnixMs=int(time.time() * 1000))
+            raise
         finally:
             with self._lock:
                 self._active_command = ""
@@ -362,14 +456,27 @@ class Ros2ProfileBridge:
     def stop(self, reason):
         with self._lock:
             self._stopped = True
-            command_id = self._active_command
+            command_id = self._active_command or self._uncertain_command
+            self._last_stop = {"state": "requested", "commandId": command_id,
+                               "reason": str(reason)[:1024], "requestedAtUnixMs": int(time.time() * 1000)}
         procedure = self.profile.mobility.safe_stop.procedure_id
-        result = self.transport.stop({"robot_id": self.profile.robot_id, "profile_revision": self.revision,
-                                      "commissioning_id": self.commissioning_id, "procedure_id": procedure,
-                                      "command_id": command_id, "reason": reason})
-        self._identity(result["robot_id"], result["profile_revision"])
-        if result["accepted"] is not True or result["procedure_id"] != procedure:
-            raise RuntimeError("ROS2 controller did not acknowledge the registered safe-stop procedure")
+        try:
+            result = self.transport.stop({"robot_id": self.profile.robot_id, "profile_revision": self.revision,
+                                          "commissioning_id": self.commissioning_id, "procedure_id": procedure,
+                                          "command_id": command_id, "reason": reason})
+            self._identity(result["robot_id"], result["profile_revision"])
+            if result["accepted"] is not True or result["procedure_id"] != procedure:
+                raise RuntimeError("ROS2 controller did not acknowledge the registered safe-stop procedure")
+        except Exception as exc:
+            with self._lock:
+                self._last_stop.update(state="unconfirmed", error=str(exc)[:1024])
+            raise
+        with self._lock:
+            # EnterSafeStop promises procedure entry, not physical stationarity
+            # or landing. Neither ACK nor new telemetry permits motion again.
+            self._last_stop.update(state="procedure_entered", procedureId=procedure,
+                                   acknowledgedAtUnixMs=int(time.time() * 1000),
+                                   physicalStopVerified=False)
 
     def backend(self):
         bridge = self

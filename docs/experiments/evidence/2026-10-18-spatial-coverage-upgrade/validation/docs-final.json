@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "research.documentation-checks.v1",
+  "recordedAt": "2026-10-17T17:05:04.428812+00:00",
+  "passed": true,
+  "checks": [
+    {
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.046052791993133724,
+      "output": "Wrote docs/catalog.md\n"
+    },
+    {
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "addopts=",
+        "tests/docs",
+        "tests/book"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 2.2727155829779804,
+      "output": "....................................................                     [100%]\n52 passed in 2.14s\n"
+    },
+    {
+      "command": [
+        "go",
+        "test",
+        "./tests/docs"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.8458504170412198,
+      "output": "ok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/tests/docs\t0.674s\n"
+    },
+    {
+      "command": [
+        "make",
+        "book-check"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.09087779093533754,
+      "output": "python3.11 scripts/build_book.py --check\nBook sources and generated Markdown verified: 31 sections\n"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py",
+        "--check"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.04691737506072968,
+      "output": "Documentation catalog is current\n"
+    },
+    {
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "scripts/plot_spatial_exploration.py"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.008227583020925522,
+      "output": "All checks passed!\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.011324124992825091,
+      "output": ""
+    }
+  ],
+  "note": "Documentation checks overlap earlier suites; do not add passed counts to the full Python total."
+}

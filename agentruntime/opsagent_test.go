@@ -85,13 +85,14 @@ func TestOpsAgentHoldsNoExecutionPort(t *testing.T) {
 		// publish the closing edge. It holds the agent's own Finding values —
 		// text and scalars it produced — so it is rule bookkeeping like the two
 		// above, and it reaches nothing.
-		"conditions":    "conditions observed by the previous evaluation",
-		"failedActions": "accumulated failure observations",
-		"tasks":         "task ids the agent has been told about",
-		"latestTask":    "most recently observed task id",
-		"recoverDone":   "whether the startup sweep has run once",
-		"started":       "lifecycle flag",
-		"stopped":       "lifecycle flag",
+		"conditions":     "conditions observed by the previous evaluation",
+		"failedActions":  "accumulated failure observations",
+		"tasks":          "task ids the agent has been told about",
+		"latestTask":     "most recently observed task id",
+		"recoverDone":    "whether the startup sweep has completed",
+		"observationGap": "read-only source failure from the last observation pass",
+		"started":        "lifecycle flag",
+		"stopped":        "lifecycle flag",
 	}
 
 	fields := reflect.TypeOf(agentruntime.NewOpsAgent()).Elem()

@@ -181,6 +181,7 @@ func TestTheObserverClosesAConditionItStopsSeeing(t *testing.T) {
 	observer := agentruntime.NewOpsAgent()
 	observer.Telemetry = quietTelemetry()
 	observer.Now = func() time.Time { return now }
+	observer.Telemetry = quietTelemetry(observer.Now)
 	recorder := &eventCollector{}
 	observer.Publish = recorder.sink
 

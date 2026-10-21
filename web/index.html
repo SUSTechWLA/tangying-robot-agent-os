@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>躺营 · 机器人工作台</title>
     <meta name="tangying-console-edition" content="full" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1720'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%2341b8c4'/%3E%3C/svg%3E" />
+    <meta name="theme-color" content="#0a111a" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='10' y1='6' x2='54' y2='58' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%239bf4e9'/%3E%3Cstop offset='1' stop-color='%2341b8c4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%230b1720'/%3E%3Crect x='1' y='1' width='62' height='62' rx='15' fill='none' stroke='%2365e0d3' stroke-opacity='.32'/%3E%3Cpath d='M22 20l3-5h14l3 5' fill='none' stroke='url(%23g)' stroke-width='3' stroke-linecap='round'/%3E%3Crect x='16' y='19' width='32' height='27' rx='7' fill='none' stroke='url(%23g)' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='8' fill='none' stroke='url(%23g)' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='2.5' fill='url(%23g)'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body data-audience="operator" data-page="workspace" data-has-task="false">
     <a class="skip-link" href="#page-title">跳到主要内容</a>
     <aside class="app-sidebar" aria-label="工作台导航">
       <a class="brand" href="#workspace" data-nav="workspace" aria-label="躺营工作台首页">
-        <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="13" fill="currentColor"/><path d="M11 15.5h18v12H11zM20 10v5" stroke="white" stroke-width="2.4" stroke-linejoin="round"/><circle cx="16" cy="21" r="1.8" fill="white"/><circle cx="24" cy="21" r="1.8" fill="white"/></svg>
-        <span><strong>躺营</strong><small>机器人工作空间</small></span>
+        <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="12" stroke="currentColor" stroke-opacity=".4"/><path d="m20 7 12 7v12l-12 7-12-7V14z" stroke="currentColor" stroke-width="1.4"/><path d="m8 14 12 7 12-7M20 21v12" stroke="currentColor" stroke-width="1.4"/><circle cx="20" cy="21" r="3" fill="currentColor"/></svg>
+        <span><strong>躺营</strong><small>Robot Agent OS</small></span>
       </a>
       <nav class="primary-nav" aria-label="主要功能">
         <a href="#workspace" data-nav="workspace" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>工作台</a>
@@ -31,8 +32,15 @@
       </div>
     </aside>
     <header class="topbar">
-      <div><p class="breadcrumb">躺营 / <span>机器人工作空间</span></p><h1 id="page-title" tabindex="-1">工作台</h1><p id="page-description">描述任务，查看进展，让机器人有条不紊地完成工作。</p></div>
-      <div class="topbar-actions"><button id="start-new-task" type="button">＋ 新建任务</button></div>
+      <div><p class="breadcrumb">Robot Agent OS <span>/ 机器人工作空间</span></p><h1 id="page-title" tabindex="-1">工作台</h1><p id="page-description">描述任务，查看进展，让机器人有条不紊地完成工作。</p></div>
+      <div class="topbar-actions">
+        <div id="edge-workspace-control" class="edge-workspace-control" hidden>
+          <label for="edge-workspace-select">当前机器人</label>
+          <select id="edge-workspace-select" aria-describedby="edge-current-robot" disabled><option>正在读取工作空间</option></select>
+          <span id="edge-current-robot" class="edge-robot-id">身份待确认</span>
+        </div>
+        <button id="start-new-task" type="button">＋ 新建任务</button>
+      </div>
     </header>
     <div class="workspace-status-bar" aria-label="工作空间状态">
       <span id="workspace-connection" class="status-pill" data-tone="pending" role="status">正在连接</span>
@@ -68,6 +76,12 @@
       <form method="dialog" class="evidence-dialog-close"><button type="submit" class="secondary">关闭</button></form>
     </dialog>
   <main class="dashboard">
+      <section class="panel edge-directory" data-page-panel="devices" hidden aria-labelledby="edge-directory-title">
+        <div class="panel-title"><div><h2 id="edge-directory-title">边缘工作空间</h2><p id="edge-directory-hint" class="hint">正在读取已配置的机器人连接。</p></div><button id="edge-workspace-retry" class="secondary" type="button">刷新连接</button></div>
+        <ul id="edge-workspace-list" class="edge-workspace-list" aria-label="已注册的机器人"></ul>
+        <div class="edge-connection-line"><span id="edge-identity-state" class="status-pill" data-tone="pending" role="status">等待身份核对</span><span id="edge-runtime-checked" class="hint"></span></div>
+        <p id="edge-connection-detail" class="hint">每个工作空间保留自己的任务、观测与执行记录。</p>
+      </section>
       <section id="problems-panel" class="panel problems-panel" data-page-panel="problems" hidden aria-labelledby="problems-title">
         <div class="panel-title">
           <div>
@@ -281,6 +295,7 @@
           <div>
             <p id="scene-identity" class="section-kicker" data-developer>机器人运行环境</p>
             <h2 id="scene-title">实时场景</h2>
+            <p class="panel-subtitle">从机器人的视角，了解现场。</p>
           </div>
           <div class="scene-status-group" data-developer>
             <span id="scene-live-state" class="scene-state unavailable" role="status" aria-live="polite">UNAVAILABLE</span>
@@ -290,7 +305,7 @@
         <div id="scene-stage" class="scene-stage unavailable">
           <img id="scene-frame" alt="Robot Runtime 提供的实时场景画面" decoding="async" hidden />
           <canvas id="scene-canvas" width="1200" height="675" aria-label="机器人 RGB-D 观测点云，未观测区域未知"></canvas>
-          <div class="scene-empty"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="7" y="12" width="34" height="26" rx="6" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="25" r="7" stroke="currentColor" stroke-width="2"/><path d="M17 12l3-5h8l3 5" stroke="currentColor" stroke-width="2"/></svg><strong>暂未收到现场画面</strong><p>连接恢复后自动更新；当前现场状态未知。</p><a href="#devices" data-nav="devices">检查机器人连接</a></div>
+          <div class="scene-empty"><div class="scene-aperture" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="7" y="12" width="34" height="26" rx="6" stroke="currentColor" stroke-width="1.6"/><circle cx="24" cy="25" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M17 12l3-5h8l3 5" stroke="currentColor" stroke-width="1.6"/></svg></div><strong>暂未收到现场画面</strong><p>连接恢复后自动更新；当前现场状态未知。</p><a href="#devices" data-nav="devices">检查机器人连接 →</a></div>
           <div class="scene-overlay">
             <span id="scene-source-label" aria-hidden="true">等待相机</span>
           </div>
@@ -354,10 +369,10 @@
       </section>
 
       <section class="panel command-panel" data-page-panel="workspace">
-        <div class="panel-title"><h2>安排任务</h2><a href="#tasks" data-nav="tasks" class="inline-link">查看记录</a></div>
+        <div class="panel-title"><div class="command-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z"/></svg><h2>安排任务</h2></div><a href="#tasks" data-nav="tasks" class="inline-link">查看记录</a></div>
         <label for="request">告诉机器人要做什么</label>
         <textarea id="request" rows="4" placeholder="例如：从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅"></textarea><div class="task-examples" data-task-examples="#request" aria-label="填入示例任务"></div>
-        <p class="hint composer-help">生成计划 → 核对步骤 → 批准动作</p>
+        <ol class="composer-steps" aria-label="任务流程"><li><span aria-hidden="true">1</span>生成计划</li><li><span aria-hidden="true">2</span>核对步骤</li><li><span aria-hidden="true">3</span>批准动作</li></ol>
         <div class="row controls">
           <span class="task-robot-connection"><span>当前机器人</span><strong id="task-robot-label" data-tone="pending">等待机器人连接</strong></span>
           <select id="adapter" hidden aria-hidden="true" tabindex="-1"><option value="" selected disabled>等待机器人连接…</option></select>
@@ -390,7 +405,7 @@
       <section class="panel runtime-panel" data-page-panel="devices diagnostics" hidden>
         <div class="panel-title"><h2>机器人状态</h2><span id="telemetry-time">—</span></div>
         <div class="runtime-grid">
-          <article><span>活动状态</span><strong id="activity">IDLE</strong></article>
+          <article><span>活动状态</span><strong id="activity">待确认</strong></article>
           <article><span>模式</span><strong id="mode">—</strong></article>
           <article><span>Robot ID</span><strong id="robot-id">—</strong></article>
           <article><span>Adapter</span><strong id="telemetry-adapter">—</strong></article>
@@ -429,6 +444,14 @@
 
       <section class="panel local-history-panel" data-page-panel="tasks" hidden>
         <div class="panel-title"><h2>任务记录</h2><button id="refresh-local-tasks" type="button" class="secondary">刷新记录</button></div>
+        <p id="edge-history-scope" class="hint">核对机器人身份后，读取对应边缘 Agent 的任务与历史观测。</p>
+        <dl class="edge-history-summary" aria-label="当前机器人的任务统计">
+          <div><dt>已保存</dt><dd id="edge-task-total">—</dd></div>
+          <div><dt>进行中</dt><dd id="edge-task-active">—</dd></div>
+          <div><dt>需要关注</dt><dd id="edge-task-attention">—</dd></div>
+          <div><dt>已完成</dt><dd id="edge-task-succeeded">—</dd></div>
+          <div><dt>已取消</dt><dd id="edge-task-cancelled">—</dd></div>
+        </dl>
         <p id="local-history-state" class="hint" role="status">正在读取本地保存的任务…</p>
         <div class="local-history-tools">
           <label class="history-search" for="local-task-search">搜索任务<input id="local-task-search" type="search" placeholder="任务内容或编号" autocomplete="off"></label>
@@ -450,6 +473,12 @@
         <p id="local-task-lookup-state" class="hint" role="status" aria-live="polite">任务记录只列出最近的一段；粘贴任意任务编号即可完整复盘更早的任务。</p>
         <ol id="local-task-list" class="local-task-list" tabindex="0" aria-label="已保存的任务"></ol>
         <p id="local-task-history" class="hint">选择任务可查看步骤、结果和恢复说明。</p>
+      </section>
+      <section class="history-welcome" data-page-panel="tasks" hidden aria-labelledby="history-welcome-title">
+        <svg viewBox="0 0 80 80" fill="none" aria-hidden="true"><path d="M20 18h40v44H20z" stroke="currentColor" stroke-opacity=".35"/><path d="M30 29h20M30 40h13M30 51h17" stroke="currentColor" stroke-width="2"/><circle cx="60" cy="61" r="11" fill="var(--panel)" stroke="currentColor"/><path d="M60 55v6l4 2" stroke="currentColor" stroke-width="1.5"/></svg>
+        <h2 id="history-welcome-title">每一步，都有迹可循。</h2>
+        <p>选择一条任务，回看计划、动作和当时的观测。<br>也可以输入任务编号，接着上一次的记录继续排查。</p>
+        <div class="history-welcome-topics"><span>任务步骤</span><span>执行结果</span><span>观测证据</span></div>
       </section>
       <section id="local-replay-panel" class="panel local-replay-panel" data-page-panel="workspace tasks" data-requires-task aria-labelledby="local-replay-title">
         <div class="panel-title">
@@ -715,6 +744,7 @@
     <footer class="safety-note">
       请为机器人留出安全的工作空间。网页取消不能替代实体急停。<span data-developer> 真机运行前检查：<code>sudo robot-agent production-check robot-pi</code></span>
     </footer>
+    <script src="./edge_workspace.js" defer></script>
     <script src="./webgl_scene.js" defer></script>
     <script src="./world_view.js" defer></script>
     <script src="./console_ui.js" defer></script>

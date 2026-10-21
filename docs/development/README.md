@@ -1,5 +1,21 @@
 # 开发与升级导航
 
+教材 3.1.0（2026-10-22）深化跨域消息、模型实际输入、上下文、KV cache 和分布式一致性，提供 22 幅图、公式算例、两个无硬件实验与课堂脚本；已实现机制与缓存接入建议明确区分。 [改版与核验记录](2026-10-22-book-protocol-context-cache.md)。
+
+边缘工作台更新（2026-10-20）：[工作空间、身份隔离与任务回溯实现](2026-10-20-edge-robot-workspaces.md) → [部署与接口说明](../operations/edge-robot-workspaces.md)。每台机器人保持独立执行器，前后端按设备作用域访问任务与证据。
+
+边缘通信与上下文核验（2026-10-18 至 19）：[消息、上下文与核心 Harness 专题](../architecture/edge-agent-communication-and-context.md) → [上线判断、源码审查和本轮复测](2026-10-18-edge-communication-readiness.md)。云端与边缘同事先按此核对通道、身份、可靠性与完成语义。
+
+工作台 UI 更新（2026-10-18）：[深色任务控制台设计、交互修复与验证记录](2026-10-18-mission-console-ui.md)，包含日常/开发模式、响应式截图与安全操作边界。
+
+2026-10-18 边缘与异构协作增量：[系统评价与实现](../development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](../experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
+
+已知覆盖与多层地面增量（2026-10-18）：[接口、来源和可替换规划](2026-10-18-spatial-coverage-upgrade.md) → [计划/Runner/探索消融实际证据](../experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)。`spatial_coverage.py` 与本地 CLI 处理显式目标，`terrain_layered` 处理分层支撑和显式连接；旧探索与归档实验不被改写。
+
+异构三维探索增量（设计 2026-10-17，实验 2026-10-18）：[模块、版本与迁移](2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融与量化协议](../experiments/2026-10-17-spatial-exploration-protocol.md) → [实际报告与修复前后证据](../experiments/2026-10-18-spatial-exploration.md) → [教材补充](../../book/updates/2026-10-17-heterogeneous-spatial-exploration.md)。入口为 `spatial_exploration.py` / `spatial_mission.py`，在线地图/控制器端口与离线基准分开，不自动改变现有二维 `mapping.build`。
+
+首次探索增量（2026-10-17）：[实现与变更](2026-10-17-exploration-first-scan.md) → [预登记](../experiments/2026-10-17-exploration-first-scan-protocol.md) → [全部实际尝试](../experiments/2026-10-17-exploration-first-scan.md)，关注初始观察、实测 yaw 闭环、取消/深度失效与前沿完成范围。
+
 单机鲁棒性增量（2026-10-15）：[恢复实现与取证工具](2026-10-15-single-robot-robustness.md) → [实验协议](../experiments/2026-10-15-single-robot-robustness-protocol.md) → [实际报告](../experiments/2026-10-15-single-robot-robustness.md)。关注确认提交丢失、云边失败同步、完成观测抖动，以及连续长步骤链的预算与上下文。
 
 目标委托增量（2026-10-15）：[分层职责与合同](../architecture/hierarchical-edge-objectives.md) → [云端同事对接指南](../guides/delegated-edge-goals.md) → [实施与迁移记录](2026-10-15-hierarchical-edge-objectives.md) → [实际功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)。重点源码：`core/objective`、`internal/edgeagent`、Local/Worker 装配与 Fleet 证据核验。
@@ -10,7 +26,7 @@
 
 边缘设备开发优先看[实机测试部署](../operations/edge-field-testing.md)、[ROS 2 异构运动契约](heterogeneous-mobility.md)、[跨 Agent 数据协议](edge-data-exchange.md)和[Worker 可靠执行](edge-worker-reliability.md)。本轮实现、仿真与未测项汇总于[边缘升级记录](2026-10-13-edge-field-candidate.md)。
 
-正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 2.2.0 教材](../../book/README.md)的实现复核固定到 `821659df`，包含目标委托、持久恢复、点云语义和空间通道；实验按原身份引用。记录自己的分支和提交后再比较文档中的行为。
+正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 3.1.0 教材](../../book/README.md)的实现复核固定到 `9e6a58f6`，包含目标委托、持久恢复、点云语义和空间通道；实验按原身份引用。记录自己的分支和提交后再比较文档中的行为。
 
 ## 1. 先建立系统全貌
 
@@ -39,6 +55,7 @@
 | 云边交接、重连和重复完成回执 | [云端完成协调](../../fleet/coordinator/completion.go)、[边缘上下文](../../edge/worker/context.go) | [执行上下文契约](../../core/contextcontract/README.md)、[云边完成协议](2026-10-10-cloud-edge-protocol.md) | [云端完成](../../fleet/coordinator/completion_test.go)、[边缘回执重放](../../edge/worker/completion_replay_test.go) |
 | Runtime、安全、持久命令与新机器人 | [服务入口](../../robot/gateway/tangying_robot_gateway/service.py)、[Safety](../../robot/gateway/tangying_robot_gateway/safety.py)、[journal](../../robot/gateway/tangying_robot_gateway/journal.py) | [适配器开发](robot-adapters.md)、[机器人工具层](robot-tool-layer.md) | [Gateway 服务](../../robot/gateway/tests/test_service.py)、[异构跨语言契约](../../tests/contract/test_heterogeneous_runtime_boundary.py) |
 | SLAM、地图启用、定位与导航 | [机器人工作流](../../robot/gateway/tangying_robot_gateway/robot_workflow.py)、[ROS 导航包](../../robot/ros2_ws/src/tangying_navigation/) | [RTAB-Map / Nav2](rtabmap-navigation.md)、[SLAM 语义导航](../guides/slam-semantic-navigation.md) | [Gazebo 工作流](../../robot/gateway/tests/test_gazebo_workflow.py)、[导航包测试](../../robot/ros2_ws/src/tangying_navigation/test/) |
+| 三维观察选点、异构分工与覆盖回放 | [探索策略](../../robot/gateway/tangying_robot_gateway/spatial_exploration.py)、[任务与账本](../../robot/gateway/tangying_robot_gateway/spatial_mission.py)、[基准](../../scripts/spatial_exploration_benchmark.py) | [设计与扩展点](2026-10-17-heterogeneous-spatial-exploration.md)、[实验协议](../experiments/2026-10-17-spatial-exploration-protocol.md) | [核心合同测试](../../robot/gateway/tests/test_spatial_exploration.py)；在线 provider 与基准分别验证 |
 | 三维点云标注、候选和执行绑定 | [语义服务](../../robot/gateway/tangying_robot_gateway/semantic_cloud_services.py)、[语义路线](../../internal/capabilityagent/semantic_route.go)、[持久 grounding](../../edge/agent/semantic_grounding.go) | [操作指南](../guides/semantic-point-cloud.md)、[执行协议](../architecture/semantic-execution-protocol.md) | [运行时绑定](../../robot/gateway/tests/test_semantic_execution_binding.py)、[恢复检查点](../../edge/agent/semantic_grounding_test.go)、[独立验收器](../../tests/install/test_semantic_execution_evidence.py) |
 | 控制台呈现、接口和回放 | [Local API](../../console/server.go)、[浏览器 API](../../web/app.js)、[交互入口](../../web/console_ui.js) | [用户指南](../guides/user-console.md)、[前端开发与诊断](../frontend/console-v1.md) | `make test-web`；布局和交互变更补浏览器验证 |
 
@@ -86,4 +103,4 @@
 
 提交前确认代码、当前指南、配置/API 和测试一致；运行 `git diff --check`，排除密钥、会话凭据和运行数据。论文需要的数据结构与证据保留规则从[实验索引](../experiments/README.md)继续；部署、升级执行与回滚从[运维入口](../operations/README.md)继续。
 
-当前参考文档与教材对应 `821659df` 的分层目标、恢复和空间合同；历史维护与清理分别见[10-14 计划](2026-10-14-maintenance-and-book-plan.md)及[产物记录](2026-10-14-artifact-cleanup.json)，不作为今天再次清理或再次实验的记录。
+当前参考文档与教材对应 `9e6a58f6` 的分层目标、恢复和空间合同；历史维护与清理分别见[10-14 计划](2026-10-14-maintenance-and-book-plan.md)及[产物记录](2026-10-14-artifact-cleanup.json)，不作为今天再次清理或再次实验的记录。

@@ -10,7 +10,7 @@ test("preview serves current UI but keeps visual assets and world data on the sa
   const root = await mkdtemp(path.join(os.tmpdir(), "tangying-preview-"));
   const backend = http.createServer((req, res) => {
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ modelHash: "running-scene", path: req.url }));
+    res.end(JSON.stringify({ modelHash: "running-scene", path: req.url, host: req.headers.host, origin: req.headers.origin }));
   });
   await new Promise(resolve => backend.listen(0, "127.0.0.1", resolve));
   await writeFile(path.join(root, "index.html"), "current workspace UI");
@@ -23,12 +23,15 @@ test("preview serves current UI but keeps visual assets and world data on the sa
   });
   const url = `http://127.0.0.1:${preview.address().port}`;
   assert.equal(await (await fetch(url)).text(), "current workspace UI");
-  for (const resource of ["/assets/scenes/scene/manifest.json", "/assets/robots/robot.glb?v=hash", "/v1/world"]) {
-    const response = await fetch(url + resource);
+  assert.equal(await (await fetch(url + "/robots/uav/")).text(), "current workspace UI");
+  for (const resource of ["/assets/scenes/scene/manifest.json", "/assets/robots/robot.glb?v=hash", "/v1/world", "/robots/uav/v1/tasks", "/robots/uav/healthz"]) {
+    const response = await fetch(url + resource, { headers: { Origin: url } });
     assert.equal(response.headers.get('cache-control'), 'no-store');
     const value = await response.json();
     assert.equal(value.modelHash, "running-scene");
     assert.equal(value.path, resource);
+    assert.equal(value.host, new URL(url).host, "cookie namespace uses the browser host, as WS does");
+    assert.equal(value.origin, url);
   }
 });
 

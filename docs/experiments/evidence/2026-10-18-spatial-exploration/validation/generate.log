@@ -1,0 +1,2 @@
+bash scripts/generate-proto.sh
+git diff --exit-code -- gen/go python/tangying_robot_proto

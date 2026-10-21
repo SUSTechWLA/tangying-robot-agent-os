@@ -1,0 +1,1737 @@
+{
+  "schemaVersion": "research.spatial-coverage-upgrade-report.v1",
+  "date": "2026-10-18",
+  "scope": "Synthetic voxel software planning and Runner fixture; no new Gazebo/ROS2/hardware/LLM campaign.",
+  "claims": {
+    "physicalValidation": false,
+    "fullSceneCoverageGuaranteed": false,
+    "universalOptimality": false,
+    "significanceDecision": false
+  },
+  "study": {
+    "development": {
+      "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development",
+      "episodeN": 140,
+      "pairedBlockN": 20,
+      "uniqueGeometryN": 16,
+      "statusCounts": {
+        "partial": 140
+      },
+      "stopReasonCounts": {
+        "round_budget": 135,
+        "no_executable_candidate": 5
+      },
+      "seeds": [
+        3,
+        7,
+        19,
+        43
+      ],
+      "variants": [
+        {
+          "variant": "baseline",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.7721100173166289,
+          "meanSuccessfulPathLengthM": 49.43609778930609,
+          "meanPlanningMsTotal": 551.3494315,
+          "meanRecordedPayloadBytes": 75511.1,
+          "meanRepeatObservationFraction": 0.6405014646878814
+        },
+        {
+          "variant": "nearest_frontier",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.37486166840505686,
+          "meanSuccessfulPathLengthM": 23.367490540196762,
+          "meanPlanningMsTotal": 432.1626706,
+          "meanRecordedPayloadBytes": 71262.05,
+          "meanRepeatObservationFraction": 0.8138282535318198
+        },
+        {
+          "variant": "no_global_reposition",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.6306207191950993,
+          "meanSuccessfulPathLengthM": 33.65158265953188,
+          "meanPlanningMsTotal": 328.0704267,
+          "meanRecordedPayloadBytes": 62064.2,
+          "meanRepeatObservationFraction": 0.6439572159198488
+        },
+        {
+          "variant": "no_visibility_gain",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.44554021735839916,
+          "meanSuccessfulPathLengthM": 28.717305586701944,
+          "meanPlanningMsTotal": 433.71201495,
+          "meanRecordedPayloadBytes": 76896.95,
+          "meanRepeatObservationFraction": 0.7978851178157697
+        },
+        {
+          "variant": "no_assignment_overlap",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.7660976542588113,
+          "meanSuccessfulPathLengthM": 50.55263936803546,
+          "meanPlanningMsTotal": 547.54880245,
+          "meanRecordedPayloadBytes": 76524.05,
+          "meanRepeatObservationFraction": 0.6472539133797673
+        },
+        {
+          "variant": "no_shared_coverage_guidance",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.7393705571288216,
+          "meanSuccessfulPathLengthM": 49.04992892311587,
+          "meanPlanningMsTotal": 523.85306805,
+          "meanRecordedPayloadBytes": 58435.3,
+          "meanRepeatObservationFraction": 0.6645330135840608
+        },
+        {
+          "variant": "no_coordination",
+          "N": 20,
+          "completedN": 0,
+          "partialN": 20,
+          "meanCoverage": 0.7475582574756129,
+          "meanSuccessfulPathLengthM": 49.46954168986567,
+          "meanPlanningMsTotal": 666.5932017,
+          "meanRecordedPayloadBytes": 57367.5,
+          "meanRepeatObservationFraction": 0.6440330866685546
+        }
+      ],
+      "faultTotals": {
+        "plannedFaults": 84,
+        "appliedFaults": 84,
+        "skippedFaults": 0,
+        "uncertainLegs": 28,
+        "stopAcknowledgements": 28,
+        "recoveredUncertainLegs": 28,
+        "reconnectSnapshots": 28,
+        "independentCollisionRefusals": 2
+      },
+      "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+      "studyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7",
+      "sourceHashes": {
+        "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+      },
+      "environment": {
+        "python": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "packages": {
+          "numpy": "2.4.6",
+          "scipy": "1.17.1",
+          "grpcio": "1.83.0",
+          "protobuf": "6.33.5",
+          "pytest": "8.4.2"
+        }
+      },
+      "inputs": {
+        "summary.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development/summary.json",
+          "bytes": 503287,
+          "sha256": "0eaf7e0940ff65dc973e3cd75d092ed55888a1b0adf1ace29361029778b68818"
+        },
+        "manifest.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development/manifest.json",
+          "bytes": 149302,
+          "sha256": "7686454be00651bd04790de4bb9f793b88ad285c71d403c0770527679adc4f34"
+        },
+        "episodes.csv": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development/episodes.csv",
+          "bytes": 93972,
+          "sha256": "41921e6f1448cb7cf01f0d47feb80a7820a169b92bddefbb665cf678bf92950c"
+        },
+        "config.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development/config.json",
+          "bytes": 1471,
+          "sha256": "4f09a352248953623d93856ddad5fbf4539681006470f4f953306e04657183a7"
+        },
+        "preregistration.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development/preregistration.json",
+          "bytes": 12330,
+          "sha256": "6705a7a2cf35c3e01494ef1b639cf2730d17008294102f9206995e32b2fade89"
+        }
+      },
+      "analysis": {
+        "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/development-analysis-final",
+        "inputManifestHash": "7686454be00651bd04790de4bb9f793b88ad285c71d403c0770527679adc4f34",
+        "methodHash": "a012df8e1f494b0591c3f30ea95f6859f77feab58a436b37f3a65b0ed33ff504",
+        "sourceHash": "d02840c21266100c542f8808a27c0c5c94731cc1d2ca30f15e6c105476f9ea1c",
+        "geometryClusterN": 16,
+        "pairedEffects": [
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.397248348911572,
+            "clusterNormalizedMeanDelta": -0.41315321047371667,
+            "descriptive95PercentileCI": [
+              -0.4574446975284721,
+              -0.37076561620030757
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -4249.05,
+            "clusterNormalizedMeanDelta": -5198.59375,
+            "descriptive95PercentileCI": [
+              -11162.70390625,
+              567.6945312499954
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -26.068607249109327,
+            "clusterNormalizedMeanDelta": -25.432826988401803,
+            "descriptive95PercentileCI": [
+              -31.47641067599884,
+              -19.83134651032356
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -119.18676090000004,
+            "clusterNormalizedMeanDelta": -86.82760868750002,
+            "descriptive95PercentileCI": [
+              -241.66710096015623,
+              32.41100590546862
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.006012363057817588,
+            "clusterNormalizedMeanDelta": -0.00895686804777713,
+            "descriptive95PercentileCI": [
+              -0.05094472164251993,
+              0.02168396707459207
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 1012.95,
+            "clusterNormalizedMeanDelta": 1248.5,
+            "descriptive95PercentileCI": [
+              -1113.4273437499999,
+              4141.761718749995
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 1.1165415787293687,
+            "clusterNormalizedMeanDelta": 1.321680592610518,
+            "descriptive95PercentileCI": [
+              -1.8270502183585273,
+              5.063959642702961
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -3.8006290500000035,
+            "clusterNormalizedMeanDelta": 8.899567968749999,
+            "descriptive95PercentileCI": [
+              -45.90415891093748,
+              67.2827265757812
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.024551759841016048,
+            "clusterNormalizedMeanDelta": -0.021069832084811436,
+            "descriptive95PercentileCI": [
+              -0.05588968373511246,
+              0.01350940498990602
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -18143.6,
+            "clusterNormalizedMeanDelta": -18273.6875,
+            "descriptive95PercentileCI": [
+              -23272.12109375,
+              -13638.747656250001
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.03344390055958222,
+            "clusterNormalizedMeanDelta": 0.20529083600468523,
+            "descriptive95PercentileCI": [
+              -7.5490181892717585,
+              8.311952772794745
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 115.24377019999994,
+            "clusterNormalizedMeanDelta": 71.36610246874994,
+            "descriptive95PercentileCI": [
+              -49.0505276351563,
+              222.95222099921867
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.14148929812152952,
+            "clusterNormalizedMeanDelta": -0.12982236929163582,
+            "descriptive95PercentileCI": [
+              -0.19669876846900994,
+              -0.06895202300306254
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -13446.9,
+            "clusterNormalizedMeanDelta": -13053.8125,
+            "descriptive95PercentileCI": [
+              -17810.07734375,
+              -8451.927343750003
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -15.78451512977421,
+            "clusterNormalizedMeanDelta": -13.817625309019169,
+            "descriptive95PercentileCI": [
+              -22.003950556675715,
+              -7.44181079470782
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -223.27900480000002,
+            "clusterNormalizedMeanDelta": -172.83898362500003,
+            "descriptive95PercentileCI": [
+              -337.90229190312505,
+              -65.41672495781255
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.03273946018780728,
+            "clusterNormalizedMeanDelta": -0.03646866935864869,
+            "descriptive95PercentileCI": [
+              -0.08476531357665137,
+              0.007165970770697001
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -17075.8,
+            "clusterNormalizedMeanDelta": -17219.9375,
+            "descriptive95PercentileCI": [
+              -20574.52265625,
+              -13835.73671875
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.38616886619022284,
+            "clusterNormalizedMeanDelta": -0.3726996627958712,
+            "descriptive95PercentileCI": [
+              -6.493714233065514,
+              5.925645136148205
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -27.496363450000025,
+            "clusterNormalizedMeanDelta": -27.911505093750016,
+            "descriptive95PercentileCI": [
+              -84.29404583125,
+              27.84472507109372
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -0.3265697999582297,
+            "clusterNormalizedMeanDelta": -0.3444915824629151,
+            "descriptive95PercentileCI": [
+              -0.394299789206814,
+              -0.29511297227174044
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": 1385.85,
+            "clusterNormalizedMeanDelta": -933.21875,
+            "descriptive95PercentileCI": [
+              -7377.6765625,
+              5572.529687499989
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -20.71879220260415,
+            "clusterNormalizedMeanDelta": -18.755439854365754,
+            "descriptive95PercentileCI": [
+              -25.0472825852746,
+              -13.148122846297088
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 20,
+            "geometryClusterN": 16,
+            "episodeWeightedMeanDelta": -117.63741654999998,
+            "clusterNormalizedMeanDelta": -70.43762771875,
+            "descriptive95PercentileCI": [
+              -225.45662695859372,
+              42.44287236562497
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          }
+        ],
+        "method": {
+          "schemaVersion": "spatial.analysis-method.v1",
+          "selectionCriterion": [
+            "completedFraction descending",
+            "meanCoverage descending",
+            "meanSuccessfulPathLengthM ascending",
+            "meanObservationJSONBytes ascending",
+            "variant lexicographic ascending"
+          ],
+          "metricDirections": {
+            "completed": "maximize",
+            "coverageFraction": "maximize",
+            "pathLengthM": "minimize",
+            "planningMsTotal": "minimize",
+            "messageBytes": "minimize"
+          },
+          "episodeMeans": "All episodes, including partial/failure, have equal weight. pathLengthM sums succeeded geometry legs; do not divide by legs or retain only completed episodes.",
+          "pairedDifference": "variant minus baseline within the exact same sceneId/seed and frozen input; relativeDelta is null when baseline is zero.",
+          "cluster": "occupancyGeometryHash; average paired condition deltas inside each geometry, then give each geometry equal weight.",
+          "bootstrap": {
+            "seed": 20261018,
+            "replicates": 5000,
+            "sampling": "Geometry clusters with replacement, preserving all paired fault conditions and all metrics/arms together.",
+            "interval": "Descriptive 2.5th and 97.5th percentiles, linearly interpolated at (replicates-1)*q.",
+            "minimumDistinctGeometryClusters": 2
+          },
+          "communication": "meanObservationJSONBytes is the arithmetic mean of episode.messageBytes over all episodes; the historical field name is retained for compatibility and is not limited to raw observations. Count all actual recorded communication channels, including observation_upload, occupancy_relay, coverage_delta (coverage IDs), coverage_reconnect_snapshot (coverage IDs), reconnect_snapshot (occupancy), and the legacy combined observation_upload_and_relay channel when present. Delayed maps count only when sent; unsent queued packets are not transmitted bytes. These are canonical JSON payload bytes, excluding network framing, TLS, task leases, controller traffic and other unmeasured transport overhead.",
+          "inputCommunicationDescription": "Canonical observation payload upload plus relay and reconnect snapshot; excludes network framing, TLS and lease/control messages.",
+          "limitations": [
+            "No multiple-comparison adjustment or significance decision.",
+            "Intervals describe this fixed study's empirical layouts; no universal optimality or population generalization claim.",
+            "Planning wall time depends on host load; this is not physical robot or network validation.",
+            "Configured seeds/paired task conditions are not necessarily independent physical maps; cluster normalization prevents duplicate geometry from increasing its weight."
+          ]
+        }
+      }
+    },
+    "holdout": {
+      "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout",
+      "episodeN": 210,
+      "pairedBlockN": 30,
+      "uniqueGeometryN": 24,
+      "statusCounts": {
+        "partial": 210
+      },
+      "stopReasonCounts": {
+        "round_budget": 200,
+        "no_executable_candidate": 10
+      },
+      "seeds": [
+        101,
+        137,
+        173,
+        211,
+        257,
+        293
+      ],
+      "variants": [
+        {
+          "variant": "baseline",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.7671701642913764,
+          "meanSuccessfulPathLengthM": 50.93569697314689,
+          "meanPlanningMsTotal": 527.2751937333334,
+          "meanRecordedPayloadBytes": 74698.56666666667,
+          "meanRepeatObservationFraction": 0.6462888321258041
+        },
+        {
+          "variant": "nearest_frontier",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.37410915683642953,
+          "meanSuccessfulPathLengthM": 21.321738354406676,
+          "meanPlanningMsTotal": 428.34215240000003,
+          "meanRecordedPayloadBytes": 70080.63333333333,
+          "meanRepeatObservationFraction": 0.8169537832222538
+        },
+        {
+          "variant": "no_global_reposition",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.6168316391801241,
+          "meanSuccessfulPathLengthM": 30.506956780737568,
+          "meanPlanningMsTotal": 321.1137793666667,
+          "meanRecordedPayloadBytes": 60937.26666666667,
+          "meanRepeatObservationFraction": 0.6451057699032964
+        },
+        {
+          "variant": "no_visibility_gain",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.4329865336683518,
+          "meanSuccessfulPathLengthM": 25.445699510622237,
+          "meanPlanningMsTotal": 473.2313782,
+          "meanRecordedPayloadBytes": 72089.1,
+          "meanRepeatObservationFraction": 0.7969276358425006
+        },
+        {
+          "variant": "no_assignment_overlap",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.751663849618395,
+          "meanSuccessfulPathLengthM": 51.97435428259856,
+          "meanPlanningMsTotal": 492.5270550333333,
+          "meanRecordedPayloadBytes": 74308.73333333334,
+          "meanRepeatObservationFraction": 0.6505611334339516
+        },
+        {
+          "variant": "no_shared_coverage_guidance",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.7364443076564289,
+          "meanSuccessfulPathLengthM": 54.5215367147612,
+          "meanPlanningMsTotal": 462.8927791,
+          "meanRecordedPayloadBytes": 60440.36666666667,
+          "meanRepeatObservationFraction": 0.685997027749742
+        },
+        {
+          "variant": "no_coordination",
+          "N": 30,
+          "completedN": 0,
+          "partialN": 30,
+          "meanCoverage": 0.7454349830864982,
+          "meanSuccessfulPathLengthM": 50.77395624998037,
+          "meanPlanningMsTotal": 499.46161653333337,
+          "meanRecordedPayloadBytes": 57832.23333333333,
+          "meanRepeatObservationFraction": 0.662340982764609
+        }
+      ],
+      "faultTotals": {
+        "plannedFaults": 126,
+        "appliedFaults": 126,
+        "skippedFaults": 0,
+        "uncertainLegs": 42,
+        "stopAcknowledgements": 42,
+        "recoveredUncertainLegs": 42,
+        "reconnectSnapshots": 42,
+        "independentCollisionRefusals": 0
+      },
+      "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+      "studyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7",
+      "sourceHashes": {
+        "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+      },
+      "environment": {
+        "python": "3.11.9 (main, Apr 10 2026, 00:06:54) [Clang 21.0.0 (clang-2100.0.123.102)]",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "packages": {
+          "numpy": "2.4.6",
+          "scipy": "1.17.1",
+          "grpcio": "1.83.0",
+          "protobuf": "6.33.5",
+          "pytest": "8.4.2"
+        }
+      },
+      "inputs": {
+        "summary.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout/summary.json",
+          "bytes": 751716,
+          "sha256": "50f935fa6a5e85719e286418e83e5aa7cd4dfb62028dc57f373ae1f074b7602c"
+        },
+        "manifest.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout/manifest.json",
+          "bytes": 221869,
+          "sha256": "4a1e4e8c6f1a3635e99901b0c405bcc9a0ad9ca1ed6483c0b3314d4acdba2e87"
+        },
+        "episodes.csv": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout/episodes.csv",
+          "bytes": 140244,
+          "sha256": "dcc9b1cc2c9802f6687ef1d2751e1506a7172aa159d32393bd3199d5eedd5ce1"
+        },
+        "config.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout/config.json",
+          "bytes": 1857,
+          "sha256": "b3fa96d99545e6e21a5f04b1013090c5e189875714a0b93820a1792d9eaffb60"
+        },
+        "preregistration.json": {
+          "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout/preregistration.json",
+          "bytes": 15796,
+          "sha256": "b1bca9adf7c798497d5edb16749fbbdaa78544b60cb959059218b409b16c6ddd"
+        }
+      },
+      "analysis": {
+        "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/holdout-analysis-final",
+        "inputManifestHash": "4a1e4e8c6f1a3635e99901b0c405bcc9a0ad9ca1ed6483c0b3314d4acdba2e87",
+        "methodHash": "a012df8e1f494b0591c3f30ea95f6859f77feab58a436b37f3a65b0ed33ff504",
+        "sourceHash": "d02840c21266100c542f8808a27c0c5c94731cc1d2ca30f15e6c105476f9ea1c",
+        "geometryClusterN": 24,
+        "pairedEffects": [
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.3930610074549469,
+            "clusterNormalizedMeanDelta": -0.40223134574460334,
+            "descriptive95PercentileCI": [
+              -0.4356679047576301,
+              -0.3675697382811493
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -4617.933333333333,
+            "clusterNormalizedMeanDelta": -5259.458333333333,
+            "descriptive95PercentileCI": [
+              -9010.475520833334,
+              -1441.033333333335
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -29.613958618740217,
+            "clusterNormalizedMeanDelta": -29.190866397020077,
+            "descriptive95PercentileCI": [
+              -33.074129188327824,
+              -25.216253251964744
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "nearest_frontier",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -98.93304133333332,
+            "clusterNormalizedMeanDelta": -91.39725583333335,
+            "descriptive95PercentileCI": [
+              -149.9143900010417,
+              -33.637434153645856
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.015506314672981348,
+            "clusterNormalizedMeanDelta": -0.010247950352117027,
+            "descriptive95PercentileCI": [
+              -0.029140552252531437,
+              0.008480650329608643
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -389.8333333333333,
+            "clusterNormalizedMeanDelta": -325.0,
+            "descriptive95PercentileCI": [
+              -1463.5296875,
+              966.873958333333
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 1.0386573094516705,
+            "clusterNormalizedMeanDelta": 0.6160918547283996,
+            "descriptive95PercentileCI": [
+              -1.4022793532486915,
+              3.214099395426189
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_assignment_overlap",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -34.748138700000034,
+            "clusterNormalizedMeanDelta": -14.058904354166705,
+            "descriptive95PercentileCI": [
+              -53.55282895781253,
+              32.29068040260412
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.021735181204878187,
+            "clusterNormalizedMeanDelta": -0.017903415678036907,
+            "descriptive95PercentileCI": [
+              -0.04993341784653339,
+              0.015785228160938344
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -16866.333333333332,
+            "clusterNormalizedMeanDelta": -17337.5,
+            "descriptive95PercentileCI": [
+              -20562.230208333334,
+              -13890.186979166669
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.16174072316652044,
+            "clusterNormalizedMeanDelta": -1.0614630630139048,
+            "descriptive95PercentileCI": [
+              -6.714199881110493,
+              5.111425174917705
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_coordination",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -27.813577199999987,
+            "clusterNormalizedMeanDelta": -30.303848416666654,
+            "descriptive95PercentileCI": [
+              -82.65177618437497,
+              24.126322349479164
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.15033852511125237,
+            "clusterNormalizedMeanDelta": -0.10969966306140548,
+            "descriptive95PercentileCI": [
+              -0.16700856873205355,
+              -0.05961677364968085
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -13761.3,
+            "clusterNormalizedMeanDelta": -11815.041666666666,
+            "descriptive95PercentileCI": [
+              -15614.09375,
+              -8171.9328125
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -20.428740192409325,
+            "clusterNormalizedMeanDelta": -18.658694158914418,
+            "descriptive95PercentileCI": [
+              -23.515920145598837,
+              -13.995143581127339
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_global_reposition",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -206.16141436666666,
+            "clusterNormalizedMeanDelta": -174.37392883333334,
+            "descriptive95PercentileCI": [
+              -232.65653849791667,
+              -120.81789353229169
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.03072585663494754,
+            "clusterNormalizedMeanDelta": -0.021272892721756354,
+            "descriptive95PercentileCI": [
+              -0.059800576589165585,
+              0.0182113063528783
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -14258.2,
+            "clusterNormalizedMeanDelta": -13717.333333333334,
+            "descriptive95PercentileCI": [
+              -16871.833333333336,
+              -10268.518229166666
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 3.585839741614302,
+            "clusterNormalizedMeanDelta": 4.48516822026284,
+            "descriptive95PercentileCI": [
+              -0.9283272224587955,
+              9.97771185119215
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_shared_coverage_guidance",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -64.38241463333333,
+            "clusterNormalizedMeanDelta": -49.69586908333333,
+            "descriptive95PercentileCI": [
+              -99.0003853703125,
+              -3.649603543750036
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "completed",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": 0.0,
+            "clusterNormalizedMeanDelta": 0.0,
+            "descriptive95PercentileCI": [
+              0.0,
+              0.0
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "coverageFraction",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -0.33418363062302453,
+            "clusterNormalizedMeanDelta": -0.34506470311394555,
+            "descriptive95PercentileCI": [
+              -0.3851378987174442,
+              -0.3043437287057079
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "messageBytes",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -2609.4666666666667,
+            "clusterNormalizedMeanDelta": -3670.3541666666665,
+            "descriptive95PercentileCI": [
+              -7195.502083333333,
+              -195.75781250000776
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "pathLengthM",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -25.489997462524652,
+            "clusterNormalizedMeanDelta": -24.196749573697645,
+            "descriptive95PercentileCI": [
+              -28.380723711196023,
+              -19.864214699749198
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          },
+          {
+            "variant": "no_visibility_gain",
+            "relativeTo": "baseline",
+            "metric": "planningMsTotal",
+            "pairedEpisodeN": 30,
+            "geometryClusterN": 24,
+            "episodeWeightedMeanDelta": -54.043815533333344,
+            "clusterNormalizedMeanDelta": -52.808349604166686,
+            "descriptive95PercentileCI": [
+              -125.46902768124998,
+              29.350725144791646
+            ],
+            "effectiveBootstrapReplicates": 5000,
+            "intervalLimitation": null
+          }
+        ],
+        "method": {
+          "schemaVersion": "spatial.analysis-method.v1",
+          "selectionCriterion": [
+            "completedFraction descending",
+            "meanCoverage descending",
+            "meanSuccessfulPathLengthM ascending",
+            "meanObservationJSONBytes ascending",
+            "variant lexicographic ascending"
+          ],
+          "metricDirections": {
+            "completed": "maximize",
+            "coverageFraction": "maximize",
+            "pathLengthM": "minimize",
+            "planningMsTotal": "minimize",
+            "messageBytes": "minimize"
+          },
+          "episodeMeans": "All episodes, including partial/failure, have equal weight. pathLengthM sums succeeded geometry legs; do not divide by legs or retain only completed episodes.",
+          "pairedDifference": "variant minus baseline within the exact same sceneId/seed and frozen input; relativeDelta is null when baseline is zero.",
+          "cluster": "occupancyGeometryHash; average paired condition deltas inside each geometry, then give each geometry equal weight.",
+          "bootstrap": {
+            "seed": 20261018,
+            "replicates": 5000,
+            "sampling": "Geometry clusters with replacement, preserving all paired fault conditions and all metrics/arms together.",
+            "interval": "Descriptive 2.5th and 97.5th percentiles, linearly interpolated at (replicates-1)*q.",
+            "minimumDistinctGeometryClusters": 2
+          },
+          "communication": "meanObservationJSONBytes is the arithmetic mean of episode.messageBytes over all episodes; the historical field name is retained for compatibility and is not limited to raw observations. Count all actual recorded communication channels, including observation_upload, occupancy_relay, coverage_delta (coverage IDs), coverage_reconnect_snapshot (coverage IDs), reconnect_snapshot (occupancy), and the legacy combined observation_upload_and_relay channel when present. Delayed maps count only when sent; unsent queued packets are not transmitted bytes. These are canonical JSON payload bytes, excluding network framing, TLS, task leases, controller traffic and other unmeasured transport overhead.",
+          "inputCommunicationDescription": "Canonical observation payload upload plus relay and reconnect snapshot; excludes network framing, TLS and lease/control messages.",
+          "limitations": [
+            "No multiple-comparison adjustment or significance decision.",
+            "Intervals describe this fixed study's empirical layouts; no universal optimality or population generalization claim.",
+            "Planning wall time depends on host load; this is not physical robot or network validation.",
+            "Configured seeds/paired task conditions are not necessarily independent physical maps; cluster normalization prevents duplicate geometry from increasing its weight."
+          ]
+        }
+      }
+    }
+  },
+  "combined": {
+    "episodeN": 350,
+    "pairedBlockN": 50,
+    "uniqueGeometryN": 40,
+    "crossSplitGeometryOverlapN": 0,
+    "completedN": 0,
+    "partialN": 350,
+    "independentEpisodeSamples": false
+  },
+  "selectionFreeze": {
+    "schemaVersion": "research.selection-freeze.v1",
+    "frozenAt": "2026-10-17T16:48:19.582090+00:00",
+    "selectedVariant": "baseline",
+    "selectionProtocolSha256": "2ce6b04558404f6c5012fbb4d1fab864e653db218e45965f5bf3b978059c24e8",
+    "developmentManifestSha256": "7686454be00651bd04790de4bb9f793b88ad285c71d403c0770527679adc4f34",
+    "studyDesignHash": "555ebb629a12910a70bf19865541f469c672f1fbdb6bb2caddedb3377635e09f",
+    "studyImplementationHash": "9c52dc90ffa51f74c84c28dffd524ce27b3f9cb8d85ae423c5b55196c7cd72c7",
+    "sourceHashes": {
+      "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+      "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+      "robot/gateway/tangying_robot_gateway/spatial_mission.py": "ef0bcd538cb1aee2a258bddfce99e20e892d4ae1db7427e3434100035e322351",
+      "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    },
+    "rankedVariants": [
+      {
+        "variant": "baseline",
+        "sortKey": [
+          0.0,
+          -0.7721100173166289,
+          49.43609778930609,
+          75511.1,
+          "baseline"
+        ]
+      },
+      {
+        "variant": "no_assignment_overlap",
+        "sortKey": [
+          0.0,
+          -0.7660976542588113,
+          50.55263936803546,
+          76524.05,
+          "no_assignment_overlap"
+        ]
+      },
+      {
+        "variant": "no_coordination",
+        "sortKey": [
+          0.0,
+          -0.7475582574756129,
+          49.46954168986567,
+          57367.5,
+          "no_coordination"
+        ]
+      },
+      {
+        "variant": "no_shared_coverage_guidance",
+        "sortKey": [
+          0.0,
+          -0.7393705571288216,
+          49.04992892311587,
+          58435.3,
+          "no_shared_coverage_guidance"
+        ]
+      },
+      {
+        "variant": "no_global_reposition",
+        "sortKey": [
+          0.0,
+          -0.6306207191950993,
+          33.65158265953188,
+          62064.2,
+          "no_global_reposition"
+        ]
+      },
+      {
+        "variant": "no_visibility_gain",
+        "sortKey": [
+          0.0,
+          -0.44554021735839916,
+          28.717305586701944,
+          76896.95,
+          "no_visibility_gain"
+        ]
+      },
+      {
+        "variant": "nearest_frontier",
+        "sortKey": [
+          0.0,
+          -0.37486166840505686,
+          23.367490540196762,
+          71262.05,
+          "nearest_frontier"
+        ]
+      }
+    ],
+    "holdoutPolicyResultsInspected": false,
+    "externalBlindingOrTimestampAttestation": false,
+    "interpretation": "Operational source/config freeze before heldout policy execution, not external blinded certification or universal optimum."
+  },
+  "knownMapPlans": {
+    "mixed-air-ground": {
+      "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/mixed-air-ground",
+      "result": {
+        "verification": {
+          "verified": true,
+          "predictionOnly": true,
+          "physicalValidation": false,
+          "status": "predicted_complete",
+          "predictedCoverage": 1.0,
+          "legs": 2
+        },
+        "summary": {
+          "status": "predicted_complete",
+          "targetVoxels": 2,
+          "predictedCoveredVoxels": 2,
+          "predictedCoverage": 1.0,
+          "pathLengthM": 0.0,
+          "planCalls": 15,
+          "observedCoverage": null
+        }
+      },
+      "planStopReason": "predicted_scope_covered",
+      "sourceHashes": {
+        "scripts/plan_spatial_coverage.py": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990",
+        "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+      },
+      "manifest": {
+        "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/mixed-air-ground/manifest.json",
+        "bytes": 2228,
+        "sha256": "643234f848e223d2942174261ef867a50bc16647925d55791b8f38351a733768"
+      }
+    },
+    "layered-ramp": {
+      "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/layered-ramp",
+      "result": {
+        "verification": {
+          "verified": true,
+          "predictionOnly": true,
+          "physicalValidation": false,
+          "status": "predicted_complete",
+          "predictedCoverage": 1.0,
+          "legs": 1
+        },
+        "summary": {
+          "status": "predicted_complete",
+          "targetVoxels": 1,
+          "predictedCoveredVoxels": 1,
+          "predictedCoverage": 1.0,
+          "pathLengthM": 3.23606797749979,
+          "planCalls": 8,
+          "observedCoverage": null
+        }
+      },
+      "planStopReason": "predicted_scope_covered",
+      "sourceHashes": {
+        "scripts/plan_spatial_coverage.py": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990",
+        "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+      },
+      "manifest": {
+        "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/layered-ramp/manifest.json",
+        "bytes": 2228,
+        "sha256": "5d8b68681a073d7a513a790cf156eefaa34deec29080a5186ba54808e98c8ce2"
+      }
+    },
+    "disconnected-floors": {
+      "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/disconnected-floors",
+      "result": {
+        "verification": {
+          "verified": true,
+          "predictionOnly": true,
+          "physicalValidation": false,
+          "status": "partial",
+          "predictedCoverage": 0.0,
+          "legs": 0
+        },
+        "summary": {
+          "status": "partial",
+          "targetVoxels": 1,
+          "predictedCoveredVoxels": 0,
+          "predictedCoverage": 0.0,
+          "pathLengthM": 0.0,
+          "planCalls": 8,
+          "observedCoverage": null
+        }
+      },
+      "planStopReason": "bounded_search_no_admissible_viewpoint",
+      "sourceHashes": {
+        "scripts/plan_spatial_coverage.py": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990",
+        "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+      },
+      "manifest": {
+        "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/disconnected-floors/manifest.json",
+        "bytes": 2228,
+        "sha256": "8a97cfbc95c08dd2c31586f010fc6d1740c2d238f1046787a80320292afbdd65"
+      }
+    },
+    "full-room-coverage": {
+      "runPath": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/full-room-coverage",
+      "result": {
+        "verification": {
+          "verified": true,
+          "predictionOnly": true,
+          "physicalValidation": false,
+          "status": "predicted_complete",
+          "predictedCoverage": 1.0,
+          "legs": 14
+        },
+        "summary": {
+          "status": "predicted_complete",
+          "targetVoxels": 315,
+          "predictedCoveredVoxels": 315,
+          "predictedCoverage": 1.0,
+          "pathLengthM": 20.603588403439506,
+          "planCalls": 224,
+          "observedCoverage": null
+        }
+      },
+      "planStopReason": "predicted_scope_covered",
+      "sourceHashes": {
+        "scripts/plan_spatial_coverage.py": "2d2a987d3252e656ca714af48dbdd7537f0883bf847ac7cbb77206b36c47a990",
+        "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+      },
+      "manifest": {
+        "path": "artifacts/experiments/spatial-coverage-upgrade-20261018-001/coverage-plans-final/full-room-coverage/manifest.json",
+        "bytes": 2229,
+        "sha256": "abd3765d4c17fa51b8cc49905668c476f89c0f66e31bb49332672586fe51e380"
+      }
+    }
+  },
+  "runnerFixtures": {
+    "normal": {
+      "runPath": "artifacts/experiments/spatial-coverage-fixture-20261018-003",
+      "summary": {
+        "schemaVersion": "coverage.fixture-result.v1",
+        "missionId": "fixture-full-room-coverage",
+        "status": "completed",
+        "targetVoxels": 315,
+        "observedVoxels": 315,
+        "observedCoverage": 1.0,
+        "unresolvedVoxelIds": [],
+        "roiObservations": 1811,
+        "repeatedRoiObservations": 1496,
+        "commands": 12,
+        "succeededCommands": 12,
+        "unknownCommands": 0,
+        "rejectedCommands": 0,
+        "stopAcknowledgements": 0,
+        "unknownStepRequested": null,
+        "unknownFaultApplied": false,
+        "executedFixturePathM": 28.50682029425129,
+        "commandedPathM": 28.50682029425129,
+        "planningCalls": 96,
+        "viewpointEvaluations": 4139,
+        "lastReportReason": "coverage_complete",
+        "observationModel": "ideal_known_map_fixture_raycast",
+        "physicalExecution": false,
+        "physicalMeasurements": false,
+        "physicalValidation": false,
+        "clockModel": "deterministic_virtual_milliseconds_not_wall_time",
+        "maxVirtualDurationMs": 600000,
+        "ledgerCoverage": 1.0
+      },
+      "captureN": 25,
+      "commandsPerRobot": {
+        "uav": 7,
+        "ugv": 5
+      },
+      "sourceHashes": {
+        "scripts/run_spatial_coverage_fixture.py": "da91fa56cc435a800b75d2e910b803c727e8981994c1aaa974aec6c25440be54",
+        "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+      },
+      "manifest": {
+        "path": "artifacts/experiments/spatial-coverage-fixture-20261018-003/manifest.json",
+        "bytes": 2997,
+        "sha256": "e6ba58866ae4823cd17bf4060d11251aa068df74b7eccfc99b4bb91fbcd87652"
+      }
+    },
+    "recovery": {
+      "runPath": "artifacts/experiments/spatial-coverage-fixture-20261018-004",
+      "summary": {
+        "schemaVersion": "coverage.fixture-result.v1",
+        "missionId": "fixture-full-room-coverage",
+        "status": "completed",
+        "targetVoxels": 315,
+        "observedVoxels": 315,
+        "observedCoverage": 1.0,
+        "unresolvedVoxelIds": [],
+        "roiObservations": 1763,
+        "repeatedRoiObservations": 1448,
+        "commands": 13,
+        "succeededCommands": 12,
+        "unknownCommands": 1,
+        "rejectedCommands": 0,
+        "stopAcknowledgements": 1,
+        "unknownStepRequested": 3,
+        "unknownFaultApplied": true,
+        "executedFixturePathM": 27.504514512093028,
+        "commandedPathM": 28.50451451209303,
+        "planningCalls": 104,
+        "viewpointEvaluations": 4149,
+        "lastReportReason": "coverage_complete",
+        "observationModel": "ideal_known_map_fixture_raycast",
+        "physicalExecution": false,
+        "physicalMeasurements": false,
+        "physicalValidation": false,
+        "clockModel": "deterministic_virtual_milliseconds_not_wall_time",
+        "maxVirtualDurationMs": 600000,
+        "ledgerCoverage": 1.0
+      },
+      "captureN": 25,
+      "commandsPerRobot": {
+        "uav": 7,
+        "ugv": 6
+      },
+      "sourceHashes": {
+        "scripts/run_spatial_coverage_fixture.py": "da91fa56cc435a800b75d2e910b803c727e8981994c1aaa974aec6c25440be54",
+        "robot/gateway/tangying_robot_gateway/spatial_coverage.py": "4bef968bc9bc43efe4f0adc1cee693871963b37d4097fae52a4db76e2f670712",
+        "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4",
+        "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+        "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68"
+      },
+      "manifest": {
+        "path": "artifacts/experiments/spatial-coverage-fixture-20261018-004/manifest.json",
+        "bytes": 2994,
+        "sha256": "9e08b042fd1316429e389e7539e32f9cda1be37149546bab13e2a1e7942fc76a"
+      }
+    }
+  },
+  "previousFixtureRuns": {
+    "paths": [
+      "artifacts/experiments/spatial-coverage-fixture-20261018-001",
+      "artifacts/experiments/spatial-coverage-fixture-20261018-002"
+    ],
+    "reason": "Retained pre-SIM102 source snapshots; final 003/004 summaries identical, not additional independent trials."
+  },
+  "archive": {
+    "readme": "evidence/2026-10-18-spatial-coverage-upgrade/README.md",
+    "masterManifest": "evidence/2026-10-18-spatial-coverage-upgrade/master-manifest.json",
+    "rawArchive": "evidence/2026-10-18-spatial-coverage-upgrade/raw-evidence.tar.gz"
+  },
+  "validation": {
+    "state": "completed_with_documentation_regression_fixed",
+    "pythonMain": {
+      "exitCode": 1,
+      "passed": 3713,
+      "failed": 1,
+      "skipped": 40,
+      "warnings": 20,
+      "durationSeconds": 563.08,
+      "failedTest": "tests/test_repository.py::test_readme_leads_with_the_single_robot_home_loop",
+      "reason": "Research paragraphs pushed make home-furnished outside the first 2500 README characters; paragraphs moved below the quick-start example, guard retained."
+    },
+    "readmeRegressionAfterFix": {
+      "exitCode": 0,
+      "passed": 15,
+      "durationSeconds": 0.04,
+      "log": "validation/readme-regression-attempt02.log"
+    },
+    "runtimeBoundary": {
+      "exitCode": 0,
+      "passed": 2,
+      "durationSeconds": 2.71
+    },
+    "finalFocused": {
+      "exitCode": 0,
+      "passed": 128,
+      "durationSeconds": 1.84,
+      "includesTwoScopeRejectionCasesAddedAfterMainCollection": true,
+      "addToMainPassedCount": false
+    },
+    "lint": {
+      "exitCode": 0,
+      "attempt": 2
+    },
+    "go": {
+      "tests": "passed",
+      "build": "passed",
+      "generateCheck": "passed"
+    },
+    "docsBook": {
+      "pythonDocsAndBook": {
+        "passed": 52,
+        "exitCode": 0
+      },
+      "goDocs": {
+        "exitCode": 0
+      },
+      "bookFixedSections": 31,
+      "catalogCheck": {
+        "exitCode": 0
+      },
+      "countingNote": "Documentation and focused checks overlap the main collection; do not add to main total."
+    },
+    "countingNote": "Keep the full Python command exit 1; 15 README and 128 focused checks overlap the main collection and are not added to a synthetic total. Two new scope rejection cases were collected only by subsequent focused checks.",
+    "archiveReproduction": {
+      "passed": true,
+      "checkN": 8,
+      "developmentEpisodes": 140,
+      "holdoutEpisodes": 210,
+      "predictionPlans": 4,
+      "runnerFixtures": 2,
+      "statusFile": "validation/reproduction-status.json"
+    }
+  },
+  "metricNotes": {
+    "coverage": "Fixed preregistered ROI observed voxel classification fraction, not surface reconstruction; means include all partial episodes.",
+    "pathLengthM": "Succeeded geometric legs only; physical travel and uncertain executed distance unmeasured.",
+    "messageBytes": "Actual recorded canonical JSON channels including explicit coverage IDs; excludes networking, TLS, leases, controller traffic and unsent queued maps.",
+    "time": "Exploration planning wall milliseconds on this host; Runner timestamps are virtual, not elapsed performance.",
+    "bootstrap": "Geometry-equal paired deltas, 5000 cluster resamples, descriptive percentiles only; no multiplicity adjustment or significance test."
+  }
+}

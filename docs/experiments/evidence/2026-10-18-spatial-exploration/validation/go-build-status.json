@@ -1,0 +1,26 @@
+[
+  {
+    "name": "build",
+    "command": [
+      "make",
+      "build"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "go",
+    "command": [
+      "make",
+      "test-go"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "generate",
+    "command": [
+      "make",
+      "generate-check"
+    ],
+    "exitCode": 0
+  }
+]

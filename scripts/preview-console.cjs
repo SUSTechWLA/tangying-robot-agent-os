@@ -17,12 +17,15 @@ function createPreviewServer(options = {}) {
   const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://localhost').pathname;
+    const scope = pathname.match(/^\/robots\/[a-z][a-z0-9-]*\//)?.[0];
+    const localPath = scope ? '/' + pathname.slice(scope.length) : pathname;
     // Never mix a local export with the runtime's different model identity.
-    if (pathname === '/healthz' || pathname.startsWith('/v1/') || pathname.startsWith('/assets/')) {
+    if (localPath === '/healthz' || localPath.startsWith('/v1/') || localPath.startsWith('/assets/')) {
       const target = new URL(backend.origin);
       target.pathname = pathname;
       target.search = new URL(req.url, 'http://localhost').search;
-      const proxy = transport.request(target, { method: req.method, headers: { ...req.headers, host: backend.host } }, upstream => {
+      // Keep the same browser authority for HTTP cookies, Origin and WS.
+      const proxy = transport.request(target, { method: req.method, headers: { ...req.headers } }, upstream => {
         res.writeHead(upstream.statusCode, { ...upstream.headers, 'cache-control': 'no-store' }); upstream.pipe(res);
       });
       proxy.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end('Backend unavailable'); });
@@ -30,7 +33,7 @@ function createPreviewServer(options = {}) {
       req.pipe(proxy);
       return;
     }
-    const file = path.resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
+    const file = path.resolve(root, '.' + (localPath === '/' ? '/index.html' : localPath));
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
     fs.createReadStream(file).pipe(res);

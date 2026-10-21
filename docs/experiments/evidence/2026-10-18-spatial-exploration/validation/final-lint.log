@@ -1,0 +1,23 @@
+gofmt -l $(find agent agentruntime cmd console core edge fleet internal middleware orchestration skills tasks tests web -name '*.go') | tee /tmp/tangying-gofmt.out
+test ! -s /tmp/tangying-gofmt.out
+.venv/bin/ruff check robot/gateway robot/mcp robot/ros2_ws sim policy scripts tests examples/robots orchestration/eval
+I001 [*] Import block is un-sorted or un-formatted
+   --> robot/gateway/tests/test_spatial_mission.py:441:5
+    |
+440 |   def test_journal_io_failure_is_sticky_and_does_not_commit_memory(tmp_path, monkeypatch):
+441 | /     import os
+442 | |     from tangying_robot_gateway import spatial_mission
+    | |______________________________________________________^
+443 |
+444 |       # A writer must never create a file too large for its own recovery reader.
+    |
+help: Organize imports
+    |
+441 |     import os
+442 +
+443 |     from tangying_robot_gateway import spatial_mission
+    |
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

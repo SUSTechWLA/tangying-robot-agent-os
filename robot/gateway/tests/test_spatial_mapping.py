@@ -164,6 +164,66 @@ def test_package_roundtrip_restore_atomic_repeat_and_immutable_revision(tmp_path
     assert sorted(item.name for item in tmp_path.iterdir()) == ["package"]
 
 
+def measured_layers():
+    return {"schemaVersion": "navigation.terrain.layers.v1", "sourceId": "registered-support-survey",
+            "observedAtUnixMs": 1000, "layers": [
+                {"layerId": name, "heights": [height] * 20, "supported": [True] * 20,
+                 "slopeRadians": [0.] * 20} for name, height in (("lower", 0.), ("upper", 1.5))],
+            "connections": []}
+
+
+def test_multilayer_support_package_roundtrip_hashes_and_immutable_publication(tmp_path):
+    p = provider()
+    p.add(frame(p), now_unix_ms=1000)
+    layers = measured_layers()
+    document = p.volume(terrain_layers=layers)
+    layers["layers"][0]["heights"][0] = .1
+    assert document["terrainLayers"]["layers"][0]["heights"][0] == 0.
+    manifest = p.publish(tmp_path / "package", terrain_layers=measured_layers())
+    loaded = load_spatial_map(tmp_path / "package")
+    assert loaded["volume"] == document
+    assert loaded["volume"]["terrainLayers"] == measured_layers()
+    assert manifest["artifacts"]["volume"]["sha256"] == hashlib.sha256(
+        (tmp_path / "package" / "volume.json").read_bytes()).hexdigest()
+    restored = RegisteredSpatialSlamProvider.restore(loaded["measurements"])
+    assert restored.publish(tmp_path / "package", terrain_layers=loaded["volume"]["terrainLayers"]) == manifest
+    with pytest.raises(FileExistsError, match="immutable"):
+        restored.publish(tmp_path / "package", terrain_layers=layers)
+
+
+def test_multilayer_support_tampering_is_rejected_before_loading(tmp_path):
+    p = provider()
+    p.add(frame(p), now_unix_ms=1000)
+    p.publish(tmp_path / "package", terrain_layers=measured_layers())
+    target = tmp_path / "package" / "volume.json"
+    volume = json.loads(target.read_text())
+    volume["terrainLayers"]["layers"][1]["heights"][0] = 1.6
+    target.write_text(json.dumps(volume, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+    with pytest.raises(ValueError, match="hash|budget"):
+        load_spatial_map(target.parent)
+
+
+def test_rehashed_malformed_layer_support_is_not_accepted_as_a_valid_package(tmp_path):
+    p = provider()
+    p.add(frame(p), now_unix_ms=1000)
+    p.publish(tmp_path / "package", terrain_layers=measured_layers())
+    target = tmp_path / "package" / "volume.json"
+    volume = json.loads(target.read_text())
+    volume["terrainLayers"]["connections"] = [
+        {"from": ["lower", 1, 1], "to": ["upper", 1, 1]}]
+    payload = json.dumps(volume).encode()
+    target.write_bytes(payload)
+    manifest_path = target.parent / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["artifacts"]["volume"].update(bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+    del manifest["revision"]
+    manifest["revision"] = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":"),
+                                                    ensure_ascii=False).encode()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="vertical portals"):
+        load_spatial_map(target.parent)
+
+
 def test_package_rejects_hash_tampering_and_even_rehashed_false_free_evidence(tmp_path):
     p = provider()
     p.add(frame(p), now_unix_ms=1000)

@@ -1,0 +1,408 @@
+{
+  "schemaVersion": "edge.swarm-readiness.index.v1",
+  "generatedAt": "2026-10-18T06:20:14.428941+00:00",
+  "experimentDate": "2026-10-18",
+  "timezone": "Asia/Shanghai",
+  "assessment": "field_integration_candidate_with_unverified_vendor_and_physical_layers",
+  "requestedRobotFamilies": [
+    "DJI_UAV_via_model_specific_ROS2_bridge",
+    "Unitree_legged_via_ROS2_bridge",
+    "generic_AGV_ROS2"
+  ],
+  "hardwareValidation": false,
+  "physicsValidation": false,
+  "allSceneCoverageAchieved": false,
+  "arbitraryNaturalLanguageDistributedTaskGraphValidated": false,
+  "evidenceLevels": {
+    "actualLocalAgentGrpcAndROS2DDS": {
+      "archiveRoot": "ros-final/",
+      "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+      "finalAttempt": "03",
+      "completedRoutes": 9,
+      "plannedRoutes": 9,
+      "rounds": 3,
+      "robotKinds": [
+        "ugv",
+        "uav",
+        "legged"
+      ],
+      "recordedNavigationCommands": 99,
+      "independentArrivalChecks": 99,
+      "faultCasesPassed": 18,
+      "faultCasesPlanned": 18,
+      "captureMetadataRecords": 216,
+      "actualImageBytes": 0,
+      "modelCalls": 0,
+      "hardwareValidation": false,
+      "sensorAccuracyValidation": false,
+      "calibrationIsPlaceholder": true,
+      "sourceStable": true,
+      "sampling": "repeated deterministic engineering checks, not independent environments or robot samples",
+      "limits": [
+        "recording controller, not dynamics or flight/gait control",
+        "deterministic natural-language route parser",
+        "no real SLAM or image sensor payload",
+        "development attempt02 excluded from final denominator"
+      ]
+    },
+    "softwareLongHorizonRecovery": {
+      "archiveRoot": "software-04/",
+      "passed": true,
+      "taskRecords": 23,
+      "allRecords": 1003,
+      "scenarioCounts": {
+        "persistent_single_robot_multi_task": 5,
+        "sequential_cloud_receipt_loss": 12,
+        "unknown_effect_after_long_confirmed_prefix": 1,
+        "sqlite_close_reopen_verified_goal": 1,
+        "restart_then_unknown_write": 1,
+        "plan_budget_after_confirmed_prefix": 1,
+        "step_budget_rejects_oversized_next_chunk": 1,
+        "read_budget_preserves_final_check": 1
+      },
+      "physicalTasks": 0,
+      "limits": [
+        "scenario assertions include safe rejection and unknown outcomes; not 23 physical task completions",
+        "interrupted rounds01-03 are retained but excluded"
+      ]
+    },
+    "fourProcessPeerAndCloudExchange": {
+      "archiveRoots": [
+        "peer-002/",
+        "peer-003/",
+        "peer-004/"
+      ],
+      "repeatedEngineeringRuns": 3,
+      "passedRuns": 3,
+      "processesPerRun": 4,
+      "transport": "explicit-loopback-http-development",
+      "elapsedSeconds": [
+        13.893,
+        14.75,
+        13.62
+      ],
+      "advisoryOnly": true,
+      "grantsExecution": false,
+      "wirelessValidation": false,
+      "limits": [
+        "same scenario repeated, not independent environments",
+        "peer advice cannot mark local target observation complete",
+        "no distributed collision avoidance or leader consensus"
+      ]
+    },
+    "threeMorphologyUnknownMapProductionRunnerFixture": {
+      "archiveRoot": "trio-002/",
+      "episodes": 6,
+      "uniqueGeometryN": 3,
+      "completed": 0,
+      "partial": 6,
+      "softwareErrors": 0,
+      "commandCounts": {
+        "succeeded": 159,
+        "rejected": 17,
+        "unknown": 3
+      },
+      "commands": 179,
+      "perRobotCommandCounts": {
+        "ugv": {
+          "succeeded": 18,
+          "rejected": 15,
+          "unknown": 0
+        },
+        "uav": {
+          "succeeded": 105,
+          "rejected": 0,
+          "unknown": 3
+        },
+        "legged": {
+          "succeeded": 36,
+          "rejected": 2,
+          "unknown": 0
+        }
+      },
+      "coverage": [
+        {
+          "seed": 3,
+          "faulted": false,
+          "status": "partial",
+          "stopReason": "round_budget",
+          "coverageObserved": 858,
+          "coverageDenominator": 1144,
+          "coverageFraction": 0.75
+        },
+        {
+          "seed": 3,
+          "faulted": true,
+          "status": "partial",
+          "stopReason": "round_budget",
+          "coverageObserved": 803,
+          "coverageDenominator": 1144,
+          "coverageFraction": 0.7019230769230769
+        },
+        {
+          "seed": 7,
+          "faulted": false,
+          "status": "partial",
+          "stopReason": "round_budget",
+          "coverageObserved": 766,
+          "coverageDenominator": 819,
+          "coverageFraction": 0.9352869352869353
+        },
+        {
+          "seed": 7,
+          "faulted": true,
+          "status": "partial",
+          "stopReason": "round_budget",
+          "coverageObserved": 774,
+          "coverageDenominator": 819,
+          "coverageFraction": 0.945054945054945
+        },
+        {
+          "seed": 19,
+          "faulted": false,
+          "status": "partial",
+          "stopReason": "round_budget",
+          "coverageObserved": 827,
+          "coverageDenominator": 1080,
+          "coverageFraction": 0.7657407407407407
+        },
+        {
+          "seed": 19,
+          "faulted": true,
+          "status": "partial",
+          "stopReason": "round_budget",
+          "coverageObserved": 766,
+          "coverageDenominator": 1080,
+          "coverageFraction": 0.7092592592592593
+        }
+      ],
+      "plannedFaults": 9,
+      "appliedFaults": 8,
+      "skippedFaults": 1,
+      "unknownStopAcknowledgements": 3,
+      "replayedMapMessages": 58,
+      "pendingMapMessages": 0,
+      "naturalLanguageInterpreted": false,
+      "rosDDSTested": false,
+      "physicalExecution": false,
+      "limits": [
+        "18-round budget produced partial outcomes for all six episodes",
+        "single-process shared coordinator and ledger",
+        "map relay partition only, not total autonomy-layer partition",
+        "run001 and run002 reuse the same inputs; only run002 counted"
+      ]
+    }
+  },
+  "frozenSources": {
+    "dds": {
+      "baseCommit": "c1245771d56af351e997637c1b45263532a07e1c",
+      "frozenAt": "2026-10-18T04:21:19.073888+00:00",
+      "sourceArchiveSha256": "401ddde9449e9685ab262e459f476f9c8e8c3082008e79d4f98ff528066d590f",
+      "binarySha256": "897cd2baeb0e9aeb35612e219c17cf7ce03f334e812bceaa113f77cf1e733b1b",
+      "binaryBytes": 80632785,
+      "buildCommand": [
+        "go",
+        "build",
+        "-buildvcs=false",
+        "-o",
+        "../local-agent-linux-arm64",
+        "./cmd/local-agent"
+      ],
+      "buildEnv": {
+        "GOOS": "linux",
+        "GOARCH": "arm64",
+        "CGO_ENABLED": "0"
+      }
+    },
+    "ddsSourceFiles": 1105,
+    "ddsSourceArchive": "ros-final/source-snapshot.tar.gz",
+    "ddsOriginalBuildSourceArchiveSha256": "401ddde9449e9685ab262e459f476f9c8e8c3082008e79d4f98ff528066d590f",
+    "ddsPublicRearchiveSha256": "272a0cca91fca99647551e77ca5adea3a262d75c881f801e6aa75b3b3e5c6104",
+    "ddsPublicSourceFilesEqualBuildManifest": true,
+    "ddsSourceArchiveRelationship": "The campaign re-archived all 1105 frozen build files. Every path and file SHA matches the build provenance; gzip/archive bytes differ from the earlier build preparation archive. dds.sourceArchiveSha256 identifies the original build archive, not the public campaign archive.",
+    "peerBinarySha256": "015c32a0dcfdb9194a7fe07d8fe57c372190df9347e566ece173b6fca22478b5",
+    "peerBuildSourceSha256": "069daff178b66f3b71e2ffce178a1a1b6db5faf41410d7e3056d989d16b821a1",
+    "peerBuildSourceFiles": 428,
+    "trioRecordedSources": {
+      "scripts/run_heterogeneous_exploration_fixture.py": "14bd468521babbc5c69c104935b07c6991ca87890fdbd393608b1f4d7c6a8c06",
+      "scripts/spatial_exploration_benchmark.py": "4333fc5c3430461d2ba3856aa5697f352d22322212ef8a516c543a6f8c80e114",
+      "robot/gateway/tangying_robot_gateway/spatial_exploration.py": "6448137aca8de41f3e5e55a777f25aefbd75819e6483da45e864a88828dad166",
+      "robot/gateway/tangying_robot_gateway/spatial_mission.py": "4e795ba453c96eb2a81b02bbcb7adfc412c731b40dc0296db1223c618fc81f68",
+      "robot/gateway/tangying_robot_gateway/spatial_navigation.py": "3f3d87bac8870ff42060ca39e3d04d72fff25274d4dd2dd1eac5310c3c12bfd4"
+    }
+  },
+  "workingTreeDelta": {
+    "observedAt": "2026-10-18T06:20:14.429265+00:00",
+    "changedPathsWithinDDSFrozenSourceSet": [
+      {
+        "path": "agentruntime/ops_visibility.go",
+        "frozenSha256": "110c7bb54c4f570524ddb06c6f116876cc35c20d6f345be594d611c5aa908457",
+        "currentSha256": "33078bd305f7427a7ac8a1324d6a121a3920567d4e3d13e2f22198f862649d1c"
+      },
+      {
+        "path": "agentruntime/ops_visibility_test.go",
+        "frozenSha256": "1569aef752ed9d197d91bef86741f8a228ec9035277bfa872df898ad6f9cc478",
+        "currentSha256": "74bcd34779d38c32a3345733dbd168e3e29c9617063d4192452b18c2ea2d6bb1"
+      },
+      {
+        "path": "robot/gateway/tests/test_spatial_peer_exchange.py",
+        "frozenSha256": "004f01ed7a6dc2febe6acf44267070ebc4f9c7c2c95252e23865de5282db19ce",
+        "currentSha256": "8e7aa866ea8b46eb1a432500180cd021d9e59940cebbbdb69f3f81754a1c75c8"
+      }
+    ],
+    "comparisonScope": "only the 1105 named DDS frozen source files; new files outside that set are not covered by this diff",
+    "postDDSChangesNotValidatedByOldBinary": [
+      "final Ops missing-driver health classification repair",
+      "final Ops unknown-command finding cannot be cleared by empty state after bridge restart",
+      "DJI/Unitree/AGV commissioning and interface-binding additions",
+      "documentation and public evidence index/verification additions"
+    ],
+    "interpretation": "The old DDS results bind exclusively to their frozen source and binary hashes. Current working-tree changes require separate regression or commissioning evidence and cannot be attributed retroactively to that binary."
+  },
+  "failuresAndAmendments": {
+    "rosAndSoftwareAttempts": [
+      {
+        "id": "host-cwd-01",
+        "classification": "preparation_not_executed",
+        "evidence": "preparation/launch-attempt01.json",
+        "reason": "Selected new cwd before creating it."
+      },
+      {
+        "id": "source-build-01",
+        "classification": "preparation_failed",
+        "evidence": "preparation/linux-build.log",
+        "reason": "Frozen source set omitted incidents and latency; fixed source capture and preserved previous snapshot."
+      },
+      {
+        "id": "python-launch-01",
+        "classification": "preparation_failed",
+        "evidence": "preparation/software-round-01.log",
+        "reason": "Ambient python3 resolved to3.9 under snapshot cwd; used explicit project Python3.11."
+      },
+      {
+        "id": "container-01",
+        "classification": "preparation_failed_no_task_dispatched",
+        "evidence": "preparation/ros-colcon-build.log",
+        "reason": "Missing safety_supervisor dependency; changed colcon packages-select to packages-up-to."
+      },
+      {
+        "id": "dds-02",
+        "classification": "development_pass_excluded_from_final_denominator",
+        "evidence": "container-evidence-attempt02/campaign/summary.json",
+        "reason": "Initial overlap with concurrent Go workloads; retained9/9 routes and18/18 faultcases, repeated final in isolation."
+      },
+      {
+        "id": "dds-03",
+        "classification": "final_pass",
+        "evidence": "container-evidence-attempt03/campaign/summary.json",
+        "reason": "Final fixed source and binary; no heavy Go campaign running."
+      },
+      {
+        "id": "software-01",
+        "classification": "operator_interrupted_not_completed",
+        "evidence": "software-campaign-round-01/summary.json",
+        "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+      },
+      {
+        "id": "software-02",
+        "classification": "operator_interrupted_not_completed",
+        "evidence": "software-campaign-round-02/summary.json",
+        "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+      },
+      {
+        "id": "software-03",
+        "classification": "operator_interrupted_not_completed",
+        "evidence": "software-campaign-round-03/summary.json",
+        "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+      },
+      {
+        "id": "software-04",
+        "classification": "final_pass",
+        "evidence": "software-campaign-round-04/summary.json",
+        "reason": "One completed serial software campaign after DDS; planned three repetitions amended explicitly."
+      }
+    ],
+    "peerAttempts": [
+      {
+        "id": "001",
+        "outcome": "failed",
+        "reason": "short TTL and negative-age injection sequence interfered; experiment sequencing/window fixed without relaxing admission"
+      },
+      {
+        "id": "005",
+        "outcome": "preflight_failed_no_campaign_started",
+        "reason": "vendored go list module directory metadata absent; archive helper corrected and validated separately"
+      }
+    ],
+    "validationFailures": [
+      {
+        "path": "validation/ops-before-fix.log",
+        "outcome": "expected_defect_reproduction"
+      },
+      {
+        "path": "validation/ops-after-fix-01.log",
+        "outcome": "test_fixture_clock_and_assertion_failures_then_repaired"
+      },
+      {
+        "path": "validation/ops-go-race-01.log",
+        "outcome": "10_minute_timeout_in_long_campaign_not_a_pass",
+        "laterEvidence": "targeted race checks passed; completed long software campaign ran without race instrumentation"
+      }
+    ]
+  },
+  "publicEvidence": {
+    "directory": "docs/experiments/evidence/2026-10-18-edge-swarm-readiness",
+    "archiveSha256": "423a48cb98b79fa4ca5c74eddab95ee9c12e0d71665762faa83c6ae1decc89b7",
+    "archiveBytes": 43569575,
+    "archiveMembers": 1485,
+    "masterManifestSha256": "d9e2a59cd9ff436ebf65ff4e9b519d2597a71d21bbbfa25940330e3e82dbd8fc",
+    "publicFileCountExcludingMasterManifest": 18,
+    "summaryCopiesEqualArchive": {
+      "ros-summary.json": "ros-final/summary.json",
+      "software-summary.json": "software-04/summary.json",
+      "trio-summary.json": "trio-002/summary.json"
+    },
+    "verification": {
+      "verifiedPublicFiles": 18,
+      "verifiedArchiveMembers": 1485,
+      "verifiedSupplementMembers": 74,
+      "ddsRecordedTasks": 9,
+      "trioPartialTasks": 6,
+      "physicalValidation": false,
+      "physicalRerun": false
+    },
+    "trioRecalculation": {
+      "verifiedEpisodes": 6,
+      "passed": true,
+      "physicalRerun": false,
+      "softwareErrors": 0
+    },
+    "credentialAudit": {
+      "file": "credential-audit.json",
+      "unreviewedFindings": 0,
+      "sessionFilesOmitted": 18
+    },
+    "originalROSManifestVerificationOnPublicSubset": false,
+    "reason": "18 private console-session files were intentionally omitted; original manifest bytes remain intact, so use the public manifest for the redacted export.",
+    "supplement": {
+      "file": "post-review.tar.gz",
+      "sha256": "14950bc9946802c57fb5ce29aa73d8d908710e0d104998fb7e10edb1a40d82a4",
+      "bytes": 131886,
+      "members": 74,
+      "listing": "post-review-members.json",
+      "record": "final-validation.json",
+      "hardwareValidation": false,
+      "ddsRerun": false
+    }
+  },
+  "finalIntegrationValidation": {
+    "record": "docs/experiments/evidence/2026-10-18-edge-swarm-readiness/final-validation.json",
+    "recordSha256": "a6ff11779bc7eb085b757c48b0b34c26c7d60f9fdd2f74364e1509d81f32bedf",
+    "checksPassed": 8,
+    "vendorTestsPassed": 36,
+    "documentationTestsPassed": 52,
+    "localAndLinuxArm64BuildsPassed": true,
+    "hardwareValidation": false,
+    "ddsRerun": false
+  }
+}

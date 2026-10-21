@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "exploration.first-scan.acceptance.v1",
+  "passed": true,
+  "scope": "gazebo_runtime_mapping_build_explore",
+  "physicalCertification": false,
+  "naturalLanguageHostTest": false,
+  "wholeEnvironmentCoverage": false,
+  "coverageGroundTruth": "not_measured",
+  "startedAtUnixMs": 1792169863839,
+  "runtime": "127.0.0.1:50572",
+  "parameters": {
+    "mode": "explore",
+    "name": "first-scene-exploration",
+    "maxTravelM": 8.0,
+    "maxLegs": 1
+  },
+  "registeredMapCold": true,
+  "robotId": "gazebo-firstscan-20261017-002",
+  "operationId": "96f3c4bdaf2b480dac98f9c0f511bb47",
+  "state": "completed",
+  "operationTravelledM": 7.876806723984153,
+  "stopReason": "travel_budget",
+  "exploration": {
+    "visitedViewpoints": 11.0,
+    "leg": 1.0,
+    "routeFailuresSinceProgress": 0.0,
+    "cells": 38804.0,
+    "occupied": 1478.0,
+    "target": [
+      2.708,
+      1.905
+    ],
+    "refused": 0.0,
+    "initialScanStatus": "returned",
+    "terminationMeaning": "partial",
+    "stopReason": "travel_budget",
+    "unknownFraction": 0.401479,
+    "free": 21747.0,
+    "initialScanAttempted": true,
+    "unknown": 15579.0,
+    "coverageScope": "observed_grid_nonblind_frontiers"
+  },
+  "mapId": "scan-96f3c4bdaf2b",
+  "mapRevision": "a5d96cd3c32d605ba9990b20d7f52c56e74ad36a6d59aaaf2fd746531179d998",
+  "mapArtifactVerification": true,
+  "sourceChangedDuringRun": false,
+  "finishedAtUnixMs": 1792170084087,
+  "elapsedS": 220.245083
+}

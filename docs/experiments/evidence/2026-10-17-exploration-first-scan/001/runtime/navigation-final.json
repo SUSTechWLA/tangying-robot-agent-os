@@ -1,0 +1,22 @@
+{
+  "mapId": "scan-1c45121a6905",
+  "ready": true,
+  "poseObservedAtUnixMs": 1792169131664.0,
+  "poseSource": "registered_localization",
+  "gridUnavailable": false,
+  "poseFusionSource": "imu_roll_pitch_odom_yaw",
+  "mapPose": [
+    0.5469451241187714,
+    3.6868895849901593,
+    0.035,
+    0.046888271330034696,
+    0.0,
+    0.0,
+    0.9989001401600067
+  ],
+  "localizationState": "localized",
+  "observedAtUnixMs": 1792169131765.0,
+  "mapRevision": "3ad7a696ac562554659602ea0345af0718b34436568da323d19a5df6c36cf516",
+  "mode": "localization",
+  "robotId": "gazebo-firstscan-20261017-001"
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "host-cwd-01",
+    "classification": "preparation_not_executed",
+    "evidence": "preparation/launch-attempt01.json",
+    "reason": "Selected new cwd before creating it."
+  },
+  {
+    "id": "source-build-01",
+    "classification": "preparation_failed",
+    "evidence": "preparation/linux-build.log",
+    "reason": "Frozen source set omitted incidents and latency; fixed source capture and preserved previous snapshot."
+  },
+  {
+    "id": "python-launch-01",
+    "classification": "preparation_failed",
+    "evidence": "preparation/software-round-01.log",
+    "reason": "Ambient python3 resolved to3.9 under snapshot cwd; used explicit project Python3.11."
+  },
+  {
+    "id": "container-01",
+    "classification": "preparation_failed_no_task_dispatched",
+    "evidence": "preparation/ros-colcon-build.log",
+    "reason": "Missing safety_supervisor dependency; changed colcon packages-select to packages-up-to."
+  },
+  {
+    "id": "dds-02",
+    "classification": "development_pass_excluded_from_final_denominator",
+    "evidence": "container-evidence-attempt02/campaign/summary.json",
+    "reason": "Initial overlap with concurrent Go workloads; retained9/9 routes and18/18 faultcases, repeated final in isolation."
+  },
+  {
+    "id": "dds-03",
+    "classification": "final_pass",
+    "evidence": "container-evidence-attempt03/campaign/summary.json",
+    "reason": "Final fixed source and binary; no heavy Go campaign running."
+  },
+  {
+    "id": "software-01",
+    "classification": "operator_interrupted_not_completed",
+    "evidence": "software-campaign-round-01/summary.json",
+    "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+  },
+  {
+    "id": "software-02",
+    "classification": "operator_interrupted_not_completed",
+    "evidence": "software-campaign-round-02/summary.json",
+    "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+  },
+  {
+    "id": "software-03",
+    "classification": "operator_interrupted_not_completed",
+    "evidence": "software-campaign-round-03/summary.json",
+    "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+  },
+  {
+    "id": "software-04",
+    "classification": "final_pass",
+    "evidence": "software-campaign-round-04/summary.json",
+    "reason": "One completed serial software campaign after DDS; planned three repetitions amended explicitly."
+  }
+]

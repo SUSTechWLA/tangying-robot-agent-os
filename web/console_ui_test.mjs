@@ -36,6 +36,12 @@ test("setup pages report robot services instead of camera loading", () => {
   assert.equal(ui.topConnectionPresentation("workspace", { connection: "LOADING" }).label, "正在加载画面");
 });
 
+test("device page distinguishes Runtime connectivity from camera and history availability", () => {
+  assert.equal(ui.topConnectionPresentation("devices", { runtimeConnected: true, connection: "UNAVAILABLE" }).label, "Runtime 已连接");
+  assert.match(ui.topConnectionPresentation("devices", { runtimeConnected: false, historyAvailable: true }).detail, /仍可回溯/);
+  assert.equal(ui.topConnectionPresentation("devices", { mode: "fleet", connection: "STALE" }).label, "场景更新延迟");
+});
+
 test("task state labels distinguish failure, cancellation and waiting for approval", () => {
   assert.equal(ui.taskPresentation("SUCCEEDED").label, "任务已完成");
   assert.equal(ui.taskPresentation("FAILED").tone, "danger");
@@ -74,6 +80,10 @@ test("task templates respect Gazebo's commissioned home scene", () => {
 function createConsoleShell({ hash = "#workspace", clipboard, edition = "full" } = {}) {
   const nodes = new Map();
   const scrollCalls = [];
+  const historyCalls = [];
+  const globalListeners = new Map();
+  const dispatchedEvents = [];
+  const location = { hash };
   const node = id => {
     if (!nodes.has(id)) {
       nodes.set(id, {
@@ -86,7 +96,7 @@ function createConsoleShell({ hash = "#workspace", clipboard, edition = "full" }
         append(child) { this.children.push(child); },
         replaceChildren() { this.children = []; },
         focus() { this.focused = true; },
-        scrollIntoView() {},
+        scrollIntoView(options) { this.scrollOptions = options; },
       });
     }
     return nodes.get(id);
@@ -106,17 +116,18 @@ function createConsoleShell({ hash = "#workspace", clipboard, edition = "full" }
     Event: class { constructor(type) { this.type = type; } },
     MutationObserver: class { observe() {} },
     navigator: { clipboard: clipboard || { writeText: async () => {} } },
-    location: { hash },
-    history: { replaceState() {} },
+    location,
+    history: { replaceState(_state, _title, url) { historyCalls.push(url); location.hash = url; } },
     matchMedia: () => ({ matches: false }),
     scrollTo: options => { scrollCalls.push(options); },
-    addEventListener() {},
-    dispatchEvent() { return true; },
+    addEventListener(name, callback) { globalListeners.set(name, callback); },
+    dispatchEvent(event) { dispatchedEvents.push(event.type); globalListeners.get(event.type)?.(event); return true; },
     document: {
       body: { dataset: { page: "workspace", audience: "operator" } },
       querySelector(selector) {
         if (selector.startsWith("meta[")) return { content: edition };
         if (selector === ".support-summary") return node("support-summary");
+        if (selector === ".skip-link") return node("skip-link");
         return selector.startsWith("#") ? node(selector.slice(1)) : null;
       },
       querySelectorAll(selector) {
@@ -129,8 +140,49 @@ function createConsoleShell({ hash = "#workspace", clipboard, edition = "full" }
   };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox);
-  return { ui: sandbox.TangyingConsoleUI, scrollCalls, nodes, body: sandbox.document.body };
+  return { ui: sandbox.TangyingConsoleUI, scrollCalls, historyCalls, dispatchedEvents, location, nodes, panels,
+    dispatchEvent: sandbox.dispatchEvent, body: sandbox.document.body };
 }
+
+test("the skip link focuses the current page without changing its route or history", () => {
+  const shell = createConsoleShell({ hash: "#tasks" });
+  shell.ui.update({ task: { id: "task-review", state: "FAILED" } });
+  const historyBefore = [...shell.historyCalls];
+  const eventsBefore = [...shell.dispatchedEvents];
+  const scrollsBefore = shell.scrollCalls.length;
+  let prevented = false;
+  shell.nodes.get("skip-link").dispatchEvent({ type: "click", preventDefault() { prevented = true; } });
+  // Simulate the browser's anchor navigation unless the handler prevented it.
+  if (!prevented) {
+    shell.location.hash = "#page-title";
+    shell.dispatchEvent({ type: "hashchange" });
+  }
+  assert.equal(prevented, true);
+  assert.equal(shell.body.dataset.page, "tasks");
+  assert.equal(shell.location.hash, "#tasks");
+  assert.deepEqual(shell.historyCalls, historyBefore);
+  assert.deepEqual(shell.dispatchedEvents, eventsBefore, "skipping navigation must not reload page data");
+  assert.equal(shell.panels[1].hidden, false);
+  assert.equal(shell.nodes.get("replay-task-id").textContent, "task-review");
+  assert.equal(shell.nodes.get("page-title").focused, true);
+  assert.equal(shell.nodes.get("page-title").scrollOptions.block, "start");
+  assert.equal(shell.nodes.get("page-title").scrollOptions.behavior, "instant");
+  assert.equal(shell.scrollCalls.length, scrollsBefore);
+});
+
+test("hash changes still restore routes and enforce the diagnostics presentation boundary", () => {
+  const shell = createConsoleShell({ hash: "#tasks" });
+  for (const route of ["workspace", "tasks"]) {
+    shell.location.hash = `#${route}`;
+    shell.dispatchEvent({ type: "hashchange" });
+    assert.equal(shell.body.dataset.page, route);
+    assert.equal(shell.nodes.get(`nav-${route}`).attributes.get("aria-current"), "page");
+  }
+  shell.location.hash = "#diagnostics";
+  shell.dispatchEvent({ type: "hashchange" });
+  assert.equal(shell.body.dataset.page, "workspace");
+  assert.equal(shell.location.hash, "#workspace");
+});
 
 test("a page change returns to the top but re-entering the page does not", () => {
   const shell = createConsoleShell();

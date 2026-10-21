@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "spatial.trio.fixture.v1",
+  "seeds": [3, 7, 19],
+  "maxRounds": 18,
+  "maxSteps": 54,
+  "maxTravelM": 200.0,
+  "taskText": "无人机、无人车和足式机器人协同探索当前未知仓库，依据传感器观测逐步完善三维地图，互相共享地图发现，避免重复覆盖；发生通信中断继续保留本地证据，执行状态未知时先取得停止回执再继续，并完整记录未完成区域。",
+  "sensor": {"range_m": 3.6, "horizontal_fov_rad": 3.141592653589793, "vertical_fov_rad": 2.0943951023931953},
+  "exploration": {"strategy": "information_gain", "use_global_reposition": true, "visibility_gain": true, "max_candidates": 32, "max_rays": 49, "max_ray_steps": 8192, "max_plan_calls": 6}
+}

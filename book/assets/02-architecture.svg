@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 650" role="img" aria-labelledby="title description">
+<title id="title">图 2-1　谁决定目标，谁拥有动作，谁证明完成</title><desc id="description">虚线表示观察与反馈；实线表示有权限的调用。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="650" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 2-1　谁决定目标，谁拥有动作，谁证明完成</text>
+<rect x="30" y="95" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="46" y="124" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">云端协调</text>
+<text x="46" y="153" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">粗目标、批准、claim</text>
+<text x="46" y="177" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">不进入电机控制循环</text>
+<rect x="350" y="95" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="366" y="124" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">Local / Worker 入口</text>
+<text x="366" y="153" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">二选一装配同一 Host</text>
+<text x="366" y="177" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">持有本机任务生命周期</text>
+<rect x="670" y="95" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="686" y="124" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">模型决策服务</text>
+<text x="686" y="153" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">读取有界上下文</text>
+<text x="686" y="177" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">输出候选子计划</text>
+<rect x="350" y="285" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="366" y="314" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">执行与设备 Harness</text>
+<text x="366" y="343" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">合同 / 目录 / 预算 / 身份</text>
+<text x="366" y="367" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">Executor → Robot Runtime</text>
+<rect x="30" y="475" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="46" y="504" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">证据与持久状态</text>
+<text x="46" y="533" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">Task / SQLite / journal</text>
+<text x="46" y="557" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">历史与待核对结果</text>
+<rect x="350" y="475" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="366" y="504" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">ROS 2 与本体控制器</text>
+<text x="366" y="533" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">Action / 反馈 / 受控停止</text>
+<text x="366" y="557" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">AGV、足式、无人机</text>
+<rect x="670" y="475" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="686" y="504" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">现场观测与验证</text>
+<text x="686" y="533" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">采集时间 / 坐标 / 来源</text>
+<text x="686" y="557" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">确认到达或保持未知</text>
+<line x1="290" y1="147" x2="350" y2="147" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="134" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">合同</text>
+<line x1="610" y1="147" x2="670" y2="147" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="134" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">规划</text>
+<line x1="480" y1="200" x2="480" y2="285" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="250" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">已准入子计划</text>
+<line x1="480" y1="390" x2="480" y2="475" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="437" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">设备命令</text>
+<line x1="610" y1="527" x2="670" y2="527" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="513" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">测量</text>
+<path d="M350,175 L320,175 L320,440 L160,440 L160,475" fill="none" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M350,338 L320,338" fill="none" stroke="#006f78" stroke-width="2"/>
+<text x="170" y="430" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">留存状态与执行记录</text>
+<path d="M800,200 L800,225 L600,225 L600,200" fill="none" stroke="#006f78" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+<text x="670" y="217" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="start" fill="#173544">候选计划</text>
+<path d="M800,475 L800,255 L565,255 L565,200" fill="none" stroke="#006f78" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+<text x="805" y="355" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">反馈</text>
+<text x="30" y="625" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">规划可变化；动作所有者、执行身份与观测来源必须可核对。</text>
+</svg>

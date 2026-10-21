@@ -1,0 +1,35 @@
+$ python3 scripts/build_docs_catalog.py
+Wrote docs/catalog.md
+
+exitCode=0
+
+$ .venv/bin/python -m pytest -q -o addopts= tests/docs tests/book
+....................................................                     [100%]
+52 passed in 2.14s
+
+exitCode=0
+
+$ go test ./tests/docs
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/docs	0.674s
+
+exitCode=0
+
+$ make book-check
+python3.11 scripts/build_book.py --check
+Book sources and generated Markdown verified: 31 sections
+
+exitCode=0
+
+$ python3 scripts/build_docs_catalog.py --check
+Documentation catalog is current
+
+exitCode=0
+
+$ .venv/bin/ruff check scripts/plot_spatial_exploration.py
+All checks passed!
+
+exitCode=0
+
+$ git diff --check
+
+exitCode=0

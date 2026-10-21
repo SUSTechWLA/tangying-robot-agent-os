@@ -1,4 +1,4 @@
-"""Frontier exploration: choose where to look next so a survey finishes in one pass.
+"""Frontier exploration: choose a reachable viewpoint for the next scan.
 
 A fixed waypoint route cannot know what a room contains, so it always leaves
 something unscanned and the operator has to go back. Frontier exploration
@@ -9,9 +9,9 @@ The pieces here are deliberately pure - a grid in, a decision out - so the
 policy can be tested on synthetic maps without a robot, and so the runtime that
 executes it stays a thin loop. Three properties matter and each has a test:
 
-* An unknown cell is never planned through. Only measured floor counts as
-  traversable, because driving into unmapped space on the strength of a guess is
-  how a survey becomes a collision.
+* Unknown space grants no motion authority. Measured floor and a trusted local
+  robot footprint can be traversable; the latter only bridges the camera's
+  near-field gap and never overrides obstacles, clearance or refusals.
 * Clearance is the commissioned envelope, not the chassis radius. A path that
   fits the robot but not its safety envelope is a path the driver will refuse,
   and a planner that keeps proposing refused paths wastes the whole survey.
@@ -142,19 +142,31 @@ class Grid:
 
         Used to decide whether standing somewhere and turning is worth its
         keyframes, so it counts unknown cells only: occupied and free are both
-        settled knowledge.
+        settled knowledge. The disc is centred on the containing grid cell;
+        cells beyond the current map extent count as unknown. A first RGB-D
+        view often creates a tiny, mostly free map, whose clipped bounds must
+        not make the unobserved directions look measured.
         """
+        if not math.isfinite(radius_m) or radius_m < 0:
+            raise ValueError("observation radius must be non-negative and finite")
         reach = max(1, math.ceil(radius_m / self.resolution))
         row, column = self.row(y), self.column(x)
+        offsets = np.arange(-reach, reach + 1)
+        disc = (offsets[:, None] ** 2 + offsets[None, :] ** 2
+                <= (radius_m / self.resolution) ** 2)
+        total = int(disc.sum())
         r0, r1 = max(0, row - reach), min(self.cells.shape[0], row + reach + 1)
         c0, c1 = max(0, column - reach), min(self.cells.shape[1], column + reach + 1)
         if r0 >= r1 or c0 >= c1:
             return 1.0
         window = self.cells[r0:r1, c0:c1]
-        return float(np.count_nonzero(window < 0)) / float(window.size)
+        inside = disc[r0 - (row - reach):r1 - (row - reach),
+                      c0 - (column - reach):c1 - (column - reach)]
+        known = int(np.count_nonzero(inside & (window >= 0)))
+        return (total - known) / total
 
 
-def _traversable_with_avoid(grid, radius_m, avoid_xy):
+def _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable=None):
     """Where the robot may be planned, minus the approaches it was refused.
 
     The exclusion is deliberately smaller than the planning clearance: what the
@@ -162,29 +174,39 @@ def _traversable_with_avoid(grid, radius_m, avoid_xy):
     neighbourhood of every refusal eventually walls off regions the robot can
     reach by another route.
     """
-    traversable = traversable_mask(grid.cells, radius_m / grid.resolution)
+    clear = clearance_mask(grid.cells, radius_m / grid.resolution)
+    traversable = (grid.cells == 0) & clear
+    if extra_traversable is not None:
+        extra = np.asarray(extra_traversable, dtype=bool)
+        if extra.shape != grid.cells.shape:
+            raise ValueError("footprint mask must match occupancy grid")
+        # Only a trusted, locally evidenced robot footprint may bridge the
+        # camera's near-field gap. It cannot override measured obstacles, the
+        # commissioned clearance, or a driver's refused approach below.
+        traversable |= extra & (grid.cells < OCCUPIED) & clear
+    return _exclude_neighbourhoods(grid, traversable, avoid_xy)
+
+
+def _exclude_neighbourhoods(grid, mask, points):
+    """Remove local coordinates from an owned mask without changing the map."""
     reach = max(1, math.ceil(AVOID_RADIUS_M / grid.resolution))
-    for x, y in avoid_xy:
+    for x, y in points:
         column, row = grid.column(x), grid.row(y)
         r0, r1 = max(0, row - reach), min(grid.cells.shape[0], row + reach + 1)
         c0, c1 = max(0, column - reach), min(grid.cells.shape[1], column + reach + 1)
-        traversable[r0:r1, c0:c1] = False
-    return traversable
+        mask[r0:r1, c0:c1] = False
+    return mask
 
 
 def plan_route(grid, *, robot_xy, goal_xy, radius_m, avoid_xy=(), extra_traversable=None):
     """Route to an already chosen viewpoint under the same clearance rules."""
-    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy)
-    if extra_traversable is not None:
-        traversable = traversable | extra_traversable
+    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable)
     return plan_path(grid, traversable, robot_xy, goal_xy)
 
 
 def traversable_for(grid, radius_m, avoid_xy=(), extra_traversable=None):
     """The planning mask the explorer uses, exposed for waypoint validation."""
-    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy)
-    if extra_traversable is not None:
-        traversable = traversable | extra_traversable
+    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable)
     return traversable
 
 
@@ -240,15 +262,15 @@ def clearance_mask(cells, radius_cells):
     # to the other. Reachable in production the moment a clearance envelope is
     # wider than the map it is planning on - which is exactly what a caller asking
     # for a large envelope on a small grid does.
-    if reach >= max(height, width):
-        reach = max(height, width) - 1
-    reach = max(0, reach)
-    if reach == 0:
-        return ~blocked
     # The obstacle itself is never clear either, even though the shift loop
     # below only ever considers its neighbours.
     clear = ~blocked
-    offsets = [(dr, dc) for dr in range(-reach, reach + 1) for dc in range(-reach, reach + 1)
+    # Bound the enumeration by the map, while keeping the requested physical
+    # radius. Shrinking the radius itself to max(height, width)-1 left distant
+    # corners clear on a rectangular map even for an envelope covering it all.
+    row_reach, column_reach = min(reach, height - 1), min(reach, width - 1)
+    offsets = [(dr, dc) for dr in range(-row_reach, row_reach + 1)
+               for dc in range(-column_reach, column_reach + 1)
                if 0 < dr * dr + dc * dc <= reach * reach]
     for dr, dc in offsets:
         r0, r1 = max(0, dr), min(height, height + dr)
@@ -454,16 +476,22 @@ def _nearest_via_tree(tree, points, coordinates, row, column, reach_cells):
 def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
                    min_frontier_area_m2=MIN_FRONTIER_AREA_M2, candidates=10,
                    avoid_xy=(), blind=None,
-                   extra_traversable=None, max_clusters=MAX_FRONTIER_CLUSTERS):
-    """The frontier worth driving to next, or ``None`` when the survey is done.
+                   extra_traversable=None, max_clusters=MAX_FRONTIER_CLUSTERS,
+                   exclude_viewpoints=()):
+    """The frontier worth driving to next, or ``None`` when none is eligible.
 
-    ``None`` is a real answer, not a failure: it means every remaining unknown
-    cell is either unreachable through measured free space or not worth the
-    travel, which is exactly the condition for calling a map complete.
+    ``None`` only describes this observed grid and its planning limits. The
+    caller must distinguish a fully settled reachable map from an empty map,
+    disconnected frontiers or an exhausted budget; it is not proof that an
+    entire previously unknown environment has been covered.
 
     ``avoid_xy`` carries viewpoints the driver already refused. A refusal is
     local evidence about a specific approach, so the survey routes around it and
     keeps going instead of either retrying or giving up on the house.
+
+    ``exclude_viewpoints`` retires already visited or uninformative targets.
+    Those positions remain traversable: a failed observation at the current
+    pose is not physical evidence that the robot cannot drive away from it.
 
     ``blind`` marks the space the sensor has already proved it cannot see from
     where the robot has been - for a forward-facing base camera, the floor
@@ -486,34 +514,48 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
     labels, count = _components(frontier)
     if not count:
         return None
-    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy)
-    if extra_traversable is not None:
-        traversable = traversable | extra_traversable
+    traversable = _traversable_with_avoid(grid, radius_m, avoid_xy, extra_traversable)
     unknown = (cells < 0).astype(np.int64)
     integral = np.zeros((unknown.shape[0] + 1, unknown.shape[1] + 1), dtype=np.int64)
     np.cumsum(np.cumsum(unknown, axis=0), axis=1, out=integral[1:, 1:])
-    reach = max(1, math.ceil(sensor_radius_m / grid.resolution))
-    tree, tree_points, tree_coordinates = _traversable_tree(traversable)
-    if tree is None:
-        return None
-    near = max(1, math.ceil(0.6 / grid.resolution))
-
     sizes = np.bincount(labels[frontier].ravel(), minlength=count)
     start = grid.nearest_free_cell(*robot_xy)
     if start is None:
         return None
+    from scipy import ndimage
+
+    # The nearest floor cell may belong to an isolated map fragment. Restrict
+    # viewpoint lookup to this robot's reachable component before spending the
+    # bounded cluster/search budget. Four-connected components have the same
+    # reachability as A*'s corner-safe diagonals: every allowed diagonal also
+    # has both orthogonal steps available. Open only the same start cell that
+    # plan_path permits a parked robot to leave.
+    reachable = traversable.copy()
+    reachable[start] = True
+    connected, _ = ndimage.label(reachable)
+    # The exceptional start is a departure allowance, never a new observation
+    # target: otherwise an approach refused at this pose is selected again as
+    # the nearest viewpoint and the survey retires the same target forever.
+    reachable = (connected == connected[start]) & traversable
+    viewpoints_mask = _exclude_neighbourhoods(grid, reachable.copy(), exclude_viewpoints)
+    tree, tree_points, tree_coordinates = _traversable_tree(viewpoints_mask)
+    if tree is None:
+        return None
+    reach = max(1, math.ceil(sensor_radius_m / grid.resolution))
+    near = max(1, math.ceil(0.6 / grid.resolution))
+    approach_distance = ndimage.distance_transform_edt(~viewpoints_mask)
+    approachable = np.zeros(count, dtype=bool)
+    approachable[labels[frontier & (approach_distance <= reach)]] = True
     # A frontier mask is mostly a long ragged edge, so it labels as hundreds of
     # fragments. Scanning the whole grid once per fragment is what made a live
     # survey look like a stopped robot; bounding boxes keep the cost proportional
     # to the fragments actually considered.
     # The floor is an area, so it has to be converted at *this* grid's resolution.
     floor_cells = max(1, round(min_frontier_area_m2 / (grid.resolution ** 2)))
-    biggest = [int(label) for label in np.argsort(sizes)[::-1][:max_clusters]
-               if sizes[label] >= floor_cells]
+    biggest = [int(label) for label in np.argsort(sizes)[::-1]
+               if sizes[label] >= floor_cells and approachable[label]][:max_clusters]
     if not biggest:
         return None
-    from scipy import ndimage
-
     # find_objects numbers objects from 1 and returns one slice per object, so
     # shifting the 0-based cluster labels lines index ``label`` up with cluster
     # ``label``.
@@ -552,6 +594,13 @@ def explore_target(grid, *, robot_xy, sensor_radius_m, radius_m,
                                               row, column, reach)
                 if viewpoint is None:
                     continue
+            # A nearby approach can still be on the other side of an observed
+            # wall. Unknown cells can promise information, but a measured
+            # obstacle cannot be looked through. This is a sensing visibility
+            # check; it never grants motion through the unknown cells.
+            if not _straight_line_clear(grid, grid.centre(*viewpoint),
+                                        grid.centre(row, column), cells < OCCUPIED):
+                continue
             distance = math.hypot(viewpoint[0] - start[0], viewpoint[1] - start[1])
             graded.append((distance, viewpoint))
         if not graded:
@@ -636,7 +685,8 @@ def coverage_report(cells):
             "unknownFraction": round(unknown / total, 6) if total else 1.0}
 
 
-def next_waypoint(grid, path, *, lookahead_m, traversable=None):
+def next_waypoint(grid, path, *, lookahead_m, traversable=None,
+                  robot_xy=None, min_step_m=0.0):
     """The point on a path to drive at now, at most ``lookahead_m`` away.
 
     Driving the whole path open loop would plan against a map that the drive
@@ -647,18 +697,41 @@ def next_waypoint(grid, path, *, lookahead_m, traversable=None):
     ahead on a route that just turned a corner asks it to cut that corner - and
     the driver refuses, because the corner it would cut is exactly the clearance
     the route existed to preserve.
+
+    Supply ``robot_xy`` and the execution adapter's ``min_step_m`` for live
+    motion. The robot rarely stands at its grid cell's centre. Checking lines
+    from that centre can leave only a one-cell corner step which is already
+    inside the adapter's deadband from the actual pose. Retiring target after
+    target cannot fix their shared first step. Check from the measured pose
+    instead, and return ``None`` if no verified candidate can be executed.
     """
     if not path:
         return None
-    start = path[0]
-    chosen = start
-    for point in path[1:]:
-        if math.hypot(point[0] - start[0], point[1] - start[1]) > lookahead_m:
+    if not math.isfinite(min_step_m) or min_step_m < 0:
+        raise ValueError("minimum motion step must be non-negative and finite")
+    start = path[0] if robot_xy is None else robot_xy
+    strict = robot_xy is not None or min_step_m > 0
+    chosen = None if strict else start
+    points = path[1:] if robot_xy is None else path
+    for point in points:
+        distance = math.hypot(point[0] - start[0], point[1] - start[1])
+        if distance > lookahead_m:
+            # Coarse grids can put the next route cell beyond the entire
+            # lookahead. Live execution may take a shorter, independently
+            # checked prefix; it must not inherit the legacy one-cell jump.
+            if strict and lookahead_m >= min_step_m and lookahead_m > 0:
+                fraction = lookahead_m / distance
+                prefix = (start[0] + fraction * (point[0] - start[0]),
+                          start[1] + fraction * (point[1] - start[1]))
+                if (traversable is None
+                        or _straight_line_clear(grid, start, prefix, traversable)):
+                    chosen = prefix
             break
         if traversable is not None and not _straight_line_clear(grid, start, point, traversable):
             break
-        chosen = point
-    if chosen == start and len(path) > 1:
+        if distance >= min_step_m:
+            chosen = point
+    if not strict and chosen == start and len(path) > 1:
         # The very next cell is the only step available; take it, because the
         # alternative is standing still until the leg times out.
         return path[1]
@@ -686,13 +759,25 @@ def _straight_line_clear(grid, start, end, traversable):
     """
     steps = max(1, int(math.hypot(end[0] - start[0], end[1] - start[1])
                        / (grid.resolution * 0.5)))
+    start_cell = (grid.row(start[1]), grid.column(start[0]))
+    previous = start_cell
     for index in range(1, steps + 1):
         fraction = index / steps
         x = start[0] + (end[0] - start[0]) * fraction
         y = start[1] + (end[1] - start[1]) * fraction
         row, column = grid.row(y), grid.column(x)
-        if not grid.inside(row, column) or not traversable[row, column]:
+        if not grid.inside(row, column):
             return False
+        # A half-cell sampling interval can still step diagonally across the
+        # exact corner of two blocked cells. Match A*'s corner rule instead of
+        # declaring that zero-width gap visible/drivable.
+        if (row != previous[0] and column != previous[1]
+                and not (traversable[previous[0], column]
+                         and traversable[row, previous[1]])):
+            return False
+        if (row, column) != start_cell and not traversable[row, column]:
+            return False
+        previous = (row, column)
     return True
 
 

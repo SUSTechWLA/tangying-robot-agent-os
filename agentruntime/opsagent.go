@@ -3,6 +3,7 @@ package agentruntime
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -110,7 +111,8 @@ type OpsAgent struct {
 	// recoverDone records that the startup sweep has run once. It runs once and
 	// not on every evaluation: the durable record's changes arrive as live
 	// events too, so re-reading it each tick would be a query to learn nothing.
-	recoverDone bool
+	recoverDone    bool
+	observationGap string
 }
 
 var _ agentcontract.Agent = (*OpsAgent)(nil)
@@ -174,12 +176,13 @@ func (a *OpsAgent) Permissions() agentcontract.Permission {
 // It reports DEGRADED rather than HEALTHY when it is running but has no
 // observation to reason about: an observer that cannot see is not healthy, and
 // saying so is the difference between "nothing is wrong" and "I cannot tell".
-func (a *OpsAgent) Health(_ context.Context) agentcontract.Health {
+func (a *OpsAgent) Health(ctx context.Context) agentcontract.Health {
 	now := a.now().UTC()
 	a.mu.Lock()
 	stopped := a.stopped
 	latestTask := a.latestTask
 	pendingClears := len(a.pendingClears)
+	observationGap := a.observationGap
 	a.mu.Unlock()
 
 	if stopped {
@@ -192,6 +195,9 @@ func (a *OpsAgent) Health(_ context.Context) agentcontract.Health {
 			ReasonCode: "OPS_CLEAR_NOT_PERSISTED", CheckedAt: now,
 			Detail: map[string]string{"reason": "an observed closing edge awaits durable persistence; automatic reopening is not established"}}
 	}
+	if observationGap != "" {
+		return agentcontract.Health{Status: agentcontract.HealthDegraded, ReasonCode: "OBSERVABILITY_GAP", Detail: map[string]string{"source": observationGap}, CheckedAt: now}
+	}
 	if a.Telemetry == nil {
 		return agentcontract.Health{
 			Status: agentcontract.HealthDegraded, ReasonCode: "TELEMETRY_UNAVAILABLE",
@@ -201,9 +207,10 @@ func (a *OpsAgent) Health(_ context.Context) agentcontract.Health {
 			CheckedAt: now,
 		}
 	}
-	readContext, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	readContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	snapshot, err := a.Telemetry(readContext, latestTask)
+	now = a.now().UTC()
 	if err != nil {
 		return agentcontract.Health{
 			Status: agentcontract.HealthDegraded, ReasonCode: "TELEMETRY_READ_FAILED",
@@ -217,6 +224,9 @@ func (a *OpsAgent) Health(_ context.Context) agentcontract.Health {
 			Detail:    map[string]string{"reason": "the telemetry source returned no observation"},
 			CheckedAt: now,
 		}
+	}
+	if reason := telemetryVisibility(&snapshot, now, a.TelemetryMaxAge); reason != "" {
+		return agentcontract.Health{Status: agentcontract.HealthDegraded, ReasonCode: reason, CheckedAt: now}
 	}
 	return agentcontract.Health{Status: agentcontract.HealthHealthy, CheckedAt: now}
 }
@@ -370,7 +380,7 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 	// restart path, and it is deliberately separate from the event path: one
 	// covers what the agent witnessed, the other covers what outlived the
 	// process that witnessed it.
-	a.learnExistingTasks(ctx)
+	historyReady := a.learnExistingTasks(ctx)
 
 	a.mu.Lock()
 	taskIDs := make([]string, 0, len(a.tasks))
@@ -392,8 +402,9 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 		TelemetryMaxAge:   a.TelemetryMaxAge,
 		StepLatencyBudget: a.StepLatencyBudget,
 	}
-	input.UncertainSteps = a.uncertainSteps(ctx, taskIDs)
-	input.AbnormalTasks = a.abnormalTasks(ctx)
+	var executionReady, abnormalReady bool
+	input.UncertainSteps, executionReady = a.uncertainSteps(ctx, taskIDs)
+	input.AbnormalTasks, abnormalReady = a.abnormalTasks(ctx)
 	if a.Telemetry != nil {
 		snapshot, err := a.Telemetry(ctx, latestTask)
 		if err == nil {
@@ -402,7 +413,33 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 		}
 	}
 
+	input.Now = a.now().UTC()
 	findings := Evaluate(input)
+	gaps := []string{}
+	if !historyReady {
+		gaps = append(gaps, "startup_history")
+	}
+	if !executionReady && a.Memory.Execution != nil {
+		gaps = append(gaps, "execution_records")
+	}
+	if !abnormalReady {
+		gaps = append(gaps, "task_history")
+	}
+	a.mu.Lock()
+	a.observationGap = strings.Join(gaps, ",")
+	a.mu.Unlock()
+	if len(gaps) > 0 {
+		findings = append(findings, Finding{Code: AnomalyObservabilityGap, Severity: SeverityWarning, Component: "task_store",
+			Message: "任务或执行记录读取失败，不能确认历史故障已恢复", Confidence: 1,
+			Facts:           map[string]any{"sources": strings.Join(gaps, ",")},
+			MissingEvidence: []string{"持久任务记录不可读"}, RecommendedActions: []string{"恢复任务库可读性；保留原库与未决命令，不通过清空历史恢复"}})
+	}
+	telemetryReady := telemetryVisibility(input.Snapshot, input.Now, input.TelemetryMaxAge) == ""
+	findings = a.retainUnobserved(findings, latestTask, input, map[string]bool{
+		AnomalySafetyStop: telemetryReady, AnomalyComponentFault: telemetryReady && input.Snapshot.Faults != nil,
+		AnomalyUnverifiedMutation: executionReady, AnomalyAbnormalTask: abnormalReady,
+		AnomalyHarnessHealth: telemetryReady && input.Snapshot.RobotState["harnessHealth"] != nil,
+	})
 	// Which conditions this evaluation observed. The key is the stable identity —
 	// code and component, without the count — because a count that moved is the
 	// same condition getting worse, not a different one.
@@ -435,9 +472,9 @@ func (a *OpsAgent) Observe(ctx context.Context) []Finding {
 // unknown. It reads per task and stops at the first error: a missing execution
 // store means "cannot tell", which the rules already report, and inventing an
 // empty list would read as "nothing is uncertain".
-func (a *OpsAgent) uncertainSteps(ctx context.Context, taskIDs []string) []agentcontract.StepRecord {
+func (a *OpsAgent) uncertainSteps(ctx context.Context, taskIDs []string) ([]agentcontract.StepRecord, bool) {
 	if a.Memory.Execution == nil {
-		return nil
+		return nil, len(taskIDs) == 0
 	}
 	uncertain := make([]agentcontract.StepRecord, 0)
 	for _, taskID := range taskIDs {
@@ -446,28 +483,28 @@ func (a *OpsAgent) uncertainSteps(ctx context.Context, taskIDs []string) []agent
 		}
 		steps, err := a.Memory.Execution.Uncertain(ctx, taskID)
 		if err != nil {
-			return nil
+			return uncertain, false
 		}
 		uncertain = append(uncertain, steps...)
 	}
-	return uncertain
+	return uncertain, true
 }
 
 // abnormalTasks reads the durable list of tasks that ended abnormally. It is
 // reported every evaluation rather than once, because it describes a standing
 // condition: while a task is unreviewed, an operator should keep being told.
-func (a *OpsAgent) abnormalTasks(ctx context.Context) []string {
+func (a *OpsAgent) abnormalTasks(ctx context.Context) ([]string, bool) {
 	a.mu.Lock()
 	history := a.History
 	a.mu.Unlock()
 	if history == nil {
-		return nil
+		return nil, true
 	}
 	ids, err := history.Abnormal(ctx)
 	if err != nil {
-		return nil
+		return nil, false
 	}
-	return ids
+	return ids, true
 }
 
 // publishHealth emits agent.health_changed only when the status actually
@@ -765,73 +802,53 @@ var ErrOpsAgentNotObservable = errors.New("ops agent has no observable source")
 //
 // It runs once. The durable record's changes arrive as live events too, so
 // re-reading on every tick would be a query per tick to learn nothing.
-func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
+func (a *OpsAgent) learnExistingTasks(ctx context.Context) bool {
 	a.mu.Lock()
-	alreadyDone := a.recoverDone
+	alreadyDone, history := a.recoverDone, a.History
 	a.mu.Unlock()
-	if alreadyDone {
-		return
+	if alreadyDone || history == nil {
+		return true
 	}
-
-	a.mu.Lock()
-	a.recoverDone = true
-	history := a.History
-	a.mu.Unlock()
-	if history == nil {
-		return
+	ids, err := history.TaskIDs(ctx)
+	if err != nil {
+		return false
 	}
-
-	// Both lists are consulted. A task can be on record without being abnormal
-	// (it is running, or it succeeded) and abnormal without the observer knowing
-	// which step was left unconfirmed; taking the union means neither omission
-	// hides a task.
-	recovered := map[string]struct{}{}
-	if ids, err := history.TaskIDs(ctx); err == nil {
-		for _, id := range ids {
-			if id != "" {
-				recovered[id] = struct{}{}
-			}
+	abnormal, err := history.Abnormal(ctx)
+	if err != nil {
+		return false
+	}
+	recovered := map[string][]agentcontract.TaskEvent{}
+	for _, id := range append(ids, abnormal...) {
+		if id != "" {
+			recovered[id] = nil
 		}
 	}
-	if ids, err := history.Abnormal(ctx); err == nil {
-		for _, id := range ids {
-			if id != "" {
-				recovered[id] = struct{}{}
-			}
-		}
-	}
-	if len(recovered) == 0 {
-		return
-	}
-
-	a.mu.Lock()
+	ordered := make([]string, 0, len(recovered))
 	for id := range recovered {
-		a.tasks[id] = struct{}{}
-		// A task learned from the record is a candidate scope for findings that
-		// are not about one task. Without this, a restarted observer would report
-		// a robot-wide fault with no task attached and it would never reach the
-		// ledger.
-		a.latestTask = id
+		ordered = append(ordered, id)
 	}
-	a.mu.Unlock()
-
-	// Reading the failures out of the ledger, not just the task ids.
-	//
-	// A failed tool dispatch is a historical fact, and the action that failed is
-	// what an operator needs: "this task ended abnormally" says something is
-	// wrong, while "manipulation.pick failed with GRASP_NOT_REACHED" says what.
-	// Accumulating only from live events meant a restarted supervisor could never
-	// report the second, which is the useful one.
-	//
-	// The events are fed through the same accumulator the live path uses, so a
-	// failure that outlived its process is counted exactly like one that did not.
-	for id := range recovered {
+	sort.Strings(ordered)
+	// Collect the whole read before changing counters. A retry never counts a
+	// partially imported historical event a second time.
+	for _, id := range ordered {
 		events, err := history.Events(ctx, id)
 		if err != nil {
-			continue
+			return false
 		}
+		recovered[id] = events
+	}
+	a.mu.Lock()
+	for _, id := range ordered {
+		a.tasks[id] = struct{}{}
+		if a.latestTask == "" {
+			a.latestTask = id
+		}
+	}
+	a.recoverDone = true
+	a.mu.Unlock()
+	for _, id := range ordered {
 		seen := map[string]bool{}
-		for _, event := range events {
+		for _, event := range recovered[id] {
 			if event.Type != "action.executed" && event.Type != "TOOL_ACTIVITY" && event.Type != "POLICY_PREPARATION_FAILED" && event.Type != agentcontract.TopicActionPreparationFailed {
 				continue
 			}
@@ -848,6 +865,7 @@ func (a *OpsAgent) learnExistingTasks(ctx context.Context) {
 			a.recordFailedAction(id, payload)
 		}
 	}
+	return true
 }
 
 // openCondition names one condition a finding reported: what is wrong, where, and

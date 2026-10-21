@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "research.spatial-exploration-figure.v1",
+  "input": "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/experiments/spatial-exploration-20261018-002",
+  "inputs": {
+    "summary.json": "cc950ead09158d428fb72386ca27cc33ace2988093f107764ed5ce8df951e072",
+    "episodes.csv": "b32d94bc0f612a7372b2b0cb6e01a7f693bde6a76c0d437ba1ccdcd7d09ac415",
+    "manifest.json": "df1c709b86d87108ca88b0aa9a0af6b7fbebd061a8037b5dec9c89e6975101a2"
+  },
+  "scriptSha256": "7c47243b2f1bda140b8dee89a85214eccf7bcab4569e3000dd59a6b49c72eedc",
+  "matplotlibVersion": "3.10.8",
+  "episodeN": 30,
+  "pairedSeeds": {
+    "vertical_complementarity": [
+      7,
+      19
+    ],
+    "branching_occlusion": [
+      7,
+      19
+    ],
+    "recovery_disconnect": [
+      7,
+      19
+    ]
+  },
+  "metrics": [
+    "coverageFraction",
+    "pathLengthM",
+    "messageBytes"
+  ],
+  "sampleInterpretation": "Descriptive paired samples; no statistical or physical optimality claim.",
+  "validation": "Cross-checked summary/CSV and manifest hashes, not a new sensor or path replay.",
+  "files": {
+    "paired-exploration.png": "fd24205ff3651fb6e76ed7f58c9f26ef5ae94ed85a870d46c673385a4c5f9ce3",
+    "paired-exploration.svg": "36c2406b58889f39e7598cb78593745014be7a548d78d84b3290f89822f647c3",
+    "plotted-values.csv": "85fe4710a92cfe0dfd207ccc8acf7dac79baeb41d28f961f3d8831b78802a3db"
+  }
+}

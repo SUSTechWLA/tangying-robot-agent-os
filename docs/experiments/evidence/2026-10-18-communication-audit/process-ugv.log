@@ -1,0 +1,4 @@
+2026/10/18 23:54:45 edge exchange ready: agent=edge-ugv receive=127.0.0.1:59706 admin=127.0.0.1:59707
+2026/10/18 23:54:48 exchange delivery pending: peer=edge-cloud message=sha256:6ec383afaf19b7fa5b4f5dbe8e99c958ae3bf4747cc7d9bc36708a0ed8ec5634 error=Post "http://127.0.0.1:59712/v1/exchange/receive": dial tcp 127.0.0.1:59712: connect: connection refused
+2026/10/18 23:54:48 edge exchange ready: agent=edge-ugv receive=127.0.0.1:59706 admin=127.0.0.1:59707
+2026/10/18 23:54:48 exchange delivery pending: peer=edge-cloud message=sha256:6ec383afaf19b7fa5b4f5dbe8e99c958ae3bf4747cc7d9bc36708a0ed8ec5634 error=Post "http://127.0.0.1:59712/v1/exchange/receive": dial tcp 127.0.0.1:59712: connect: connection refused

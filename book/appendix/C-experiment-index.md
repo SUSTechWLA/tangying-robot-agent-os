@@ -46,7 +46,7 @@
 | 来源 | 覆盖对象 | 不支持的更强结论 |
 | --- | --- | --- |
 | [双机交接流程](../../docs/operations/robocasa-handoff.md) | 规定物料/交接区、共享资源与按序双机流程 | 通用异构最优匹配、任意并行任务 |
-| `tests/contract/test_heterogeneous_runtime_boundary.py` | 两类 Profile、Python gRPC 与 Go 客户端的实际协议夹具 | 两类实机已合作抓放 |
+| [tests/contract/test_heterogeneous_runtime_boundary.py](../../tests/contract/test_heterogeneous_runtime_boundary.py) | 两类 Profile、Python gRPC 与 Go 客户端的实际协议夹具 | 两类实机已合作抓放 |
 | [云边验收](../../docs/production/cloud-edge-upgrade-acceptance.md) | 规定协议、存储、容器和故障分支 | 全局事务、生产 HA 或无限离线执行 |
 | [现场准备](../../docs/production/field-readiness-2026-09-26.md) | 设备接入与待验证项 | 当前全部实体现场已经放行 |
 
@@ -81,3 +81,13 @@ Git 保留 JSON/CSV 与摘要，原始实验目录在本机。缺原图、数据
 Gazebo 仅一个移动机器人和 episode 1016；世界/Runtime 未重置，Agent 在任务边界更新，失败任务保留。五条尝试实际涉及四个二进制 SHA，不能混算 3/5 成功率。Host02 的地图身份/定位谓词并非巡检证明的全部，独立核验还检查房间顺序、命令、到位和命令后采集。到位残差相对任务目标，不是 SLAM 绝对精度；巡检实走里程未测。
 
 [Gazebo 证据与冻结重验说明](../../docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)列出原任务、二进制、模型、失败和原大制品位置。缺本地图像/数据库时只能检查分发范围。本版整理已有记录，没有新增仿真运动、抓放、无人机、足式或实机证据。软件 `sourceChangedDuringRun=true` 的旧尝试继续保留但不作最终代码证据；最终来源摘要以 final-campaign-04 原记录为准。
+
+## C.9 本版新增实现的原报告入口
+
+| 原记录 | 用于哪一项教学问题 | 范围 |
+| --- | --- | --- |
+| [空间覆盖规划](../../docs/experiments/2026-10-18-spatial-coverage-upgrade.md) | 第 4、12、15 章：规划覆盖与已完成覆盖如何分开 | 软件闭环、配对消融；不代表任意全场景已覆盖 |
+| [Gazebo 现场闭环](../../docs/experiments/2026-10-18-gazebo-field-validation.md) | 第 10 章：DDS、控制器、物理观测分别证明什么 | 仿真刚体、lidar、停止和避碰；非实机、非无线自治 |
+| [机器人工作台](../../docs/development/2026-10-20-edge-robot-workspaces.md) | 第 9 章：独立任务库、切换与离线状态 | 本地软件与浏览器验证，按原记录核对覆盖 |
+
+本版两个 Python 小实验用于课堂解释，不加入上述历史任务分母。教材与出版系统的软件核验另见开发记录 `2026-10-21-book-teaching-redesign.md`；它不改变历史报告的原始结果。

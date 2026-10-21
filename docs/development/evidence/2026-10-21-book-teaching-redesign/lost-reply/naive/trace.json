@@ -1,0 +1,19 @@
+{
+  "strategy": "naive",
+  "effects": 2,
+  "state": "COMPLETED",
+  "events": [
+    {
+      "event": "pending_committed",
+      "command": "c1"
+    },
+    {
+      "event": "effect_happened_reply_lost",
+      "effects": 1
+    },
+    {
+      "event": "blind_retry",
+      "effects": 2
+    }
+  ]
+}

@@ -1,0 +1,649 @@
+{
+  "schemaVersion": "edge.agent-ros.campaign-report.v1",
+  "dateAsiaShanghai": "2026-10-18",
+  "baseCommit": "c1245771d56af351e997637c1b45263532a07e1c",
+  "binarySha256": "897cd2baeb0e9aeb35612e219c17cf7ce03f334e812bceaa113f77cf1e733b1b",
+  "binaryBytes": 80632785,
+  "frozenSourceFileCount": 1105,
+  "evidenceRoot": "artifacts/experiments/edge-agent-ros-campaign-20261018-001",
+  "finalDDS": {
+    "schemaVersion": "edge.ros2-campaign.summary.v1",
+    "evidenceClass": "recorded_controller_actual_localagent_grpc_ros2_no_hardware",
+    "passed": true,
+    "sourceStable": true,
+    "uniqueTaskIds": true,
+    "rounds": 3,
+    "plannedRoutes": 9,
+    "completedRoutes": 9,
+    "plannedFaultCases": 18,
+    "passedFaultCases": 18,
+    "recordedNavigationCommands": 99,
+    "independentArrivalChecks": 99,
+    "physicalValidation": false,
+    "dynamicsValidation": false,
+    "sampling": "repeated deterministic engineering checks, not independent environments or robot samples",
+    "trials": [
+      {
+        "type": "natural_language_route",
+        "kind": "ugv",
+        "round": 1,
+        "output": "round-01-ugv",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.269715210999999,
+        "taskId": "task-712f514cfc321ed6649e9ac9",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "uav",
+        "round": 1,
+        "output": "round-01-uav",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.480836252000001,
+        "taskId": "task-cae95006c2423c977a75dfca",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "legged",
+        "round": 1,
+        "output": "round-01-legged",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.064013167999999,
+        "taskId": "task-f083e7d74b19782cb7a60074",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "driver_fault_contracts",
+        "round": 1,
+        "output": "round-01-driver-faults",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 7.767928962000003,
+        "caseCount": 6,
+        "passedCaseCount": 6
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "ugv",
+        "round": 2,
+        "output": "round-02-ugv",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.029442750999998,
+        "taskId": "task-885ebeaf11f6e8195b284ae5",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "uav",
+        "round": 2,
+        "output": "round-02-uav",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.371955544000002,
+        "taskId": "task-0821aba56939302782d0e289",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "legged",
+        "round": 2,
+        "output": "round-02-legged",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.109305419000002,
+        "taskId": "task-5cc1848159935f0d847115c2",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "driver_fault_contracts",
+        "round": 2,
+        "output": "round-02-driver-faults",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 7.950284919999994,
+        "caseCount": 6,
+        "passedCaseCount": 6
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "ugv",
+        "round": 3,
+        "output": "round-03-ugv",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.051728834999999,
+        "taskId": "task-e250984a7127df767147a5c9",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "uav",
+        "round": 3,
+        "output": "round-03-uav",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.301300918999999,
+        "taskId": "task-468abcb2e23e80fb8cdb227b",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "natural_language_route",
+        "kind": "legged",
+        "round": 3,
+        "output": "round-03-legged",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 4.229650210999999,
+        "taskId": "task-68f897c57a638af294de1534",
+        "navigationCommands": 11,
+        "independentArrivalChecks": 11
+      },
+      {
+        "type": "driver_fault_contracts",
+        "round": 3,
+        "output": "round-03-driver-faults",
+        "exitCode": 0,
+        "passed": true,
+        "elapsedSeconds": 8.315792420000008,
+        "caseCount": 6,
+        "passedCaseCount": 6
+      }
+    ],
+    "finishedAt": "2026-10-18T04:31:50.240002+00:00"
+  },
+  "softwareCampaign": {
+    "schemaVersion": "robot.robustness.summary.v1",
+    "finishedAt": "2026-10-18T04:40:35.564616+00:00",
+    "passed": true,
+    "exitCode": 0,
+    "extractionError": null,
+    "nonJSONLines": [],
+    "sourceChangedDuringRun": false,
+    "requiredTestsNotPassed": [],
+    "scenarioCounts": {
+      "persistent_single_robot_multi_task": 5,
+      "sequential_cloud_receipt_loss": 12,
+      "unknown_effect_after_long_confirmed_prefix": 1,
+      "sqlite_close_reopen_verified_goal": 1,
+      "restart_then_unknown_write": 1,
+      "plan_budget_after_confirmed_prefix": 1,
+      "step_budget_rejects_oversized_next_chunk": 1,
+      "read_budget_preserves_final_check": 1
+    },
+    "requiredScenariosMissing": {},
+    "taskRecords": 23,
+    "allRecords": 1003,
+    "failures": [],
+    "testResults": [
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+        "test": "TestObjectiveResumedClaimReportsUnknownOutcome",
+        "outcome": "pass",
+        "elapsed": 0.02
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+        "outcome": "pass",
+        "elapsed": 1.22
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+        "test": "TestObjectiveSequentialCloudReceiptCampaign",
+        "outcome": "pass",
+        "elapsed": 0.46
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+        "test": "TestDelegatedCancellationStopsOwnedOperationBeforeCloudTerminalState",
+        "outcome": "pass",
+        "elapsed": 0.04
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+        "outcome": "pass",
+        "elapsed": 0.47
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotLongHorizonCampaign/persistent_task_01_032_steps",
+        "outcome": "pass",
+        "elapsed": 1.04
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotLongHorizonCampaign/persistent_task_02_048_steps",
+        "outcome": "pass",
+        "elapsed": 3.68
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotLongHorizonCampaign/persistent_task_03_064_steps",
+        "outcome": "pass",
+        "elapsed": 10.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotLongHorizonCampaign/persistent_task_04_096_steps",
+        "outcome": "pass",
+        "elapsed": 29.9
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotLongHorizonCampaign/persistent_task_05_128_steps",
+        "outcome": "pass",
+        "elapsed": 78.91
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotLongHorizonCampaign",
+        "outcome": "pass",
+        "elapsed": 123.55
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotCampaignBudgetBoundaries/plan_budget_after_confirmed_prefix",
+        "outcome": "pass",
+        "elapsed": 0.25
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotCampaignBudgetBoundaries/step_budget_rejects_oversized_next_chunk",
+        "outcome": "pass",
+        "elapsed": 0.23
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotCampaignBudgetBoundaries/read_budget_preserves_final_check",
+        "outcome": "pass",
+        "elapsed": 0.25
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestSingleRobotCampaignBudgetBoundaries",
+        "outcome": "pass",
+        "elapsed": 0.73
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionReadRecoversWithoutReplanningOrMovementReplay",
+        "outcome": "pass",
+        "elapsed": 0.26
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/retry-quota",
+        "outcome": "pass",
+        "elapsed": 0.22
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/read-budget",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/permission",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart",
+        "outcome": "pass",
+        "elapsed": 0.23
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline/deadline",
+        "outcome": "pass",
+        "elapsed": 1
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline/cancelled",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionDoesNotRetryCancellationOrDeadline",
+        "outcome": "pass",
+        "elapsed": 1.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedInterruptedCompletionAttemptRequiresReviewWithoutAnotherRead/EDGE_COMPLETION_READ_CONFIRMED",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedInterruptedCompletionAttemptRequiresReviewWithoutAnotherRead/EDGE_COMPLETION_RETRY_RESERVED",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedInterruptedCompletionAttemptRequiresReviewWithoutAnotherRead",
+        "outcome": "pass",
+        "elapsed": 0.02
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedCompletionExhaustionCommitFailureCannotGrantAnotherRead",
+        "outcome": "pass",
+        "elapsed": 0.22
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedLongGoalReplansRemainingStepsAndPersistsLineage",
+        "outcome": "pass",
+        "elapsed": 0.25
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedUnknownPhysicalResultNeverReplansOrReplays",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedRecoveryPluginCannotHideUnknownOutcome",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedLostVerificationAfterWriteRequiresReconciliation",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedEnvelopeRejectsModelTargetOutsideScope",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedReplanCannotRepeatConfirmedWrites",
+        "outcome": "pass",
+        "elapsed": 0.04
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedPlanBudgetSurvivesHostRestart",
+        "outcome": "pass",
+        "elapsed": 0.04
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedIntentionalRepeatRequiresApprovedExecutionQuota",
+        "outcome": "pass",
+        "elapsed": 0.02
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedModelHTTPPlanReceivesAuthorizedSchemaAndCompletion",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/steps",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/reads",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/expired",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/cancelled",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/unapproved",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement/catalog",
+        "outcome": "pass",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedBudgetsAndCancellationPreventNewMovement",
+        "outcome": "pass",
+        "elapsed": 0.02
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashWindowResumesWithoutRepeatingMovement",
+        "outcome": "pass",
+        "elapsed": 0.15
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRechecksAuthority",
+        "outcome": "pass",
+        "elapsed": 0.03
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedExpiredUnknownCheckpointKeepsUnknownClassification",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/missing-verification",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/wrong-command",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/wrong-robot",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/wrong-revision",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/missing-evidence",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/later-failure",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/missing-step-completion",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence/changed-plan",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedVerifiedCrashRecoveryRequiresCompleteBoundEvidence",
+        "outcome": "pass",
+        "elapsed": 0.08
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedRecoveredMutationClassificationMatchesFrozenCatalog/recovery-check",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedRecoveredMutationClassificationMatchesFrozenCatalog/execution",
+        "outcome": "pass",
+        "elapsed": 0.01
+      },
+      {
+        "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+        "test": "TestDelegatedRecoveredMutationClassificationMatchesFrozenCatalog",
+        "outcome": "pass",
+        "elapsed": 0.02
+      }
+    ]
+  },
+  "sensorAudit": {
+    "schemaVersion": "edge.acceptance.observation-audit.v1",
+    "analyzedAt": "2026-10-18T04:38:26.519696+00:00",
+    "evidenceClass": "actual_DDS_recorded_controller",
+    "source": "container-evidence-attempt03/campaign",
+    "taskCount": 9,
+    "allArrivalReceiptsBoundToRetainedCapture": true,
+    "allCaptureProvenanceComplete": true,
+    "actualImageBytes": 0,
+    "physicalValidation": false,
+    "sensorAccuracyValidation": false,
+    "note": "Capture metadata and recorded sensor_fusion poses only; example calibration revision is placeholder; image payloads zero; no real SLAM, camera, flight, gait or drive validation."
+  },
+  "sensorCaptureRecords": 216,
+  "containerRestoration": {
+    "containerId": "ebc94e6c3e3d7b8cf4d496fa1e10f9686dd1ca807ca75dfcb71fb89ef5a1b75e",
+    "state": "exited",
+    "restoredEntrypointSha256": "c2711c239e25e9738b40d0c85668d9a25a308e22b89438c1d5494ada84a53466",
+    "expectedEntrypointSha256": "c2711c239e25e9738b40d0c85668d9a25a308e22b89438c1d5494ada84a53466",
+    "passed": true
+  },
+  "attempts": [
+    {
+      "id": "host-cwd-01",
+      "classification": "preparation_not_executed",
+      "evidence": "preparation/launch-attempt01.json",
+      "reason": "Selected new cwd before creating it."
+    },
+    {
+      "id": "source-build-01",
+      "classification": "preparation_failed",
+      "evidence": "preparation/linux-build.log",
+      "reason": "Frozen source set omitted incidents and latency; fixed source capture and preserved previous snapshot."
+    },
+    {
+      "id": "python-launch-01",
+      "classification": "preparation_failed",
+      "evidence": "preparation/software-round-01.log",
+      "reason": "Ambient python3 resolved to3.9 under snapshot cwd; used explicit project Python3.11."
+    },
+    {
+      "id": "container-01",
+      "classification": "preparation_failed_no_task_dispatched",
+      "evidence": "preparation/ros-colcon-build.log",
+      "reason": "Missing safety_supervisor dependency; changed colcon packages-select to packages-up-to."
+    },
+    {
+      "id": "dds-02",
+      "classification": "development_pass_excluded_from_final_denominator",
+      "evidence": "container-evidence-attempt02/campaign/summary.json",
+      "reason": "Initial overlap with concurrent Go workloads; retained9/9 routes and18/18 faultcases, repeated final in isolation."
+    },
+    {
+      "id": "dds-03",
+      "classification": "final_pass",
+      "evidence": "container-evidence-attempt03/campaign/summary.json",
+      "reason": "Final fixed source and binary; no heavy Go campaign running."
+    },
+    {
+      "id": "software-01",
+      "classification": "operator_interrupted_not_completed",
+      "evidence": "software-campaign-round-01/summary.json",
+      "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+    },
+    {
+      "id": "software-02",
+      "classification": "operator_interrupted_not_completed",
+      "evidence": "software-campaign-round-02/summary.json",
+      "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+    },
+    {
+      "id": "software-03",
+      "classification": "operator_interrupted_not_completed",
+      "evidence": "software-campaign-round-03/summary.json",
+      "reason": "Owned test process interrupted to isolate DDS; original partial records retained and excluded from completed campaign counts."
+    },
+    {
+      "id": "software-04",
+      "classification": "final_pass",
+      "evidence": "software-campaign-round-04/summary.json",
+      "reason": "One completed serial software campaign after DDS; planned three repetitions amended explicitly."
+    }
+  ],
+  "sourceDifferencesAfterFreeze": [
+    "robot/gateway/tests/test_spatial_peer_exchange.py"
+  ],
+  "sourceDifferenceScopeNote": "DDS/LocalAgent binary was built from the archived complete source tree; subsequent unrelated peer changes are separate tests, not silently attributed to this binary.",
+  "validation": {
+    "ros2DDS": true,
+    "grpc": true,
+    "localAgentNaturalLanguageTasks": true,
+    "recordedControllerOnly": true,
+    "physicalValidation": false,
+    "dynamicsValidation": false,
+    "realSensorAccuracy": false,
+    "unifiedNaturalLanguageMultiRobotUnknownExplorationEndToEnd": false
+  },
+  "reproducibility": {
+    "completeFinalDDS": "container-evidence-attempt03/campaign",
+    "completeSoftware": "software-campaign-round-04",
+    "frozenSource": "container-evidence-attempt03/campaign/source-snapshot.tar.gz",
+    "binaryProvenance": "preparation/completed-build-provenance.json",
+    "privateFiles": "local-agent/console-session retained locally; exclude public copy and document subset manifest.",
+    "timing": "Recorded controller timings are software protocol latency, not real robot completion speed."
+  },
+  "buildSourceArchiveSha256": "401ddde9449e9685ab262e459f476f9c8e8c3082008e79d4f98ff528066d590f",
+  "campaignSourceArchiveSha256": "272a0cca91fca99647551e77ca5adea3a262d75c881f801e6aa75b3b3e5c6104",
+  "compiledSourceEqualsDDSFrozenSource": true
+}

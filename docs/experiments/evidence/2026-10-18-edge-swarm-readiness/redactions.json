@@ -1,0 +1,98 @@
+{
+  "omissions": [
+    {
+      "archivePath": "ros-final/round-01-legged/local-agent/console-session",
+      "sha256": "397492bce5fe2ca4281f7068fe435480df6a7c96f2bb1a5e02cb7440e6db13cb",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-01-uav/local-agent/console-session",
+      "sha256": "66ad12efc18929af4c14eb271ab81b5694e6bfb958dd494bb9728962b50dc46d",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-01-ugv/local-agent/console-session",
+      "sha256": "80844198c6f0bd7e26dcc8ecc94a0439b91d3107966fbdbd78db1886bbe3dae1",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-02-legged/local-agent/console-session",
+      "sha256": "058f5cead78c6a614aa3bcdd41d6725dfcfc50f7407966eb5ad2b76ee98766b1",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-02-uav/local-agent/console-session",
+      "sha256": "823817b891581379e6e7711c2d95e7fe560abd56504d6a1babc62d20e904a86f",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-02-ugv/local-agent/console-session",
+      "sha256": "914c1ea9fc9796cf9768fc34aa129963c7b3f06e0084bed7b9af7ab73e8f9d66",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-03-legged/local-agent/console-session",
+      "sha256": "dedf2513939fed41f87a0b2e9219bc869e5f551d5370ce312139dbb8712d68b2",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-03-uav/local-agent/console-session",
+      "sha256": "3b909bae9b55afdc9e732e4726f5159910070c75a72ff287674a47e5239a7316",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-final/round-03-ugv/local-agent/console-session",
+      "sha256": "95310b8f9f1bcd7decd3e61817b32cee19ada2704c80900289af963eb4ba4536",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-01-legged/local-agent/console-session",
+      "sha256": "7b2d55ca59eb8bc035517cb87c8bd26f1703bc6a836ef4a9db3a1202dfb180f7",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-01-uav/local-agent/console-session",
+      "sha256": "b404567ed271517057b5a1d00c4055f85cdf774876956982931e0aec970fd622",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-01-ugv/local-agent/console-session",
+      "sha256": "a4ee0c6425bc7151afca121f87bc51de4f8615df3202a5238bee7d5b31cf5ec0",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-02-legged/local-agent/console-session",
+      "sha256": "b0f56bf10b986c472abf2d8a749e8be4eacb352dfb998aac076f9e49437de886",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-02-uav/local-agent/console-session",
+      "sha256": "a913865922e4b13280fdb1f8ff6f7530788623798ff2fd6ff58d041ad8576443",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-02-ugv/local-agent/console-session",
+      "sha256": "06dd4b512e536b3555b11668981e20248699fbc7183c74c0c135a4b72530b644",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-03-legged/local-agent/console-session",
+      "sha256": "7817be5799181c05d0eeb79d5a8c6705d59154d22c5c8edea593dc26a5b29cec",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-03-uav/local-agent/console-session",
+      "sha256": "1909c5c3d5bb42823df216fa17347517bafa0e3dfb20661ac24552e469a70754",
+      "reason": "private temporary console credential"
+    },
+    {
+      "archivePath": "ros-development/round-03-ugv/local-agent/console-session",
+      "sha256": "6b77d6ac4623c56318825511cbfb4521a000536c64fad29f3dc3d5ae8cd66f01",
+      "reason": "private temporary console credential"
+    }
+  ],
+  "otherCredentialMatches": 0,
+  "rosDevelopmentSourceArchiveOmitted": "same compiled source bytes as ros-final/source-snapshot.tar.gz; original archive and complete manifests retained locally",
+  "binaryOmitted": "80.6MB Linux binary retained locally; hash and actual full build source archived",
+  "originalManifestPolicy": "original hashes are untouched; private console-session files absent so use the public member manifest, not original ROS directory verify, on this export"
+}

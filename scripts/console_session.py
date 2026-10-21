@@ -22,9 +22,12 @@ better failure than a traceback from this module.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import urllib.request
+from http.cookies import SimpleCookie
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ENVIRONMENT_VARIABLE = "TANGYING_CONSOLE_SESSION"
 FILE_NAME = "console-session"
@@ -92,6 +95,12 @@ HEADER = "X-Tangying-Session"
 COOKIE_NAME = "tangying_session"
 
 
+def cookie_name_for_host(host: str) -> str:
+    """Match Go's host-and-port namespace, keeping sibling consoles independent."""
+    digest = hashlib.sha256(host.strip().lower().encode()).hexdigest()[:32]
+    return f"{COOKIE_NAME}_{digest}"
+
+
 def fetch_live_token(base_url: str, *, timeout: float = 10.0) -> str | None:
     """Ask the console itself for its session token.
 
@@ -113,11 +122,20 @@ def fetch_live_token(base_url: str, *, timeout: float = 10.0) -> str | None:
     request = urllib.request.Request(base_url.rstrip("/") + "/healthz", method="GET")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
+            scoped_name = cookie_name_for_host(urlsplit(request.full_url).netloc)
+            tokens = {}
             for header in response.headers.get_all("Set-Cookie") or []:
-                for part in header.split(";"):
-                    name, _, value = part.strip().partition("=")
-                    if name == COOKIE_NAME and value:
-                        return value
+                cookies = SimpleCookie()
+                cookies.load(header)
+                for name in (scoped_name, COOKIE_NAME):
+                    if name in cookies and cookies[name].value:
+                        value = cookies[name].value
+                        if name in tokens and tokens[name] != value:
+                            return None
+                        tokens[name] = value
+            # A namespaced cookie is authoritative; legacy peers remain usable
+            # during a rolling update. Never pick another port's cookie.
+            return tokens.get(scoped_name) or tokens.get(COOKIE_NAME)
     except Exception:  # noqa: BLE001 - an unreachable console is what the file is for
         return None
     return None

@@ -1,0 +1,100 @@
+import io
+
+import pytest
+
+from scripts import run_gazebo_stop_checks as checks
+from scripts.run_gazebo_stop_checks import measured_stop, wait_for_readiness
+
+
+def state(time, x, velocity, *, angular=0):
+    return {"simulationTime": time, "position": [x, 0, 1],
+            "linearVelocity": [velocity, 0, 0], "angularVelocity": [0, 0, angular]}
+
+
+def test_ack_or_repeated_snapshot_is_not_measured_stop():
+    trigger = state(1., 0., .3)
+    assert not measured_stop([], trigger)["measuredStopped"]
+    assert not measured_stop([state(1., 0., 0)] * 10, trigger)["measuredStopped"]
+
+
+def test_stopping_requires_low_linear_and_angular_velocity_for_dwell():
+    trigger = state(1., 0., .3)
+    samples = [state(1.1, .02, .2), state(1.2, .04, .01, angular=.1),
+               state(1.3, .05, .01), state(1.5, .052, .005), state(1.7, .053, 0)]
+    result = measured_stop(samples, trigger)
+    assert result["measuredStopped"]
+    assert result["settledSinceSimulationTime"] == 1.3
+    assert result["maximumDisplacementMeters"] == pytest.approx(.053)
+    assert result["elapsedSimulationSeconds"] == pytest.approx(.7)
+    assert not result["landingVerified"]
+
+
+def test_motion_resumption_restarts_stop_dwell():
+    trigger = state(1., 0., .3)
+    samples = [state(1.1, .02, 0), state(1.5, .02, 0), state(1.6, .04, .2)]
+    assert not measured_stop(samples, trigger)["measuredStopped"]
+
+
+def test_nonmonotonic_measurements_do_not_fabricate_dwell_or_travel():
+    trigger = state(1., 0., .3)
+    result = measured_stop([state(1.1, .02, 0), state(.5, 100, 0), state(1.5, .02, 0)], trigger)
+    assert result["sampleCount"] == 2
+    assert result["measuredStopped"]
+    assert result["maximumDisplacementMeters"] == pytest.approx(.02)
+
+
+class ReadinessClock:
+    def __init__(self):
+        self.now = 0.
+
+    def clock(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+class SnapshotClient:
+    def __init__(self, snapshots):
+        self.snapshots = iter(snapshots)
+        self.last = {}
+        self.calls = []
+
+    def call(self, path, payload=None, **kwargs):
+        self.calls.append((path, payload, kwargs))
+        self.last = next(self.snapshots, self.last)
+        return self.last
+
+
+def ready_snapshot(at):
+    own = state(at, 0, 0)
+    own.update(robotId="ground-a", clockDomain="simulation", quaternionWXYZ=[1., 0., 0., 0.])
+    return {"states": {"ground-a": own}}
+
+
+def test_readiness_waits_for_states_and_two_advancing_measurements_without_motion():
+    clock = ReadinessClock()
+    client = SnapshotClient([{}, ready_snapshot(1.), ready_snapshot(1.), ready_snapshot(1.1)])
+    result = wait_for_readiness(client, ["ground-a"], timeout=1., clock=clock.clock, sleep=clock.sleep)
+    assert result["ready"] and result["attempts"] == 4
+    assert result["readySimulationTimes"] == {"ground-a": 1.1}
+    assert not result["motionCommandsSent"]
+    assert all(path == "/snapshot" and payload is None for path, payload, _ in client.calls)
+
+
+def test_stalled_or_missing_states_timeout_is_only_setup_failure():
+    clock = ReadinessClock()
+    client = SnapshotClient([ready_snapshot(1.)])
+    result = wait_for_readiness(client, ["ground-a"], timeout=.5, clock=clock.clock, sleep=clock.sleep)
+    assert not result["ready"] and result["failureType"] == "setup_failure"
+    assert result["elapsedWallSeconds"] <= .5 + 1e-9
+    assert not result["motionCommandsSent"]
+
+
+def test_setup_failure_creates_zero_physical_trials(monkeypatch):
+    monkeypatch.setattr(checks, "wait_for_readiness", lambda *a, **kw: {
+        "ready": False, "failureType": "setup_failure", "motionCommandsSent": False})
+    monkeypatch.setattr(checks, "run_trial", lambda *a, **kw: pytest.fail("motion trial must not start"))
+    result = checks.run_campaign(SnapshotClient([{}]), ["ground-a", "ground-b", "uav-a"], io.StringIO())
+    assert result["outcome"] == "setup_failure"
+    assert result["trials"] == [] and not result["passed"]

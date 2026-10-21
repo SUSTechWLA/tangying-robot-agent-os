@@ -269,6 +269,15 @@ func (s *Server) registerMapRoutes() {
 func (s *Server) listMaps(w http.ResponseWriter, r *http.Request) {
 	root := mapRoot()
 	summaries := listMaps(root)
+	if s.workspaceRobotID != "" {
+		scoped := make([]mapSummary, 0, len(summaries))
+		for _, summary := range summaries {
+			if summary.RobotID == s.workspaceRobotID {
+				scoped = append(scoped, summary)
+			}
+		}
+		summaries = scoped
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"maps":  summaries,
 		"count": len(summaries),
@@ -291,6 +300,9 @@ func (s *Server) getMapManifest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "MAP_UNREADABLE", err.Error())
 		return
 	}
+	if !s.allowWorkspaceMap(w, raw) {
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(raw)
@@ -308,6 +320,9 @@ func (s *Server) serveMapFile(w http.ResponseWriter, r *http.Request, role strin
 	manifest, err := os.ReadFile(filepath.Join(directory, "manifest.json"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "MAP_NOT_FOUND", "no map with that id")
+		return
+	}
+	if !s.allowWorkspaceMap(w, manifest) {
 		return
 	}
 	var document struct {
@@ -481,6 +496,9 @@ func (s *Server) getMapCloud(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "MAP_NOT_FOUND", "no map with that id")
 		return
 	}
+	if !s.allowWorkspaceMap(w, manifest) {
+		return
+	}
 	var document struct {
 		LODLevels int64 `json:"lodLevels"`
 	}
@@ -499,4 +517,21 @@ func (s *Server) getMapCloud(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getMapArtifact(w http.ResponseWriter, r *http.Request) {
 	s.serveMapFile(w, r, r.PathValue("role"))
+}
+
+// A shared artifact directory is not permission to interpret another robot's
+// map as this robot's localization basis. Legacy unbound embedders retain their
+// existing behavior; production Local Agent always supplies an immutable ID.
+func (s *Server) allowWorkspaceMap(w http.ResponseWriter, raw []byte) bool {
+	if s.workspaceRobotID == "" {
+		return true
+	}
+	var identity struct {
+		RobotID string `json:"robotId"`
+	}
+	if json.Unmarshal(raw, &identity) != nil || identity.RobotID != s.workspaceRobotID {
+		writeError(w, http.StatusNotFound, "MAP_NOT_FOUND", "no map for this robot with that id")
+		return false
+	}
+	return true
 }

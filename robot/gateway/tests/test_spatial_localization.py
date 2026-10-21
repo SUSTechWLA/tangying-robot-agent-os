@@ -345,11 +345,32 @@ def test_ground_se2_localization_rejects_roll_pitch_instead_of_projecting():
         bridge.receive_observation(bridge.profile.robot_id, bridge.revision, json.dumps(scene), json.dumps(state))
 
 
-def test_planar_controller_cannot_receive_aerial_terrain_mode():
+@pytest.mark.parametrize("mode", ["terrain25d", "terrain_layered"])
+def test_planar_controller_cannot_receive_aerial_terrain_mode(mode):
     value = profile('uav')
-    config = {**policy(), "mode": "terrain25d", "maxSlopeRad": .3, "maxStepM": .1, "referenceHeightM": .2}
+    config = {**policy(), "mode": mode, "maxSlopeRad": .3, "maxStepM": .1, "referenceHeightM": .2}
     with pytest.raises(ValueError, match="ground"):
         SpatialNavigationDeployment(volume_for(value), config, local_config(), value)
+
+
+@pytest.mark.parametrize("kind", ["ugv", "legged"])
+def test_ground_profiles_admit_and_pin_explicit_multilevel_support(kind):
+    value = profile(kind)
+    vol = volume_for(value)
+    vol["terrainLayers"] = {"schemaVersion": "navigation.terrain.layers.v1", "sourceId": "survey",
+        "observedAtUnixMs": 1000, "layers": [
+            {"layerId": layer_id, "heights": [height] * 256, "supported": [True] * 256,
+             "slopeRadians": [0.] * 256} for layer_id, height in (("ground", 0.), ("mezzanine", .75))],
+        "connections": []}
+    config = {**policy(), "mode": "terrain_layered", "maxSlopeRad": .3, "maxStepM": .1,
+              "referenceHeightM": .2}
+    first = SpatialNavigationDeployment(vol, config, local_config(), value)
+    assert first.policy["mode"] == "terrain_layered"
+    assert first.volume["terrainLayers"]["layers"][1]["heights"][0] == .75
+    vol["terrainLayers"]["layers"][1]["heights"][0] = 1.
+    second = SpatialNavigationDeployment(vol, config, local_config(), value)
+    assert first.revision != second.revision
+    assert first.volume["terrainLayers"]["layers"][1]["heights"][0] == .75
 
 
 def test_wall_clock_stale_or_future_localization_cannot_enable_motion():

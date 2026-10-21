@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "evidence.files.v1",
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 1158,
+      "sha256": "3c06a0ebd12aa2dc8f6c29755cf2ab656e54be2519f2a25e9e7b90c82346d1ba"
+    },
+    {
+      "file": "context-replay.jsonl.gz",
+      "bytes": 689,
+      "sha256": "e726ec0734db98131e92d575c795e1e14ccd69ded3962352496e5812a3e63b09"
+    },
+    {
+      "file": "go.jsonl.gz",
+      "bytes": 220902,
+      "sha256": "cd80a70e02bd9e7680d3f166560b335495364fd682725cdc605559ca9b6f65c2"
+    },
+    {
+      "file": "harness.jsonl.gz",
+      "bytes": 25180,
+      "sha256": "36523712bd811eb11579b7c9552373fd519db1d8017509d925cd546fb17c07bf"
+    },
+    {
+      "file": "host-race-selection.json",
+      "bytes": 1570,
+      "sha256": "e449a83ee1e6639f9d9603c6e4a67e5163ee8b19e60b3ebb28d50d3decf76db5"
+    },
+    {
+      "file": "host-race.jsonl.gz",
+      "bytes": 52786,
+      "sha256": "918b4f61e93c485a00babf747730a4a903f2ae39a026259347100117245fcd37"
+    },
+    {
+      "file": "interop.log",
+      "bytes": 72,
+      "sha256": "221aee7d5a1ffcb1ef03b8d40e9c8e7b3f89699350fbf5985d10f27e3c5eef27"
+    },
+    {
+      "file": "process-cloud.log",
+      "bytes": 208,
+      "sha256": "0d7db8aa4629e175f8a8655117ed600156b2cfe3cd3bfc4b64f8364212340b0d"
+    },
+    {
+      "file": "process-events.json",
+      "bytes": 17605,
+      "sha256": "dc6b23fcf0e2c03408a97cafadf846b066a75bef583b7778eae13275c074d78f"
+    },
+    {
+      "file": "process-frozen-build-source.json",
+      "bytes": 79922,
+      "sha256": "f93db900a5137944002564ee1b476a0beb3e70ab116c1d67c1f53bffe68a359c"
+    },
+    {
+      "file": "process-legged.log",
+      "bytes": 359,
+      "sha256": "b16f03ecefa43a9dadcf029386701df003e11b31dd1ee6b1f6fe05010ea2d172"
+    },
+    {
+      "file": "process-planning-advice.jsonl",
+      "bytes": 1366,
+      "sha256": "129248bc0d826cb0dbddfb9c2e144b163f944230baaacc1cdb3aa4e1c88d0d61"
+    },
+    {
+      "file": "process-summary.json",
+      "bytes": 55641,
+      "sha256": "a18daaa82e2516e89ccdde48312f043551bd438c427d798d5516ebcc111faa5d"
+    },
+    {
+      "file": "process-uav.log",
+      "bytes": 356,
+      "sha256": "a5e15d63d705b9c27a4856df895203dbe6083054ef03773a90be2fcb2706a877"
+    },
+    {
+      "file": "process-ugv.log",
+      "bytes": 712,
+      "sha256": "0ea26f059f3919f2b09e4886b6754980cf6232ef4cfa228a7b0aaf6850a4a8c9"
+    },
+    {
+      "file": "process.log",
+      "bytes": 478,
+      "sha256": "b12cda001a625acd8cb5fc628949b8b36ac0511200702546fe05e2c9e48c34cc"
+    },
+    {
+      "file": "python.log",
+      "bytes": 1769,
+      "sha256": "644bc8f11cada7a06be3f450e0d320960ed263ee823a1cb5129d7d2a06402234"
+    },
+    {
+      "file": "race.jsonl.gz",
+      "bytes": 70083,
+      "sha256": "08872eadc0c2db90256ae1b3878558c42222572024be795b4426eff9dfee350a"
+    },
+    {
+      "file": "summary.json",
+      "bytes": 15625,
+      "sha256": "f1330cd55bda1f916786b159120819a43a0a403770758360f22a9e488e7fb31d"
+    }
+  ]
+}

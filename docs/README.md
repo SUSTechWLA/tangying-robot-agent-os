@@ -1,6 +1,20 @@
 # 文档导航：学习、开发、运维与研究
 
-当前文档核对到实现 `821659df`（2026-10-16）；教材入口为[数字版 2.2.0](../book/README.md)。最新云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
+教材 3.1.0（2026-10-22）深化跨域消息、模型实际输入、上下文、KV cache 和分布式一致性，提供 22 幅图、公式算例、两个无硬件实验与课堂脚本；已实现机制与缓存接入建议明确区分。
+
+边缘工作台增量（2026-10-20）：[按机器人切换与任务回溯](operations/edge-robot-workspaces.md) → [实现与验证](development/2026-10-20-edge-robot-workspaces.md)。独立 Agent/数据目录、请求身份、地图与浏览器状态按设备隔离；切换不转移执行权。
+
+2026-10-18 Gazebo 物理闭环增量：[控制器、测量、停止与避碰实现](development/2026-10-18-gazebo-field-validation.md) → [实验与失败记录](experiments/2026-10-18-gazebo-field-validation.md) → [教材补充](../book/updates/2026-10-18-gazebo-field-validation.md)。经典控制驱动实际仿真刚体；真值定位、配置外参、独立配准与真实分布式部署的结论边界分别说明。
+
+2026-10-18 边缘与异构协作增量：[系统评价与实现](./development/2026-10-18-edge-swarm-readiness.md)、[全部验收结果](./experiments/2026-10-18-edge-swarm-readiness.md)，分清单机 ROS 2、通信数据、探索软件与现场实机证据。
+
+已知地图覆盖与多层地面增量（2026-10-18）：[设计、CLI 和插件边界](development/2026-10-18-spatial-coverage-upgrade.md) → [四类计划、315/315 Runner 软件闭环与 350 次探索对照](experiments/2026-10-18-spatial-coverage-upgrade.md) → [教材补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)。预测、软件新采集和实体完成分别判断；与下述已归档三维探索实验分别按版本评价。
+
+最新异构三维探索（设计 2026-10-17，实验 2026-10-18）：[模块与变更](development/2026-10-17-heterogeneous-spatial-exploration.md) → [配对消融、指标与回放协议](experiments/2026-10-17-spatial-exploration-protocol.md) → [实际报告、配对图与证据](experiments/2026-10-18-spatial-exploration.md) → [教材补充](../book/updates/2026-10-17-heterogeneous-spatial-exploration.md)。软件研究核心复用本体路径约束，提供分工、覆盖账本和后续在线接线端口；与下述实际二维 Gazebo 首次扫描分别评价。
+
+最新探索增量（2026-10-17）：[首次扫描实现](development/2026-10-17-exploration-first-scan.md) → [操作指南](guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索) → [实验与全部尝试](experiments/2026-10-17-exploration-first-scan.md) → [书籍补充](../book/updates/2026-10-17-exploration-first-scan.md)。当前为平面本体主动观察和在线 frontier 增强，不代表三维自主探索或实机认证。
+
+基础资料核对到实现 `821659df`（2026-10-16）；后续增量按本页顶部记录与各次源码摘要阅读，教材入口为[数字版 3.1.0](../book/README.md)。云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
 
 从你的工作目标选择入口。四条路线负责推荐顺序，[全量分类目录](catalog.md)负责查找所有文档、实验数据表与配图，[文档维护规则](maintenance.md)说明新增资料该放哪里。
 
@@ -27,8 +41,10 @@
 | --- | --- | --- |
 | 边缘 Agent 怎样接 ROS 2 真机并与云端/其他设备通信？ | [边缘测试部署](operations/edge-field-testing.md)、[异构运动契约](development/heterogeneous-mobility.md)、[数据交换](development/edge-data-exchange.md) | [升级与验证记录](development/2026-10-13-edge-field-candidate.md)；软件候选与现场放行分别判断 |
 | 一句话如何变成可执行任务？ | [任务生命周期](guides/natural-language-task-lifecycle.md)、[统一能力目标](guides/unified-capability-goals.md) | [模型复杂任务实验](experiments/2026-09-28-complex-model-led-goals.md) |
-| 多 Agent 如何通信、保持上下文一致？ | [协作总览](architecture/long-horizon-collaboration.md)、[事件协议](development/2026-10-10-agent-interaction-protocol.md)、[长上下文](development/2026-10-09-long-horizon-context.md) | [长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
+| 多 Agent 如何通信、保持上下文一致？ | [消息字段、传递时序、上下文和 Harness 专题](architecture/edge-agent-communication-and-context.md) → [协作总览](architecture/long-horizon-collaboration.md) | [当前就绪审计与复测](development/2026-10-18-edge-communication-readiness.md)、[长程协议实测](experiments/2026-10-10-long-horizon-protocol.md) |
 | 系统如何扩展到云边、异构机器人和多种 SLAM？ | [模块化评价与路线](architecture/modular-extensibility.md)、[SLAM Provider](development/slam-providers.md) | [边界升级与验证记录](development/2026-10-13-modular-extensibility.md) |
+| 怎样研究空地异构三维探索与消融？ | [探索器、分工和覆盖合同](development/2026-10-17-heterogeneous-spatial-exploration.md) | [配对协议与 CLI](experiments/2026-10-17-spatial-exploration-protocol.md)、[实际报告与证据](experiments/2026-10-18-spatial-exploration.md)；离线体素观测不等于实际飞行或表面全覆盖 |
+| 已知地图怎样做覆盖规划、多层地面怎样通行？ | [显式覆盖与分层地形](development/2026-10-18-spatial-coverage-upgrade.md) | [学习补充](../book/updates/2026-10-18-spatial-coverage-upgrade.md)；预测覆盖、实际新观测和控制器可执行性分别判断 |
 | 云端大脑与边缘怎样交接？ | [分层目标合同](architecture/hierarchical-edge-objectives.md)、[API 接入](guides/delegated-edge-goals.md)、[目标运维](operations/delegated-goal-operations.md) | [目标委托测试](experiments/2026-10-15-hierarchical-edge-objectives.md)与[鲁棒性证据](experiments/2026-10-15-single-robot-robustness.md) |
 | 点云语义怎样驱动长程导航？ | [点云语义操作](guides/semantic-point-cloud.md)、[目标绑定与执行协议](architecture/semantic-execution-protocol.md) | [五站任务、失败和修复](experiments/2026-10-13-semantic-execution.md) |
 | 标定、建图或地图显示有问题？ | [注册服务工作流](guides/robot-service-workflow.md)、[关键帧检查](guides/slam-keyframe-inspection.md)、[地图运维](development/dense-map-operations.md) | [SLAM 与语义导航实测](experiments/2026-09-27-gazebo-slam-semantic-navigation.md) |
@@ -42,7 +58,7 @@
 | 资料 | 用法 | 不能直接推导的结论 |
 | --- | --- | --- |
 | 当前操作与接口指南 | 按所在 Git 提交使用；核对设备角色、配置与能力目录 | 指南里出现一个接口，不代表所有适配器都已实现 |
-| [书籍2.2.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `821659df` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
+| [书籍3.1.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `9e6a58f6` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
 | [软件发布记录](releases/v0.7.0.md)与[Changelog](../CHANGELOG.md) | 区分正式发布和 Unreleased 增量；分支规则见[发布规范](development/branching.md) | 功能分支上的实验通过，不等于已合入 main 或完成发布 |
 | 带日期的实施、审计和实验记录 | 回溯当时的假设、失败、修复及环境；按原版本引用 | 历史成功、旧状态页或设计清单不覆盖今天的全部代码 |
 | 原始观测与机器可读结果 | 根据 manifest、身份和原始字节复验；数据入口见[研究路线](research/README.md) | 仿真、回放、软件合同和真机证据不能互相替代 |
