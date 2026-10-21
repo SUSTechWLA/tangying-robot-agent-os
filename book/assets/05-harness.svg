@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 495" role="img" aria-labelledby="title description">
+<title id="title">图 5-1　一个工具调用经过哪些检查</title><desc id="description">复用的是检查链；不同机器人的运动学和制动仍由本体实现。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="495" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 5-1　一个工具调用经过哪些检查</text>
+<rect x="30" y="90" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">模型输出</text>
+<text x="46" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">工具名与参数</text>
+<text x="46" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">只是候选动作</text>
+<rect x="350" y="90" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">目录与授权</text>
+<text x="366" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">schema / effects / resource</text>
+<text x="366" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">批准包络是否允许</text>
+<rect x="670" y="90" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="686" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">执行上下文</text>
+<text x="686" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">robot / revision / command</text>
+<text x="686" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">当前 claim 与 fence</text>
+<rect x="670" y="310" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="686" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">Runtime 准入</text>
+<text x="686" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">profile / ready / deadline</text>
+<text x="686" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">journal 与去重</text>
+<rect x="350" y="310" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">控制器与反馈</text>
+<text x="366" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">执行、取消、停止</text>
+<text x="366" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">结果可能仍然未知</text>
+<rect x="30" y="310" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="46" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">后置条件验证</text>
+<text x="46" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">新观测与目标比较</text>
+<text x="46" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保存结论和引用</text>
+<line x1="290" y1="142" x2="350" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="100" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">解析</text>
+<line x1="610" y1="142" x2="670" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="100" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">绑定</text>
+<line x1="800" y1="195" x2="800" y2="310" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="800.0" y="254" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">调用</text>
+<line x1="670" y1="362" x2="610" y2="362" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="320" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">执行</text>
+<line x1="350" y1="362" x2="290" y2="362" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="320" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">证明</text>
+<text x="30" y="466" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">复用的是检查链；不同机器人的运动学和制动仍由本体实现。</text>
+</svg>

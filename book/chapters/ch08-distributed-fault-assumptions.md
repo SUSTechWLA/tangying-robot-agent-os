@@ -1,96 +1,72 @@
-# 第 8 章 分布式一致性、租约与故障恢复
+# 第 8 章 分布式故障：超时、重复与恢复窗口
 
-**学习目标**：区分因果、持久化与物理效果；分析重复、丢响应和旧持有者；识别恢复窗口。
+本章的核心问题是：网络只能告诉我们“没收到回复”时，如何避免把一个物理动作执行两次？读完应能列举崩溃窗口，并为每个窗口指定恢复依据。
 
-**先修知识**：第2、3、7章；事务和网络故障。
+## 8.1 先推演两个看起来相同的超时
 
-**关键术语**：happened-before、lease、fencing、CAS、Outbox、checkpoint
+场景一：请求没有送到 Runtime，客户端超时。场景二：机器人已到 B，回包丢失，客户端超时。客户端看到相同错误，但第一次可能需要执行，第二次重做可能浪费路线、破坏物品或扩大风险。
 
-## 8.1 因果顺序与时间顺序
+仅靠重试次数和指数退避不能区分两者。它们解决发送节奏，不解决效果身份。系统需要稳定 commandId、设备侧 journal、执行检查点和命令后证据，才能把“不知道”缩小到确定的窗口。
 
-分布式事件不能仅靠墙钟或到达顺序重建因果。Lamport的happened-before关系用进程内顺序、发送/接收与传递性定义事件偏序；本书将它用于理解causation链，不声称项目实现了完整逻辑时钟算法。[原论文](https://lamport.azurewebsites.net/pubs/time-clocks.pdf)
+## 8.2 幂等、租约和 fence 分别防什么
 
-任务账本序号能排序本聚合记录，不能证明跨设备时钟精度或实际采集质量。消息携带原因ID、设备和版本，是为了拒绝不匹配，不是仅增加字段数量。
-
-## 8.2 租约、fencing与共识
-
-租约在有限时间内授予权威；fence使受保护入口拒绝更旧纪元。租约失效不撤销已经发生的物理效果，也不证明设备停止。
-
-中心单写租约与共识协议不同。Raft讨论复制日志、一致性和领导者协调；本项目Redis leader/resource租约不构成同等复制状态机或跨存储事务。[Raft论文](https://raft.github.io/raft.pdf)
-
-当前生产leader owner使用唯一incarnation，避免进程重启沿用旧身份。共享存储失效、业务提交与租约校验窗口仍须单独测试。
-
-## 8.3 事务与Outbox
-
-Outbox把业务事实与待投递工作在同一存储事务中提交，再允许重复发送。它解决“状态已落盘但通知未发出”的部分故障，不把电机动作放进事务。
-
-HTTP的幂等语义讨论相同请求重复的预期效果，不能自动赋予机器人命令物理幂等。应用还需命令身份、fingerprint、持久结果与未知策略。[RFC9110 §9.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2)
-
-## 8.4 边缘checkpoint的恢复表
-
-| 阶段 | 重启动作 | 未知边界 |
+| 机制 | 防止的问题 | 不能代替的机制 |
 | --- | --- | --- |
-| 无记录 | 校验后CAS提交ACCEPTED | 不落盘不派发 |
-| ACCEPTED | 默认停止/对账；目标通道仅允许证明安全的检查点重入 | 不能仅凭父阶段推断未发生动作 |
-| EXECUTED | 只重传原completion | 不能再执行物理图 |
-| COMPLETED | 不动作，补ACK | 队列确认可重试 |
+| 幂等键 / commandId | 同一请求重复到达造成重复处理 | 不证明设备效果已发生或已停止 |
+| claim / lease | 两个 Worker 同时获得当前任务权 | 旧 Worker 在网络分区中可能仍存活 |
+| fencing token | 资源拒绝旧持有者的写 | 仅在接收端实际检查时有效 |
+| CAS 聚合版本 | 并发写覆盖新状态 | 不把设备动作纳入数据库事务 |
+| Outbox / Inbox | 落库与消息投递之间丢通知 | 不提供物理动作 exactly-once |
 
-同机器人worker应共享执行库，CAS决定唯一接收者；不同DB不是共享锁，还需Runtime幂等/fence。领取租约过期的已执行任务不能自动分给另一机器人重做。
+例如新 Worker 使用 fence=12，旧 Worker 仍带 11；真正接收命令的边界必须拒绝 11。只在云端页面显示新持有者，对设备没有约束作用。当前租约和资源机制也不等同于 Raft 共识系统。
 
-目标通道还保留 `edge-goal/<task>/<revision>` 检查点与不可变子计划。无在途动作的已确认边界可重入原父claim，但仍检查批准、revision、计划、设备、目录与实时租约；`CanResumeGoal` 只是本地只读预检，不是执行许可。云端断连失去claim续租后停止，没有离线继续授权。
+## 8.3 四个持久化位置决定重启行为
 
-若子动作已持久完成而父确认写入丢失，恢复必须同时找到独立 `StepCompleted` 和完整匹配 child/step/command/robot/revision/plan/catalog 的 `CAPABILITY_VERIFIED`，并用固定目录复核写分类。Host 重新检查当前权威后追加 `EDGE_STEP_RECOVERED`，承认原效果而不发新动作。只有回执、开始记录、缺字段、身份错配或后续失败时仍保留未知。
+![图 8-1：检查点和恢复分支](../assets/08-checkpoint.svg)
 
-## 8.5 完成响应丢失与v2收尾
+| 崩溃位置 | 现有证据 | 正确恢复方向 |
+| --- | --- | --- |
+| 持久接单之前 | 没有本次检查点 | 在当前权限仍有效时判断是否首次执行 |
+| 接单后、结果确定前 | ACCEPTED 或 pending | 可能有物理效果；调查而非盲重做 |
+| 子执行已验证、父记录未推进 | 精确绑定的完整子账本 | 重新核对权限后只补父记账 |
+| 完成证明已落盘、上报或响应丢失 | EXECUTED 与原 completion | 补传原报告，不重做动作 |
+| 完成确认已持久化 | COMPLETED | 返回已知结果 |
 
-中心把精确receipt、成功状态、pendingCompletion和finalize outbox一起提交。边缘若丢响应且revision已变，可重发旧completion；中心核对不可变回执确认旧结果，不推进新图。
+[edge/worker/context.go](../../edge/worker/context.go) 处理 Worker 检查点，[internal/edgeagent/recovery.go](../../internal/edgeagent/recovery.go) 处理目标内子账本窗口。表中相似原则不能使两种状态结构互换。
 
-收尾用原grants/effects释放旧租约、投影共享归属、尊重更高fence和后来取消/安全停止，再关闭pending。未完成收尾不得认领新工作，也不调用Runtime。
+## 8.4 为什么先写 pending，再调用设备
 
-目标已经验证而父结果投递失败时，Host 返回 `ErrReportPending`，Worker保留待交付结果；重连补传子计划和逐步验证，不能重做动作。即便执行期限已过，也只允许在当前父权威下交付原证明。初次执行和安全续跑共用失败上报路径，未知效果都按原claim上报 `UNKNOWN_OUTCOME`。
-
-## 8.6 未覆盖窗口
-
-成功事务前外部Transfer已经发生但未持久记录、过期且从未投影的共享grant、数据库/世界读取失败和不理解pending的旧coordinator混跑，仍可能需要对账。部署须排除旧leader，当前无自动二进制版本联锁。
-
-对这些窗口应画故障注入点、持久事实和允许动作，不能只写“支持断点续跑”。
-
-### 中断推演：为何无法从超时推断效果
-
-```text
-本机持久 ACCEPTED → 派发 Runtime → 实体动作 → 收到/核验结果
-                                               → 持久 EXECUTED
-```
-
-若进程在派发前或实体动作后中断，本机都可能只剩 ACCEPTED。仅凭该阶段无法区分两段历史，所以“没有 EXECUTED 就重试”不成立。更强设备协议可提供原 operation 查询、执行幂等与采集证据，但必须证明它们的范围；查询失败仍保留未知。
-
-EXECUTED 确定结果和 completion 已落盘，把故障从物理执行转为结果交付。它支持重复上报既有结果，不授予新的物理效果。恢复设计的目标是缩小未知范围，并明确无法自动恢复的边界。
-
-## 8.7 CAS 与 Outbox 的教学模型
-
-设任务聚合版本为 v，两个消费者都读到 v。CAS 更新可用“仅当当前版本仍是 v，提交状态并增版本”表达；其中一个成功后，另一个重读/拒绝，不能覆盖前者。比较和提交必须由同一存储原子完成。
+考虑伪代码：
 
 ```text
-事务：检查 expectedVersion → 写业务状态 → 写 outbox → 提交
-投递器：读未完成 outbox → 发送 → 收到确认后标记
-消费者：验证身份/版本 → 幂等消费 → 保存结果
+提交：本步骤 pending=true，预留预算，绑定 command
+调用：执行器 → Runtime → 验证
+提交：保存精确结果，pending=false，推进索引
 ```
 
-投递器发送后、标记前中断会重复发送，因此消费者需要幂等。事务保护的是这一存储中的状态与待发记录；另一个数据库、共享资源服务和实体动作不能因为出现在同一图里就自动获得原子性。
+如果把第一次提交移到调用之后，在设备执行与落盘之间崩溃，重启会误以为动作尚未开始。先落盘虽然不能消除未知窗口，却能把它标出来。进一步用子账本的完整绑定结果缩小未知范围，而不是假装窗口不存在。
 
-设计评审时应为每个跨边界箭头画“效果前、效果后、回执前、回执后”的故障点。需要强一致的业务可使用适用共识/事务，物理效果仍需要命令查询、证据和对账。当前项目的 lease、checkpoint 和 v2 收尾分别缩小部分窗口，不宣称覆盖全部。
+当前 [internal/edgeagent/journal.go](../../internal/edgeagent/journal.go) 使用 ExpectedVersion，将聚合状态、事件和检查点提交到同一 eventstore 事务。Runtime 的物理世界仍在事务外；外部资源 Transfer 与云端成功事务之间也存在需对账窗口，不能因此宣称端到端 exactly-once。
 
-### 先持久化，再确认通知
+## 8.5 完成响应丢失后，为何不能套用新 revision
 
-Worker 的任务通知先写本机 SQLite inbox，再 ACK Redis；重启恢复原通知。取消和暂时失败不能因固定尝试次数耗尽而悄悄丢掉工作。这个顺序缩小“队列已确认、本机却没有记录”的丢失窗口；ACK 响应丢失仍可能重投，消费者去重后读取当前 claim。
+任务 revision 1 已完成并上报，但响应丢失；期间用户创建 revision 2。Worker 重传时应拿 revision 1 的原执行摘要和完成证明对照不可变回执。若拿当前 revision 2 去解释旧结果，可能把未执行的新目标标成成功。
 
-消息可靠性与动作可靠性分开：通知可以重投，物理 ACCEPTED 但结果未知不能重做。设备数据 inbox/outbox 同样只保证其落盘与投递范围，不能将收到地图消息与修改本地地图包合成一个事务。
+[core/contextcontract/basis.go](../../core/contextcontract/basis.go) 通过 taskRevision、claimVersion、stepId、commandId、robotId、executionDigest 等字段表达执行依据；[fleet/coordinator/completion.go](../../fleet/coordinator/completion.go) 与 `finalization.go` 负责相应完成和收尾。digest 用于验证字段组合，仍不能代替设备真实性与通信身份。
 
-## 8.8 小结与阅读
+## 8.6 用最小反例学习恢复
 
-协议实现见[Basis](../../core/contextcontract/basis.go)、[边缘checkpoint](../../edge/worker/context.go)、[completion](../../fleet/coordinator/completion.go)与[finalization](../../fleet/coordinator/finalization.go)。
+阅读并运行以下软件测试，不会驱动机器人：
 
-## 8.9 分层习题
+```bash
+go test ./internal/edgeagent -run 'TestDelegatedVerifiedCrash|TestDelegatedExpiredUnknown' -count=1
+```
+
+先预测三个结果：完整匹配证据、缺失 StepCompleted、相同工具但错误 binding。再看测试如何要求后两者保持拒绝。若只记得“有检查点就可以恢复”，你会在最危险的分支作错判断。
+
+**设计取舍**：越精确的日志通常能提高自动恢复范围，但会增加写放大、存储压力和对账成本。优化方向是保留决定执行权与效果身份的最小充分记录，而不是删掉所有中间状态追求速度。
+
+## 8.7 分层习题
 
 基础题 B：为什么队列ACK不等于物理成功？
 

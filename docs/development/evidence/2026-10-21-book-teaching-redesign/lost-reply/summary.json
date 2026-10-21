@@ -1,0 +1,62 @@
+{
+  "physicalExecution": false,
+  "results": [
+    {
+      "strategy": "naive",
+      "effects": 2,
+      "state": "COMPLETED",
+      "events": [
+        {
+          "event": "pending_committed",
+          "command": "c1"
+        },
+        {
+          "event": "effect_happened_reply_lost",
+          "effects": 1
+        },
+        {
+          "event": "blind_retry",
+          "effects": 2
+        }
+      ]
+    },
+    {
+      "strategy": "guarded",
+      "effects": 1,
+      "state": "UNKNOWN",
+      "events": [
+        {
+          "event": "pending_committed",
+          "command": "c1"
+        },
+        {
+          "event": "effect_happened_reply_lost",
+          "effects": 1
+        },
+        {
+          "event": "no_replay_without_bound_evidence"
+        }
+      ]
+    },
+    {
+      "strategy": "reconcile",
+      "effects": 1,
+      "state": "COMPLETED",
+      "events": [
+        {
+          "event": "pending_committed",
+          "command": "c1"
+        },
+        {
+          "event": "effect_happened_reply_lost",
+          "effects": 1
+        },
+        {
+          "event": "bound_receipt_reconciled",
+          "command": "c1"
+        }
+      ]
+    }
+  ],
+  "assumption": "A simulated matching device receipt is trusted in case 3. Real robot recovery additionally validates full binding, authority and observation."
+}

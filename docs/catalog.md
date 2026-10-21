@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **272 份 Markdown** 与 **928 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **273 份 Markdown** 与 **939 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,7 +13,7 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 107 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 108 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
@@ -184,6 +184,7 @@
 | [2026-10-18：异构边缘 Agent 的持久收件与有作用域的协作建议](development/2026-10-18-scoped-peer-cooperation.md) | `development/2026-10-18-scoped-peer-cooperation.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [已知地图三维覆盖与多层地面导航：设计和变更记录](development/2026-10-18-spatial-coverage-upgrade.md) | `development/2026-10-18-spatial-coverage-upgrade.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [边缘机器人工作空间与任务回溯升级](development/2026-10-20-edge-robot-workspaces.md) | `development/2026-10-20-edge-robot-workspaces.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-21 · 教材 3.0.0：架构推导、源码与故障实验](development/2026-10-21-book-teaching-redesign.md) | `development/2026-10-21-book-teaching-redesign.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -416,6 +417,17 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-14-artifact-cleanup.json](development/2026-10-14-artifact-cleanup.json) | JSON | `development` |
 | [2026-10-14-book-and-maintenance-review.json](development/2026-10-14-book-and-maintenance-review.json) | JSON | `development` |
 | [2026-10-16-architecture-book-refresh.json](development/2026-10-16-architecture-book-refresh.json) | JSON | `development` |
+| [context-projection.json](development/evidence/2026-10-21-book-teaching-redesign/context-projection.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign` |
+| [device.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded/device.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded` |
+| [trace.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded/trace.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded` |
+| [device.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/naive/device.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/naive` |
+| [trace.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/naive/trace.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/naive` |
+| [device.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/reconciled/device.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/reconciled` |
+| [trace.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/reconciled/trace.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/reconciled` |
+| [summary.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/summary.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply` |
+| [publication-and-docs-tests.txt](development/evidence/2026-10-21-book-teaching-redesign/publication-and-docs-tests.txt) | TXT | `development/evidence/2026-10-21-book-teaching-redesign` |
+| [software-checks.json](development/evidence/2026-10-21-book-teaching-redesign/software-checks.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign` |
+| [validation-manifest.json](development/evidence/2026-10-21-book-teaching-redesign/validation-manifest.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign` |
 | [2026-09-27-capability-goal-acceptance.json](experiments/2026-09-27-capability-goal-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-acceptance.json) | JSON | `experiments` |
 | [2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json](experiments/2026-09-27-gazebo-slam-semantic-navigation-hardening-acceptance.json) | JSON | `experiments` |

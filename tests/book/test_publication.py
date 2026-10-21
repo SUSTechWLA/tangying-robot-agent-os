@@ -14,11 +14,15 @@ import pytest
 from scripts import build_book as book
 
 
+def snapshot_files(path):
+    return {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*") if p.is_file()}
+
+
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 31  # three front sections, 19 chapters, nine appendices
-    assert manifest["edition"] == "2.2.0"
-    assert manifest["source_snapshot"] == "821659dfd6782927d02924916ced5474a8142d74"
+    assert manifest["edition"] == "3.0.0"
+    assert manifest["source_snapshot"] == "9e6a58f6ad48c6d9441e95511ddb4d503ea6449e"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
         [sys.executable, str(book.ROOT / "scripts/build_book.py"), "--check"],
@@ -48,6 +52,11 @@ def test_missing_chapter_cannot_silently_disappear(tmp_path):
 
 def test_documentation_links_advance_without_repinning_implementation():
     manifest, documents = book.load_manifest()
+    # Keep a historical pair where documentation advanced independently of code.
+    manifest["source_snapshot"] = "821659dfd6782927d02924916ced5474a8142d74"
+    manifest["documentation_snapshot"] = subprocess.check_output(
+        ["git", "rev-parse", "d88158ad"], cwd=book.ROOT, text=True
+    ).strip()
     doc = documents[0]
     docs_url = book.resolve_link("../../docs/production/architecture.md", doc, documents, manifest, "html")
     code_url = book.resolve_link("../../internal/edgeagent/host.go", doc, documents, manifest, "html")
@@ -94,9 +103,7 @@ def test_exports_are_deterministic_and_all_epub_links_resolve(tmp_path):
     first, second = tmp_path / "first", tmp_path / "second"
     book.build(first, manifest, documents)
     book.build(second, manifest, documents)
-    assert {p.name: p.read_bytes() for p in first.iterdir()} == {
-        p.name: p.read_bytes() for p in second.iterdir()
-    }
+    assert snapshot_files(first) == snapshot_files(second)
     book.validate_epub(first / "book.epub")
     with ZipFile(first / "book.epub") as archive:
         pages = [p for p in archive.namelist() if p.endswith(".xhtml")]
@@ -129,7 +136,7 @@ def test_release_refuses_to_overwrite_a_different_or_unidentified_publication(tm
     manifest, documents = book.load_manifest()
     output = tmp_path / "published"
     book.build(output, manifest, documents)
-    original = {p.name: p.read_bytes() for p in output.iterdir()}
+    original = snapshot_files(output)
     revised = deepcopy(manifest)
     revised_docs = deepcopy(documents)
     target = output
@@ -145,7 +152,7 @@ def test_release_refuses_to_overwrite_a_different_or_unidentified_publication(tm
         target.symlink_to(output, target_is_directory=True)
     with pytest.raises(ValueError, match="identity|provenance|symlink"):
         book.build(target, revised, revised_docs)
-    assert {p.name: p.read_bytes() for p in output.iterdir()} == original
+    assert snapshot_files(output) == original
 
 
 def test_identical_publication_can_be_rebuilt_in_place(tmp_path):
@@ -153,9 +160,9 @@ def test_identical_publication_can_be_rebuilt_in_place(tmp_path):
     manifest, documents = book.load_manifest()
     output = tmp_path / "published"
     book.build(output, manifest, documents)
-    original = {p.name: p.read_bytes() for p in output.iterdir()}
+    original = snapshot_files(output)
     book.build(output, manifest, documents)
-    assert {p.name: p.read_bytes() for p in output.iterdir()} == original
+    assert snapshot_files(output) == original
 
 
 def test_provenance_hashes_the_loaded_text_even_if_disk_changes(monkeypatch):
@@ -286,7 +293,7 @@ def test_1_2_0_content_and_original_generator_are_exactly_recoverable():
         assert (archive / name).read_bytes() == original
 
 
-@pytest.mark.parametrize("edition", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("edition", ["2.0.0", "2.1.0", "2.2.0"])
 def test_textbook_sources_and_generator_are_exactly_recoverable(edition):
     archive = book.ROOT / "book/editions" / edition
     identity = json.loads((archive / "source-manifest.json").read_text())

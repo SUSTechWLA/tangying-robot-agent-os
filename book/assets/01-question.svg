@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 495" role="img" aria-labelledby="title description">
+<title id="title">图 1-1　从用户一句话到可判断的任务</title><desc id="description">读图问题：哪一个节点能够证明机器人确实到达？</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="495" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 1-1　从用户一句话到可判断的任务</text>
+<rect x="30" y="90" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">业务目标</text>
+<text x="46" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">巡检 B、C 区后返回 A</text>
+<text x="46" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">需要路线与停止边界</text>
+<rect x="350" y="90" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">执行合同</text>
+<text x="366" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">允许什么、何时过期</text>
+<text x="366" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">资源、次数、预算</text>
+<rect x="670" y="90" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="686" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">现场计划</text>
+<text x="686" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">依据当前能力和地图</text>
+<text x="686" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">可行路线与观测点</text>
+<rect x="670" y="310" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="686" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">设备执行</text>
+<text x="686" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">明确命令身份</text>
+<text x="686" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">控制器完成局部闭环</text>
+<rect x="350" y="310" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">独立验证</text>
+<text x="366" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">动作之后的新采集</text>
+<text x="366" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">比较目标与实际状态</text>
+<rect x="30" y="310" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="46" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">任务结论</text>
+<text x="46" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">完成 / 失败 / 未知</text>
+<text x="46" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保留证据和解释</text>
+<line x1="290" y1="142" x2="350" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="100" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">形式化</text>
+<line x1="610" y1="142" x2="670" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="100" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">细化</text>
+<line x1="800" y1="195" x2="800" y2="310" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="800.0" y="254" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">派发</text>
+<line x1="670" y1="362" x2="610" y2="362" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="320" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">采集</text>
+<line x1="350" y1="362" x2="290" y2="362" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="320" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">裁决</text>
+<text x="30" y="466" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">读图问题：哪一个节点能够证明机器人确实到达？</text>
+</svg>

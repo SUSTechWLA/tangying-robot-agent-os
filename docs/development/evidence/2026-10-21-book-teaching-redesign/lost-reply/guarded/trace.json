@@ -1,0 +1,18 @@
+{
+  "strategy": "guarded",
+  "effects": 1,
+  "state": "UNKNOWN",
+  "events": [
+    {
+      "event": "pending_committed",
+      "command": "c1"
+    },
+    {
+      "event": "effect_happened_reply_lost",
+      "effects": 1
+    },
+    {
+      "event": "no_replay_without_bound_evidence"
+    }
+  ]
+}

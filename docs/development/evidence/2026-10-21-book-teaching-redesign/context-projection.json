@@ -1,0 +1,30 @@
+{
+  "naiveTail": [
+    "c57",
+    "c58",
+    "c59"
+  ],
+  "protectedView": {
+    "scope": "robot-A/task-P/rev-1",
+    "goal": "inspect B and C then return A",
+    "guards": [
+      "do not enter D"
+    ],
+    "unresolved": [
+      "command-c12"
+    ],
+    "completedCount": 59,
+    "recentCompleted": [
+      "c57",
+      "c58",
+      "c59"
+    ],
+    "archiveSha": "c9c76e19c6dd4acb5985e3011c84cc625b3946fb44d06e8adec5638d8aba5247"
+  },
+  "rejected": [
+    "cross_robot_read",
+    "protected_state_over_budget"
+  ],
+  "archiveRestoredExactly": true,
+  "physicalExecution": false
+}

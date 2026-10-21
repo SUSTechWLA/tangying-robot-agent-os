@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+教材 3.0.0（2026-10-21）已按“问题、设计、数据流、反例、实现、取舍”重编，提供 16 幅图、两个无硬件实验与课堂脚本。 [改版与核验记录](2026-10-21-book-teaching-redesign.md)。
+
 边缘工作台更新（2026-10-20）：[工作空间、身份隔离与任务回溯实现](2026-10-20-edge-robot-workspaces.md) → [部署与接口说明](../operations/edge-robot-workspaces.md)。每台机器人保持独立执行器，前后端按设备作用域访问任务与证据。
 
 边缘通信与上下文核验（2026-10-18 至 19）：[消息、上下文与核心 Harness 专题](../architecture/edge-agent-communication-and-context.md) → [上线判断、源码审查和本轮复测](2026-10-18-edge-communication-readiness.md)。云端与边缘同事先按此核对通道、身份、可靠性与完成语义。
@@ -24,7 +26,7 @@
 
 边缘设备开发优先看[实机测试部署](../operations/edge-field-testing.md)、[ROS 2 异构运动契约](heterogeneous-mobility.md)、[跨 Agent 数据协议](edge-data-exchange.md)和[Worker 可靠执行](edge-worker-reliability.md)。本轮实现、仿真与未测项汇总于[边缘升级记录](2026-10-13-edge-field-candidate.md)。
 
-正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 2.2.0 教材](../../book/README.md)的实现复核固定到 `821659df`，包含目标委托、持久恢复、点云语义和空间通道；实验按原身份引用。记录自己的分支和提交后再比较文档中的行为。
+正式软件发布、当前工作分支和书籍是三种身份。软件发布见 [v0.7.0](../releases/v0.7.0.md)；当前检出的增量看 Git 提交与[变更日志](../../CHANGELOG.md)；[数字版 3.0.0 教材](../../book/README.md)的实现复核固定到 `9e6a58f6`，包含目标委托、持久恢复、点云语义和空间通道；实验按原身份引用。记录自己的分支和提交后再比较文档中的行为。
 
 ## 1. 先建立系统全貌
 
@@ -101,4 +103,4 @@
 
 提交前确认代码、当前指南、配置/API 和测试一致；运行 `git diff --check`，排除密钥、会话凭据和运行数据。论文需要的数据结构与证据保留规则从[实验索引](../experiments/README.md)继续；部署、升级执行与回滚从[运维入口](../operations/README.md)继续。
 
-当前参考文档与教材对应 `821659df` 的分层目标、恢复和空间合同；历史维护与清理分别见[10-14 计划](2026-10-14-maintenance-and-book-plan.md)及[产物记录](2026-10-14-artifact-cleanup.json)，不作为今天再次清理或再次实验的记录。
+当前参考文档与教材对应 `9e6a58f6` 的分层目标、恢复和空间合同；历史维护与清理分别见[10-14 计划](2026-10-14-maintenance-and-book-plan.md)及[产物记录](2026-10-14-artifact-cleanup.json)，不作为今天再次清理或再次实验的记录。

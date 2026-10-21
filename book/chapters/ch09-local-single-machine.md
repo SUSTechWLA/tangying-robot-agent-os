@@ -1,97 +1,62 @@
-# 第 9 章 单机自治、持久状态与开发入口
+# 第 9 章 单机器人边缘系统与多机器人工作台
 
-**学习目标**：快速启动理解系统；分清持久和实时状态；分析单机重启与控制端切换。
+本章把架构落到可运行进程。读完应能说明一个边缘 Agent 的最小组成，追踪 taskId 的持久位置，并理解切换工作台设备为何不应热换 Runtime。
 
-**先修知识**：第2、3、8章；文件与数据库操作。
+## 9.1 一台机器人也需要完整的系统边界
 
-**关键术语**：Local自治、SQLite、liveness、readiness、journal、回放
+最小边缘系统包含任务入口、Host/执行器、能力与 Runtime 客户端、持久任务和检查点、观测索引及操作界面。移到单机运行只减少网络跨域，不会消除崩溃、旧数据或物理副作用。
 
-## 9.1 单机是完整闭环的最小载体
+[cmd/local-agent/main.go](../../cmd/local-agent/main.go) 是组合根：把依赖装起来，不应该塞入全部业务规则。主逻辑位于 `internal/edgeagent/`、`internal/capabilityagent/`、`tasks/` 等模块，SQLite 实现在 `middleware/sqlite/`。这个结构让相同业务核心能够被 Worker 入口复用。
 
-Local Agent只控制一台Runtime，用SQLite保存目标、版本、事件、决策与执行信息，在同进程装配Task/Ops/Recovery。简化机群协调不应简化未知结果、审批或证据。
+## 9.2 浏览器选择 B，不能把 A 的执行器换成 B
 
-```text
-粗目标 /v1/objectives ─┐
-                      ├→ Task/Revision/批准 → Edge Host
-冻结计划 /v1/tasks ────┘                       │ 能力执行器
-                                              ↓
-           SQLite父/子账本 ← 验证/观测/journal ← Runtime
-           Local EventBus → 既有Ops/Recovery调查
-```
+一种危险实现是在服务器全局变量里写 `currentRobot=B`，所有 API 都读取它。两个标签页分别操作 A、B 时，最后一次切换会影响另一页；A 的迟到响应也可能显示在 B 页面。如果 A 正在执行长任务，热换 Runtime 还可能把下一步派发给 B。
 
-初学者先从这一形态观察系统全貌，再研究Fleet。没有云中心不等于所有状态都可放内存。
+当前工作台采用 URL 作用域：`/` 对应入口绑定设备，`/robots/<id>/` 对应已注册的独立 Local Agent。选择器使用整页导航清理旧页面的轮询与回调；各设备保留自己的 Host、SQLite 和控制权。
 
-## 9.2 哪些内容必须持久化
+![图 9-1：按设备路由的工作台](../assets/09-workspaces.svg)
 
-目标与批准内容、命令身份/状态、unknown/冲突、恢复预算、完整因果链和实际模型请求，是跨重启判断需要的事实。临时UI缓存或一次模型摘要不具备同等权威。
+## 9.3 从一次读取看清信任边界
 
-目标通道还必须保存父目标预算、当前代数、Pending状态、完成读取预留与子计划全量账本。模型只见最近8项完成，不表示磁盘只保存8项；重启应从同一数据库恢复原事实。
+浏览器读取 `/robots/uav/v1/tasks/P`。入口先检查自身会话与同源，再用无凭据请求核对目标 Agent 的不可变 robotId，随后读取私有 sessionFile，携带目标令牌及预期设备身份转发。目标 Agent 再次检查身份，避免预检后端点换机。
 
-SQLite提供数据库事务/隔离语义；它们不延伸到外部执行器。WAL下的读快照与写串行仍应按具体连接/事务理解，而非“单机无并发问题”。[SQLite隔离说明](https://www.sqlite.org/isolation.html)
+身份错误、未注册路径、离线和会话缺失都明确失败，不回退到入口机器人。同一主机不同端口的 Console 使用不同 Cookie 名，避免相互覆盖。地图与文件标定还核对产物 robotId，防止共享目录把另一设备的“已就绪”借过来。
 
-## 9.3 进入运行中的系统
+这些机制解决设备隔离和误路由，**没有提供用户角色授权或公网多租户认证**。相关实现为 [console/workspaces.go](../../console/workspaces.go)、[console/guard.go](../../console/guard.go) 与 [web/edge_workspace.js](../../web/edge_workspace.js)。
+
+## 9.4 历史可回溯需要什么条件
+
+| 情况 | 能读什么 | 不能据此推断什么 |
+| --- | --- | --- |
+| Agent 与 Runtime 都在线 | 当前查询和该设备历史 | 当前状态必然适合运动 |
+| 已运行 Agent 在线，Runtime 断开 | 已保存任务、事件和观测索引 | 旧观测等于当前现场 |
+| Agent 本身离线 | 页面保留设备选择和错误 | 入口拥有它的完整历史副本 |
+| 重启 Agent | 通过运行身份检查后读取原数据库 | 自动重做未决动作 |
+
+当前回溯基于任务留存，未新增全天候原始传感器录像。若论文需要连续轨迹，必须显式录制并记录采样、时钟和丢帧；不能从任务页面有几张图片推断全程可重建。
+
+## 9.5 两台设备相同 taskId 的实验
+
+运行：
 
 ```bash
-make setup
-make home-furnished
-curl --fail --silent http://127.0.0.1:8897/healthz
-curl --fail --silent http://127.0.0.1:8897/v1/runtime
-curl --fail --silent http://127.0.0.1:8897/v1/readiness
+go test ./console -run TestWorkspaceRealTaskHistoryAndEventsRemainIsolatedAcrossRestart -count=1
+go run ./console/testdata/workspace-preview
 ```
 
-这是开发仿真入口，需要对应依赖及Docker。已有服务承载任务时先核对并复用，不重复启动。healthz是进程存活；Runtime ready与Console readiness涉及不同范围；批准和现场使能又是另外的条件。
+第一条使用真实 SQLite 和 HTTP/WebSocket，检查不同设备相同任务编号、并发读写、会话轮换和重启历史。第二条打开明确标为样例的工作台，包含 Runtime 离线和 Agent 离线情况，executor 拒绝物理执行。退出预览按 Ctrl+C。
 
-先查看设备目录、地图/标定与历史，再选择入口：工作台自然语言表单创建冻结能力计划；目标委托通过显式 `/v1/objectives` API提交合同，并使用既有任务批准路由。目标合同需绑定真实 `goalCatalogRevision`、工具/参数/次数、只读完成条件、预算和期限，详见[接口指南](../../docs/guides/delegated-edge-goals.md)。不要将旧表单成功解析理解为新Host已经启用。敏感模型配置保存在私有文件，不能通过日志展示key。
+练习不是“点一下下拉框就成功”，而是：在 A 选择某任务，切到 B，核对请求路径和内容，再返回 A；关闭页面后观察订阅是否结束；解释为什么任务执行本身不应被取消。
 
-## 9.4 重启、备份与回放
+## 9.6 持久化与部署的实际成本
 
-进程退出时数据库记录可能完整，物理动作却仍未知；Runtime journal和新鲜观测须共同对账。历史SUCCEEDED不能自动证明当前仍满足条件。
+每台设备需要独立 data-dir、Runtime 身份与产物目录。入口注册多个 Agent 使操作方便，但新增单入口依赖和代理开销；当前入口自身启动仍需要绑定自己的 Runtime，并非独立无机器人聚合服务。
 
-活跃数据库应使用一致性备份接口，保留地图/配置绑定和制品哈希。普通复制正在写入的文件可能不是完整快照。恢复后的来源仍需重新采集，不能将旧帧标为新鲜。
+未来可增加只读历史副本、独立聚合服务器和用户授权，但这些扩展应保持设备执行权不依赖浏览器选中项。按设备划分数据库的代价是全局查询复杂，收益是单机故障与上下文边界清楚。
 
-## 9.5 切换到机群
+操作配置见[工作空间部署指南](../../docs/operations/edge-robot-workspaces.md)。本章强调设计原因；实际连接设备前应按该指南配置私有会话与路径。
 
-停止旧派发→核对命令和持物→建立Fleet设备身份/资源→启用worker，是受控切换流程。Local和worker不能同时控制同一Runtime。接口共享不提供自动双主接管或无限离线授权。
-
-## 9.6 开发调试的入口选择
-
-组合根用于看实际装配；Task API用于看冻结定义；事件回放用于因果；Runtime journal用于实际命令；观测用于当前物理结果。应先定位哪类状态矛盾，再选择读取工具，避免用删数据或重启替代诊断。
-
-### 开发推演：从只读页面追一个 taskId
-
-打开现有任务回放，先记录目标、active revision 与终态；选择一个步骤，查 command、Runtime journal 和验证来源；再查 Agent 事件与恢复计划；最后对齐模型 trace 和冷制品。每一步记录“来自哪个权威对象”。
-
-若页面说完成而 journal 是 unknown，先核对是否同一个 revision/command，而不是立即重启。若 healthz 正常但 readiness=false，读取具体阻塞原因。该阅读练习不需要新增运动；新仿真任务另按草案、批准和独立 episode 执行。
-
-## 9.7 持久化对象与回放的组织
-
-单机执行至少涉及任务内容、不可变版本、事件、具体命令和外部制品。它们不能都化成一列 task.status。
-
-| 对象 | 更新性质 | 恢复关注 |
-| --- | --- | --- |
-| 任务聚合 | 当前状态与 active revision | 预期版本/批准/未知 |
-| 不可变版本 | 执行定义的历史 | 原目标/目录/计划，禁止倒写 |
-| 事件账本 | 已记录事实序列 | 原事件身份、原因和失败 |
-| journal/checkpoint | 具体执行阶段和结果 | 是否派发、是否只能重传完成 |
-| 地图/图像/trace | 外部制品与索引 | 文件存在、SHA、身份与访问范围 |
-
-回放从权威记录构造读视图，不等于重执行。外部文件与数据库的一致快照需保持索引和内容对应；备份完成后应在隔离只读环境核对，不能把恢复演练连接到旧设备后自动派发。
-
-Local 简化了机群协调和跨主机运维，但仍保留批准、日志、证据和未知处理。它是完整闭环的最小部署方式，适合先验证任务与设备责任，再引入分布式机制。
-
-### 持久运行合同与恢复准入
-
-Local Agent/Worker 当前保存完整 Runtime Profile、目录、设备和安全配置的固定合同，重启及逐工具调用都复核。改变限位、标定或安全配置后，即使工具名字没变，旧合同也会拒绝。空间部署摘要进一步绑定完整体素图、策略和定位条件，通过导航目录描述进入相同固定机制。
-
-有执行历史却缺少 pin 时，系统不会自动信任当前设备重建旧身份；先对账，再使用无动作 --admit-runtime-contract 入口显式准入。它不恢复未知动作，不解除设备停止锁存。具体迁移见 [边缘部署](../../docs/operations/edge-field-testing.md)。
-
-receipt 绑定的有界 status/cancel 在目录查询暂时失效时仍可请求停止，但不能用该例外开始新操作或续租。恢复从 journal、pin 和新观测查证，清空本机数据库会丢掉判断依据。
-
-## 9.8 小结与阅读
-
-源码见[Local入口](../../cmd/local-agent/main.go)、[SQLite适配器](../../middleware/sqlite/)与[单机恢复](../../cmd/local-agent/read_recovery.go)。快速实践在附录F。
-
-## 9.9 分层习题
+## 9.7 分层习题
 
 基础题 B：为什么healthz正常但readiness为false可能是正确状态？
 

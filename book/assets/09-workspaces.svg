@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 495" role="img" aria-labelledby="title description">
+<title id="title">图 9-1　工作台切换设备，不迁移执行器</title><desc id="description">A 的页面关闭不会停止 A 的任务；B 不继承 A 的上下文。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="495" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 9-1　工作台切换设备，不迁移执行器</text>
+<rect x="30" y="90" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">浏览器工作台</text>
+<text x="46" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">当前 URL 指定设备</text>
+<text x="46" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">安全确认按页面重建</text>
+<rect x="350" y="90" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">入口 Local Agent</text>
+<text x="366" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">只查管理员注册表</text>
+<text x="366" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">root 会话与同源检查</text>
+<rect x="670" y="90" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="686" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">目标身份预检</text>
+<text x="686" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">核对 robotId</text>
+<text x="686" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">正确后读取私有会话</text>
+<rect x="670" y="310" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="686" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">目标 Agent</text>
+<text x="686" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">独立 Host 与 SQLite</text>
+<text x="686" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">固定 Runtime 身份</text>
+<rect x="350" y="310" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">任务与观测历史</text>
+<text x="366" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">相同 taskId 仍隔离</text>
+<text x="366" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">Runtime 断开可读取</text>
+<rect x="30" y="310" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="46" y="339" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">回到浏览器</text>
+<text x="46" y="368" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">设备作用域路径</text>
+<text x="46" y="392" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">Agent 离线不回退</text>
+<line x1="290" y1="142" x2="350" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="100" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">选择</text>
+<line x1="610" y1="142" x2="670" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="100" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">预检</text>
+<line x1="800" y1="195" x2="800" y2="310" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="800.0" y="254" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">代理</text>
+<line x1="670" y1="362" x2="610" y2="362" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="640.0" y="320" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">查询</text>
+<line x1="350" y1="362" x2="290" y2="362" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="320.0" y="320" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">呈现</text>
+<text x="30" y="466" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">A 的页面关闭不会停止 A 的任务；B 不继承 A 的上下文。</text>
+</svg>

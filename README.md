@@ -433,7 +433,7 @@ robot-agent demo
 
 云边和算法扩展的当前能力、模块职责与后续门槛见[模块化与扩展性评价](docs/architecture/modular-extensibility.md)；新的建图实现按[SLAM Provider 指南](docs/development/slam-providers.md)接入。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版2.2.0教材与工程参考版：四篇、19章、9附录、离线HTML/EPUB；以通用原理、当前实现与完整长任务讲清分布式机器人AgentOS。提供57道分层习题、[十二组实验](book/appendix/F-learning-labs.md)、[16周课程](book/appendix/G-course-design.md)和[工程手册](book/appendix/H-engineering-playbook.md)，面向软件、机器人、科研与大学教学。正文纳入目标委托、共享 Edge Host、持久恢复和最新单机器人实验；旧版出版身份与历史实验分别保留。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.0.0：19 章、16 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖执行权威、Harness、失败恢复、云边与同行通信、长程上下文；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
 
 ## 十、这个仓库故意不做什么
 

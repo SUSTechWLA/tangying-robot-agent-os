@@ -1,13 +1,13 @@
 {
   "title": "深入理解分布式机器人 Agent 系统",
-  "subtitle": "分布式机器人 AgentOS 的原理、体系、实现与工程实践",
-  "edition": "2.2.0",
-  "date": "2026-10-16",
+  "subtitle": "从任务闭环到云边协作：架构推导、源码分析与故障实验",
+  "edition": "3.0.0",
+  "date": "2026-10-21",
   "language": "zh-CN",
   "creator": "Tangying Robot AgentOS 项目",
   "rights": "Copyright © 2026 SUSTechWLA · MIT License",
   "repository": "https://github.com/SUSTechWLA/tangying-robot-agent-os",
-  "source_snapshot": "821659dfd6782927d02924916ced5474a8142d74",
+  "source_snapshot": "9e6a58f6ad48c6d9441e95511ddb4d503ea6449e",
   "sources": [
     "front/01-publication-notes.md",
     "front/00-preface.md",
@@ -96,5 +96,5 @@
       ]
     }
   ],
-  "documentation_snapshot": "d88158adfe2c2c459cd25eaa7d1a11605151dd42"
+  "documentation_snapshot": "9e6a58f6ad48c6d9441e95511ddb4d503ea6449e"
 }

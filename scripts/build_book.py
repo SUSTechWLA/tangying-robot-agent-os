@@ -42,6 +42,7 @@ table { display: block; max-width: 100%; overflow-x: auto; border-collapse: coll
  font-size: .9rem; margin: 1.5em 0; }
 th, td { border: 1px solid #c6d6d8; padding: 9px 12px; text-align: left; }
 th { background: #eaf0f0; } p, li { overflow-wrap: anywhere; }
+img { display: block; max-width: 100%; height: auto; margin: 1.5em auto; }
 @media (max-width: 640px) { body { padding: 18px 14px; } h1 { font-size: 1.6rem; }
  .section-toc ol { columns: 1; } }
 @media print { body { max-width: none; padding: 0; background: white; }
@@ -52,6 +53,44 @@ th { background: #eaf0f0; } p, li { overflow-wrap: anywhere; }
  a { color: inherit; } }
 """.strip()
 LINK = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
+IMAGE = re.compile(r"!\[([^\]\n]+)\]\(([^)\n]+)\)")
+
+
+def figure(href: str, doc: dict) -> tuple[str, Path]:
+    """Only ship local, passive SVG figures; no CDN or active image resources."""
+    parts = urlsplit(href)
+    path = (doc["path"].parent / unquote(parts.path)).resolve()
+    if (parts.scheme or parts.netloc or parts.query or parts.fragment
+            or not path.is_relative_to((BOOK / "assets").resolve())
+            or path.suffix != ".svg" or not path.is_file()):
+        raise ValueError(f"invalid or missing book figure: {href}")
+    raw = path.read_text()
+    if "<!DOCTYPE" in raw.upper() or "<!ENTITY" in raw.upper():
+        raise ValueError("active SVG declaration")
+    root = ET.fromstring(raw)
+    allowed = {"svg", "title", "desc", "defs", "marker", "path", "rect", "line", "polyline", "circle", "text", "tspan", "g"}
+    if root.tag != "{http://www.w3.org/2000/svg}svg":
+        raise ValueError("book figure must be SVG")
+    for node in root.iter():
+        if node.tag.split("}")[-1] not in allowed:
+            raise ValueError("active or unsupported SVG element")
+        for key, value in node.attrib.items():
+            if key.lower().startswith("on") or key.split("}")[-1] in {"href", "style"}:
+                raise ValueError("active SVG attribute")
+            if "url(" in value and not re.fullmatch(r"url\(#[\w-]+\)", value):
+                raise ValueError("external SVG resource")
+    return "assets/" + path.name, path
+
+
+def figures(docs: list[dict]) -> dict[str, Path]:
+    assets = {}
+    for doc in docs:
+        for match in IMAGE.finditer(doc["text"]):
+            name, path = figure(match[2], doc)
+            if name in assets and assets[name] != path:
+                raise ValueError("duplicate figure basename")
+            assets[name] = path
+    return dict(sorted(assets.items()))
 
 
 def digest(data: bytes) -> str:
@@ -277,6 +316,7 @@ def markdown(manifest: dict, docs: list[dict]) -> str:
                 elif mark[1][0] == fence[0] and len(mark[1]) >= len(fence) and not mark[2].strip():
                     fence = None
             elif fence is None:
+                line = IMAGE.sub(lambda m, doc=doc: f"![{m[1]}]({figure(m[2], doc)[0]})", line)
                 line = LINK.sub(
                     lambda m, doc=doc: f"[{m[1]}]({resolve_link(m[2], doc, docs, manifest, 'md')})",
                     line,
@@ -306,6 +346,8 @@ def rendered(doc: dict, docs: list[dict], manifest: dict, mode: str) -> str:
         if token.type == "heading_open":
             token.attrSet("id", next(ids))
         for child in token.children or []:
+            if child.type == "image":
+                child.attrSet("src", figure(child.attrGet("src"), doc)[0])
             if child.type == "link_open":
                 child.attrSet(
                     "href", resolve_link(child.attrGet("href"), doc, docs, manifest, mode)
@@ -365,6 +407,9 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
     # Keep it non-linear so ordinary chapter reading does not begin with it.
     spine = ['<itemref idref="nav" linear="no"/>']
     pages = []
+    assets = figures(docs)
+    for i, name in enumerate(assets):
+        items.append(f'<item id="figure-{i}" href="{name}" media-type="image/svg+xml"/>')
     nav = navigation(manifest, docs, "epub")
     for doc in docs:
         name = doc["id"] + ".xhtml"
@@ -430,6 +475,8 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
         )
         for name, body in pages:
             zip_write(archive, "EPUB/" + name, body, stamp)
+        for name, source in assets.items():
+            zip_write(archive, "EPUB/" + name, source.read_text(), stamp)
     validate_epub(path)
 
 
@@ -491,6 +538,7 @@ def publication_provenance(manifest: dict, docs: list[dict]) -> dict:
     return {
         "edition": manifest,
         "sources": {d["relative"]: digest(d["text"].encode()) for d in docs},
+        "figures": {name: digest(path.read_bytes()) for name, path in figures(docs).items()},
         "generator_sha256": digest(Path(__file__).read_bytes()),
         "renderer": {p: version(p) for p in ("markdown-it-py", "mdurl")},
         "requirements_sha256": digest((BOOK / "requirements.txt").read_bytes()),
@@ -500,9 +548,12 @@ def publication_provenance(manifest: dict, docs: list[dict]) -> dict:
 
 def build(output: Path, manifest: dict, docs: list[dict]) -> None:
     provenance = publication_provenance(manifest, docs)
+    assets = figures(docs)
     names = ["LICENSE", "book.epub", "book.md", "index.html", "provenance.json", "SHA256SUMS"]
     if output.is_symlink() or any((output / n).is_symlink() for n in names):
         raise ValueError("publication output must not be a symlink")
+    if (output / "assets").is_symlink() or any((output / n).is_symlink() for n in assets):
+        raise ValueError("publication figures must not be symlinks")
     if output.exists() and any(output.iterdir()):
         try:
             previous = json.loads((output / "provenance.json").read_text())
@@ -511,6 +562,10 @@ def build(output: Path, manifest: dict, docs: list[dict]) -> None:
         if previous != provenance:
             raise ValueError("publication identity changed; choose a new edition or output directory")
     output.mkdir(parents=True, exist_ok=True)
+    for name, source in assets.items():
+        target = output / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
     full = markdown(manifest, docs)
     (output / "book.md").write_text(full)
     nav = (
@@ -539,6 +594,7 @@ def build(output: Path, manifest: dict, docs: list[dict]) -> None:
         json.dumps(provenance, ensure_ascii=False, indent=2) + "\n"
     )
     names = ["LICENSE", "book.epub", "book.md", "index.html", "provenance.json"]
+    names.extend(assets)
     (output / "SHA256SUMS").write_text(
         "".join(f"{digest((output / n).read_bytes())}  {n}\n" for n in names)
     )

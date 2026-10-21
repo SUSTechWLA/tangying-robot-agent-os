@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 650" role="img" aria-labelledby="title description">
+<title id="title">图 11-1　恢复是有条件的分支，不是统一重试</title><desc id="description">Ops 收集证据；准入层按失败语义选择允许的动作。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="650" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 11-1　恢复是有条件的分支，不是统一重试</text>
+<rect x="350" y="80" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="366" y="109" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">原失败与派发边界</text>
+<text x="366" y="138" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">绑定 task / step / command</text>
+<text x="366" y="162" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">超时不能证明设备未执行</text>
+<rect x="30" y="300" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="329" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">只读调用失败</text>
+<text x="46" y="358" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">核对期限、预算、绑定</text>
+<text x="46" y="382" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">允许有界重读</text>
+<rect x="350" y="300" width="260" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="366" y="329" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">写结果未知</text>
+<text x="366" y="358" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">冻结普通后续写</text>
+<text x="366" y="382" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">受控停止与证据调查</text>
+<rect x="670" y="300" width="260" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="686" y="329" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">已有完整成功证据</text>
+<text x="686" y="358" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">核对当前权限与子账本</text>
+<text x="686" y="382" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">只补缺失记账或报告</text>
+<line x1="430" y1="185" x2="160" y2="300" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="295.0" y="240" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">只读</text>
+<line x1="480" y1="185" x2="480" y2="300" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="248" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">可能有副作用</text>
+<line x1="530" y1="185" x2="800" y2="300" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="665.0" y="240" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">可验证</text>
+<rect x="350" y="510" width="260" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="366" y="539" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">任务裁决与回溯</text>
+<text x="366" y="568" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">继续 / 停止 / 人工核对</text>
+<text x="366" y="592" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保存原失败和恢复原因</text>
+<line x1="160" y1="405" x2="430" y2="510" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="295.0" y="460" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">保存结果</text>
+<line x1="480" y1="405" x2="480" y2="510" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="475" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">保留未知</text>
+<line x1="800" y1="405" x2="530" y2="510" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="665.0" y="460" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">补记结果</text>
+<text x="30" y="637" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">即使选择停止，也需要观察实际速度；停止请求本身不是物理停止证明。</text>
+</svg>
