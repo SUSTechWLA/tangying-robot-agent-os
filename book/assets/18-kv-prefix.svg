@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 770" role="img" aria-labelledby="title description">
+<title id="title">图 18-3　复用计算，不代替上下文</title><desc id="description">示意 token 块，不表示真实 tokenizer、缓存块长度或实测加速。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="770" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 18-3　复用计算，不代替上下文</text>
+<text x="30" y="92" font-family="sans-serif" font-size="21" font-weight="bold" text-anchor="start" fill="#173544">① 一次请求：先处理输入，再逐步生成</text>
+<rect x="30" y="115" width="135" height="55" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="97" y="150" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">规则</text>
+<rect x="180" y="115" width="135" height="55" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="247" y="150" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">目录</text>
+<rect x="330" y="115" width="135" height="55" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="397" y="150" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">任务</text>
+<rect x="480" y="115" width="135" height="55" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="547" y="150" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">观测</text>
+<line x1="630" y1="142" x2="685" y2="142" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="700" y="103" width="230" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="716" y="132" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">decode</text>
+<text x="716" y="161" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">新 q 查询历史 K/V</text>
+<text x="716" y="185" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">追加新 K/V</text>
+<text x="30" y="208" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">prefill 形成各层 K/V；decode 仍需计算新 token 并访问历史。</text>
+<text x="30" y="270" font-family="sans-serif" font-size="21" font-weight="bold" text-anchor="start" fill="#173544">② 跨请求：只复用兼容的共同前缀</text>
+<text x="30" y="334" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="start" fill="#173544">请求 A</text>
+<rect x="140" y="300" width="490" height="52" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="385" y="333" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">相同规则 / 同版目录 / 相同任务前缀</text>
+<rect x="650" y="300" width="280" height="52" rx="7" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="790" y="333" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">观测 A：仍需计算</text>
+<text x="30" y="414" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="start" fill="#173544">请求 B</text>
+<rect x="140" y="380" width="490" height="52" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="385" y="413" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">相同规则 / 同版目录 / 相同任务前缀</text>
+<rect x="650" y="380" width="280" height="52" rx="7" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="790" y="413" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">观测 B：仍需计算</text>
+<text x="30" y="473" font-family="sans-serif" font-size="21" font-weight="bold" text-anchor="start" fill="#173544">③ 很早改变 token，后文相同也不等于相同因果前缀</text>
+<rect x="30" y="500" width="155" height="48" rx="7" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="108" y="531" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">新时间 A</text>
+<rect x="205" y="500" width="725" height="48" rx="7" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="567" y="531" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">后面文字相同，但历史已不同；不能假定这段缓存可复用</text>
+<rect x="30" y="570" width="155" height="48" rx="7" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="108" y="601" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">新时间 B</text>
+<rect x="205" y="570" width="725" height="48" rx="7" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="567" y="601" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">后面文字相同，但历史已不同；不能假定这段缓存可复用</text>
+<text x="30" y="674" font-family="sans-serif" font-size="18" font-weight="bold" text-anchor="start" fill="#173544">必要的新观测不能删；为了命中保留旧授权会破坏正确性。</text>
+<text x="30" y="715" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">KV 容量 ≈ 2 × 层数 × 序列数 × 长度 × KV 头数 × 头维度 × 每数的字节数</text>
+<text x="30" y="747" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">当前客户端未采集缓存指标；图中优化是待验证的接入设计。</text>
+</svg>

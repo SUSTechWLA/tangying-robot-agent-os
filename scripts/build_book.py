@@ -57,13 +57,18 @@ IMAGE = re.compile(r"!\[([^\]\n]+)\]\(([^)\n]+)\)")
 
 
 def figure(href: str, doc: dict) -> tuple[str, Path]:
-    """Only ship local, passive SVG figures; no CDN or active image resources."""
+    """Ship local passive SVG or PNG figures; no CDN or active resources."""
     parts = urlsplit(href)
     path = (doc["path"].parent / unquote(parts.path)).resolve()
     if (parts.scheme or parts.netloc or parts.query or parts.fragment
             or not path.is_relative_to((BOOK / "assets").resolve())
-            or path.suffix != ".svg" or not path.is_file()):
+            or path.suffix not in {".svg", ".png"} or not path.is_file()):
         raise ValueError(f"invalid or missing book figure: {href}")
+    if path.suffix == ".png":
+        raw_png = path.read_bytes()
+        if not raw_png.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("book PNG has invalid signature")
+        return "assets/" + path.name, path
     raw = path.read_text()
     if "<!DOCTYPE" in raw.upper() or "<!ENTITY" in raw.upper():
         raise ValueError("active SVG declaration")
@@ -389,12 +394,12 @@ def xhtml(title: str, body: str) -> str:
 
 
 def zip_write(
-    archive: ZipFile, name: str, data: str, stamp: tuple, compression: int = ZIP_DEFLATED
+    archive: ZipFile, name: str, data: str | bytes, stamp: tuple, compression: int = ZIP_DEFLATED
 ) -> None:
     info = ZipInfo(name, stamp)
     info.compress_type = compression
     info.external_attr = 0o644 << 16
-    archive.writestr(info, data.encode())
+    archive.writestr(info, data.encode() if isinstance(data, str) else data)
 
 
 def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
@@ -409,7 +414,8 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
     pages = []
     assets = figures(docs)
     for i, name in enumerate(assets):
-        items.append(f'<item id="figure-{i}" href="{name}" media-type="image/svg+xml"/>')
+        mime = "image/png" if name.endswith(".png") else "image/svg+xml"
+        items.append(f'<item id="figure-{i}" href="{name}" media-type="{mime}"/>')
     nav = navigation(manifest, docs, "epub")
     for doc in docs:
         name = doc["id"] + ".xhtml"
@@ -476,7 +482,7 @@ def epub(path: Path, manifest: dict, docs: list[dict]) -> None:
         for name, body in pages:
             zip_write(archive, "EPUB/" + name, body, stamp)
         for name, source in assets.items():
-            zip_write(archive, "EPUB/" + name, source.read_text(), stamp)
+            zip_write(archive, "EPUB/" + name, source.read_bytes(), stamp)
     validate_epub(path)
 
 

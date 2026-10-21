@@ -14,7 +14,7 @@ def test_figures_are_embedded_and_identified_in_both_publications(tmp_path):
     manifest, docs = book.load_manifest()
     book.build(tmp_path, manifest, docs)
     assets = book.figures(docs)
-    assert len(assets) == 16
+    assert len(assets) == 22
     html = (tmp_path / 'index.html').read_text()
     provenance = json.loads((tmp_path / 'provenance.json').read_text())
     checksums = (tmp_path / 'SHA256SUMS').read_text()
@@ -22,7 +22,7 @@ def test_figures_are_embedded_and_identified_in_both_publications(tmp_path):
         ns = {'o': 'http://www.idpf.org/2007/opf'}
         package = ET.fromstring(archive.read('EPUB/package.opf'))
         packaged = {e.attrib['href'] for e in package.findall('.//o:item', ns)
-                    if e.attrib['media-type'] == 'image/svg+xml'}
+                    if e.attrib['media-type'] in {'image/svg+xml', 'image/png'}}
         assert packaged == set(assets)
         for name, source in assets.items():
             raw = source.read_bytes()

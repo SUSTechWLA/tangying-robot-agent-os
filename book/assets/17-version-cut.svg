@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 585" role="img" aria-labelledby="title description">
+<title id="title">图 17-5　版本相容是多维条件</title><desc id="description">此表是教学依赖视图，不是新增的统一协议类型。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="585" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 17-5　版本相容是多维条件</text>
+<text x="30" y="122" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="start" fill="#173544">本机动作依据</text>
+<text x="275" y="92" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">任务</text>
+<rect x="210" y="105" width="130" height="58" rx="6" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="275" y="143" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="middle" fill="#173544">3</text>
+<text x="420" y="92" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">claim</text>
+<rect x="355" y="105" width="130" height="58" rx="6" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="420" y="143" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="middle" fill="#173544">12</text>
+<text x="565" y="92" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">目录</text>
+<rect x="500" y="105" width="130" height="58" rx="6" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="565" y="143" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="middle" fill="#173544">C7</text>
+<text x="710" y="92" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">地图</text>
+<rect x="645" y="105" width="130" height="58" rx="6" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="710" y="143" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="middle" fill="#173544">8</text>
+<text x="855" y="92" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="middle" fill="#173544">变换</text>
+<rect x="790" y="105" width="130" height="58" rx="6" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="855" y="143" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="middle" fill="#173544">R5</text>
+<text x="30" y="240" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="start" fill="#173544">同行覆盖数据</text>
+<rect x="210" y="210" width="130" height="58" rx="6" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="275" y="247" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">3</text>
+<rect x="355" y="210" width="130" height="58" rx="6" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="420" y="247" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">无动作权</text>
+<rect x="500" y="210" width="130" height="58" rx="6" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="565" y="247" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">无动作权</text>
+<rect x="645" y="210" width="130" height="58" rx="6" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="710" y="247" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">8</text>
+<rect x="790" y="210" width="130" height="58" rx="6" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="855" y="247" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">R4</text>
+<rect x="30" y="355" width="390" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="46" y="384" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">不能按“更新”覆盖</text>
+<text x="46" y="413" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">新 sequence 只在该流内排序</text>
+<text x="46" y="437" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">R4 不自动转换成 R5</text>
+<rect x="540" y="355" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="556" y="384" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">当前消费者的裁决</text>
+<text x="556" y="413" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">空间 / 任务依据不相容则拒绝</text>
+<text x="556" y="437" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">采纳也只是建议，不能记物理完成</text>
+<line x1="855" y1="268" x2="735" y2="355" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="795.0" y="316" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">版本不符</text>
+<text x="30" y="512" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">未来重投影须保留原来源、有效变换与误差；改字符串不是地图对齐。</text>
+<text x="30" y="552" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">执行 Basis 与交换 Basis 各管自己的合同，不能互相冒充授权。</text>
+</svg>

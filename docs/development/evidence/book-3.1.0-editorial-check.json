@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "book.editorial-check.v1",
+  "date": "2026-10-22",
+  "edition": "3.1.0",
+  "checks": {
+    "sourceDocuments": 31,
+    "packagedImages": 22,
+    "svgImages": 21,
+    "pngImages": 1,
+    "htmlUniqueIds": 295,
+    "htmlInternalReferences": 380,
+    "checksumFiles": 27,
+    "epubAssetsByteIdentical": true,
+    "previousEditionSourcesVerified": 31,
+    "previousEditionAssetsVerified": 16,
+    "pythonSyntaxParsedOnly": 4
+  },
+  "teachingCalculations": {
+    "pointCloudBytesPerSecond": 16000000,
+    "semanticBytesPerSecond": 4096,
+    "rateRatio": 3906.25,
+    "kvBytes": 1073741824,
+    "kvGiB": 1.0,
+    "idealTransferSecondsAt1Gbit": 8.589934592,
+    "modelDelayReduction": 0.24000000000000005,
+    "taskDelayReduction": 0.009600000000000001,
+    "compressionBreakEvenRounds": 15.0,
+    "transformedPoint": [
+      2,
+      2
+    ],
+    "wrongTransformDistance": 1.4142135623730951
+  },
+  "outputs": {
+    "htmlSHA256": "4562e33da52f6e1435cbe12fc08495c1b43e8ddeea475db3690667dc53f4599f",
+    "epubSHA256": "e6a3841da90e622e1ef693cc3f85ecc1a5327654d485d22b53686e4a1f7e879f",
+    "offlineZipSHA256": "c16747a61119f67d73dc9904337ad6c231141120c5ac374f6875423bb5c4bd0d",
+    "provenanceSHA256": "6731e3d93a61d0637f5a5a7e59c2d557f81880a9eaabed36bff0ba35b17f6d94"
+  },
+  "notRun": [
+    "CI/GitHub Actions",
+    "pytest/Go test suites",
+    "classroom executable labs",
+    "Gazebo/ROS 2 runtime tests",
+    "LLM performance or cache-hit measurements"
+  ],
+  "notes": [
+    "Local editorial/build verification only, not runtime acceptance.",
+    "Five new SVGs rendered with Sharp and visually reviewed; illustration reviewed from built-in imagegen output.",
+    "All numeric examples are teaching assumptions, not experiment measurements."
+  ]
+}

@@ -1,6 +1,6 @@
 # 学习路线：从系统全貌到可检查实践
 
-教材 3.0.0（2026-10-21）已按“问题、设计、数据流、反例、实现、取舍”重编，提供 16 幅图、两个无硬件实验与课堂脚本。
+教材 3.1.0（2026-10-22）深化跨域消息、模型实际输入、上下文、KV cache 和分布式一致性，提供 22 幅图、公式算例、两个无硬件实验与课堂脚本；已实现机制与缓存接入建议明确区分。
 
 理解“有地图之后怎样完整巡检”时，阅读[已知覆盖与多层移动补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)、[当前接口](../development/2026-10-18-spatial-coverage-upgrade.md)及[计划/Runner/350 次探索实际实验](../experiments/2026-10-18-spatial-coverage-upgrade.md)，区分预测覆盖、新采集证据、分层支撑与设备可执行性。
 
@@ -8,7 +8,7 @@
 
 首次进入未知环境时，补读[探索学习补充](../../book/updates/2026-10-17-exploration-first-scan.md)与[当前操作指南](../guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索)：区分初始观察、前沿规划、局部控制、地图发布与全环境覆盖。
 
-当前教材为[数字版 3.0.0](../../book/README.md)，实现复核固定到 `9e6a58f6`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
+当前教材为[数字版 3.1.0](../../book/README.md)，实现复核固定到 `9e6a58f6`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
 
 [返回文档导航](../README.md) · [开发升级](../development/README.md) · [部署运维](../operations/README.md) · [研究论文](../research/README.md)
 
@@ -55,7 +55,7 @@
 
 ## 书籍与系统增量如何一起读
 
-书籍数字版 3.0.0 的实现复核固定到 `9e6a58f6`，正文与合订本纳入分层目标、共享 Host、目标检查点、有限上下文投影、点云语义和 ROS 2 空间通道。软件版本、书籍版号和实验二进制是不同身份；原实验按原提交/环境引用，正文更新不表示重新运行实验。
+书籍数字版 3.1.0 的实现复核固定到 `9e6a58f6`，正文与合订本纳入分层目标、共享 Host、目标检查点、有限上下文投影、点云语义和 ROS 2 空间通道。软件版本、书籍版号和实验二进制是不同身份；原实验按原提交/环境引用，正文更新不表示重新运行实验。
 
 | 书中的概念 | 当前操作参考 | 复核范围 |
 | --- | --- | --- |

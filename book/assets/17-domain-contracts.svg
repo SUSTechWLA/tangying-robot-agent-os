@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 830" role="img" aria-labelledby="title description">
+<title id="title">图 17-4　跨域按承诺传信息</title><desc id="description">云边任务、同行数据与模型推理不是同一种权限通道。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="830" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 17-4　跨域按承诺传信息</text>
+<rect x="30" y="90" width="390" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="46" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">云端任务域</text>
+<text x="46" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">目标、批准、预算与期限</text>
+<text x="46" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">原 revision 的完成回执</text>
+<rect x="540" y="90" width="390" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="556" y="119" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">模型服务域</text>
+<text x="556" y="148" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">规则、语义视图、工具 schema</text>
+<text x="556" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">返回候选；缓存可失效</text>
+<rect x="30" y="350" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="379" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">AGV 边缘域</text>
+<text x="46" y="408" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">独立 Host / journal / 观测</text>
+<text x="46" y="432" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">在本机合同内执行与验证</text>
+<rect x="540" y="350" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="556" y="379" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">UAV 边缘域</text>
+<text x="556" y="408" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">独立 Host / journal / 观测</text>
+<text x="556" y="432" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保留自己的空间依据</text>
+<line x1="170" y1="195" x2="170" y2="350" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="170.0" y="256" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">目标合同 / 当前执行依据</text>
+<line x1="315" y1="350" x2="315" y2="195" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="315.0" y="305" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">进度 / 原完成证明</text>
+<path d="M420,372 L480,372 L480,235 L610,235 L610,195" fill="none" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="488" y="266" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">受限模型请求</text>
+<path d="M865,195 L865,260 L930,260 L930,315 L390,315 L390,350" fill="none" stroke="#006f78" stroke-dasharray="5 4" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="695" y="303" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">候选计划（无直接动作权）</text>
+<line x1="540" y1="414" x2="420" y2="414" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="480.0" y="402" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">advisory</text>
+<text x="480" y="493" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">peer 信封：身份 / sequence / TTL / 空间 Basis / payload</text>
+<rect x="30" y="585" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="46" y="614" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">AGV Runtime → ROS 2</text>
+<text x="46" y="643" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">稳定 command 与设备准入</text>
+<text x="46" y="667" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">动作之后，取得新鲜证据</text>
+<rect x="540" y="585" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="556" y="614" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">UAV Runtime → 飞控桥</text>
+<text x="556" y="643" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">本体独立的飞行与停止约束</text>
+<text x="556" y="667" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">动作之后，取得新鲜证据</text>
+<line x1="225" y1="455" x2="225" y2="585" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="225.0" y="550" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">本机获批动作</text>
+<line x1="735" y1="455" x2="735" y2="585" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>
+<text paint-order="stroke" stroke="#f4f7f7" stroke-width="6" stroke-linejoin="round" x="735.0" y="550" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">本机获批动作</text>
+<text x="30" y="740" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="start" fill="#173544">每个边缘都可调用模型；图中仅展开 AGV 的请求，避免箭头交叠。</text>
+<text x="30" y="780" font-family="sans-serif" font-size="17" font-weight="bold" text-anchor="start" fill="#173544">云端给目标 ≠ 云端直接控制电机；接收同行消息 ≠ 获得运动许可。</text>
+</svg>

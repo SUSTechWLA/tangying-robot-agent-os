@@ -147,7 +147,122 @@ def context_views():
     return '18-context\n'+'\n'.join(r)+'\n'
 
 
+def model_request():
+    r=begin('图 18-2　模型输入与执行权分离','模型返回候选；当前事实与权限在执行前再次校验。',710)
+    r+=box(30,90,'权威事实 / 阶段源',['目标、约束、当前观测','旧记录、未决命令、scope'],width=390)
+    r+=box(540,90,'独立工具目录',['当轮 allowlist 与 schema','工具别名映射、能力版本'],width=390,color=1)
+    r+=box(30,280,'ProjectManaged → user',['保留 guards，历史可冷存','system：角色规则与目标'],width=390)
+    r+=box(540,280,'序列化模型请求',['messages + tools + 输出预算','保存原正文与 request SHA'],width=390,color=1)
+    r+=line(225,195,225,280,'投影',240)
+    r+=line(420,330,540,330,'组装',316)
+    r+=line(735,195,735,280,'当轮目录',240)
+    r+=box(540,490,'模型服务 / 可丢弃缓存',['一次允许的工具调用候选','缓存不是任务事实或授权'],width=390,color=2)
+    r+=box(30,490,'确定性准入 → Runtime',['核对当前合同 / Basis / 预算','未知效果不得普通自动重放'],width=390)
+    r+=line(735,385,735,490,'HTTP 请求',440)
+    r+=line(540,542,420,542,'候选',528)
+    r.append(text(30,647,'当前 managed 路径是两条 messages；历史在 Document 内，不是无限聊天追加。',17))
+    r.append(text(30,682,'API 凭据在传输鉴权头；模型正文与缓存不授予额外读写权限。',17));r.append('</svg>')
+    return '18-model-request\n'+'\n'.join(r)+'\n'
+
+
+def kv_prefix():
+    r=begin('图 18-3　复用计算，不代替上下文','示意 token 块，不表示真实 tokenizer、缓存块长度或实测加速。',770)
+    r.append(text(30,92,'① 一次请求：先处理输入，再逐步生成',21,'bold'))
+    for i,label in enumerate(['规则','目录','任务','观测']):
+        r.append(f'<rect x="{30+150*i}" y="115" width="135" height="55" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>')
+        r.append(text(97+150*i,150,label,18,anchor='middle'))
+    r+=line(630,142,685,142)
+    r+=box(700,103,'decode',['新 q 查询历史 K/V','追加新 K/V'],width=230,color=2)
+    r.append(text(30,208,'prefill 形成各层 K/V；decode 仍需计算新 token 并访问历史。',17))
+    r.append(text(30,270,'② 跨请求：只复用兼容的共同前缀',21,'bold'))
+    for y,label,dynamic in [(300,'请求 A','观测 A'),(380,'请求 B','观测 B')]:
+        r.append(text(30,y+34,label,18))
+        r.append(f'<rect x="140" y="{y}" width="490" height="52" rx="7" fill="#e4f1ef" stroke="#9db8bf"/>')
+        r.append(text(385,y+33,'相同规则 / 同版目录 / 相同任务前缀',17,anchor='middle'))
+        r.append(f'<rect x="650" y="{y}" width="280" height="52" rx="7" fill="#fff0d5" stroke="#9db8bf"/>')
+        r.append(text(790,y+33,dynamic+'：仍需计算',17,anchor='middle'))
+    r.append(text(30,473,'③ 很早改变 token，后文相同也不等于相同因果前缀',21,'bold'))
+    for y,label in [(500,'新时间 A'),(570,'新时间 B')]:
+        r.append(f'<rect x="30" y="{y}" width="155" height="48" rx="7" fill="#fff0d5" stroke="#9db8bf"/>')
+        r.append(text(108,y+31,label,17,anchor='middle'))
+        r.append(f'<rect x="205" y="{y}" width="725" height="48" rx="7" fill="#e8edf7" stroke="#9db8bf"/>')
+        r.append(text(567,y+31,'后面文字相同，但历史已不同；不能假定这段缓存可复用',17,anchor='middle'))
+    r.append(text(30,674,'必要的新观测不能删；为了命中保留旧授权会破坏正确性。',18,'bold'))
+    r.append(text(30,715,'KV 容量 ≈ 2 × 层数 × 序列数 × 长度 × KV 头数 × 头维度 × 每数的字节数',16))
+    r.append(text(30,747,'当前客户端未采集缓存指标；图中优化是待验证的接入设计。',16));r.append('</svg>')
+    return '18-kv-prefix\n'+'\n'.join(r)+'\n'
+
+
+def domain_contracts():
+    r=begin('图 17-4　跨域按承诺传信息','云边任务、同行数据与模型推理不是同一种权限通道。',830)
+    r+=box(30,90,'云端任务域',['目标、批准、预算与期限','原 revision 的完成回执'],width=390,color=1)
+    r+=box(540,90,'模型服务域',['规则、语义视图、工具 schema','返回候选；缓存可失效'],width=390,color=2)
+    r+=box(30,350,'AGV 边缘域',['独立 Host / journal / 观测','在本机合同内执行与验证'],width=390)
+    r+=box(540,350,'UAV 边缘域',['独立 Host / journal / 观测','保留自己的空间依据'],width=390)
+    r+=line(170,195,170,350,'目标合同 / 当前执行依据',256)
+    r+=line(315,350,315,195,'进度 / 原完成证明',305)
+    r.append('<path d="M420,372 L480,372 L480,235 L610,235 L610,195" fill="none" stroke="#006f78" stroke-width="2" marker-end="url(#arrow)"/>')
+    r.append(text(488,266,'受限模型请求',16))
+    r.append('<path d="M865,195 L865,260 L930,260 L930,315 L390,315 L390,350" fill="none" stroke="#006f78" stroke-dasharray="5 4" stroke-width="2" marker-end="url(#arrow)"/>')
+    r.append(text(695,303,'候选计划（无直接动作权）',16))
+    r+=line(540,414,420,414,'advisory',402)
+    r.append(text(480,493,'peer 信封：身份 / sequence / TTL / 空间 Basis / payload',17,anchor='middle'))
+    r+=box(30,585,'AGV Runtime → ROS 2',['稳定 command 与设备准入','动作之后，取得新鲜证据'],width=390)
+    r+=box(540,585,'UAV Runtime → 飞控桥',['本体独立的飞行与停止约束','动作之后，取得新鲜证据'],width=390)
+    r+=line(225,455,225,585,'本机获批动作',550)
+    r+=line(735,455,735,585,'本机获批动作',550)
+    r.append(text(30,740,'每个边缘都可调用模型；图中仅展开 AGV 的请求，避免箭头交叠。',17))
+    r.append(text(30,780,'云端给目标 ≠ 云端直接控制电机；接收同行消息 ≠ 获得运动许可。',17,'bold'));r.append('</svg>')
+    return '17-domain-contracts\n'+'\n'.join(r)+'\n'
+
+
+def version_cut():
+    r=begin('图 17-5　版本相容是多维条件','此表是教学依赖视图，不是新增的统一协议类型。',585)
+    columns=[('任务',3),('claim',12),('目录','C7'),('地图',8),('变换','R5')]
+    r.append(text(30,122,'本机动作依据',19,'bold'))
+    for i,(label,val) in enumerate(columns):
+        x=210+i*145
+        r.append(text(x+65,92,label,18,anchor='middle'))
+        r.append(f'<rect x="{x}" y="105" width="130" height="58" rx="6" fill="#e4f1ef" stroke="#9db8bf"/>')
+        r.append(text(x+65,143,str(val),23,'bold','middle'))
+    r.append(text(30,240,'同行覆盖数据',19,'bold'))
+    for i,val in enumerate(['3','无动作权','无动作权','8','R4']):
+        x=210+i*145
+        fill='#fff0d5' if i==4 else '#e8edf7'
+        r.append(f'<rect x="{x}" y="210" width="130" height="58" rx="6" fill="{fill}" stroke="#9db8bf"/>')
+        r.append(text(x+65,247,val,19,'bold','middle'))
+    r+=box(30,355,'不能按“更新”覆盖',['新 sequence 只在该流内排序','R4 不自动转换成 R5'],width=390,color=2)
+    r+=box(540,355,'当前消费者的裁决',['空间 / 任务依据不相容则拒绝','采纳也只是建议，不能记物理完成'],width=390)
+    r+=line(855,268,735,355,'版本不符',316)
+    r.append(text(30,512,'未来重投影须保留原来源、有效变换与误差；改字符串不是地图对齐。',17))
+    r.append(text(30,552,'执行 Basis 与交换 Basis 各管自己的合同，不能互相冒充授权。',17));r.append('</svg>')
+    return '17-version-cut\n'+'\n'.join(r)+'\n'
+
+
+def cas_boundary():
+    r=begin('图 8-2　聚合提交与外部效果的边界','CAS 保护同一聚合的状态转换；设备效果在 SQL 事务之外。',730)
+    r+=box(30,85,'处理者 A',['读取 v=17','提交 expected=17'],width=260)
+    r+=box(670,85,'处理者 B',['也读取 v=17','稍后提交 expected=17'],width=260,color=2)
+    r+=box(350,265,'唯一当前版本',['A 先成功：v=18','B 失败后必须重新读取'],width=260,color=1)
+    r+=line(160,190,430,265,'先提交',224)
+    r+=line(800,190,530,265,'旧版本冲突',224)
+    r.append('<rect x="30" y="425" width="550" height="175" rx="10" fill="#e4f1ef" stroke="#006f78" stroke-width="2"/>')
+    r.append(text(50,457,'一次 eventstore SQL 事务',21,'bold'))
+    for i,t in enumerate(['聚合状态 + 事件','Outbox + 检查点','全部提交，或全部回滚']):r.append(text(50,493+i*31,t,18))
+    r+=line(480,370,305,425,'同一存储边界',407)
+    r+=box(670,457,'设备 / 物理世界',['动作可能已发生','事务回滚不能撤销'],width=260,color=2)
+    r+=line(580,510,670,510,'调用',496)
+    r.append(text(30,654,'先记 pending → 调用设备 → 核对证据 → 再记结果。',19,'bold'))
+    r.append(text(30,696,'Outbox 可重投消息；未知物理效果不能因此自动重做。',17));r.append('</svg>')
+    return '08-cas-outbox\n'+'\n'.join(r)+'\n'
+
+
 def all_figures():
+    yield model_request()
+    yield kv_prefix()
+    yield domain_contracts()
+    yield version_cut()
+    yield cas_boundary()
     yield architecture()
     yield checkpoint()
     yield recovery()

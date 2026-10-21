@@ -21,7 +21,7 @@ def snapshot_files(path):
 def test_every_chapter_and_appendix_is_in_the_publication():
     manifest, documents = book.load_manifest()
     assert len(documents) == 31  # three front sections, 19 chapters, nine appendices
-    assert manifest["edition"] == "3.0.0"
+    assert manifest["edition"] == "3.1.0"
     assert manifest["source_snapshot"] == "9e6a58f6ad48c6d9441e95511ddb4d503ea6449e"
     assert all("research/" not in doc["relative"] for doc in documents)
     subprocess.run(
