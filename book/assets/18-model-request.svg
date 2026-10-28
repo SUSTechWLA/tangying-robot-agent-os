@@ -13,8 +13,8 @@
 <text x="556" y="172" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">工具别名映射、能力版本</text>
 <rect x="30" y="280" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
 <text x="46" y="309" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">ProjectManaged → user</text>
-<text x="46" y="338" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保留 guards，历史可冷存</text>
-<text x="46" y="362" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">system：角色规则与目标</text>
+<text x="46" y="338" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">保留 guards，仅 Detail 等可外置</text>
+<text x="46" y="362" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">system 固定规则；目标在 user</text>
 <rect x="540" y="280" width="390" height="105" rx="10" fill="#e8edf7" stroke="#9db8bf"/>
 <text x="556" y="309" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">序列化模型请求</text>
 <text x="556" y="338" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">messages + tools + 输出预算</text>

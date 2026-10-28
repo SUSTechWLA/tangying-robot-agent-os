@@ -76,7 +76,7 @@ Host 生成一代计划：navigation.status → robot.task → navigation.status
 | --- | --- | --- |
 | 权威表 | AGV 的 command-c61 由本机执行账本记录，云端收到的是原版本报告 | 云端文字“完成”不能覆盖本机 unknown |
 | 消息表 | UAV 消息 42 带 M2/8、R4；AGV 当前 R5 | 接收可 ACK，业务采纳须拒绝 |
-| 模型输入表 | system 规则/目标 + user 有界事实 + 当轮 tools | 说明哪些事实热留、哪些可冷读 |
+| 模型输入表 | system 固定规则 + user 中的目标/有界事实 + 当轮 tools | 说明哪些事实热留、哪些可冷读 |
 | 故障表 | c61 派发后丢响应，持久状态仍 pending | 调查原证据；禁止普通重放 |
 | 性能表 | 模型冷/暖等待、上下文字节、消息带宽、任务总时长 | 缺少缓存 usage 时不能填命中率 |
 

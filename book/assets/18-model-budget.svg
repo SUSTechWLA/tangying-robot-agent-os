@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 835" role="img" aria-labelledby="title description">
+<title id="title">图 18-5　模型等待必须放进任务总预算</title><desc id="description">12 秒教学算例：模型 4 秒、执行 6 秒、停止 1 秒、余量 1 秒；该调度预算尚未自动实现。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#006f78"/></marker></defs>
+<rect width="960" height="835" rx="16" fill="#f4f7f7"/>
+<text x="30" y="42" font-family="sans-serif" font-size="24" font-weight="bold" text-anchor="start" fill="#173544">图 18-5　模型等待必须放进任务总预算</text>
+<text x="30" y="91" font-family="sans-serif" font-size="23" font-weight="bold" text-anchor="start" fill="#173544">D − t = B_model + B_exec + B_stop + m</text>
+<text x="30" y="129" font-family="sans-serif" font-size="18" font-weight="normal" text-anchor="start" fill="#173544">剩余 12 s：先为执行、停止与余量留位，再计算可用模型时间。</text>
+<rect x="54" y="155" width="284" height="80" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="196.0" y="188" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">模型</text>
+<text x="196.0" y="218" font-family="sans-serif" font-size="19" font-weight="normal" text-anchor="middle" fill="#173544">4 s</text>
+<rect x="338" y="155" width="426" height="80" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="551.0" y="188" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">执行</text>
+<text x="551.0" y="218" font-family="sans-serif" font-size="19" font-weight="normal" text-anchor="middle" fill="#173544">6 s</text>
+<rect x="764" y="155" width="71" height="80" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="799.5" y="188" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">停止</text>
+<text x="799.5" y="218" font-family="sans-serif" font-size="19" font-weight="normal" text-anchor="middle" fill="#173544">1 s</text>
+<rect x="835" y="155" width="71" height="80" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="870.5" y="188" font-family="sans-serif" font-size="19" font-weight="bold" text-anchor="middle" fill="#173544">余量</text>
+<text x="870.5" y="218" font-family="sans-serif" font-size="19" font-weight="normal" text-anchor="middle" fill="#173544">1 s</text>
+<text x="54" y="261" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">0</text>
+<text x="338" y="261" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">4</text>
+<text x="764" y="261" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">10</text>
+<text x="835" y="261" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">11</text>
+<text x="906" y="261" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">12 s</text>
+<text x="30" y="310" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">在 4 s 模型预算内比较重试策略（横轴比例相同）</text>
+<text x="30" y="375" font-family="sans-serif" font-size="18" font-weight="bold" text-anchor="start" fill="#173544">可装入：3.5 s</text>
+<text x="30" y="468" font-family="sans-serif" font-size="18" font-weight="bold" text-anchor="start" fill="#173544">超预算：4.5 s</text>
+<rect x="210" y="340" width="240" height="60" rx="5" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="330.0" y="366" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">尝试 1：1.5 s</text>
+<rect x="450" y="340" width="80" height="60" rx="5" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="490.0" y="366" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">退避</text>
+<text x="490.0" y="389" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">0.5 s</text>
+<rect x="530" y="340" width="240" height="60" rx="5" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="650.0" y="366" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">尝试 2：1.5 s</text>
+<rect x="770" y="340" width="80" height="60" rx="5" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="810.0" y="366" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">剩余</text>
+<text x="810.0" y="389" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">0.5 s</text>
+<rect x="210" y="433" width="320" height="60" rx="5" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="370.0" y="459" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">尝试 1：2 s</text>
+<rect x="530" y="433" width="80" height="60" rx="5" fill="#e8edf7" stroke="#9db8bf"/>
+<text x="570.0" y="459" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">退避</text>
+<text x="570.0" y="482" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#173544">0.5 s</text>
+<rect x="610" y="433" width="320" height="60" rx="5" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="770.0" y="459" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#173544">尝试 2：2 s</text>
+<line x1="850" y1="329" x2="850" y2="526" stroke="#a35d16" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="850" y="550" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="middle" fill="#925215">4 s 边界</text>
+<text x="890" y="520" font-family="sans-serif" font-size="15" font-weight="normal" text-anchor="middle" fill="#925215">超 0.5 s</text>
+<rect x="30" y="587" width="390" height="105" rx="10" fill="#fff0d5" stroke="#9db8bf"/>
+<text x="46" y="616" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">设计预算：尚未自动调度</text>
+<text x="46" y="645" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">执行 / 停止的保守上界需设备验证</text>
+<text x="46" y="669" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">每次重试后用当前时刻重算</text>
+<rect x="540" y="587" width="390" height="105" rx="10" fill="#e4f1ef" stroke="#9db8bf"/>
+<text x="556" y="616" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="start" fill="#173544">已有 ModelCall 观测</text>
+<text x="556" y="645" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">非流式调用耗时、结果与 usage</text>
+<text x="556" y="669" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">总耗时 ≠ TTFT ≠ 纯 GPU 时间</text>
+<text x="30" y="746" font-family="sans-serif" font-size="18" font-weight="bold" text-anchor="start" fill="#173544">调用限时不等于停止保证；模型重试也不能触发未知物理命令的重放。</text>
+<text x="30" y="795" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">现有 Host deadline 与单次模型超时可约束等待；自动执行 / 停止预留仍是扩展设计。</text>
+</svg>

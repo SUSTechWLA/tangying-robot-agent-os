@@ -91,3 +91,9 @@ Gazebo 仅一个移动机器人和 episode 1016；世界/Runtime 未重置，Age
 | [机器人工作台](../../docs/development/2026-10-20-edge-robot-workspaces.md) | 第 9 章：独立任务库、切换与离线状态 | 本地软件与浏览器验证，按原记录核对覆盖 |
 
 本版两个 Python 小实验用于课堂解释，不加入上述历史任务分母。教材与出版系统的软件核验另见开发记录 `2026-10-21-book-teaching-redesign.md`；它不改变历史报告的原始结果。
+
+## C.10 本轮边缘可靠性软件实验，2026-10-28
+
+[原报告](../../docs/experiments/2026-10-27-edge-brain-reliability/README.md)采用固定六个测试、每个重复十次，60/60 顶层、110/110 leaf 通过。实际任务记录是 10 个 32 步完成，及 10 个第 25 写未知的目标待核对（各确认 24 步）；两类结局分别保留，重启均 0 次重复写。每轮来源哈希一致，原始 Go JSON 与运行脚本均归档。目录 10-27 是计划日期，真实运行日为 10-28。
+
+这是确定性进程内 Provider、脚本决策器和临时 SQLite 的合同实验，无 Gazebo、ROS 2 运动或外部模型。不能用 60/60 测试断言推出机器人现场成功率 100%，也不能把 10 个 unknown 当成任务成功。模型 usage 的 HTTP fixture 测试只证明采集语义，不证明真实 GPU 缓存收益。受影响包 race 与入口构建见[本轮实现记录](../../docs/development/2026-10-28-edge-brain-reliability.md)。

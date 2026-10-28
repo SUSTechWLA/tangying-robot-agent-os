@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **274 份 Markdown** 与 **940 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **279 份 Markdown** 与 **968 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 109 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 111 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
-| [运行手册、接口与验收快照](#catalog-production) | 18 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
+| [运行手册、接口与验收快照](#catalog-production) | 19 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 49 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 51 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -186,6 +186,8 @@
 | [边缘机器人工作空间与任务回溯升级](development/2026-10-20-edge-robot-workspaces.md) | `development/2026-10-20-edge-robot-workspaces.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-21 · 教材 3.0.0：架构推导、源码与故障实验](development/2026-10-21-book-teaching-redesign.md) | `development/2026-10-21-book-teaching-redesign.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-22 · 教材 3.1.0：跨域协议、模型输入、上下文与一致性](development/2026-10-22-book-protocol-context-cache.md) | `development/2026-10-22-book-protocol-context-cache.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-27 · 边缘大脑与教材协同升级计划](development/2026-10-27-edge-brain-book-plan.md) | `development/2026-10-27-edge-brain-book-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 · 边缘大脑可靠性与教材 3.2.0](development/2026-10-28-edge-brain-reliability.md) | `development/2026-10-28-edge-brain-reliability.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -274,6 +276,7 @@
 | [配置与安全手册](production/configuration-and-security.md) | `production/configuration-and-security.md` | 操作 / 接口参考 |
 | [数据契约与一致性语义](production/data-contracts.md) | `production/data-contracts.md` | 操作 / 接口参考 |
 | [部署拓扑、容量与可观测性](production/deployment-and-capacity.md) | `production/deployment-and-capacity.md` | 操作 / 接口参考 |
+| [边缘模型请求、缓存提示与失败记录](production/edge-brain-model-context.md) | `production/edge-brain-model-context.md` | 操作 / 接口参考 |
 | [2026-09-26 生产就绪审计与实机验证交接](production/field-readiness-2026-09-26.md) | `production/field-readiness-2026-09-26.md` | 验收 / 就绪快照 |
 | [分布式异常与快速排障手册](production/operations-and-failures.md) | `production/operations-and-failures.md` | 操作 / 接口参考 |
 | [学习型策略工具与 sim2real 接入手册](production/policy-tools.md) | `production/policy-tools.md` | 操作 / 接口参考 |
@@ -351,6 +354,8 @@
 | [Gazebo 经典控制与边缘任务全链路实验](experiments/2026-10-18-gazebo-field-validation.md) | `experiments/2026-10-18-gazebo-field-validation.md` | 实验 / 验收记录 |
 | [已知覆盖、多层导航与扩展探索消融：实际软件实验记录](experiments/2026-10-18-spatial-coverage-upgrade.md) | `experiments/2026-10-18-spatial-coverage-upgrade.md` | 实验 / 验收记录 |
 | [异构三维探索与配对消融：实际软件实验记录](experiments/2026-10-18-spatial-exploration.md) | `experiments/2026-10-18-spatial-exploration.md` | 实验 / 验收记录 |
+| [边缘大脑重复故障实验（2026-10-28）](experiments/2026-10-27-edge-brain-reliability/README.md) | `experiments/2026-10-27-edge-brain-reliability/README.md` | 导航 / 维护 |
+| [执行前范围核对](experiments/2026-10-27-edge-brain-reliability/scope-review.md) | `experiments/2026-10-27-edge-brain-reliability/scope-review.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -458,6 +463,34 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-18-spatial-coverage-upgrade.json](experiments/2026-10-18-spatial-coverage-upgrade.json) | JSON | `experiments` |
 | [2026-10-18-spatial-exploration.csv](experiments/2026-10-18-spatial-exploration.csv) | CSV | `experiments` |
 | [2026-10-18-spatial-exploration.json](experiments/2026-10-18-spatial-exploration.json) | JSON | `experiments` |
+| [affected-packages.json](experiments/2026-10-27-edge-brain-checks/affected-packages.json) | JSON | `experiments/2026-10-27-edge-brain-checks` |
+| [affected-packages.log](experiments/2026-10-27-edge-brain-checks/affected-packages.log) | LOG | `experiments/2026-10-27-edge-brain-checks` |
+| [builds.json](experiments/2026-10-27-edge-brain-checks/builds.json) | JSON | `experiments/2026-10-27-edge-brain-checks` |
+| [manifest.json](experiments/2026-10-27-edge-brain-reliability/manifest.json) | JSON | `experiments/2026-10-27-edge-brain-reliability` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-01/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-01` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-01/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-01` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-02/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-02` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-02/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-02` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-03/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-03` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-03/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-03` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-04/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-04` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-04/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-04` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-05/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-05` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-05/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-05` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-06/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-06` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-06/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-06` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-07/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-07` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-07/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-07` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-08/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-08` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-08/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-08` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-09/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-09` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-09/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-09` |
+| [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-10/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-10` |
+| [result.json](experiments/2026-10-27-edge-brain-reliability/run-10/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-10` |
+| [run.json](experiments/2026-10-27-edge-brain-reliability/run.json) | JSON | `experiments/2026-10-27-edge-brain-reliability` |
+| [runner-source.py.txt](experiments/2026-10-27-edge-brain-reliability/runner-source.py.txt) | TXT | `experiments/2026-10-27-edge-brain-reliability` |
+| [ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519.json](experiments/2026-10-27-edge-brain-reliability/sources/ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/sources` |
+| [summary.json](experiments/2026-10-27-edge-brain-reliability/summary.json) | JSON | `experiments/2026-10-27-edge-brain-reliability` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |

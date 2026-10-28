@@ -1,6 +1,6 @@
 # 文档导航：学习、开发、运维与研究
 
-教材 3.1.0（2026-10-22）深化跨域消息、模型实际输入、上下文、KV cache 和分布式一致性，提供 22 幅图、公式算例、两个无硬件实验与课堂脚本；已实现机制与缓存接入建议明确区分。
+教材 3.2.0（2026-10-28）以取消竞态、身份重配、模型缓存提示与失败回溯讲解边缘实现，提供 25 幅图、误差/时钟/上下文/时间预算推导及可复核的软件实验。
 
 边缘工作台增量（2026-10-20）：[按机器人切换与任务回溯](operations/edge-robot-workspaces.md) → [实现与验证](development/2026-10-20-edge-robot-workspaces.md)。独立 Agent/数据目录、请求身份、地图与浏览器状态按设备隔离；切换不转移执行权。
 
@@ -14,7 +14,7 @@
 
 最新探索增量（2026-10-17）：[首次扫描实现](development/2026-10-17-exploration-first-scan.md) → [操作指南](guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索) → [实验与全部尝试](experiments/2026-10-17-exploration-first-scan.md) → [书籍补充](../book/updates/2026-10-17-exploration-first-scan.md)。当前为平面本体主动观察和在线 frontier 增强，不代表三维自主探索或实机认证。
 
-基础资料核对到实现 `821659df`（2026-10-16）；后续增量按本页顶部记录与各次源码摘要阅读，教材入口为[数字版 3.1.0](../book/README.md)。云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
+基础资料核对到实现 `821659df`（2026-10-16）；后续增量按本页顶部记录与各次源码摘要阅读，教材入口为[数字版 3.2.0](../book/README.md)。云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
 
 从你的工作目标选择入口。四条路线负责推荐顺序，[全量分类目录](catalog.md)负责查找所有文档、实验数据表与配图，[文档维护规则](maintenance.md)说明新增资料该放哪里。
 
@@ -58,7 +58,7 @@
 | 资料 | 用法 | 不能直接推导的结论 |
 | --- | --- | --- |
 | 当前操作与接口指南 | 按所在 Git 提交使用；核对设备角色、配置与能力目录 | 指南里出现一个接口，不代表所有适配器都已实现 |
-| [书籍3.1.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `9e6a58f6` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
+| [书籍3.2.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `63af9930` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
 | [软件发布记录](releases/v0.7.0.md)与[Changelog](../CHANGELOG.md) | 区分正式发布和 Unreleased 增量；分支规则见[发布规范](development/branching.md) | 功能分支上的实验通过，不等于已合入 main 或完成发布 |
 | 带日期的实施、审计和实验记录 | 回溯当时的假设、失败、修复及环境；按原版本引用 | 历史成功、旧状态页或设计清单不覆盖今天的全部代码 |
 | 原始观测与机器可读结果 | 根据 manifest、身份和原始字节复验；数据入口见[研究路线](research/README.md) | 仿真、回放、软件合同和真机证据不能互相替代 |

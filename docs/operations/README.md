@@ -1,5 +1,8 @@
 # 部署、运维与现场交付导航
 
+2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。
+
+
 多机器人边缘工作台（2026-10-20）：[工作空间部署、切换与任务回溯](edge-robot-workspaces.md)，说明独立进程/数据目录、连接身份、会话配置、设备产物与上下文隔离。
 
 核对日期：2026-10-16，实现参考 `821659df`。目标委托的部署、持久状态、续跑判断与升级顺序集中见[目标运维](delegated-goal-operations.md)。
