@@ -14,6 +14,7 @@ import (
 )
 
 var _ tasks.Repository = (*Store)(nil)
+var _ tasks.EventAppender = (*Store)(nil)
 
 type sqlExecutor interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
@@ -262,9 +263,53 @@ func (s *Store) ListRevisions(ctx context.Context, taskID string) ([]tasks.Revis
 	return records, nil
 }
 
-// UpdateWithEvent commits a task mutation and its corresponding audit event
-// together. Local execution uses this boundary so the Console never observes
-// a state without the event that explains it.
+// AppendTaskEvent reserves a sequence while holding SQLite's writer lock. Its
+// only task-row mutation is UpdatedAt: stale callers cannot restore a cancelled
+// state, approval, plan or revision. Strict INSERT never replaces an old fact.
+func (s *Store) AppendTaskEvent(ctx context.Context, taskID string, event tasks.TaskEvent) (tasks.TaskEvent, error) {
+	if event.OccurredAt.IsZero() {
+		event.OccurredAt = time.Now().UTC()
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return tasks.TaskEvent{}, err
+	}
+	defer tx.Rollback()
+	// Acquire the write lock before reading MAX(sequence). Reading first would
+	// allow concurrent deferred transactions to select the same next sequence.
+	result, err := tx.ExecContext(ctx, "UPDATE tasks SET updated_at = ? WHERE id = ?", encodeTime(event.OccurredAt), taskID)
+	if err != nil {
+		return tasks.TaskEvent{}, err
+	}
+	if affected, err := result.RowsAffected(); err != nil || affected != 1 {
+		if err != nil {
+			return tasks.TaskEvent{}, err
+		}
+		return tasks.TaskEvent{}, tasks.ErrTaskNotFound
+	}
+	sequence, err := nextEventSequence(ctx, tx, taskID)
+	if err != nil {
+		return tasks.TaskEvent{}, err
+	}
+	event = tasks.AssignEventSequence(taskID, event, sequence)
+	payload, err := json.Marshal(event.Payload)
+	if err != nil {
+		return tasks.TaskEvent{}, fmt.Errorf("marshal event payload: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO task_events
+		(task_id, sequence, type, step_id, message, payload_json, occurred_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, taskID, event.Sequence, event.Type, event.StepID, event.Message, payload, encodeTime(event.OccurredAt)); err != nil {
+		return tasks.TaskEvent{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return tasks.TaskEvent{}, err
+	}
+	return event, nil
+}
+
+// UpdateWithEvent commits a full task mutation and its audit event together.
+// The caller must serialize the read/mutation: this legacy method has no CAS.
+// Append-only callers use AppendTaskEvent to avoid rewriting task authority.
 func (s *Store) UpdateWithEvent(ctx context.Context, task *tasks.Task, event tasks.TaskEvent) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

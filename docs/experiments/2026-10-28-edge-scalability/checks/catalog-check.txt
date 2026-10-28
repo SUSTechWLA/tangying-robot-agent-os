@@ -1,0 +1,1 @@
+Documentation catalog is stale; run python3 scripts/build_docs_catalog.py

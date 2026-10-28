@@ -726,19 +726,7 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 		s.mu.Unlock()
 		return nil, err
 	}
-	event.Sequence = uint64(len(task.Events) + 1)
-	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
-		// A tool fact may also arrive through the direct runner publisher. Keep
-		// that identity, or allocate the durable identity before either path can
-		// observe it, so restart replay also counts each dispatch only once.
-		event.Payload = cloneAnyMap(event.Payload)
-		if event.Payload == nil {
-			event.Payload = map[string]any{}
-		}
-		if id, _ := event.Payload["eventId"].(string); id == "" {
-			event.Payload["eventId"] = fmt.Sprintf("%s#%d", taskID, event.Sequence)
-		}
-	}
+	event = AssignEventSequence(taskID, event, uint64(len(task.Events)+1))
 	if event.OccurredAt.IsZero() {
 		event.OccurredAt = s.now().UTC()
 	}
@@ -756,6 +744,53 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 		s.notifyEvent(ctx, taskID, event)
 	}
 	return task, nil
+}
+
+// RecordEvent appends a durable fact when the caller does not need the complete
+// task history. Repositories without an append-only port retain AppendEvent's
+// behavior. Observers always run after commit and outside the service lock.
+func (s *Service) RecordEvent(ctx context.Context, taskID string, event TaskEvent) (TaskEvent, error) {
+	store, ok := s.store.(EventAppender)
+	if !ok {
+		task, err := s.AppendEvent(ctx, taskID, event)
+		if err != nil {
+			return TaskEvent{}, err
+		}
+		return task.Events[len(task.Events)-1], nil
+	}
+	s.mu.Lock()
+	if event.OccurredAt.IsZero() {
+		event.OccurredAt = s.now().UTC()
+	}
+	event, err := store.AppendTaskEvent(ctx, taskID, event)
+	s.mu.Unlock()
+	if err != nil {
+		return TaskEvent{}, err
+	}
+	if event.Type == "STATE_CHANGED" || event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
+		s.notifyEvent(ctx, taskID, event)
+	}
+	return event, nil
+}
+
+// AssignEventSequence applies the task journal's sequence and stable tool fact
+// identity. Atomic append adapters call it only after reserving that sequence.
+// Existing externally assigned event IDs are preserved.
+func AssignEventSequence(taskID string, event TaskEvent, sequence uint64) TaskEvent {
+	event.Sequence = sequence
+	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
+		// A tool fact may also arrive through the direct runner publisher. Keep
+		// that identity, or allocate the durable identity before either path can
+		// observe it, so restart replay also counts each dispatch only once.
+		event.Payload = cloneAnyMap(event.Payload)
+		if event.Payload == nil {
+			event.Payload = map[string]any{}
+		}
+		if id, _ := event.Payload["eventId"].(string); id == "" {
+			event.Payload["eventId"] = fmt.Sprintf("%s#%d", taskID, event.Sequence)
+		}
+	}
+	return event
 }
 
 // appendEvent records one event on the task and returns it, so a caller that

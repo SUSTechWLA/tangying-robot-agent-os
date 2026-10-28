@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 
 	llmagent "github.com/SUSTechWLA/tangying-robot-agent-os/agent"
@@ -12,6 +13,9 @@ import (
 
 // Host supplies the authorized local provider for each delegation.
 func edgeGoalPlanner() (*capabilityagent.Planner, error) {
+	if err := capabilityagent.ValidateRecipeMode(os.Getenv("AGENT_GOAL_RECIPE_MODE")); err != nil {
+		return nil, err
+	}
 	goal := modelroute.Environment(modelroute.Goal)
 	understanding := modelroute.Environment(modelroute.Intent)
 	if err := goal.Validate(); err != nil {
@@ -29,7 +33,8 @@ func edgeGoalPlanner() (*capabilityagent.Planner, error) {
 		return json.Marshal(parsed)
 	}}
 	if strings.EqualFold(goal.Provider, "openai") {
-		p.Decider = &actionloop.LLMDecider{BaseURL: goal.BaseURL, APIKey: goal.APIKey, Model: goal.Model, Cache: goal.Cache}
+		p.Decider = &actionloop.LLMDecider{BaseURL: goal.BaseURL, APIKey: goal.APIKey, Model: goal.Model, Cache: goal.Cache,
+			Stage: modelroute.Goal, OutputTokens: goal.OutputTokens, UsageFile: goal.UsageFile}
 	}
 	return p, nil
 }

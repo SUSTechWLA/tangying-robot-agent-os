@@ -1,0 +1,51 @@
+{
+  "compile_only": true,
+  "runs": [
+    {
+      "goos": "darwin",
+      "goarch": "arm64",
+      "cgo_enabled": false,
+      "command": [
+        "go",
+        "build",
+        "-o",
+        "/tmp/edge-scalability-build-20261028/darwin/",
+        "./cmd/local-agent",
+        "./cmd/edge-worker",
+        "./cmd/edge-exchange"
+      ],
+      "exit_code": 0,
+      "seconds": 1.068,
+      "stderr": "",
+      "binaries": {
+        "edge-worker": "39c612457eae8380a83053f947426d7f557f6f4e5a07c0b66b382b96bfa092df",
+        "local-agent": "4731c297f37e77a3f66375692c4883751f2680cb05fa6c6dca4812d59bdbbfc8",
+        "edge-exchange": "d2438a208bcbf84cce8d129aa5005375ac10679b8da6c72aef6b5d322ed9295a"
+      }
+    },
+    {
+      "goos": "linux",
+      "goarch": "arm64",
+      "cgo_enabled": false,
+      "command": [
+        "go",
+        "build",
+        "-o",
+        "/tmp/edge-scalability-build-20261028/linux/",
+        "./cmd/local-agent",
+        "./cmd/edge-worker",
+        "./cmd/edge-exchange"
+      ],
+      "exit_code": 0,
+      "seconds": 1.49,
+      "stderr": "",
+      "binaries": {
+        "edge-worker": "faba95a01d9e4bc94c9638123c60fb1352f3c0625f75957a0d1f4c024f65b06c",
+        "local-agent": "5fbcc1cc4072a6dccfd3718195e3df813a138784a9cbba460a78c3dd931b36fa",
+        "edge-exchange": "e44aa1b6c3ee0410f3cf837fa24a07276881a03410f0f928cfe9985434ad3f42"
+      }
+    }
+  ],
+  "source_manifest": "verification/source-sha256.json",
+  "phase": "initial_before_child_writer_optimization"
+}

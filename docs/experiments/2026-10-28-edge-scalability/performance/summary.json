@@ -1,0 +1,319 @@
+{
+  "schema_version": "edge-scalability-comparison.v1",
+  "machine": {
+    "system": "Darwin",
+    "release": "25.6.0",
+    "architecture": "arm64",
+    "cpu": "Apple M5"
+  },
+  "evidence_level": "scripted_in_process_contract_fixture",
+  "denominator": {
+    "matched_scenario": "TestSingleRobotLongHorizonCampaign/persistent_task_01_032_steps",
+    "planned_stations_per_run": 32,
+    "single_runs_per_phase": 1,
+    "paired_runs_per_phase": 3,
+    "expected_physical_starts_per_run": 32,
+    "scope": "initial Host.Run only; restart audit replay is checked separately and excluded from task_duration_ns",
+    "not_measured": [
+      "LLM inference",
+      "Gazebo dynamics",
+      "real robot latency",
+      "full production workload"
+    ]
+  },
+  "race": false,
+  "single": {
+    "before": {
+      "command": "go test -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$' -count=1 -timeout=90s > /tmp/edge-scalability-profile/before.jsonl",
+      "records": [
+        {
+          "task_duration_ns": 821012000,
+          "duration_scope": "initial_host_run_only",
+          "planned_stations": 32,
+          "physical_starts": 32,
+          "restart_writes": 0,
+          "restart_plans": 0,
+          "outcome": "SUCCEEDED",
+          "scenario": "persistent_single_robot_multi_task"
+        }
+      ]
+    },
+    "after": {
+      "command": "go test -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$' -count=1 -timeout=90s > /tmp/edge-scalability-profile/after.jsonl",
+      "records": [
+        {
+          "task_duration_ns": 257805000,
+          "duration_scope": "initial_host_run_only",
+          "planned_stations": 32,
+          "physical_starts": 32,
+          "restart_writes": 0,
+          "restart_plans": 0,
+          "outcome": "SUCCEEDED",
+          "scenario": "persistent_single_robot_multi_task"
+        }
+      ]
+    }
+  },
+  "paired": [
+    {
+      "repetition": 1,
+      "phase": "before",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-before.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 807731000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 1,
+      "phase": "after",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-after.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 249948000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 2,
+      "phase": "before",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-before.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 785163000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 2,
+      "phase": "after",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-after.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 245779000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 3,
+      "phase": "before",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-before.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 803859000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 3,
+      "phase": "after",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-after.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 245041000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    }
+  ],
+  "comparison": {
+    "before_median_ms": 803.859,
+    "after_median_ms": 245.779,
+    "median_ratio": 3.2706577860598345,
+    "before_min_max_ms": [
+      785.163,
+      807.731
+    ],
+    "after_min_max_ms": [
+      245.041,
+      249.948
+    ]
+  },
+  "compiled_binaries": {
+    "before": {
+      "name": "edgeagent-before.test",
+      "sha256": "65e6630ad5bf13f88642dae10f907855a7d478ae3204bc9c13ec2738cb7f302a",
+      "bytes": 27274034,
+      "archive_binary": false
+    },
+    "after": {
+      "name": "edgeagent-after.test",
+      "sha256": "4ef5a054d13640de91823aa982782a6cca823eeda05c27db03fd598a0308a97e",
+      "bytes": 27368578,
+      "archive_binary": false
+    }
+  },
+  "sources": {
+    "before": {
+      "manifest_file": "before-source-sha256.json",
+      "manifest_sha256": "fa4210bbe8e9c0398271bf572e40dc66ac33dad4ddf31b363a2adb971d897005",
+      "files": {
+        "tasks/store.go": "8fa1f0507d107d7357b61025fd40a91f6fe44176e2b894f1db60c0d7556a78a0",
+        "tasks/service.go": "300de6359a59b1669b612af161090a4ff9a13e7c2f4b472e6848eec7da0b7ee0",
+        "middleware/sqlite/tasks.go": "46c53590cc6427d53a4df3299e07f8980811c78046a5cd1781f2ea9b6cf800ba",
+        "internal/edgeagent/host.go": "754ba40d2b028a6aec3106ac662a7edb8bc14c0cdde28c104c2e076bd184d68a",
+        "internal/edgeagent/journal.go": "85423240686b999a579227125db3587f00abaef332cc35059fbff37524c5ddd4",
+        "internal/edgeagent/campaign_test.go": "becae2897a32ade8632f7c15731c00397419efe4e777805062e9dbb21e70f64f"
+      }
+    },
+    "after": {
+      "manifest_file": "after-source-sha256.json",
+      "manifest_sha256": "3cfd4f0c32693a730505087676a49bbba6ef80b3d15f0a4ba3a2684aabe38761",
+      "files": {
+        "tasks/store.go": "2668b11b4757f18692cea12fb07a2a7022de61fca7f6995466769de023050c6b",
+        "tasks/service.go": "967bee2304fb5cb77bc394aa675c9f6fd5a274d9f2032afa98a7d3ae252ad377",
+        "middleware/sqlite/tasks.go": "d9089554495091df683eea889cc3671a6733c36baadb326e68363f21d98ed514",
+        "internal/edgeagent/host.go": "7f54e87931b2bf4698c320524f514b84b1525a0e14df5d5baa868525bdb87728",
+        "internal/edgeagent/journal.go": "81b3accf1afb5bdfcc8300aad003beefb86d21133c9e74c6787682a0439a4d64",
+        "internal/edgeagent/campaign_test.go": "becae2897a32ade8632f7c15731c00397419efe4e777805062e9dbb21e70f64f",
+        "tasks/record_event_test.go": "bf3914f546ad382c590533af11a2764eae032756ef724898f4e28b2ea7ebd50e",
+        "middleware/sqlite/event_append_test.go": "8bd906f379e068644b221fabda5b9d7e7a266f03dc122aa9dc1b1dd42fa263d4",
+        "internal/edgeagent/report_scaling_test.go": "a9035e4615a9406df9f2a2276a14dd9ae6c06267abc22eedecf99bab4e909471"
+      }
+    }
+  },
+  "regression_campaign": {
+    "race": true,
+    "command": "go test -race -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_(01_032|04_096)_steps$|^TestSingleRobotCampaign(SQLiteCloseReopen|UnknownAfterLongConfirmedPrefix|BudgetBoundaries)$' -count=1 -timeout=120s",
+    "records": [
+      {
+        "task_duration_ns": 2940162000,
+        "duration_scope": "initial_run_checkpoint_and_restart",
+        "planned_stations": 32,
+        "physical_starts": 32,
+        "restart_writes": 0,
+        "restart_plans": 0,
+        "outcome": "SUCCEEDED",
+        "scenario": "sqlite_close_reopen_verified_goal"
+      },
+      {
+        "task_duration_ns": 1841561000,
+        "duration_scope": "initial_run_checkpoint_and_restart",
+        "planned_stations": 64,
+        "physical_starts": 25,
+        "restart_writes": 0,
+        "restart_plans": 0,
+        "outcome": "RECONCILIATION",
+        "scenario": "unknown_effect_after_long_confirmed_prefix"
+      },
+      {
+        "task_duration_ns": 2818717000,
+        "duration_scope": "initial_host_run_only",
+        "planned_stations": 32,
+        "physical_starts": 32,
+        "restart_writes": 0,
+        "restart_plans": 0,
+        "outcome": "SUCCEEDED",
+        "scenario": "persistent_single_robot_multi_task"
+      },
+      {
+        "task_duration_ns": 25075458000,
+        "duration_scope": "initial_host_run_only",
+        "planned_stations": 96,
+        "physical_starts": 96,
+        "restart_writes": 0,
+        "restart_plans": 0,
+        "outcome": "SUCCEEDED",
+        "scenario": "persistent_single_robot_multi_task"
+      },
+      {
+        "task_duration_ns": 1110788000,
+        "duration_scope": "initial_run_checkpoint_and_restart",
+        "planned_stations": 32,
+        "physical_starts": 16,
+        "restart_writes": 0,
+        "restart_plans": null,
+        "outcome": "BOUNDED_STOP",
+        "scenario": "plan_budget_after_confirmed_prefix"
+      },
+      {
+        "task_duration_ns": 1134105000,
+        "duration_scope": "initial_run_checkpoint_and_restart",
+        "planned_stations": 32,
+        "physical_starts": 16,
+        "restart_writes": 0,
+        "restart_plans": null,
+        "outcome": "BOUNDED_STOP",
+        "scenario": "step_budget_rejects_oversized_next_chunk"
+      },
+      {
+        "task_duration_ns": 1130409000,
+        "duration_scope": "initial_run_checkpoint_and_restart",
+        "planned_stations": 32,
+        "physical_starts": 16,
+        "restart_writes": 0,
+        "restart_plans": null,
+        "outcome": "BOUNDED_STOP",
+        "scenario": "read_budget_preserves_final_check"
+      }
+    ],
+    "qualification": "Selected 32->96 scenario is not the full earlier campaign and does not yield a matched before/after 96-step speedup."
+  },
+  "regression_128": {
+    "race": true,
+    "command": "go test -race -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_05_128_steps$' -count=1 -timeout=90s",
+    "records": [
+      {
+        "scenario": "persistent_single_robot_multi_task",
+        "targetCount": 128,
+        "durationNs": 33612406000,
+        "durationScope": "initial_host_run_only",
+        "physicalStarts": 128,
+        "restartWrites": 0,
+        "restartPlans": 0,
+        "outcome": "SUCCEEDED"
+      }
+    ],
+    "passes": [
+      {
+        "test": "TestSingleRobotLongHorizonCampaign/persistent_task_05_128_steps",
+        "elapsed_seconds": 34.08
+      },
+      {
+        "test": "TestSingleRobotLongHorizonCampaign",
+        "elapsed_seconds": 34.11
+      },
+      {
+        "test": "package",
+        "elapsed_seconds": 36.391
+      }
+    ],
+    "qualification": "Single selected 128-step fixture starts from an empty campaign. No matched baseline 128/96 comparison. Earlier temporary build failure during a concurrent actionloop edit is preserved in campaign-128-build-interrupted.jsonl; it was not a task execution failure."
+  }
+}

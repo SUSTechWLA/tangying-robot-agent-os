@@ -1,0 +1,51 @@
+{
+  "compile_only": true,
+  "source_manifest": "verification-final/source-sha256.json",
+  "runs": [
+    {
+      "goos": "darwin",
+      "goarch": "arm64",
+      "cgo_enabled": false,
+      "command": [
+        "go",
+        "build",
+        "-o",
+        "/tmp/edge-scalability-final-build-20261028/darwin/",
+        "./cmd/local-agent",
+        "./cmd/edge-worker",
+        "./cmd/edge-exchange"
+      ],
+      "exit_code": 0,
+      "seconds": 1.122,
+      "stderr": "",
+      "binaries": {
+        "edge-exchange": "d2438a208bcbf84cce8d129aa5005375ac10679b8da6c72aef6b5d322ed9295a",
+        "edge-worker": "96b5a29450fe496a2c26f2461a66dcb6cedf93bbf9afa79d9097dcd0cd3c11af",
+        "local-agent": "cdda43308fe75c2b71f5732033be321e835e32c74cf13b9b9e13ba3da624d690"
+      }
+    },
+    {
+      "goos": "linux",
+      "goarch": "arm64",
+      "cgo_enabled": false,
+      "command": [
+        "go",
+        "build",
+        "-o",
+        "/tmp/edge-scalability-final-build-20261028/linux/",
+        "./cmd/local-agent",
+        "./cmd/edge-worker",
+        "./cmd/edge-exchange"
+      ],
+      "exit_code": 0,
+      "seconds": 1.048,
+      "stderr": "",
+      "binaries": {
+        "edge-exchange": "e44aa1b6c3ee0410f3cf837fa24a07276881a03410f0f928cfe9985434ad3f42",
+        "edge-worker": "63c28f6741fb1318a321b2053957ee456b22ebcc2b737ecf63b1295991a12426",
+        "local-agent": "af5aa87e497c3d3aa8e153ae06c8aef5244ede11f194a9990f2d526a8d6b212e"
+      }
+    }
+  ],
+  "passed": true
+}

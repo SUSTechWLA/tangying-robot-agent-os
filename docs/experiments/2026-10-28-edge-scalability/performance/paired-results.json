@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "edge-task-append-profile.v1",
+  "evidenceLevel": "scripted_in_process_contract_fixture",
+  "machine": "darwin arm64 Apple M5",
+  "scope": "32-step initial Host run; no race; compiled before/after binaries; three interleaved repetitions; no LLM/Gazebo/hardware",
+  "samples": [
+    {
+      "repetition": 1,
+      "phase": "before",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-before.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 807731000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 1,
+      "phase": "after",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-after.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 249948000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 2,
+      "phase": "before",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-before.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 785163000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 2,
+      "phase": "after",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-after.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 245779000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 3,
+      "phase": "before",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-before.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 803859000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    },
+    {
+      "repetition": 3,
+      "phase": "after",
+      "command": [
+        "/tmp/edge-scalability-profile/edgeagent-after.test",
+        "-test.run=^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$",
+        "-test.count=1",
+        "-test.timeout=90s",
+        "-test.v"
+      ],
+      "elapsed_ns_initial_host_run": 245041000,
+      "physical_starts": 32,
+      "restart_writes": 0,
+      "restart_plans": 0,
+      "outcome": "SUCCEEDED"
+    }
+  ]
+}

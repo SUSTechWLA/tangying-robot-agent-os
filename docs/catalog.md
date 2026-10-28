@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **279 份 Markdown** 与 **969 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **285 份 Markdown** 与 **1036 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 111 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 114 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
-| [运行手册、接口与验收快照](#catalog-production) | 19 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
+| [运行手册、接口与验收快照](#catalog-production) | 20 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 51 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 53 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -188,6 +188,9 @@
 | [2026-10-22 · 教材 3.1.0：跨域协议、模型输入、上下文与一致性](development/2026-10-22-book-protocol-context-cache.md) | `development/2026-10-22-book-protocol-context-cache.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-27 · 边缘大脑与教材协同升级计划](development/2026-10-27-edge-brain-book-plan.md) | `development/2026-10-27-edge-brain-book-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 · 边缘大脑可靠性与教材 3.2.0](development/2026-10-28-edge-brain-reliability.md) | `development/2026-10-28-edge-brain-reliability.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 · 边缘长任务与协作状态扩展计划](development/2026-10-28-edge-scalability-plan.md) | `development/2026-10-28-edge-scalability-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 · 持续运行、模型成本与规划经验升级](development/2026-10-28-edge-scalability.md) | `development/2026-10-28-edge-scalability.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 边缘系统能力与实机接入评估](development/2026-10-28-system-upgrade-assessment.md) | `development/2026-10-28-system-upgrade-assessment.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -278,6 +281,7 @@
 | [部署拓扑、容量与可观测性](production/deployment-and-capacity.md) | `production/deployment-and-capacity.md` | 操作 / 接口参考 |
 | [边缘模型请求、缓存提示与失败记录](production/edge-brain-model-context.md) | `production/edge-brain-model-context.md` | 操作 / 接口参考 |
 | [2026-09-26 生产就绪审计与实机验证交接](production/field-readiness-2026-09-26.md) | `production/field-readiness-2026-09-26.md` | 验收 / 就绪快照 |
+| [模型成本与任务规划经验](production/model-cost-and-recipes.md) | `production/model-cost-and-recipes.md` | 操作 / 接口参考 |
 | [分布式异常与快速排障手册](production/operations-and-failures.md) | `production/operations-and-failures.md` | 操作 / 接口参考 |
 | [学习型策略工具与 sim2real 接入手册](production/policy-tools.md) | `production/policy-tools.md` | 操作 / 接口参考 |
 | [从零开始快速上手](production/quickstart.md) | `production/quickstart.md` | 操作 / 接口参考 |
@@ -356,6 +360,8 @@
 | [异构三维探索与配对消融：实际软件实验记录](experiments/2026-10-18-spatial-exploration.md) | `experiments/2026-10-18-spatial-exploration.md` | 实验 / 验收记录 |
 | [边缘大脑重复故障实验（2026-10-28）](experiments/2026-10-27-edge-brain-reliability/README.md) | `experiments/2026-10-27-edge-brain-reliability/README.md` | 导航 / 维护 |
 | [执行前范围核对](experiments/2026-10-27-edge-brain-reliability/scope-review.md) | `experiments/2026-10-27-edge-brain-reliability/scope-review.md` | 实验 / 验收记录 |
+| [2026-10-28 边缘持续运行与成本实验](experiments/2026-10-28-edge-scalability/README.md) | `experiments/2026-10-28-edge-scalability/README.md` | 导航 / 维护 |
+| [Edge long-task journal performance evidence](experiments/2026-10-28-edge-scalability/performance/README.md) | `experiments/2026-10-28-edge-scalability/performance/README.md` | 导航 / 维护 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -492,6 +498,73 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [runner-source.py.txt](experiments/2026-10-27-edge-brain-reliability/runner-source.py.txt) | TXT | `experiments/2026-10-27-edge-brain-reliability` |
 | [ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519.json](experiments/2026-10-27-edge-brain-reliability/sources/ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/sources` |
 | [summary.json](experiments/2026-10-27-edge-brain-reliability/summary.json) | JSON | `experiments/2026-10-27-edge-brain-reliability` |
+| [archive-sha256.json](experiments/2026-10-28-edge-scalability/archive-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [builds-final.json](experiments/2026-10-28-edge-scalability/builds-final.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [builds.json](experiments/2026-10-28-edge-scalability/builds.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [catalog-build.txt](experiments/2026-10-28-edge-scalability/checks/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks` |
+| [catalog-check.txt](experiments/2026-10-28-edge-scalability/checks/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks` |
+| [summary.json](experiments/2026-10-28-edge-scalability/checks/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/checks` |
+| [book-check.txt](experiments/2026-10-28-edge-scalability/checks-final/book-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [catalog-build.txt](experiments/2026-10-28-edge-scalability/checks-final/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [catalog-check.txt](experiments/2026-10-28-edge-scalability/checks-final/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [diff-check.txt](experiments/2026-10-28-edge-scalability/checks-final/diff-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [go-docs.txt](experiments/2026-10-28-edge-scalability/checks-final/go-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [gofmt.txt](experiments/2026-10-28-edge-scalability/checks-final/gofmt.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [python-docs.txt](experiments/2026-10-28-edge-scalability/checks-final/python-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [ruff.txt](experiments/2026-10-28-edge-scalability/checks-final/ruff.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [summary.json](experiments/2026-10-28-edge-scalability/checks-final/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [usage-report.txt](experiments/2026-10-28-edge-scalability/checks-final/usage-report.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [book-check.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/book-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [catalog-build.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [catalog-check.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [diff-check.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/diff-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [go-docs.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/go-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [gofmt.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/gofmt.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [python-docs.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/python-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [ruff.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/ruff.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [summary.json](experiments/2026-10-28-edge-scalability/checks-readme-count/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [usage-report.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/usage-report.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [final-precision-fix.json](experiments/2026-10-28-edge-scalability/child-writer/final-precision-fix.json) | JSON | `experiments/2026-10-28-edge-scalability/child-writer` |
+| [full-campaign.jsonl](experiments/2026-10-28-edge-scalability/child-writer/full-campaign.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/child-writer` |
+| [summary.json](experiments/2026-10-28-edge-scalability/child-writer/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/child-writer` |
+| [after-profile-run.txt](experiments/2026-10-28-edge-scalability/performance/after-profile-run.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [after-profile.txt](experiments/2026-10-28-edge-scalability/performance/after-profile.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [after-source-sha256.json](experiments/2026-10-28-edge-scalability/performance/after-source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [after.cpu](experiments/2026-10-28-edge-scalability/performance/after.cpu) | CPU | `experiments/2026-10-28-edge-scalability/performance` |
+| [after.jsonl](experiments/2026-10-28-edge-scalability/performance/after.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [append-benchmark.txt](experiments/2026-10-28-edge-scalability/performance/append-benchmark.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [artifact-manifest.json](experiments/2026-10-28-edge-scalability/performance/artifact-manifest.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [before-profile.txt](experiments/2026-10-28-edge-scalability/performance/before-profile.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [before-source-sha256.json](experiments/2026-10-28-edge-scalability/performance/before-source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [before.cpu](experiments/2026-10-28-edge-scalability/performance/before.cpu) | CPU | `experiments/2026-10-28-edge-scalability/performance` |
+| [before.jsonl](experiments/2026-10-28-edge-scalability/performance/before.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [campaign-128-build-interrupted.jsonl](experiments/2026-10-28-edge-scalability/performance/campaign-128-build-interrupted.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [campaign-128-race.jsonl](experiments/2026-10-28-edge-scalability/performance/campaign-128-race.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [campaign-race.jsonl](experiments/2026-10-28-edge-scalability/performance/campaign-race.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [commands.txt](experiments/2026-10-28-edge-scalability/performance/commands.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [comparison-summary.json](experiments/2026-10-28-edge-scalability/performance/comparison-summary.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-1-after.log](experiments/2026-10-28-edge-scalability/performance/paired-1-after.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-1-before.log](experiments/2026-10-28-edge-scalability/performance/paired-1-before.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-2-after.log](experiments/2026-10-28-edge-scalability/performance/paired-2-after.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-2-before.log](experiments/2026-10-28-edge-scalability/performance/paired-2-before.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-3-after.log](experiments/2026-10-28-edge-scalability/performance/paired-3-after.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-3-before.log](experiments/2026-10-28-edge-scalability/performance/paired-3-before.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-results.json](experiments/2026-10-28-edge-scalability/performance/paired-results.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [regressions-race.txt](experiments/2026-10-28-edge-scalability/performance/regressions-race.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [summary.json](experiments/2026-10-28-edge-scalability/performance/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [task-summary.json](experiments/2026-10-28-edge-scalability/task-summary.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [affected-packages.jsonl](experiments/2026-10-28-edge-scalability/verification/affected-packages.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification` |
+| [long-campaign.jsonl](experiments/2026-10-28-edge-scalability/verification/long-campaign.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification` |
+| [runner-source.py.txt](experiments/2026-10-28-edge-scalability/verification/runner-source.py.txt) | TXT | `experiments/2026-10-28-edge-scalability/verification` |
+| [sha256.json](experiments/2026-10-28-edge-scalability/verification/sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification` |
+| [source-sha256.json](experiments/2026-10-28-edge-scalability/verification/source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification` |
+| [summary.json](experiments/2026-10-28-edge-scalability/verification/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/verification` |
+| [affected-packages.jsonl](experiments/2026-10-28-edge-scalability/verification-final/affected-packages.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [long-campaign.jsonl](experiments/2026-10-28-edge-scalability/verification-final/long-campaign.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [runner-source.py.txt](experiments/2026-10-28-edge-scalability/verification-final/runner-source.py.txt) | TXT | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [sha256.json](experiments/2026-10-28-edge-scalability/verification-final/sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [source-sha256.json](experiments/2026-10-28-edge-scalability/verification-final/source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [summary.json](experiments/2026-10-28-edge-scalability/verification-final/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |

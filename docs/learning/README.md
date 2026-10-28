@@ -1,5 +1,7 @@
 # 学习路线：从系统全貌到可检查实践
 
+3.2.0 出版后的[长历史成本与规划经验补充](../../book/updates/2026-10-28-cost-and-long-horizon.md)：用公式和反例理解当前状态读模型、事件增量写入、重复规划与真实 token 计量。原出版身份保持，当前配置见[运行指南](../production/model-cost-and-recipes.md)。
+
 教材 3.2.0（2026-10-28）以取消竞态、身份重配、模型缓存提示与失败回溯讲解边缘实现，提供 25 幅图、误差/时钟/上下文/时间预算推导及可复核的软件实验。
 
 理解“有地图之后怎样完整巡检”时，阅读[已知覆盖与多层移动补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)、[当前接口](../development/2026-10-18-spatial-coverage-upgrade.md)及[计划/Runner/350 次探索实际实验](../experiments/2026-10-18-spatial-coverage-upgrade.md)，区分预测覆盖、新采集证据、分层支撑与设备可执行性。

@@ -1,5 +1,7 @@
 # 实验协议、报告与证据索引
 
+2026-10-28 当前升级的[实验与来源](2026-10-28-edge-scalability/README.md)：协作视图容量、长任务增量审计、规划经验与用量统计。性能对照、故障回归和真实模型/设备未测项分别列出。
+
 2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。
 
 

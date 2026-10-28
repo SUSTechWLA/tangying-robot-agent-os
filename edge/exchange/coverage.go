@@ -61,13 +61,31 @@ func (s *Service) CoverageView(ctx context.Context, q x.CoverageQuery) (Coverage
 	if !ok {
 		return CoverageView{}, errors.New("exchange journal has no snapshot reader")
 	}
-	feed, err := journal.Snapshot(ctx, q.Limit)
+	var feed x.Feed
+	var err error
+	currentProjection := false
+	if latest, ok := s.journal.(x.LatestSnapshotJournal); ok {
+		currentProjection = true
+		peers := make([]x.Identity, 0, len(s.peers))
+		for _, peer := range s.peers {
+			peers = append(peers, peer)
+		}
+		feed, err = latest.LatestSnapshot(ctx, s.identity, peers, q.Limit)
+	} else {
+		// Legacy adapters remain conservative: a truncated history cannot be
+		// mistaken for a complete current view, even if it contains few streams.
+		feed, err = journal.Snapshot(ctx, q.Limit)
+	}
 	if err != nil {
 		return CoverageView{}, err
 	}
 	now := s.now().UnixMilli()
-	view := CoverageView{SchemaVersion: "agent.coverage.view.v1", MissionID: q.MissionID, MissionRevision: q.MissionRevision, GeometryID: q.GeometryID, Basis: q.Basis, Cursor: feed.Head, PrunedThrough: feed.PrunedThrough, CompleteRead: !feed.More, AdvisoryOnly: true, ObservedAtMS: now, ProposedCoveredTargetIDs: []string{}, RemainingTargetIDs: append([]string{}, q.TargetIDs...), Contributions: []CoverageContribution{}, Rejected: []RejectedAdvisory{}}
-	if feed.More {
+	// A legacy history reader cannot establish whether GC removed the newest
+	// body of a stream while leaving its older body. It needs the optional
+	// durable-cursor projection before it can safely resume after any pruning.
+	complete := !feed.More && (currentProjection || feed.PrunedThrough == 0)
+	view := CoverageView{SchemaVersion: "agent.coverage.view.v1", MissionID: q.MissionID, MissionRevision: q.MissionRevision, GeometryID: q.GeometryID, Basis: q.Basis, Cursor: feed.Head, PrunedThrough: feed.PrunedThrough, CompleteRead: complete, AdvisoryOnly: true, ObservedAtMS: now, ProposedCoveredTargetIDs: []string{}, RemainingTargetIDs: append([]string{}, q.TargetIDs...), Contributions: []CoverageContribution{}, Rejected: []RejectedAdvisory{}}
+	if !complete {
 		return view, nil
 	}
 	latest := map[string]uint64{}

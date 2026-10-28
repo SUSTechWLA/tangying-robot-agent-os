@@ -1,0 +1,167 @@
+{
+  "runs": [
+    {
+      "name": "catalog-build",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.053,
+      "output": "catalog-build.txt",
+      "sha256": "76a679fa9206708440c253d816a739686394e3939ae764e86109f6435f49481b"
+    },
+    {
+      "name": "catalog-check",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.051,
+      "output": "catalog-check.txt",
+      "sha256": "b67a8797620d3632f485f8f80ddc50a35307850ac3c65e4d2709f947626dff69"
+    },
+    {
+      "name": "usage-report",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_model_usage_report.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.046,
+      "output": "usage-report.txt",
+      "sha256": "810a042d0ace10048cc3739e709084726a7e38ab187290fe24762111e2243d70"
+    },
+    {
+      "name": "python-docs",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "addopts=",
+        "tests/docs"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.228,
+      "output": "python-docs.txt",
+      "sha256": "4180455bfd3c95077fd59776dcae69c3a9a7cef18311fb2f922a413a55372c14"
+    },
+    {
+      "name": "go-docs",
+      "command": [
+        "go",
+        "test",
+        "./tests/docs",
+        "-count=1",
+        "-timeout=60s"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 2.087,
+      "output": "go-docs.txt",
+      "sha256": "1f571ecbf65615a57a90ae0503fd9579a1874b46df47fd0e7c2b9b0ae1ea1626"
+    },
+    {
+      "name": "book-check",
+      "command": [
+        "python3",
+        "scripts/build_book.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.149,
+      "output": "book-check.txt",
+      "sha256": "61e59679a948f7c8d83dd350e33c9c705e984f96ed160ce2d0646209b57b919f"
+    },
+    {
+      "name": "ruff",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "scripts/model_usage_report.py",
+        "scripts/test_model_usage_report.py",
+        "scripts/experiment_edge_scalability.py"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.035,
+      "output": "ruff.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.013,
+      "output": "diff-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "gofmt",
+      "command": [
+        "gofmt",
+        "-l",
+        "cmd/edge-worker/goal.go",
+        "cmd/edge-worker/main.go",
+        "cmd/edge-worker/model_usage_config_test.go",
+        "cmd/edge-worker/recipe_config_test.go",
+        "cmd/fleet-control-plane/main.go",
+        "cmd/local-agent/capability.go",
+        "cmd/local-agent/main.go",
+        "cmd/local-agent/model_usage_config_test.go",
+        "cmd/local-agent/recipe_config_test.go",
+        "core/agentcontext/model_call.go",
+        "core/exchangecontract/feed.go",
+        "edge/exchange/coverage.go",
+        "edge/exchange/coverage_latest_test.go",
+        "edge/exchange/coverage_test.go",
+        "internal/actionloop/llmdecider.go",
+        "internal/actionloop/usage_log.go",
+        "internal/actionloop/usage_log_test.go",
+        "internal/capabilityagent/planner.go",
+        "internal/capabilityagent/recipe_memory.go",
+        "internal/capabilityagent/recipe_memory_test.go",
+        "internal/edgeagent/child_writer_test.go",
+        "internal/edgeagent/host.go",
+        "internal/edgeagent/journal.go",
+        "internal/edgeagent/report_scaling_test.go",
+        "internal/modelroute/modelroute.go",
+        "internal/modelroute/output_test.go",
+        "middleware/sqlite/event_append_test.go",
+        "middleware/sqlite/exchange_feed.go",
+        "middleware/sqlite/exchange_latest_test.go",
+        "middleware/sqlite/tasks.go",
+        "tasks/record_event_test.go",
+        "tasks/service.go",
+        "tasks/store.go"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.016,
+      "output": "gofmt.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "passed": true
+}

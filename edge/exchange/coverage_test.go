@@ -87,14 +87,14 @@ func TestCoverageViewRejectsInvalidNewerReportInsteadOfRevivingOldEvidence(t *te
 		}
 	}
 	view, err := b.CoverageView(ctx, coverageQuery())
-	if err != nil || len(view.ProposedCoveredTargetIDs) != 0 || len(view.Rejected) != 2 || view.Rejected[0].Reason != "superseded" {
+	if err != nil || len(view.ProposedCoveredTargetIDs) != 0 || len(view.Rejected) != 1 || view.Rejected[0].Reason != "target_outside_scope" {
 		t.Fatalf("view=%+v err=%v", view, err)
 	}
 	q := coverageQuery()
 	q.Limit = 1
 	view, err = b.CoverageView(ctx, q)
-	if err != nil || view.CompleteRead || len(view.Contributions) != 0 || len(view.ProposedCoveredTargetIDs) != 0 || len(view.RemainingTargetIDs) != 3 {
-		t.Fatalf("truncated=%+v err=%v", view, err)
+	if err != nil || !view.CompleteRead || len(view.Contributions) != 0 || len(view.ProposedCoveredTargetIDs) != 0 || len(view.RemainingTargetIDs) != 3 {
+		t.Fatalf("one current invalid stream=%+v err=%v", view, err)
 	}
 }
 

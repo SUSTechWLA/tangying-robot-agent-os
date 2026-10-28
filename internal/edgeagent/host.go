@@ -236,7 +236,7 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 			return nil, err
 		}
 	}
-	events := childEvents{store: store, parent: h.Tasks, parentID: task.ID}
+	events := childEvents{store: store, parent: h.Tasks, parentID: task.ID, writer: &childWriter{}}
 	provider := scopedProvider{Provider: h.Provider, contract: c, catalog: entries, before: checkAuthority, read: func() error {
 		if cp.Reads >= c.Budget.MaxReads {
 			return fmt.Errorf("%w: objective read budget exhausted", capabilityagent.ErrNeedsInput)
@@ -318,7 +318,7 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 			if err = save("EDGE_PLAN_BOUND"); err != nil {
 				return nil, err
 			}
-			if _, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_PLAN_CREATED", Payload: map[string]any{"role": "task", "childId": cp.ChildID, "parentRevision": task.CurrentRevision, "objectiveDigest": cp.ObjectiveDigest, "planDigest": cp.PlanDigest, "generation": cp.Generation, "calls": plan.Calls}}); err != nil {
+			if err = recordParentEvent(ctx, h.Tasks, task.ID, tasks.TaskEvent{Type: "EDGE_PLAN_CREATED", Payload: map[string]any{"role": "task", "childId": cp.ChildID, "parentRevision": task.CurrentRevision, "objectiveDigest": cp.ObjectiveDigest, "planDigest": cp.PlanDigest, "generation": cp.Generation, "calls": plan.Calls}}); err != nil {
 				return nil, err
 			}
 		}
@@ -366,7 +366,7 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 				finding := (Ops{}).Diagnose(latest, fmt.Sprintf("rev-%d-cap-%02d", child.CurrentRevision, cp.Index+1), runErr)
 				findingID := fmt.Sprintf("%s/ops/%d/%d", task.ID, cp.Generation, cp.Index)
 				persistCtx, done := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
-				_, recordErr := h.Tasks.AppendEvent(persistCtx, task.ID, tasks.TaskEvent{Type: "EDGE_OPS_FINDING", Payload: map[string]any{"role": "ops", "findingId": findingID, "finding": finding, "objectiveDigest": cp.ObjectiveDigest}})
+				recordErr := recordParentEvent(persistCtx, h.Tasks, task.ID, tasks.TaskEvent{Type: "EDGE_OPS_FINDING", Payload: map[string]any{"role": "ops", "findingId": findingID, "finding": finding, "objectiveDigest": cp.ObjectiveDigest}})
 				done()
 				if recordErr != nil {
 					return nil, fmt.Errorf("%w: diagnosis persistence failed: %v", capabilityagent.ErrOutcomeUnknown, recordErr)
@@ -395,7 +395,7 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 				if err = save("EDGE_REPLAN_REQUIRED"); err != nil {
 					return nil, err
 				}
-				_, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_RECOVERY_DECISION", Payload: map[string]any{"role": "recovery", "diagnosedBy": "ops", "causationId": findingID, "childId": failedChild, "tool": call.Tool, "decision": decision, "reason": runErr.Error(), "objectiveDigest": cp.ObjectiveDigest}})
+				err = recordParentEvent(ctx, h.Tasks, task.ID, tasks.TaskEvent{Type: "EDGE_RECOVERY_DECISION", Payload: map[string]any{"role": "recovery", "diagnosedBy": "ops", "causationId": findingID, "childId": failedChild, "tool": call.Tool, "decision": decision, "reason": runErr.Error(), "objectiveDigest": cp.ObjectiveDigest}})
 				if err != nil {
 					return nil, err
 				}
@@ -428,7 +428,7 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 		if err = save("EDGE_POSTCONDITION_REPLAN"); err != nil {
 			return nil, err
 		}
-		if _, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_RECOVERY_DECISION", Payload: map[string]any{"role": "recovery", "diagnosedBy": "ops", "decision": "REPLAN_REMAINING", "checks": proofs, "objectiveDigest": cp.ObjectiveDigest}}); err != nil {
+		if err = recordParentEvent(ctx, h.Tasks, task.ID, tasks.TaskEvent{Type: "EDGE_RECOVERY_DECISION", Payload: map[string]any{"role": "recovery", "diagnosedBy": "ops", "decision": "REPLAN_REMAINING", "checks": proofs, "objectiveDigest": cp.ObjectiveDigest}}); err != nil {
 			return nil, err
 		}
 	}
@@ -476,22 +476,27 @@ func (h *Host) reportGoal(ctx context.Context, task *tasks.Task, c objective.Con
 	if err := json.Unmarshal(wire, &completed); err != nil {
 		return nil, err
 	}
-	declared := map[string]bool{}
+	// Each completed child is immutable for this report. Keep the snapshot only
+	// inside this invocation; a retry must reload the durable journal. Authority
+	// checks elsewhere continue to read the current parent task every time.
+	children := map[string]*tasks.Task{}
 	for _, done := range completed {
-		child, err := (childEvents{store: store}).Get(ctx, done.ChildID)
-		if err != nil {
-			return nil, err
-		}
-		if !declared[done.ChildID] {
-			declared[done.ChildID] = true
-			_, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_PLAN_CREATED", Payload: map[string]any{"role": "task", "childId": child.ID, "parentRevision": task.CurrentRevision, "objectiveDigest": capability.Fingerprint(c), "planDigest": objective.PlanDigest(child.Plan.Capabilities), "calls": child.Plan.Capabilities.Calls}})
+		child, seen := children[done.ChildID]
+		if !seen {
+			var err error
+			child, err = (childEvents{store: store}).Get(ctx, done.ChildID)
+			if err != nil {
+				return nil, err
+			}
+			children[done.ChildID] = child
+			err = recordParentEvent(ctx, h.Tasks, task.ID, tasks.TaskEvent{Type: "EDGE_PLAN_CREATED", Payload: map[string]any{"role": "task", "childId": child.ID, "parentRevision": task.CurrentRevision, "objectiveDigest": capability.Fingerprint(c), "planDigest": objective.PlanDigest(child.Plan.Capabilities), "calls": child.Plan.Capabilities.Calls}})
 			if err != nil {
 				return nil, err
 			}
 		}
 		for _, e := range child.Events {
 			if e.Type == "CAPABILITY_VERIFIED" && e.StepID == done.StepID {
-				_, err = h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "EDGE_CHILD_EVENT", Payload: map[string]any{"role": "task", "childId": child.ID, "childStepId": e.StepID, "kind": e.Type, "detail": e.Payload, "eventDigest": capability.Fingerprint(e)}})
+				err := recordParentEvent(ctx, h.Tasks, task.ID, tasks.TaskEvent{Type: "EDGE_CHILD_EVENT", Payload: map[string]any{"role": "task", "childId": child.ID, "childStepId": e.StepID, "kind": e.Type, "detail": e.Payload, "eventDigest": capability.Fingerprint(e)}})
 				if err != nil {
 					return nil, err
 				}
@@ -499,7 +504,7 @@ func (h *Host) reportGoal(ctx context.Context, task *tasks.Task, c objective.Con
 		}
 	}
 	step := fmt.Sprintf("rev-%d-cap-%02d", task.CurrentRevision, 1)
-	if _, err := h.Tasks.AppendEvent(ctx, task.ID, tasks.TaskEvent{Type: "CAPABILITY_VERIFIED", StepID: step, Payload: map[string]any{"tool": objective.Tool, "evidence": proof}}); err != nil {
+	if err := recordParentEvent(ctx, h.Tasks, task.ID, tasks.TaskEvent{Type: "CAPABILITY_VERIFIED", StepID: step, Payload: map[string]any{"tool": objective.Tool, "evidence": proof}}); err != nil {
 		return nil, err
 	}
 	return []string{step}, nil

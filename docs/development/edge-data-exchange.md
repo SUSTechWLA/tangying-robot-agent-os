@@ -1,5 +1,7 @@
 # 边缘 Agent 数据交换与云端对接
 
+2026-10-28 增量：SQLite 的当前覆盖视图改用每流最新收件，历史更新超过 1,000 条不再耗尽当前视图额度；[实现与测试](2026-10-28-edge-scalability.md)。历史 feed 的分页/GC 缺口语义保留。
+
 2026-10-18 增量：[持久收件游标、作用域覆盖视图与现有探索 Runner 接线](2026-10-18-scoped-peer-cooperation.md)。新增可靠消费扩展；peer 数据仍无执行权限，GC 缺口必须重新取得完整有效快照。
 
 [开发导航](README.md) · [模块化边界](../architecture/modular-extensibility.md) · [长程协作](../architecture/long-horizon-collaboration.md)
@@ -23,6 +25,8 @@
 | `POST /v1/exchange/publish` | 单独的 literal loopback 管理端；独立 admin token | 接受 Request，由本地身份与持久序号构建 Envelope，先写 outbox |
 | `GET /v1/exchange/inbox` | loopback + admin token | 最近 100 个收件，逆写入顺序；包含保留期内的历史数据，消费者仍须检查过期时间 |
 | `GET /v1/exchange/status` | loopback + admin token | 本机身份、收件/待发送/已送达/过期计数，以及累计清理计数 |
+| `GET /v1/exchange/feed?after=...&limit=...` | loopback + admin token | 按本地收件 revision 分页回溯；保留清理造成的缺口返回 409，不能跳过缺口当作完整历史 |
+| `POST /v1/exchange/coverage-view` | loopback + admin token | 按显式任务、空间 basis、geometry、目标集合和年龄上限生成覆盖建议；`completeRead=false` 时不提供部分提案 |
 
 接收端不暴露本地发布接口；peer token 不能发布本机数据或调用机器人。当前认证使用 TLS 加独立随机 bearer token，**不是 mTLS 实现**。HTTPS 客户端验证服务端证书和名称，禁止跳转以免凭据转发；接收 token 绑定配置中的完整 Agent、robot、domain 身份。云端虚拟主体仍须显式 robotId，例如 `fleet`，不能省略身份字段。
 
@@ -57,6 +61,14 @@ Envelope 包括：
 - `observation` 与 `map_reference` 必须带 `basis`：`worldId`、`frameId`、`transformRevision`；`mapId` 与 `mapRevision` 成对出现，map_reference 必须带两者。
 
 空间基准只声明来源。接收不同 domain / frame / revision 的数据不会自动合并坐标、替换本机地图或刷新历史证据。消费端必须找到经验证的变换、匹配任务依据，或显式拒绝/请求新证据。仅仅字符串 `frameId=map` 相同不意味着两个机器人的地图同坐标。
+
+## 历史记录与当前协作视图
+
+`Feed` 用于回溯所有仍保留的消息；`CoverageView` 回答当前可参考什么。SQLite 通过可选 `LatestSnapshotJournal` 端口，在同一只读事务中取得 feed 水位和当前收件：永久 incoming cursor 指定流的最高已接受序号，按完整 recipient 与当前配置的 sender 身份过滤，再应用 1–1,000 的查询上限。上限衡量当前保留的流头数量，不再按所有历史消息计数。它仍是查询上限，不扩展 journal 的配置容量或存储保留时间。
+
+随后业务层检查 envelope、新鲜度、kind、任务版本、地图/变换版本、geometry 和目标集合。**先选最新，再验有效性**：新消息过期、内容不适用或任务依据不同，都不能退回旧有效消息。GC 删除最新正文后，永久 cursor 仍阻止旧正文复活；此时该流没有可用建议。`completeRead=true` 仅说明当前保留的候选流读取完整，不代表所有 peer 在线、所有目标已覆盖或整段历史仍在。
+
+例如同一个 `coverage` 流更新 1,005 次，当前视图只评估第 1,005 条，历史仍可分两页读取；两个当前流而 `limit=1` 则 `completeRead=false`、覆盖提案为空。未实现新端口的第三方 Journal 继续用原 `Snapshot` 全历史路径，超过历史上限或 `prunedThrough>0` 时保守返回空提案：仅靠剩余正文不能排除被清理的新值。要追踪每次旧消息为何未被使用，请读历史 feed；新视图的 `rejected` 只解释当前候选，不再逐条列举被覆盖的旧消息。
 
 ## 乱序、重复、重启与保留
 

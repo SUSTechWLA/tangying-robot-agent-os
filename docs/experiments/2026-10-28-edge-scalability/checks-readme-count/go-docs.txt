@@ -1,0 +1,5 @@
+--- FAIL: TestTheReadmeAgreesWithTheNumberOfFailureClasses (0.00s)
+    readme_claims_test.go:69: README does not state the failure-class count as "八类"
+FAIL
+FAIL	github.com/SUSTechWLA/tangying-robot-agent-os/tests/docs	1.680s
+FAIL
