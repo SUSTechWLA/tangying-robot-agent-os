@@ -216,3 +216,46 @@ test("both replay renderers show the same last terminal endpoint used for total 
   assert.equal(nodes[label + 1].textContent, expected);
   assert.equal(trace.updatedAt, new Date(start + 3600000).toISOString());
 });
+
+test("navigation pre-position is physical even without safety metadata in the mirrored activity", () => {
+  const stepId = "rev-1-cap-01-pre_position";
+  const make = (status, tool = "navigation.pre_position") => buildTaskTrace({task:task("robot.task",[
+    event(1,"TOOL_ACTIVITY",0,{toolName:tool,activityStatus:"SENDING",commandId:"position"},stepId),
+    event(2,"TOOL_ACTIVITY",10,{toolName:tool,activityStatus:status},stepId),
+  ])});
+  const running=make("RUNNING");
+  assert.equal(running.steps[0].mutatesWorld,true);
+  assert.match(renderTaskTrace(running),/改变世界/);
+  assert.match(renderTaskTrace(running),/等待动作回执与新的观测证据/);
+  assert.doesNotMatch(renderTaskTrace(running),/只读步骤不要求证据/);
+  const completed=make("CONFIRMED");
+  assert.ok(completed.findings.some(f=>f.code==="MUTATION_WITHOUT_EVIDENCE"));
+  const unknown=make("RUNNING","vendor.unregistered");
+  assert.equal(unknown.steps[0].mutatesWorld,null);
+  assert.match(renderTaskTrace(unknown),/效果未声明/);
+  assert.doesNotMatch(renderTaskTrace(unknown),/只读步骤不要求证据/);
+});
+
+test("an explained unknown outcome is still unverified in both replay renderers",()=>{
+ const id="rev-1-cap-01-pre_position";
+ const trace=buildTaskTrace({task:{...task("robot.task",[
+  event(1,"TOOL_ACTIVITY",0,{toolName:"navigation.pre_position",activityStatus:"SENDING"},id),
+  event(2,"TOOL_ACTIVITY",20,{toolName:"navigation.pre_position",activityStatus:"FAILED",error:"NAVIGATION_UNAVAILABLE"},id),
+ ]),state:"RECOVERABLE_FAILURE"},recovery:{requiresReconciliation:true,uncertainStepIds:[id]}});
+ assert.match(renderTaskTrace(trace),/结果待核对/);
+ assert.doesNotMatch(renderTaskTrace(trace),/完成证据通过一致性检查|未发现问题/);
+ const textOf=node=>[node.textContent,...node.children.map(textOf)].join(" ");
+ const renderer=context.TangyingTaskTrace.renderTaskTraceNodes;
+ assert.match(textOf(renderer(trace)),/结果待核对/);
+});
+
+test("capability decomposition exposes frozen routes and status reads instead of empty legacy object slots",()=>{
+ const t={id:"draft",state:"READY",intent:{action:"capability_goal"},plan:{capabilities:{robotId:"ground-a",calls:[
+  {tool:"robot.task",arguments:{request:"巡检卧室和卫生间，最后回到客厅"},legacyIntent:{routeRooms:["bedroom","bathroom","living_room"]}},
+  {tool:"navigation.status",arguments:{}},
+ ]}}};
+ const trace=buildTaskTrace({task:t});
+ assert.match(trace.declaredSteps[0],/bedroom → bathroom → living_room/);
+ assert.match(trace.declaredSteps[1],/读取导航与定位状态/);
+ assert.doesNotMatch(trace.declaredSteps.join(" "),/未指定物体|未指定终点/);
+});

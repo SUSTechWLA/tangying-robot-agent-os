@@ -1,0 +1,200 @@
+{
+  "calls_seen": 4,
+  "conflicting_call_ids": [],
+  "duplicate_records": 0,
+  "groups": [
+    {
+      "group": {
+        "cache_mode": "off",
+        "endpoint_sha256": "a34e2a4708ed1c61008a151688838dcf1c44d4e7f08054633e72ba7c0b16cfc1",
+        "model": "deepseek-v4-flash",
+        "outcome": "accepted",
+        "robot_id": "gazebo-home_furnished",
+        "stage": "GOAL"
+      },
+      "metrics": {
+        "attempts": 3,
+        "duration_ms": {
+          "known_field_samples": 3,
+          "sum": 11749
+        },
+        "finished": 3,
+        "paired_cache": {
+          "cached_tokens": 20224,
+          "known_pair_samples": 3,
+          "prompt_tokens": 31983,
+          "ratio": 0.6323359284619955
+        },
+        "request_bytes": {
+          "known_field_samples": 3,
+          "sum": 117261
+        },
+        "response_bytes": {
+          "known_field_samples": 3,
+          "sum": 10569
+        },
+        "response_truncated_calls": 0,
+        "tokens": {
+          "cache_write_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "cached_tokens": {
+            "known_field_samples": 3,
+            "sum": 20224
+          },
+          "completion_tokens": {
+            "known_field_samples": 3,
+            "sum": 1801
+          },
+          "prompt_tokens": {
+            "known_field_samples": 3,
+            "sum": 31983
+          },
+          "total_tokens": {
+            "known_field_samples": 3,
+            "sum": 33784
+          }
+        },
+        "unfinished": 0,
+        "usage_status": {
+          "invalid": 0,
+          "missing": 0,
+          "unfinished": 0,
+          "valid": 3
+        }
+      }
+    },
+    {
+      "group": {
+        "cache_mode": "off",
+        "endpoint_sha256": "a34e2a4708ed1c61008a151688838dcf1c44d4e7f08054633e72ba7c0b16cfc1",
+        "model": "deepseek-v4-flash",
+        "outcome": "invalid_decision",
+        "robot_id": "gazebo-home_furnished",
+        "stage": "GOAL"
+      },
+      "metrics": {
+        "attempts": 1,
+        "duration_ms": {
+          "known_field_samples": 1,
+          "sum": 1414
+        },
+        "finished": 1,
+        "paired_cache": {
+          "cached_tokens": 6656,
+          "known_pair_samples": 1,
+          "prompt_tokens": 9951,
+          "ratio": 0.668877499748769
+        },
+        "request_bytes": {
+          "known_field_samples": 1,
+          "sum": 36750
+        },
+        "response_bytes": {
+          "known_field_samples": 1,
+          "sum": 1394
+        },
+        "response_truncated_calls": 0,
+        "tokens": {
+          "cache_write_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "cached_tokens": {
+            "known_field_samples": 1,
+            "sum": 6656
+          },
+          "completion_tokens": {
+            "known_field_samples": 1,
+            "sum": 184
+          },
+          "prompt_tokens": {
+            "known_field_samples": 1,
+            "sum": 9951
+          },
+          "total_tokens": {
+            "known_field_samples": 1,
+            "sum": 10135
+          }
+        },
+        "unfinished": 0,
+        "usage_status": {
+          "invalid": 0,
+          "missing": 0,
+          "unfinished": 0,
+          "valid": 1
+        }
+      }
+    }
+  ],
+  "interpretation": [
+    "Only observed provider fields are summed; missing does not mean zero.",
+    "Unfinished calls may have reached the provider and incurred usage; sending and cost are unknown.",
+    "Conflicting call identities are excluded from all sums; exact duplicate events are counted once.",
+    "Orphan results retain observed usage but indicate missing lifecycle evidence.",
+    "Cache ratio uses only paired prompt/cached fields; it is not measured GPU speedup.",
+    "Duration includes start-accounting persistence and the non-streaming call; it is not TTFT."
+  ],
+  "invalid_records": [],
+  "lifecycle_complete": true,
+  "orphan_result_call_ids": [],
+  "records": 8,
+  "schema_version": "agent.model-usage-report.v1",
+  "source_files": [
+    "/tmp/new-user-task-audit-20261029/result-02/model-usage-snapshot.jsonl"
+  ],
+  "totals": {
+    "attempts": 4,
+    "duration_ms": {
+      "known_field_samples": 4,
+      "sum": 13163
+    },
+    "finished": 4,
+    "paired_cache": {
+      "cached_tokens": 26880,
+      "known_pair_samples": 4,
+      "prompt_tokens": 41934,
+      "ratio": 0.6410072971812849
+    },
+    "request_bytes": {
+      "known_field_samples": 4,
+      "sum": 154011
+    },
+    "response_bytes": {
+      "known_field_samples": 4,
+      "sum": 11963
+    },
+    "response_truncated_calls": 0,
+    "tokens": {
+      "cache_write_tokens": {
+        "known_field_samples": 0,
+        "sum": null
+      },
+      "cached_tokens": {
+        "known_field_samples": 4,
+        "sum": 26880
+      },
+      "completion_tokens": {
+        "known_field_samples": 4,
+        "sum": 1985
+      },
+      "prompt_tokens": {
+        "known_field_samples": 4,
+        "sum": 41934
+      },
+      "total_tokens": {
+        "known_field_samples": 4,
+        "sum": 43919
+      }
+    },
+    "unfinished": 0,
+    "usage_status": {
+      "invalid": 0,
+      "missing": 0,
+      "unfinished": 0,
+      "valid": 4
+    }
+  },
+  "unfinished_call_ids": []
+}

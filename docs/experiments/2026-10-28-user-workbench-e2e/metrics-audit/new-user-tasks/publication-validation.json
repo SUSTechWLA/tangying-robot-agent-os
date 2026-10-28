@@ -1,0 +1,6 @@
+{
+  "scope": "explicit copied audit/ledger files only; no databases/config/environment/credential files",
+  "knownPatternMatches": 0,
+  "patternBoundaryCorrection": "Initial unanchored sk- detector matched task- prefixed identifiers; corrected token-boundary detection and reran. No secret content was printed.",
+  "notUniversalSecretDetection": true
+}

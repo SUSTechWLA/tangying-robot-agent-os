@@ -99,6 +99,7 @@ type ReadinessReport struct {
 // else, and an owner who was not told that would conclude the robot is stupid
 // rather than unconfigured.
 type LanguageReadiness struct {
+	Stage string `json:"stage,omitempty"`
 	// Provider is the configured provider name, for example "deterministic".
 	Provider string `json:"provider"`
 	// Model is the configured model, when there is one.
@@ -125,13 +126,17 @@ type readinessSignals struct {
 	blockingFaults []faultSignal
 	emergencyStop  *bool
 	// mapReady is nil when no map status has been read.
-	mapReady     *bool
-	mapDetail    string
-	supervision  tasks.SupervisionStatus
-	settings     *ConfigStatus
-	unresolved   int
-	unresolvedAt []string
-	now          time.Time
+	mapReady               *bool
+	mapDetail              string
+	navigationAdvertised   bool
+	navigationCheckEnabled bool
+	navigationReady        *bool
+	navigationDetail       string
+	supervision            tasks.SupervisionStatus
+	settings               *ConfigStatus
+	unresolved             int
+	unresolvedAt           []string
+	now                    time.Time
 }
 
 type faultSignal struct {
@@ -153,6 +158,9 @@ func buildReadiness(signals readinessSignals) ReadinessReport {
 		faultCheck(signals),
 		mapCheck(signals),
 		reconciliationCheck(signals),
+	}
+	if signals.navigationCheckEnabled {
+		checks = append(checks, navigationCheck(signals))
 	}
 	report := ReadinessReport{
 		Checks:            orderReadiness(checks),
@@ -312,8 +320,37 @@ func faultCheck(signals readinessSignals) ReadinessCheck {
 	return check
 }
 
+func navigationCheck(signals readinessSignals) ReadinessCheck {
+	check := ReadinessCheck{ID: "navigation", Title: "导航运行依赖", Blocking: true, Detail: signals.navigationDetail}
+	switch {
+	case signals.navigationReady == nil:
+		check.State, check.Situation = ReadinessUnknown, "无法确认定位与导航驱动是否可用。"
+		check.Action = "检查导航状态服务与 ROS 2 依赖，再刷新；已有地图不能证明驱动在线。"
+	case *signals.navigationReady:
+		check.State, check.Situation = ReadinessReady, "导航状态服务确认地图、定位与驱动可用。"
+	default:
+		check.State, check.Situation = ReadinessAction, "定位或导航驱动尚未就绪，不能执行移动任务。"
+		check.Action = "按导航故障码检查定位、SLAM 与控制器进程；恢复后重新读取状态。"
+	}
+	return check
+}
+
 func mapCheck(signals readinessSignals) ReadinessCheck {
 	check := ReadinessCheck{ID: "map", Title: "场景地图", Blocking: true}
+	// NAV_MAP_NOT_READY also covers a registered map whose navigation driver is
+	// down. A failed dependency check cannot establish missing map coverage.
+	if (signals.mapReady == nil || !*signals.mapReady) && signals.navigationCheckEnabled &&
+		(signals.navigationReady == nil || !*signals.navigationReady) {
+		check.State = ReadinessAction
+		check.Situation = "当前地图导航不可用，需先检查导航运行依赖。"
+		if signals.navigationReady == nil {
+			check.State = ReadinessUnknown
+			check.Situation = "当前地图的导航可用性尚未确认。"
+		}
+		check.Action = "按导航运行依赖的故障信息检查并刷新状态，恢复后再判断地图是否需要补充。"
+		check.Detail = signals.navigationDetail
+		return check
+	}
 	switch {
 	case signals.mapReady == nil:
 		check.State = ReadinessUnknown
@@ -321,7 +358,7 @@ func mapCheck(signals readinessSignals) ReadinessCheck {
 		check.Action = "等连接稳定后刷新。"
 	case *signals.mapReady:
 		check.State = ReadinessState("ready")
-		check.Situation = "地图已启用，可以跨房间执行任务。"
+		check.Situation = "Runtime 报告地图可用；移动仍需导航运行依赖就绪。"
 	default:
 		check.State = ReadinessAction
 		check.Situation = "还没有启用的地图，需要移动的任务会失败。"
@@ -377,6 +414,12 @@ func languageReadiness(settings *ConfigStatus) LanguageReadiness {
 	baseURL := settings.BaseURL
 	if intent, ok := settings.Stages["intent"]; ok {
 		readiness.Provider, readiness.Model, baseURL = intent.Provider, intent.Model, intent.BaseURL
+		readiness.Stage = "intent"
+	}
+	// GOAL owns the whole request when configured, including calls into a
+	// deterministic INTENT parser. Report the route that actually accepts it.
+	if goal, ok := settings.Stages["goal"]; ok && goal.Provider != "deterministic" && goal.BaseURL != "" && goal.Model != "" {
+		readiness.Provider, readiness.Model, baseURL, readiness.Stage = goal.Provider, goal.Model, goal.BaseURL, "goal"
 	}
 	readiness.ModelConfigured = readiness.Provider != "deterministic" &&
 		baseURL != "" && readiness.Model != ""
@@ -423,6 +466,51 @@ func (s *Server) readinessSignals(ctx context.Context) readinessSignals {
 		status := s.settings.Status()
 		signals.settings = &status
 	}
+	if s.robotServices != nil && signals.navigationAdvertised {
+		signals.navigationCheckEnabled = true
+		fetchContext, cancel := context.WithTimeout(ctx, 3*time.Second)
+		result, err := s.invokeRobotService(fetchContext, "navigation.status", "", map[string]any{})
+		contextErr := fetchContext.Err()
+		cancel()
+		if err != nil || contextErr != nil || result == nil || !result.Ok || result.Result == nil {
+			signals.navigationDetail = "NAVIGATION_STATUS_UNAVAILABLE"
+		} else {
+			status := result.Result.AsMap()
+			if ready, ok := status["ready"].(bool); ok {
+				signals.navigationReady = &ready
+			}
+			if driver, ok := status["navigationDriver"].(map[string]any); ok {
+				if ready, known := driver["ready"].(bool); !known {
+					signals.navigationReady = nil
+				} else if !ready {
+					signals.navigationReady = &ready
+				}
+				var details []string
+				if blockers, ok := driver["blockers"].([]any); ok {
+					for _, blocker := range blockers {
+						if len(details) >= 8 {
+							break
+						}
+						if fields, ok := blocker.(map[string]any); ok {
+							code, _ := fields["code"].(string)
+							message, _ := fields["message"].(string)
+							value := strings.TrimSpace(code + " " + message)
+							if len(value) > 256 {
+								value = value[:256]
+							}
+							if value != "" {
+								details = append(details, value)
+							}
+						}
+					}
+				}
+				signals.navigationDetail = strings.Join(details, "; ")
+			}
+			if signals.navigationReady == nil {
+				signals.navigationDetail = "NAVIGATION_INVALID_RESPONSE"
+			}
+		}
+	}
 	if reporter, ok := s.executor.(supervisionReporter); ok {
 		signals.supervision = reporter.SupervisionStatus()
 	}
@@ -451,6 +539,9 @@ func (s *readinessSignals) applyRobotSnapshot(snapshot runtime.Snapshot) {
 	// blocker that is not in the headline list is still found here.
 	navigationKnown := false
 	for _, capability := range snapshot.Capabilities {
+		if capability.Name == "navigation.navigate" {
+			s.navigationAdvertised = true
+		}
 		for _, blocker := range capability.Blockers {
 			if strings.Contains(blocker, "EMERGENCY_STOP") {
 				emergency = true

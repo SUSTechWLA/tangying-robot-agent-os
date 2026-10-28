@@ -659,6 +659,10 @@ func (s *Service) OrchestrationMetrics(ctx context.Context) orchestration.Metric
 			record.Attempts = task.Plan.Attempts
 			record.AcceptedCandidates = task.Plan.AcceptedCandidates
 			record.Rejections = task.Plan.Rejections
+			if task.Plan.Capabilities != nil {
+				record.Sequence = record.Sequence || len(task.Plan.Capabilities.Calls) > 1
+				record.PlanningTrace = task.Plan.Capabilities.PlanningTrace
+			}
 		}
 		records = append(records, record)
 	}
@@ -679,6 +683,14 @@ func (s *Service) Approve(ctx context.Context, taskID, actor string) (*Task, err
 	task, err := s.store.Get(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if task.State != taskgraph.StateReady && task.State != taskgraph.StateWaitingApproval {
+		return nil, fmt.Errorf("task %s cannot be approved from %s", task.ID, task.State)
+	}
+	// Queue admission can fail after consent was saved. Retrying that admission
+	// must preserve the original approval identity and must not create new consent.
+	if task.Approved {
+		return task, nil
 	}
 	task.Approved = true
 	task.ApprovedBy = strings.TrimSpace(actor)

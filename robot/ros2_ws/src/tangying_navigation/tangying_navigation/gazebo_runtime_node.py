@@ -47,6 +47,7 @@ from tangying_robot_gateway.gazebo_workflow import (
     swept_step_is_clear,
     yaw_from_quaternion,
 )
+from tangying_robot_gateway.home_commissioning import HOME_OPERATIONAL_RADIUS_M
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
 
 #: Runtime camera name -> (image topic, depth topic, info topic).
@@ -531,6 +532,16 @@ class GazeboRuntimeNode(Node):
         if not self._command_lock.acquire(blocking=False):
             return {"ok": False, "code": "ROBOT_BUSY"}
         try:
+            # Pre-positioning arms is already physical action. Reject an absent
+            # localization / Nav2 stack before that preparation, not after a
+            # three-minute goal-admission wait. Goal admission rechecks readiness.
+            readiness = self.navigation.readiness()
+            if readiness.get("ready") is not True:
+                return {"ok": False, "code": "NAVIGATION_NOT_READY",
+                        "message": "导航驱动尚未就绪，未执行导航预定位。",
+                        "navigationDriver": readiness}
+            if cancel.is_set():
+                return {"ok": False, "code": "CANCELLED"}
             prepared = self.prepare_navigation(cancel)
             if not prepared.success:
                 return {"ok": False, "code": prepared.code, "message": prepared.message}
@@ -661,7 +672,7 @@ class GazeboRuntimeNode(Node):
                     self._obstacle_points(),
                     forward_m=max(0.0, min(ahead, abs(linear_x) * 0.4)) if linear_x else 0.0,
                     turn_rad=angular_z * 0.4 if angular_z else 0.0,
-                    **({"radius":.355,"height_band":(.02,.40)} if home else {}))
+                    **({"radius":HOME_OPERATIONAL_RADIUS_M,"height_band":(.02,.40)} if home else {}))
                 if not clear:
                     zero()
                     self._log_step(

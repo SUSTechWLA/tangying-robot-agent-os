@@ -1,0 +1,48 @@
+✔ mapping reads a registered atomic RGB-D capture rather than the absent legacy frame cache (4.057459ms)
+✔ mapping opened directly derives adapter and source only from identity-bound metadata (0.704334ms)
+▶ mapping rejects foreign identities, invalid captures, stale time and missing RGB-D members
+  ✔ telemetry robot (0.20175ms)
+  ✔ telemetry adapter (0.964667ms)
+  ✔ profile robot (0.182208ms)
+  ✔ capture robot (0.13825ms)
+  ✔ capture adapter (0.362291ms)
+  ✔ source (0.251042ms)
+  ✔ frame (0.232417ms)
+  ✔ transform revision (0.187583ms)
+  ✔ profile revision (0.115625ms)
+  ✔ profile freshness bound (0.099834ms)
+  ✔ capture time mismatch (0.1735ms)
+  ✔ perception source mismatch (0.124458ms)
+  ✔ perception time mismatch (0.099ms)
+  ✔ unsafe sequence (0.096166ms)
+  ✔ missing depth (0.159125ms)
+  ✔ non-PNG (0.101167ms)
+  ✔ false PNG signature (0.094208ms)
+  ✔ time offset 1001 (0.127167ms)
+  ✔ time offset -251 (0.0925ms)
+✔ mapping rejects foreign identities, invalid captures, stale time and missing RGB-D members (5.095875ms)
+✔ mapping publishes blob pixels with capture provenance and expires them even if polling stops (15.984792ms)
+✔ leaving mapping aborts pending capture and rejects a late image without leaking an object URL (0.231084ms)
+✔ a newer selected source wins over a delayed previous capture (0.278166ms)
+✔ request failure clears the previous image and never falls back to cached frame (0.237959ms)
+✔ request timeout releases the in-flight slot even if the old transport ignores abort (0.209583ms)
+✔ the mapping route wires its preview through the selected robot workspace fetch (3.81775ms)
+✔ service calls use the frozen envelope and a unique id for every deliberate command (1.447125ms)
+✔ catalogue is a no-store GET and exposes advertised availability (0.229958ms)
+✔ HTTP and service failures preserve the server code and message (0.570625ms)
+✔ manual calibration keeps algorithm provenance outside the strict document (0.20775ms)
+✔ polling updates session state without overwriting a dirty calibration editor (0.152167ms)
+✔ a clean calibration accepts the saved document and revision (0.201458ms)
+✔ mapping completion explicitly chooses the newly published map (0.137666ms)
+✔ a failed scan with the backend minimum result can still be saved (0.107708ms)
+✔ the task composer identifies the robot while keeping adapter routing internal (0.224292ms)
+✔ manual calibration offers compact table, collapsed cameras, and a top JSON mode (0.429459ms)
+✔ workspace reads registered calibration without running or saving calibration (0.257ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 106.555083

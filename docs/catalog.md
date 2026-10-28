@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **290 份 Markdown** 与 **1128 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **297 份 Markdown** 与 **1261 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 115 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 116 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 20 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 57 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 63 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -192,6 +192,7 @@
 | [2026-10-28 · 持续运行、模型成本与规划经验升级](development/2026-10-28-edge-scalability.md) | `development/2026-10-28-edge-scalability.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 边缘系统能力与实机接入评估](development/2026-10-28-system-upgrade-assessment.md) | `development/2026-10-28-system-upgrade-assessment.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 任务复测后的边缘故障修复](development/2026-10-28-task-validation-fixes.md) | `development/2026-10-28-task-validation-fixes.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [工作台用户流程与执行收尾修正](development/2026-10-28-workbench-e2e-hardening.md) | `development/2026-10-28-workbench-e2e-hardening.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -367,6 +368,12 @@
 | [Model cost and recipe integration validation — 2026-10-28](experiments/2026-10-28-edge-task-validation/cost/README.md) | `experiments/2026-10-28-edge-task-validation/cost/README.md` | 导航 / 维护 |
 | [Gazebo 三机器人任务与停止证据](experiments/2026-10-28-edge-task-validation/gazebo/README.md) | `experiments/2026-10-28-edge-task-validation/gazebo/README.md` | 导航 / 维护 |
 | [通信与云边故障验收（2026-10-28，Asia/Shanghai）](experiments/2026-10-28-edge-task-validation/peer/README.md) | `experiments/2026-10-28-edge-task-validation/peer/README.md` | 导航 / 维护 |
+| [2026-10-28 工作台真实用户流程验收](experiments/2026-10-28-user-workbench-e2e/README.md) | `experiments/2026-10-28-user-workbench-e2e/README.md` | 导航 / 维护 |
+| [scan002 续段首帧缺失审计](experiments/2026-10-28-user-workbench-e2e/exploration-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/README.md` | 导航 / 维护 |
+| [首帧预算的迟到返回补充修复](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/README.md) | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/README.md` | 导航 / 维护 |
+| [独立指标审计与只读 task 收尾校验](experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md` | 导航 / 维护 |
+| [后续用户任务独立复核：task004 与 task005](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md) | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md` | 导航 / 维护 |
+| [工作台交互、投影与执行收尾审计](experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md` | 导航 / 维护 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -662,6 +669,139 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [source-after.json](experiments/2026-10-28-edge-task-validation/verification/python-final/source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
 | [source-before.json](experiments/2026-10-28-edge-task-validation/verification/python-final/source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
 | [run.py](experiments/2026-10-28-edge-task-validation/verification/run.py) | PY | `experiments/2026-10-28-edge-task-validation/verification` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/exploration-audit/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [before-after.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/before-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [bootstrap-final-tests.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/bootstrap-final-tests.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [commands.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [_await_first_frame.py.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/_await_first_frame.py.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [_sample.py.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/_sample.py.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [deadline-addendum-ruff.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/deadline-addendum-ruff.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [deadline-addendum-tests.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/deadline-addendum-tests.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [deadline-addendum-tests.xml](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/deadline-addendum-tests.xml) | XML | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [report.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [test_survey_continuation_bootstrap.py.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/test_survey_continuation_bootstrap.py.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [evidence-manifest.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/evidence-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [publication-validation.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/publication-validation.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [raw-evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/exploration-audit/raw-evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [regressions-01.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/regressions-01.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [report.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [ruff.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/ruff.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [source-final.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/source-final.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [verify.py](experiments/2026-10-28-user-workbench-e2e/exploration-audit/verify.py) | PY | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/live-evidence/evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/live-evidence` |
+| [manifest.json](experiments/2026-10-28-user-workbench-e2e/live-evidence/manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/live-evidence` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/metrics-audit/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [collect_task_closure.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/collect_task_closure.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [commands.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [evidence-manifest.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/evidence-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [field-reanalysis.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/field-reanalysis.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-observations.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures/task001-observations.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures` |
+| [task001-point-in-time-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures/task001-point-in-time-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures` |
+| [task001-projection.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures/task001-projection.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures` |
+| [negative-case-summary.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/negative-case-summary.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [audit.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/audit.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [commands.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [model-usage-snapshot.jsonl](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/model-usage-snapshot.jsonl) | JSONL | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [publication-validation.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/publication-validation.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [source-manifest.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/source-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [standard-ledger-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/standard-ledger-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [task004-event-index.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/task004-event-index.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [task005-event-index.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/task005-event-index.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [raw-evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/metrics-audit/raw-evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [ruff.txt](experiments/2026-10-28-user-workbench-e2e/metrics-audit/ruff.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-45-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/task001-45-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-65-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/task001-65-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-independent-metrics.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/task001-independent-metrics.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [test_task_collector.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/test_task_collector.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [tests.txt](experiments/2026-10-28-user-workbench-e2e/metrics-audit/tests.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [tests.xml](experiments/2026-10-28-user-workbench-e2e/metrics-audit/tests.xml) | XML | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [verify.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/verify.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [package_live_evidence.py](experiments/2026-10-28-user-workbench-e2e/package_live_evidence.py) | PY | `experiments/2026-10-28-user-workbench-e2e` |
+| [browser-005-still-unavailable.jpg](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/browser-005-still-unavailable.jpg) | JPG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [browser-006-image-visible.jpg](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/browser-006-image-visible.jpg) | JPG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-after.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-direct-after-final.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-direct-after-final.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-direct-tests.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-direct-tests.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-tests.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-tests.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-legacy-before.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-legacy-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [localapp-after-race.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/localapp-after-race.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [marker_review_test.go.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/marker_review_test.go.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [overlay.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/overlay.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [regressions-after-race.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/regressions-after-race.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [reproduction.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/reproduction.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [after.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/after.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [before.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/before.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [go-final.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/go-final.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [go-race-after.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/go-race-after.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [go-race.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/go-race.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [map-navigation-guidance-node.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/map-navigation-guidance-node.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [repro.go.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/repro.go.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [summary.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/summary.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [web-all.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/web-all.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [web-targeted-after.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/web-targeted-after.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [web-targeted.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/web-targeted.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [import-manifest.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/import-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit` |
+| [readonly-experience-before.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly/readonly-experience-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly` |
+| [readonly-experience-regression-before.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly/readonly-experience-regression-before.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly` |
+| [source-manifest.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/source-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit` |
+| [final-independent-go-race.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/verification/final-independent-go-race.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/verification` |
+| [final-independent-targeted.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/verification/final-independent-targeted.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/verification` |
+| [final-independent-web.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/verification/final-independent-web.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/verification` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/go-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/python-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [run.py](experiments/2026-10-28-user-workbench-e2e/verification/run.py) | PY | `experiments/2026-10-28-user-workbench-e2e/verification` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/web-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |

@@ -3,6 +3,7 @@ package localapp
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
@@ -11,7 +12,7 @@ import (
 )
 
 // ReconcileStep records a person's conclusion about a step whose outcome was
-// never established. It is what lifts the block on proceeding.
+// never established. Recording that conclusion does not itself authorize replay.
 //
 // It lives on the App because the App is what the console holds, and it is the
 // only writer of that record: no timer and no agent may call it. The block exists
@@ -35,16 +36,17 @@ func (a *App) Recovery(ctx context.Context, taskID string) (tasks.LocalRecovery,
 	}
 	_, active := a.active[taskID]
 	_, queued := a.queued[taskID]
+	abandoned, reconciledInterrupted := false, false
 	for _, run := range runs {
 		if run.Status == middleware.StepCompleted {
 			view.CompletedStepIDs = append(view.CompletedStepIDs, run.StepID)
 		}
-		// A reconciled step is decided, not uncertain. Its status still says the
-		// outcome was never recorded — that remains true and the record keeps
-		// saying it — but a person has been and looked, and the block on
-		// proceeding exists to wait for exactly that. Without this the block
-		// never lifted, and operators learned to ignore the report.
+		// A person's conclusion resolves the request for that conclusion, not
+		// the execution policy. ABANDONED forbids continuing this path; neither
+		// HAPPENED nor NEVER_ACTED substitutes for the runner's recovery proof.
 		if run.Reconciled != nil {
+			abandoned = abandoned || run.Reconciled.Outcome == middleware.StepOutcomeAbandoned
+			reconciledInterrupted = reconciledInterrupted || (run.Status == middleware.StepStarted && !agent.IsReadOnlyCapability(run.Capability))
 			continue
 		}
 		if !active && run.Status == middleware.StepStarted && !agent.IsReadOnlyCapability(run.Capability) {
@@ -53,10 +55,25 @@ func (a *App) Recovery(ctx context.Context, taskID string) (tasks.LocalRecovery,
 	}
 	view.RequiresReconciliation = len(view.UncertainStepIDs) > 0
 	view.CanPause = task.Approved && !view.PauseRequested && (task.State == taskgraph.StateReady || task.State == taskgraph.StateExecuting)
-	view.CanResume = task.Approved && !active && !queued && !view.RequiresReconciliation && (task.State == taskgraph.StatePaused || task.State == taskgraph.StateRecoverableFailure)
+	view.CanResume = task.Approved && !active && !queued && !abandoned && !view.RequiresReconciliation && (task.State == taskgraph.StatePaused || task.State == taskgraph.StateRecoverableFailure)
+	recoveryNotAuthorized := false
+	if view.CanResume && reconciledInterrupted {
+		// Only this reconciled-but-still-interrupted case needs the executor's
+		// extra check. Ordinary recovery polling must not require a remote
+		// catalogue. Bound the optional capability lookup with the caller's
+		// deadline so an unavailable device cannot hang the operator's view.
+		checkContext, cancel := context.WithTimeout(ctx, 3*time.Second)
+		recoveryNotAuthorized = a.runner.CheckRecovery(checkContext, taskID) != nil
+		cancel()
+		view.CanResume = !recoveryNotAuthorized
+	}
 	switch {
 	case view.RequiresReconciliation:
 		view.ReasonCode, view.Reason = "PHYSICAL_OUTCOME_UNKNOWN", "有物理动作缺少完成记录，请先核对机器人和物体状态。系统不会重放，也不允许通过修改任务版本绕过。"
+	case abandoned:
+		view.ReasonCode, view.Reason = "STEP_ABANDONED", "人工已记录放弃该步骤；这不代表动作未执行或任务成功。不能继续原执行路径，请核查现场并结束旧任务，再按当前状态重新规划。"
+	case recoveryNotAuthorized:
+		view.ReasonCode, view.Reason = "RECOVERY_NOT_AUTHORIZED", "人工对账结论已保存，但执行器尚未确认可恢复的执行凭据；不能直接继续或重放原物理步骤。请核查执行记录并按当前现场状态处理。"
 	case view.PauseRequested:
 		view.ReasonCode, view.Reason = "PAUSING", "正在等待当前工具结束并保存结果；这不是急停。"
 	case queued:

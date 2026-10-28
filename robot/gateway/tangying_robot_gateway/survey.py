@@ -55,6 +55,10 @@ EXPLORATION = {
     #: the leg ends and publishes what it has. One blank wall is not news; a run
     #: of them means the robot is staring at something it cannot measure.
     "depthStarvedLimit": 25,
+    #: A continuation first waits for distinct stationary exposures. This is not
+    #: a depth/registration threshold: all accepted frames still pass the provider.
+    "firstFrameSeconds": 8.0,
+    "firstFrameAttempts": 3,
     #: Radius used to ask "is this corner still unseen?" before spending turns.
     "lookRadiusM": 3.0,
     #: Above this local unknown fraction, standing still and turning pays off.
@@ -251,6 +255,7 @@ class SurveyRunner:
             "coverageScope": "observed_grid_nonblind_frontiers",
         }
         exploration: dict[str, Any] = {"leg": number, **initial_scan}
+        continuation_scan = False
 
         def finish(reason: str, complete: bool = False) -> LegResult:
             exploration["stopReason"] = reason
@@ -294,6 +299,28 @@ class SurveyRunner:
                 return finish(stopped)
             live, blind = map_port.live_grid()
             if live is None:
+                # The first view of a new provider can face a blank wall. A
+                # continuation does not repeat the initial sweep when it already
+                # has evidence, but may spend ONE of its ordinary look budget to
+                # acquire a real view before planning. Never drive on the inherited
+                # grid alone or treat missing depth as frontier exhaustion.
+                if number > 1 and not continuation_scan and looks < config["maxLooksPerLeg"]:
+                    continuation_scan = True
+                    initial_scan.update(continuationScanAttempted=True,
+                                        continuationScanStatus="attempted")
+                    exploration.update(initial_scan)
+                    report.publish_exploration(dict(exploration))
+                    looks += 1
+                    try:
+                        driver.look_around(live, blind)
+                    except SurveyRefusal as error:
+                        initial_scan.update(continuationScanStatus="refused",
+                                            continuationScanRefusal=error.code)
+                        exploration.update(initial_scan)
+                        return finish("continuation_scan_refused")
+                    initial_scan["continuationScanStatus"] = "returned"
+                    exploration.update(initial_scan)
+                    continue
                 return finish("no_frames")
             grid = live
             # A blank grid has no frontier because a frontier needs known free

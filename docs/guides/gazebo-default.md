@@ -81,3 +81,7 @@ scripts/sim-stack.sh stop --artifacts-dir artifacts/sim-stack/gazebo-xlerobot-ho
 `artifacts/sim-assets/xlerobot-home/` 包含生成的 SDF、网格、纹理和 commissioning 清单；地图、Runtime journal 与 Agent 数据按运行目录持久化。资源摘要变化后旧地图不得静默激活。删除闲置生成场景不能删除上游 CAD、许可证、保存地图、历史证据或生产数据卷。
 
 Runtime 状态备份必须包含 `runtime/commands.json` 及 `runtime/commands.json.events/`。v2 将完整回执保存在摘要绑定的事件文件中；缺失或篡改会锁存停止，不能删除日志后重新执行未知动作。
+
+工作台显示“已有地图”不等于导航现在可执行。排查时分别核对 RTAB-Map 数据库/进程、map TF、Nav2 三个生命周期节点的 ACTIVE 状态，以及本次目的地的实测自由空间。数据库损坏时先保留原件与日志；另建数据库属于新建图历元，不能将旧地图覆盖率搬到新图上。不要通过重复批准任务处理定位故障。
+
+自动探索的 `no_reachable_frontier`、`no_frames` 或 `NAV_ENVELOPE` 都不能解释为“全屋扫描完成”。桌边保护圈阻塞时保持停止，不能减小保护距离、删除障碍点或重置位置来制造通过。当前部署没有在同一完整保护圈下验证过的底盘退让接口。真实发现与修复、部分地图和未完成的巡检见[2026-10-28–29 工作台用户验收](../experiments/2026-10-28-user-workbench-e2e/README.md)。

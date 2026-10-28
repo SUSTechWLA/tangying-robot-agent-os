@@ -1,0 +1,64 @@
+{
+  "actualScan002": {
+    "operationId": "1ba72d23a2f74a679aec11285775f2d4",
+    "finalState": "failed",
+    "firstLeg": {
+      "blindCells": 1682,
+      "cells": 22752,
+      "coverageScope": "observed_grid_nonblind_frontiers",
+      "free": 8808,
+      "frontierCells": 712,
+      "frontiersExhausted": false,
+      "initialScanAttempted": true,
+      "initialScanStatus": "returned",
+      "leg": 1,
+      "occupied": 538,
+      "refused": 1,
+      "routeFailuresSinceProgress": 1,
+      "stopReason": "no_reachable_frontier",
+      "target": null,
+      "terminationMeaning": "partial",
+      "travelledM": 0.5656837554385995,
+      "unknown": 13406,
+      "unknownFraction": 0.589223,
+      "visitedViewpoints": 1
+    },
+    "secondLeg": {
+      "coverageScope": "observed_grid_nonblind_frontiers",
+      "frontiersExhausted": false,
+      "initialScanAttempted": false,
+      "initialScanStatus": "skipped_continuation",
+      "leg": 2,
+      "refused": 0,
+      "routeFailuresSinceProgress": 0,
+      "stopReason": "no_frames",
+      "terminationMeaning": "partial",
+      "travelledM": 0,
+      "visitedViewpoints": 0
+    },
+    "consecutiveInsufficientDepth": 1,
+    "depthRejectedFrames": 18,
+    "boundedStepCount": 37,
+    "boundedStepOutcomes": {
+      "STEP_COMPLETE": 36,
+      "NAV_ENVELOPE": 1
+    },
+    "lastBoundedStepOutcome": "NAV_ENVELOPE",
+    "lastStepFinalZeroPublished": true
+  },
+  "fixValidation": {
+    "unitAndContractTests": 189,
+    "failed": 0,
+    "durationSeconds": 1.65,
+    "newRegressionCases": 17,
+    "physicalRunPerformed": false,
+    "simulationRetestRequired": true
+  },
+  "limits": [
+    "first-leg unreachable frontier and safety refusal not bypassed",
+    "no claim of autonomous whole-scene completion",
+    "new captures must pass unchanged depth and registration checks",
+    "stationary wait is bounded by 8 seconds and 3 distinct exposure attempts; one existing bounded look may follow if no frame and guards allow",
+    "observed grid coverage does not prove rooms outside mapped extent"
+  ]
+}

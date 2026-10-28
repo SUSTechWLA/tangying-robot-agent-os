@@ -1,0 +1,10 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 2.3899075830122456,
+  "sourceStable": true,
+  "sourceDigest": "142984349d624477395f588b5c21f37f07df828ddf7ba018743ed3ec89ac40ba",
+  "topLevelGoTests": {},
+  "packages": [],
+  "failures": [],
+  "outputSHA256": "468e7eab8c2c51705e349cc47ffd07e1a335f3bff50d4f6ce271211a2b8dc018"
+}

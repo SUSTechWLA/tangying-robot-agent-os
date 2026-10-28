@@ -1,0 +1,18 @@
+package main
+import (
+ "context"; "encoding/json"; "errors"; "fmt"; "net/http"; "net/http/httptest"; "strings"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/console"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
+)
+type executor struct{}
+func(executor) Enqueue(string)error{return errors.New("queue full")}
+func(executor) Cancel(string)error{return nil}
+type goal struct{}
+func(goal) PlanGoal(context.Context,string)(orchestration.Bundle,bool,error){return orchestration.Bundle{Source:orchestration.SourceLLM,Capabilities:&capability.Plan{RobotID:"fixture",CatalogRevision:"catalog",Calls:[]capability.Call{{Tool:"mapping.status"},{Tool:"semantic.locations"}},PlanningTrace:[]capability.PlanningStep{{Round:1,Tool:"mapping.status",Verdict:"READ_OK"},{Round:2,Tool:"propose_capability_plan",Verdict:"FROZEN_FOR_APPROVAL"}}}},true,nil}
+func request(h http.Handler,method,path string){r:=httptest.NewRequest(method,path,strings.NewReader("{}"));r.Header.Set(console.SessionHeaderName,"fixture-session");r.Header.Set("Content-Type","application/json");w:=httptest.NewRecorder();h.ServeHTTP(w,r);fmt.Printf("%s %s -> %d %s\n",method,path,w.Code,w.Body.String())}
+func main(){ctx:=context.Background();s:=tasks.NewService(tasks.NewMemoryStore(),intent.NewDeterministicParser());s.SetGoalPlanner(goal{});t,e:=s.Create(ctx,"检查地图和语义地点","gazebo");if e!=nil{panic(e)};h:=console.NewServer(s,executor{},console.WithSessionToken("fixture-session")).Handler();request(h,"POST","/v1/tasks/"+t.ID+"/approve");saved,_:=s.Get(ctx,t.ID);out,_:=json.Marshal(map[string]any{"state":saved.State,"approved":saved.Approved,"metrics":s.OrchestrationMetrics(ctx)});fmt.Println(string(out));
+ s2:=tasks.NewService(tasks.NewMemoryStore(),intent.NewDeterministicParser());t2,e:=s2.Create(ctx,"去厨房","gazebo");if e!=nil{panic(e)};for _,st:=range []taskgraph.TaskState{taskgraph.StateObserving,taskgraph.StatePlanning,taskgraph.StateExecuting,taskgraph.StateVerifying,taskgraph.StateSucceeded}{if e=s2.Transition(ctx,t2.ID,st,"fixture");e!=nil{panic(e)}};for _,step:=range []struct{id,tool string}{{"navigate_00","navigation.navigate"},{"verify_arrival_00","verify_arrival"}}{_,e=s2.AppendEvent(ctx,t2.ID,tasks.TaskEvent{Type:"TOOL_ACTIVITY",StepID:step.id,Payload:map[string]any{"stepId":step.id,"toolName":step.tool,"activityStatus":"CONFIRMED","taskRevision":1,"evidenceIds":[]string{"fresh-capture"}}});if e!=nil{panic(e)}};request(console.NewServer(s2,executor{}).Handler(),"GET","/v1/tasks/"+t2.ID+"/experience")}

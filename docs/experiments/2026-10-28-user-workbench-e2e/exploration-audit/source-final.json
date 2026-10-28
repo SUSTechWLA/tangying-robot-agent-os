@@ -1,0 +1,6 @@
+{
+  "robot/gateway/tangying_robot_gateway/robot_workflow.py": "d2f8f0417567934005c1e1c246b46a744a9945dd887f8ea7c0f467164ae0ee90",
+  "robot/gateway/tangying_robot_gateway/survey.py": "306a591b2141ef43bc059621e2a9eae8e42334739e45b7dc6143b9b54c7c6330",
+  "robot/gateway/tests/test_robot_services.py": "b929325abc1c72c26d94ae17e619a10ec9b918ae2a3c77965ef03df8ae8f4c60",
+  "robot/gateway/tests/test_survey_continuation_bootstrap.py": "31660182772ac9ec2497426b64b1fc9009a67aeafe22775b6578f415b5df1859"
+}

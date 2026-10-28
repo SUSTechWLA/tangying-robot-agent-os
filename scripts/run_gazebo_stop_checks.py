@@ -24,28 +24,66 @@ import uuid
 from pathlib import Path
 
 
+class MeasurementError(ValueError):
+    """Malformed or foreign measurement, not a measured braking failure."""
+
+
+def validate_measured_state(state, robot=None):
+    if not isinstance(state, dict):
+        raise MeasurementError("measured state must be an object")
+    for field in ("position", "linearVelocity", "angularVelocity"):
+        values = state.get(field)
+        if (not isinstance(values, list) or len(values) != 3
+                or any(type(v) not in (int, float) or not math.isfinite(v) for v in values)):
+            raise MeasurementError("measured state requires finite three-dimensional vectors")
+    at = state.get("simulationTime")
+    if type(at) not in (int, float) or not math.isfinite(at) or at < 0:
+        raise MeasurementError("invalid measured simulation clock")
+    expected = {"robotId": robot, "clockDomain": "simulation", "worldId": "field-validation", "frameId": "world"}
+    complete = robot is not None
+    for field, value in expected.items():
+        if field not in state:
+            complete = False
+        elif value is None or state[field] != value:
+            raise MeasurementError("measured robot, clock, world or frame identity mismatch")
+    return complete
+
+
 def measured_stop(samples, trigger, *, speed_limit=.03, angular_limit=.05, dwell=.4):
     """Only increasing simulation-time measurements establish a settled stop."""
+    if any(type(v) not in (int, float) or not math.isfinite(v) or v <= 0
+           for v in (speed_limit, angular_limit, dwell)):
+        raise ValueError("stop thresholds must be finite and positive")
+    identity_verified = validate_measured_state(trigger, trigger.get("robotId"))
     last_time, since, settled = trigger["simulationTime"], None, False
     accepted, max_displacement, distance = [], 0., 0.
+    maximum_gap, discarded = 0., 0
     previous_position = trigger["position"]
     for sample in samples:
+        identity_verified = validate_measured_state(sample, trigger.get("robotId")) and identity_verified
         at = sample["simulationTime"]
         if at <= last_time:
+            discarded += 1
             continue
+        maximum_gap = max(maximum_gap, at-last_time)
         last_time = at
         speed = math.sqrt(sum(v*v for v in sample["linearVelocity"]))
         angular = math.sqrt(sum(v*v for v in sample["angularVelocity"]))
         distance += math.dist(previous_position, sample["position"])
         previous_position = sample["position"]
         max_displacement = max(max_displacement, math.dist(trigger["position"], sample["position"]))
+        if not all(math.isfinite(v) for v in (speed, angular, distance, max_displacement)):
+            raise MeasurementError("derived stop measurement is not finite")
         accepted.append(sample)
         if speed <= speed_limit and angular <= angular_limit:
             since = at if since is None else since
             settled = at - since >= dwell - 1e-9
         else:
             since, settled = None, False
-    return {"measuredStopped": settled, "sampleCount": len(accepted),
+    return {"measuredStopped": settled and identity_verified, "sampleCount": len(accepted),
+            "measurementIdentityVerified": identity_verified, "discardedNonadvancingSamples": discarded,
+            "maximumSampleGapSimulationSeconds": maximum_gap,
+            "dwellEvidence": "sampled states only; no continuous-motion certificate",
             "settledSinceSimulationTime": since, "elapsedSimulationSeconds": last_time-trigger["simulationTime"],
             "maximumDisplacementMeters": max_displacement, "travelDistanceMeters": distance,
             "lastSpeedMetersPerSecond": math.sqrt(sum(v*v for v in accepted[-1]["linearVelocity"])) if accepted else None,
@@ -170,10 +208,13 @@ def wait_for_readiness(client, robots, *, timeout=15., clock=time.monotonic, sle
 
 
 def run_trial(client, robot, mode, samples_file, *, timeout=30.):
-    trial = {"robotId": robot, "mode": mode, "passed": False, "landingVerified": False}
+    trial = {"robotId": robot, "mode": mode, "passed": False, "landingVerified": False,
+             "goalAdmissionAttempted": False, "goalAdmitted": False, "stopTriggered": False}
     lease, goal, injected = None, None, False
     try:
         before = client.call("/snapshot")["states"][robot]
+        if not validate_measured_state(before, robot):
+            raise MeasurementError("stopping trial requires complete measurement identity")
         xyz = list(before["position"])
         xyz[0] += -1.5 if xyz[0] > 0 else 1.5
         if not all(abs(x) <= 4.5 for x in xyz[:2]):
@@ -183,7 +224,9 @@ def run_trial(client, robot, mode, samples_file, *, timeout=30.):
                 "goalPose": [*xyz, 1., 0., 0., 0.]}
         trial["commandId"] = goal["commandId"]
         trial["goal"] = goal
+        trial["goalAdmissionAttempted"] = True
         client.call("/goal", goal)
+        trial["goalAdmitted"] = True
         lease = Lease(client, goal)
         lease.thread.start()
         deadline, prior_time, moving = time.monotonic()+timeout, -1., 0
@@ -193,6 +236,8 @@ def run_trial(client, robot, mode, samples_file, *, timeout=30.):
                 raise RuntimeError(f"hub lease failure before trigger: {lease.error}")
             snapshot = client.call("/snapshot")
             state = snapshot["states"][robot]
+            if not validate_measured_state(state, robot):
+                raise MeasurementError("stopping trial requires complete measurement identity")
             if state["simulationTime"] > prior_time:
                 prior_time = state["simulationTime"]
                 samples_file.write(json.dumps({"robotId": robot, "mode": mode, "phase": "acceleration",
@@ -212,12 +257,15 @@ def run_trial(client, robot, mode, samples_file, *, timeout=30.):
         else:
             lease.close()
             client.call("/stop", {"robotId": robot, "commandId": goal["commandId"]})
+        trial["stopTriggered"] = True
         after, deadline = [], time.monotonic()+timeout
         while time.monotonic() < deadline:
             if mode == "watchdog" and lease.error:
                 raise RuntimeError(f"hub lease failed during isolated controller-watchdog trial: {lease.error}")
             snapshot = client.call("/snapshot")
             state = snapshot["states"][robot]
+            if not validate_measured_state(state, robot):
+                raise MeasurementError("stopping trial requires complete measurement identity")
             if state["simulationTime"] > prior_time:
                 prior_time = state["simulationTime"]
                 after.append(state)
@@ -239,8 +287,13 @@ def run_trial(client, robot, mode, samples_file, *, timeout=30.):
         trial["passed"] = bool(metrics["measuredStopped"] and observed_reason
                                and metrics["maximumDisplacementMeters"] <= distance_bound
                                and metrics["elapsedSimulationSeconds"] <= 4.)
+        if not trial["passed"]:
+            trial["failureType"] = "physical_stop_failure"
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         trial["error"] = str(exc)
+        trial["failureType"] = ("measurement_failure" if isinstance(exc, (MeasurementError, KeyError)) else
+                                "admission_failure" if not trial["goalAdmitted"] else
+                                "motion_readiness_failure" if not trial["stopTriggered"] else "trial_execution_failure")
     finally:
         if lease:
             lease.close()
@@ -254,6 +307,7 @@ def run_trial(client, robot, mode, samples_file, *, timeout=30.):
                     client.call("/stop", {"robotId": robot, "commandId": goal["commandId"]})
             except (OSError, ValueError) as exc:
                 trial["cleanupError"] = str(exc)
+                trial.setdefault("failureType", "cleanup_failure")
                 trial["passed"] = False
     return trial
 
@@ -269,9 +323,15 @@ def run_campaign(client, robots, samples, *, timeout=30.):
                 trials.append(run_trial(client, robot, "explicit_stop", samples, timeout=timeout))
             else:
                 trials.append({"robotId": robot, "mode": "explicit_stop", "passed": False,
+                               "failureType": "skipped",
                                "skippedReason": "watchdog trial failed; no further motion attempted"})
     passed = setup["ready"] and len(trials) == len(robots)*2 and all(t["passed"] for t in trials)
     return {"setup": setup, "trials": trials, "passed": passed,
+            "requestedTrialCount": len(robots)*2,
+            "goalAdmissionAttemptCount": sum(t.get("goalAdmissionAttempted", False) for t in trials),
+            "admittedTrialCount": sum(t.get("goalAdmitted", False) for t in trials),
+            "physicallyTriggeredTrialCount": sum(t.get("stopTriggered", False) for t in trials),
+            "skippedTrialCount": sum("skippedReason" in t for t in trials),
             "outcome": "setup_failure" if not setup["ready"] else "passed" if passed else "trial_failure"}
 
 
@@ -293,7 +353,7 @@ def main():
                "uavStopMode": "hover", "landingVerified": False,
                "hardwareValidation": False, "poseResetUsed": False,
                "physicalStateSource": "Gazebo force-driven rigid-body physics"}
-    (args.output/"summary.json").write_text(json.dumps(summary, indent=2)+"\n")
+    (args.output/"summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False)+"\n")
     files = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in args.output.iterdir()}
     (args.output/"manifest.json").write_text(json.dumps({"sha256": files}, indent=2)+"\n")
     print(json.dumps({"output": str(args.output), "passed": summary["passed"],

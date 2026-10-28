@@ -98,14 +98,26 @@ class RobotWorkflow:
     def __init__(self, *, robot_id, root, calibration_get, calibration_run,
                  calibration_save, capture, move, reserve, release,
                  survey_goals, semantic_workspaces, footprint_radius=.30, world_frame_revision=None,
-                 slam_factory, clearance_validator=None, entity_source=None):
+                 slam_factory, clearance_validator=None, entity_source=None,
+                 navigation_readiness=None, operational_radius=None):
         self.robot_id = robot_id
         self.root = Path(root).resolve()
         self.calibration_get, self.calibration_run, self.calibration_save = calibration_get, calibration_run, calibration_save
         self.capture, self.move, self.reserve, self.release = capture, move, reserve, release
         self.survey_goals, self.semantic_workspaces = survey_goals, semantic_workspaces
         self.footprint_radius = footprint_radius
+        # Keep physical occupancy evidence separate from the operational margin.
+        # Widening planning clearance must never manufacture free map cells
+        # around historical poses that were measured with a smaller footprint.
+        self.operational_radius = footprint_radius if operational_radius is None else operational_radius
+        if (not math.isfinite(self.operational_radius)
+                or self.operational_radius < footprint_radius or footprint_radius <= 0):
+            raise ValueError("operational radius must be finite and cover the physical footprint")
         self.clearance_validator = clearance_validator
+        # A saved map and fresh robot pose do not prove that the commissioned
+        # navigation driver is alive. Drivers with a separate localization /
+        # action server supply its live, read-only admission state here.
+        self.navigation_readiness = navigation_readiness
         # Where "objects the robot has actually seen" come from. Drivers that can
         # report perceived entities inject them here; a survey then leaves a
         # semantic object layer inside the map instead of only a point cloud.
@@ -534,11 +546,11 @@ class RobotWorkflow:
             self._object_errors.append(str(error))
             del self._object_errors[:-4]
 
-    def _sample(self):
+    def _sample(self, *, seen_captures=None, deadline=None):
         # A busy simulator may hand us one queued frame while its camera is
         # still publishing. Wait briefly for a fresh *new* capture, but never
         # integrate the stale one or wait without a bound.
-        freshness_deadline = time.monotonic()+8.0
+        freshness_deadline = time.monotonic()+8.0 if deadline is None else deadline
         while True:
             self._check_cancel()
             observation = self.capture()
@@ -549,8 +561,26 @@ class RobotWorkflow:
             if time.monotonic() >= freshness_deadline:
                 raise ServiceError("STALE_CAPTURE","RGB-D 与底盘位姿已过期，停止扫描。")
             time.sleep(0.1)
+        # A provider call cannot be preempted here, but returning a fresh image
+        # after the caller's acquisition budget does not authorize integrating
+        # it. The operation lease is a separate, wider authority boundary.
+        if deadline is not None and time.monotonic() >= deadline:
+            return "capture_timeout"
         if self.calibration_get()["revision"] != self.calibration_revision:
             raise ServiceError("CALIBRATION_CHANGED","标定发生变化，请重新扫描。")
+        if seen_captures is not None:
+            # Capture IDs may be allocated per read, not per camera exposure.
+            # In particular the Gazebo provider can return the same source stamp
+            # under a new observation ID. Do not count that as another failed
+            # depth measurement while bootstrapping a continuation.
+            perception = dict(dict(observation.robot_state).get("perception", {}))
+            source = str(perception.get("source_id", ""))
+            stamp = str(perception.get("sensor_stamp_ns", ""))
+            key = (source, "sensor", stamp) if stamp and stamp != "0" else (
+                source, "wall", observation.wall_time_unix_ms)
+            if key in seen_captures:
+                return "duplicate_capture"
+            seen_captures.add(key)
         with self._slam_lock:
             if self.slam.info != self._slam_info:
                 raise ValueError("SLAM provider identity changed during acquisition")
@@ -566,8 +596,8 @@ class RobotWorkflow:
                 # that keeps hitting it ends gracefully instead.
                 self._depth_starved += 1
                 self._depth_rejected += 1
-                return
-            if not added: return
+                return "insufficient_depth"
+            if not added: return "skipped"
             progress = self.slam.progress()
             if (not isinstance(progress, SlamProgress) or progress.frame_count != self.slam.frame_count
                     or not 1 <= progress.frame_count <= self.slam.max_frames):
@@ -580,6 +610,60 @@ class RobotWorkflow:
             self._summary = progress.summary()
             self._preview = {"points": [list(point) for point in progress.preview_points],
                              "colors": [list(point) for point in progress.preview_colors]}
+        return "accepted"
+
+    def _await_first_frame(self, number):
+        """Bounded stationary acquisition before a continuation may plan.
+
+        One rejected exposure is not a failed leg. Try a small number of distinct
+        captures; a view that stays unmeasurable needs the survey's separately
+        budgeted safe look-around, not an unbounded retry or inherited fake frame.
+        """
+        started = time.monotonic()
+        deadline = started+EXPLORATION["firstFrameSeconds"]
+        seen = set()
+        evidence = {"leg": number, "status": "running", "attempts": 0,
+                    "duplicateCaptures": 0, "acceptedFrameDelta": 0}
+        first_frames = self.slam.frame_count
+        with self._lock:
+            self._scan_evidence.setdefault("bootstraps", []).append(dict(evidence))
+            del self._scan_evidence["bootstraps"][:-6]
+        try:
+            while self.slam.frame_count == first_frames:
+                self._check_cancel()
+                if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                    self._expire_operation_lease()
+                    self._check_cancel()
+                if time.monotonic() >= deadline:
+                    evidence["status"] = "capture_timeout"
+                    return
+                if self._depth_starved >= EXPLORATION["depthStarvedLimit"]:
+                    evidence["status"] = "depth_starved"
+                    return
+                if evidence["attempts"] >= EXPLORATION["firstFrameAttempts"]:
+                    evidence["status"] = "attempt_budget"
+                    return
+                outcome = self._sample(seen_captures=seen, deadline=deadline)
+                evidence["lastSampleOutcome"] = outcome
+                if outcome == "capture_timeout":
+                    evidence["status"] = "capture_timeout"
+                    return
+                if outcome == "duplicate_capture":
+                    evidence["duplicateCaptures"] += 1
+                else:
+                    evidence["attempts"] += 1
+                if self.slam.frame_count > first_frames:
+                    evidence["status"] = "accepted"
+                    return
+                time.sleep(min(.1, max(0., deadline-time.monotonic())))
+        except BaseException:
+            evidence["status"] = "cancelled" if self._cancel.is_set() else "fault"
+            raise
+        finally:
+            with self._lock:
+                evidence["acceptedFrameDelta"] = max(0, self.slam.frame_count-first_frames)
+                evidence["elapsedSeconds"] = round(time.monotonic()-started, 3)
+                self._scan_evidence["bootstraps"][-1] = dict(evidence)
 
     def _move_and_sample(self, goal, *, bounded, fatal=True):
         """Move under the ordinary safety admission while sampling the whole way.
@@ -688,7 +772,8 @@ class RobotWorkflow:
                         self.map_id = self._base_map_id
                         reason = self._exploration.get("stopReason", "unknown")
                         self.state = "failed" if reason in {
-                            "no_frames", "insufficient_map_evidence", "depth_starved"} else "completed"
+                            "no_frames", "insufficient_map_evidence", "depth_starved",
+                            "continuation_scan_refused"} else "completed"
                         self.message = f"保留上一段地图；本段无足够平移证据，停止原因：{reason}。"
                     else:
                         self.state,self.message = "failed",(
@@ -740,7 +825,7 @@ class RobotWorkflow:
                 self._preview = {"points":[],"colors":[]}
                 self.state,self.message = "exploring",f"自动探索第 {number} 段：继续从已保存地图扩展。"
             # A continuation still needs its own first real capture.
-            self._sample()
+            self._await_first_frame(number)
         except BaseException:
             self._release_session()
             raise
@@ -1016,7 +1101,7 @@ class RobotWorkflow:
 
     def _planning_clearance(self):
         """The distance the planner keeps from observed obstacles, in metres."""
-        return self.footprint_radius+EXPLORATION["planningMarginM"]
+        return max(self.footprint_radius,self.operational_radius)+EXPLORATION["planningMarginM"]
 
     def _current_pose(self):
         """The captured base pose, in the driver world frame the live grid uses."""
@@ -1380,6 +1465,7 @@ class RobotWorkflow:
                           "baseMapId":self._base_map_id,
                           "robotId":self.robot_id,"mapId":self.map_id,"worldFrameRevision":self.world_frame_revision,
                           "mapFromWorld":anchor.tolist(),"footprintRadiusM":self.footprint_radius,
+                          "operationalRadiusM":self._planning_clearance(),
                           "navigationEvidenceVersion":2}
             if self._exploration or self._scan_evidence["looks"]:
                 provenance["exploration"] = copy.deepcopy({
@@ -1409,7 +1495,7 @@ class RobotWorkflow:
             staging = self.root/("."+self.map_id+".building")
             from .slam_semantics import certify_locations
             locations = certify_locations(grid,self.semantic_workspaces(anchor),
-                                          radius=self.footprint_radius,include_regions=True)
+                                          radius=self._planning_clearance(),include_regions=True)
             manifest = build_map(staging,map_id=self.map_id,robot_id=self.robot_id,cloud=cloud,
                 poses=trail,times_unix_ms=times,source=snapshot.info.map_source,
                 calibration_revision=self.calibration_revision,occupancy_grid=grid,
@@ -1450,13 +1536,11 @@ class RobotWorkflow:
         trajectory inside the grid, with unknown padding until evidence clears
         it. Never silently clip the initial/terminal chassis out of the map.
 
-        The certified band is the planning clearance, not the planning clearance
-        plus a bonus. It used to be footprint + 0.08 m, which the driver's guard
-        proved while that guard was a flat 0.40 m; the guard is now the measured
-        CAD envelope plus a commissioned margin (0.355 m), so a 0.40 m query is
-        refused - correctly, because a proof may not claim more than the check
-        behind it - and asking for it would silently leave the whole driven trail
-        uncertified. One number, planned and proved.
+        Operational clearance controls padding and planning, but is not itself
+        proof of free space. Preserve the smaller body/travel evidence band;
+        increasing a commissioned margin must neither expand that evidence nor
+        discard an otherwise valid narrower swept-path certificate. Planning
+        may then conservatively reject a corridor with insufficient margin.
         """
         res,origin = grid["resolution"],np.array(grid["origin"],dtype=float)
         self._mark_cells(grid,trail,self.footprint_radius,res,origin)
@@ -1474,6 +1558,7 @@ class RobotWorkflow:
         grid.update(cells=cells,width=int(width),height=int(height),origin=origin.tolist())
         if self.clearance_validator is None:
             return  # Sparse sensor keyframes do not certify the path between them.
+        radius = self.footprint_radius
         inverse=relative(anchor,np.zeros(3))
         for start,end in itertools.pairwise(trail):
             distance = np.linalg.norm(np.array(end[:2])-start[:2])
@@ -1667,7 +1752,10 @@ class RobotWorkflow:
                     or semantics.get("calibrationRevision") != manifest["calibrationRevision"]):
                 raise ValueError("semantic layer does not belong to this map")
             from .slam_semantics import certify_locations
-            locations = certify_locations(grid,semantics.get("workspaces",[]),radius=self.footprint_radius)
+            # Saved navigationReady/footprint metadata is historical evidence,
+            # never current authority. Re-evaluate every goal without expanding
+            # the immutable grid or the trail from its old, narrower envelope.
+            locations = certify_locations(grid,semantics.get("workspaces",[]),radius=self._planning_clearance())
         active = {"mapId":map_id,"mapRevision":manifest["hash"],"calibrationRevision":manifest["calibrationRevision"]}
         if persist:
             temporary = self.root/".active-map.tmp"
@@ -1768,7 +1856,7 @@ class RobotWorkflow:
         source = self.navigation_map()
         fields = {"robotId", "ready", "mode", "mapId", "mapRevision", "mapPose",
                   "poseSource", "poseFusionSource", "poseObservedAtUnixMs", "localizationState",
-                  "localizationReason", "gridUnavailable", "observedAtUnixMs"}
+                  "localizationReason", "gridUnavailable", "observedAtUnixMs", "navigationDriver"}
         return {key: value for key, value in source.items() if key in fields}
 
     def navigation_map(self):
@@ -1801,6 +1889,10 @@ class RobotWorkflow:
                 "localizationState":"localized","gridUnavailable":False}
         if fusion_source:
             result["poseFusionSource"] = fusion_source
+        if self.navigation_readiness is not None:
+            driver = self.navigation_readiness()
+            result["navigationDriver"] = driver
+            result["ready"] = result["ready"] and driver.get("ready") is True
         return result
 
 

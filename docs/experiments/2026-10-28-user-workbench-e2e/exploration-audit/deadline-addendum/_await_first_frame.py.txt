@@ -1,0 +1,52 @@
+    def _await_first_frame(self, number):
+        """Bounded stationary acquisition before a continuation may plan.
+
+        One rejected exposure is not a failed leg. Try a small number of distinct
+        captures; a view that stays unmeasurable needs the survey's separately
+        budgeted safe look-around, not an unbounded retry or inherited fake frame.
+        """
+        started = time.monotonic()
+        deadline = started+EXPLORATION["firstFrameSeconds"]
+        seen = set()
+        evidence = {"leg": number, "status": "running", "attempts": 0,
+                    "duplicateCaptures": 0, "acceptedFrameDelta": 0}
+        first_frames = self.slam.frame_count
+        with self._lock:
+            self._scan_evidence.setdefault("bootstraps", []).append(dict(evidence))
+            del self._scan_evidence["bootstraps"][:-6]
+        try:
+            while self.slam.frame_count == first_frames:
+                self._check_cancel()
+                if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                    self._expire_operation_lease()
+                    self._check_cancel()
+                if time.monotonic() >= deadline:
+                    evidence["status"] = "capture_timeout"
+                    return
+                if self._depth_starved >= EXPLORATION["depthStarvedLimit"]:
+                    evidence["status"] = "depth_starved"
+                    return
+                if evidence["attempts"] >= EXPLORATION["firstFrameAttempts"]:
+                    evidence["status"] = "attempt_budget"
+                    return
+                outcome = self._sample(seen_captures=seen, deadline=deadline)
+                evidence["lastSampleOutcome"] = outcome
+                if outcome == "capture_timeout":
+                    evidence["status"] = "capture_timeout"
+                    return
+                if outcome == "duplicate_capture":
+                    evidence["duplicateCaptures"] += 1
+                else:
+                    evidence["attempts"] += 1
+                if self.slam.frame_count > first_frames:
+                    evidence["status"] = "accepted"
+                    return
+                time.sleep(min(.1, max(0., deadline-time.monotonic())))
+        except BaseException:
+            evidence["status"] = "cancelled" if self._cancel.is_set() else "fault"
+            raise
+        finally:
+            with self._lock:
+                evidence["acceptedFrameDelta"] = max(0, self.slam.frame_count-first_frames)
+                evidence["elapsedSeconds"] = round(time.monotonic()-started, 3)
+                self._scan_evidence["bootstraps"][-1] = dict(evidence)

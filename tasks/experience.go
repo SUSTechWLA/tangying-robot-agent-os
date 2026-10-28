@@ -437,6 +437,12 @@ func projectChangePreview(change ChangeSet, steps []RevisionStep) ChangePreview 
 // metadata. Unknown vendor tools remain hidden from the default user view.
 func DefaultToolDisplay(toolName string) ToolDisplay {
 	switch strings.TrimSpace(toolName) {
+	case "navigation.status":
+		return ToolDisplay{DisplayName: "读取导航与定位状态", Purpose: "只读检查导航、定位及当前地图是否就绪"}
+	case "mapping.inventory":
+		return ToolDisplay{DisplayName: "查看已保存地图", Purpose: "只读列出保存的地图及其版本，供后续选择"}
+	case "mapping.status":
+		return ToolDisplay{DisplayName: "读取建图状态", Purpose: "只读检查建图进度与当前激活地图"}
 	case "navigation.navigate":
 		return ToolDisplay{DisplayName: "移动到指定位置", Purpose: "让机器人安全到达任务位置", SafeArguments: []string{"targetRef"}}
 	case "arm.move":
@@ -464,7 +470,7 @@ func DefaultToolDisplay(toolName string) ToolDisplay {
 	case "recover_to_safe_pose":
 		return ToolDisplay{DisplayName: "回到安全姿态", Purpose: "让机器人恢复到可继续工作的安全状态"}
 	default:
-		return ToolDisplay{DisplayName: "机器人能力", Purpose: "机器人正在执行当前步骤"}
+		return ToolDisplay{DisplayName: "机器人能力", Purpose: "调用任务所需的机器人能力；结果以执行记录为准"}
 	}
 }
 
@@ -559,7 +565,11 @@ func humanStepExplanation(step RevisionStep) string {
 	case "mapping.finish", "mapping.activate":
 		return robot + "保存或激活地图，并核验版本"
 	case "mapping.status":
-		return robot + "检查建图状态"
+		return robot + "检查建图进度与当前地图（只读）"
+	case "mapping.inventory":
+		return robot + "列出已保存地图及其版本（只读）"
+	case "navigation.status":
+		return robot + "读取导航、定位与地图版本状态（只读）"
 	case "semantic.locations", "semantic.resolve":
 		return robot + "读取地图中的地点和工作区域"
 	case "robot.task":
@@ -575,6 +585,9 @@ func humanStepExplanation(step RevisionStep) string {
 	case "observe":
 		return robot + "查看周围环境并确认任务状态"
 	default:
+		if strings.Contains(step.Action, ".") {
+			return robot + "执行已批准的能力步骤"
+		}
 		if step.RequiredPostcondition != "" {
 			return fmt.Sprintf("%s完成%s到%s的任务", robot, resource, destination)
 		}
@@ -610,6 +623,19 @@ func humanReference(reference string) string {
 }
 
 func humanEvidence(step RevisionStep) string {
+	switch step.Action {
+	case "navigation.status", "mapping.status", "mapping.inventory":
+		switch step.Status {
+		case StepSatisfied:
+			return "只读结果已返回；不代表机器人发生移动"
+		case StepAwaitingEvidence:
+			return "正在核对读取结果"
+		case StepFailed:
+			return "读取未完成，请查看执行记录"
+		default:
+			return "等待读取结果"
+		}
+	}
 	if step.Status == StepSatisfied && len(step.HarnessEvidenceIDs) > 0 {
 		return "环境已经确认这一步完成"
 	}

@@ -23,6 +23,8 @@
 
 同日[任务复测](docs/experiments/2026-10-28-edge-task-validation/README.md)完成 Gazebo 三机器人完整路线（30 次导航与 30 次独立到达确认）及独立场景 6 项停止测试，并[修复](docs/development/2026-10-28-task-validation-fixes.md)取消后的无效规划重试、模型计量写入失败继续请求、小批次通信饥饿、异常 ACK 接受和停止就绪误判。模型/通信补丁另经软件回归；UAV 接触通道覆盖仍未证实，严格安全指标保持未通过，完整失败记录与源码版本一并留存。
 
+工作台真实用户流程的最新检查见[浏览器到任务收尾验收](docs/experiments/2026-10-28-user-workbench-e2e/README.md)与[实现说明](docs/development/2026-10-28-workbench-e2e-hardening.md)：区分保存地图与实时导航依赖，改进批准后入队重试、执行收尾、物理结果回放、建图相机和 GOAL 统计。只读任务完整收尾与未批准草案取消已验证；本轮家庭完整巡检仍因地图覆盖和桌边安全包络阻塞而未完成。实际失败与重测分别留存，不能把“接口可访问”当成物理任务成功。
+
 单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
 
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。

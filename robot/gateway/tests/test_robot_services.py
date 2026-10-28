@@ -56,6 +56,25 @@ def test_navigation_status_exposes_fused_state_without_dense_grid_or_sensor_fram
     assert "cells" not in status and "rgbImage" not in status and "imuSamples" not in status
 
 
+def test_saved_map_and_fresh_pose_cannot_hide_failed_navigation_driver(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.active = {"mapId": "saved-map", "mapRevision": "saved-revision"}
+    workflow.grid = {"width": 1, "height": 1, "resolution": .1,
+                     "cells": np.zeros((1, 1)), "origin": [0., 0., 0.]}
+    state = {"ready": False, "mapRevision": "driver-revision",
+             "blockers": [{"code": "RTABMAP_PROCESSING_STALE"}]}
+    workflow.navigation_readiness = lambda: state.copy()
+    result = workflow.navigation_status()
+    assert result["ready"] is False
+    assert result["mapId"] == "saved-map" and result["mapRevision"] == "saved-revision"
+    assert result["navigationDriver"] == state
+    assert "cells" not in result
+    state["ready"], state["blockers"] = True, []
+    assert workflow.navigation_status()["ready"] is True
+    workflow.capture = lambda: frame(stamp=1)
+    assert workflow.navigation_status()["ready"] is False
+
+
 def test_service_registry_concurrent_duplicate_never_reexecutes():
     entered,release=threading.Event(),threading.Event()
     registry=ServiceRegistry("unit-1")
@@ -1498,7 +1517,7 @@ def test_exploration_operation_identity_survives_leg_changes(tmp_path):
     workflow = _explore_workflow(tmp_path, _ExplorationWorld())
     workflow.operation_id = "owned-operation"
     workflow.session_id = "first-leg"
-    workflow._sample = lambda: None
+    workflow._await_first_frame = lambda _number: None
     workflow._release_session()
     workflow._open_leg(2)
     assert workflow.session_id != "first-leg"
@@ -1839,7 +1858,7 @@ def test_successful_leg_boundary_preserves_operation_event_and_identity(tmp_path
     workflow.map_id = "scan-unit-test-base"
     workflow.operation_id = "same-authorized-operation"
     workflow._leg_anchor = [0., 0., 0.]
-    workflow._sample = lambda: None
+    workflow._await_first_frame = lambda _number: None
     cancellation = workflow._cancel
     workflow._open_leg(2)
     assert workflow._cancel is cancellation and not cancellation.is_set()

@@ -42,6 +42,7 @@ from tangying_robot_proto.robot.v1 import robot_pb2
 from .calibration import MOTOR_IDS, calibration_revision, validate_calibration
 from .dense_slam_provider import DenseSlamProvider
 from .gazebo_runtime import GazeboRuntimeError, observation_message
+from .home_commissioning import HOME_OPERATIONAL_RADIUS_M
 from .robot_workflow import RobotWorkflow
 
 __all__ = [
@@ -168,7 +169,8 @@ def yaw_from_quaternion(pose) -> float:
     return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
 
 
-def swept_disc_step_is_clear(points_base, *, forward_m, turn_rad, radius=.355, height_band=(.02,.40)):
+def swept_disc_step_is_clear(points_base, *, forward_m, turn_rad,
+                             radius=HOME_OPERATIONAL_RADIUS_M, height_band=(.02,.40)):
     """Swept commissioned circular envelope; a turn preserves this footprint."""
     points = chassis_points(points_base, height_band=height_band)
     if not len(points) or (abs(forward_m)<1e-9 and abs(turn_rad)<1e-9): return True
@@ -420,6 +422,33 @@ class GazeboNavigationClient:
     def map_status(self, *, include_grid: bool = False) -> dict[str, Any]:
         path = "/v1/navigation/map" + ("?includeGrid=1" if include_grid else "")
         return self._request("GET", path)
+
+    def readiness(self) -> dict[str, Any]:
+        """Read the actual RTAB-Map / Nav2 admission state, without a goal.
+
+        Keep driver identity separate from the workflow's saved DenseSLAM map.
+        A transport failure is unknown readiness, never a healthy cached map.
+        """
+        try:
+            status = self.map_status()
+        except GazeboNavigationError as error:
+            return {"ready": False, "blockers": [{"code": error.code,
+                    "message": "无法读取导航驱动状态，请检查定位与导航服务。"}]}
+        if not isinstance(status, dict) or type(status.get("ready")) is not bool:
+            return {"ready": False, "blockers": [{"code": "NAVIGATION_INVALID_RESPONSE",
+                    "message": "导航驱动没有返回有效的就绪状态。"}]}
+        result = {key: status[key] for key in (
+            "ready", "mode", "frameId", "mapRevision", "localizationState",
+            "inputAgeMs", "checkedAtUnixMs", "poseObservedAtUnixMs") if key in status}
+        blockers = status.get("readinessBlockers", [])
+        if not isinstance(blockers, list) or any(not isinstance(code, str) for code in blockers):
+            return {"ready": False, "blockers": [{"code": "NAVIGATION_INVALID_RESPONSE"}]}
+        result["blockers"] = [{"code": code} for code in blockers]
+        if result["blockers"]:
+            result["ready"] = False
+        if not result["ready"] and not result["blockers"]:
+            result["blockers"] = [{"code": "NAVIGATION_NOT_READY"}]
+        return result
 
     def goal_status(self, goal_id: str) -> dict[str, Any]:
         return self._request("GET", f"/v1/navigation/goals/{goal_id}")
@@ -832,7 +861,9 @@ class GazeboWorkflowBindings:
             calibration_save=self.calibration_save, capture=self.capture, move=self.move,
             reserve=self.reserve, release=self.release, survey_goals=self.survey_goals,
             semantic_workspaces=self.semantic_workspaces, footprint_radius=0.32,
+            operational_radius=HOME_OPERATIONAL_RADIUS_M if self.home else None,
             entity_source=None,
+            navigation_readiness=self.navigation.readiness if self.navigation is not None else None,
             # Ideal planar simulator odometry is measured from actual physics.
             # This driver declares its uncertainty; physical wheel odometry keeps
             # the default or supplies independently calibrated covariance.

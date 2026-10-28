@@ -415,7 +415,7 @@ class GazeboSkillBackend(RobotBackend):
             from .grid_navigation import world_route
             from .service_registry import ServiceError
             try:
-                route = world_route(workflow.grid,workflow.map_from_world,current,goal,workflow.footprint_radius)
+                route = world_route(workflow.grid,workflow.map_from_world,current,goal,workflow._planning_clearance())
             except ServiceError as error:
                 return Result(False,error.code,str(error))
             admitted = {**workflow.active,"waypoint_count":len(route),"admission":"saved_measured_grid",

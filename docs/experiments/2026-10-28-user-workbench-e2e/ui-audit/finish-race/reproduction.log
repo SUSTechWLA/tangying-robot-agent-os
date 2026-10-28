@@ -1,0 +1,10 @@
+=== RUN   TestReviewCancelDuringFinishRead
+=== RUN   TestReviewCancelDuringFinishRead/legacy
+    zz_marker_review_test.go:34: state=CANCELLED marker=LOCAL_RUN_FINISHED marker.state=RECOVERABLE_FAILURE cancelRequests=0 active=false calls=0
+=== RUN   TestReviewCancelDuringFinishRead/capability
+    zz_marker_review_test.go:34: state=PAUSED marker=LOCAL_RUN_FINISHED marker.state=PAUSED cancelRequests=1 active=false calls=0
+--- PASS: TestReviewCancelDuringFinishRead (0.18s)
+    --- PASS: TestReviewCancelDuringFinishRead/legacy (0.09s)
+    --- PASS: TestReviewCancelDuringFinishRead/capability (0.09s)
+PASS
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp	3.205s

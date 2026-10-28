@@ -1,0 +1,38 @@
+✔ failed planning exposes only validated durable IDs and binds links to the selected robot (1.784542ms)
+✔ approved READY may retry startup but running or terminal tasks cannot be restarted (0.705875ms)
+✔ metrics label separate populations and preserve no-sample and unavailable states (1.655041ms)
+✔ local boot reads existing readiness after initial telemetry without starting calibration (1.233917ms)
+✔ calibration readiness uses the validated service document cameras (0.996375ms)
+✔ calibration readiness accepts the runtime public validation fields (0.120542ms)
+✔ a fully prepared robot says so and asks for nothing (0.525333ms)
+✔ nothing is assumed when the runtime has not reported it (0.183ms)
+✔ the first thing to do is the most blocking one (0.127875ms)
+✔ missing calibration information stays unknown and does not demand recalibration (0.105667ms)
+✔ readiness follows service state rather than adapter provenance (0.165875ms)
+✔ an emergency stop outranks everything else (1.011583ms)
+✔ an incomplete map turns into the next place to drive to (0.181875ms)
+✔ missing camera parameters are reported before the servos are blamed (0.176834ms)
+✔ every unfinished item carries a target the console can navigate to (0.121417ms)
+✔ an unreadable map is not blamed on the connection (0.130792ms)
+✔ the screen renders one row per prerequisite with its state in words (0.763167ms)
+✔ every workbench action button is bound to its declared page (0.720042ms)
+✔ an empty readiness result renders nothing rather than an empty shell (0.068625ms)
+✔ the checklist offers a way to clear the safety item (0.105583ms)
+✔ only the safety item is cleared by confirming rather than by fixing (0.399042ms)
+✔ the rendered checklist contains the confirmation control and it reports a click (0.298833ms)
+✔ acknowledging safety is what makes the checklist completable (0.090166ms)
+✔ a blocking row from the server blocks the checklist (0.125833ms)
+✔ the server does not get a second opinion on a row the browser owns (0.09025ms)
+✔ a server row with nothing to do still says something to do (0.077625ms)
+✔ an unconfigured model is stated even when everything else is ready (0.127834ms)
+✔ the language note is absent once a model is configured (0.109708ms)
+✔ Gazebo readiness reports observed stop state without claiming physical safety acknowledgement (0.142417ms)
+✔ navigation dependency failures never become map coverage or movement instructions (0.259084ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 105.08525

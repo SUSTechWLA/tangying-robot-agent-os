@@ -10,7 +10,8 @@ from scripts.run_gazebo_stop_checks import measured_stop, wait_for_readiness
 
 def state(time, x, velocity, *, angular=0):
     return {"simulationTime": time, "position": [x, 0, 1],
-            "linearVelocity": [velocity, 0, 0], "angularVelocity": [0, 0, angular]}
+            "linearVelocity": [velocity, 0, 0], "angularVelocity": [0, 0, angular],
+            "robotId": "ground-a", "clockDomain": "simulation", "frameId": "world", "worldId": "field-validation"}
 
 
 def test_ack_or_repeated_snapshot_is_not_measured_stop():
@@ -137,3 +138,55 @@ def test_http_rejection_body_is_retained_and_reported(monkeypatch):
     record = json.loads(journal.getvalue())
     assert record["httpStatus"] == 400 and record["responseBody"] == body.decode()
     assert record["payload"] == {"robotId": "ground-a"}
+
+
+@pytest.mark.parametrize("field,value", [
+    ("position", [float("nan"), 0, 0]), ("linearVelocity", [0, float("inf"), 0]),
+    ("angularVelocity", [0, 0]), ("simulationTime", float("nan")),
+    ("simulationTime", float("inf")), ("robotId", "foreign"),
+    ("clockDomain", "wall"), ("worldId", "foreign"), ("frameId", "foreign"),
+])
+def test_invalid_or_foreign_stop_evidence_cannot_establish_dwell(field, value):
+    trigger = state(1., 0., .3)
+    samples = [state(1.1, .01, 0), state(1.5, .01, 0)]
+    samples[-1][field] = value
+    with pytest.raises(checks.MeasurementError):
+        measured_stop(samples, trigger)
+
+
+def test_missing_legacy_identity_preserves_metrics_without_claiming_verified_stop():
+    trigger, first, last = state(1., 0, .3), state(1.1, .02, 0), state(1.5, .02, 0)
+    del first["worldId"]
+    result = measured_stop([first, last], trigger)
+    assert not result["measuredStopped"] and not result["measurementIdentityVerified"]
+    assert result["maximumDisplacementMeters"] == .02
+
+
+def test_admission_rejection_is_not_counted_as_physical_stop_failure():
+    class RejectingClient:
+        def call(self, path, payload=None, **kwargs):
+            if path == "/snapshot":
+                return ready_snapshot(1.)
+            if path == "/goal":
+                raise ValueError("fixture goal rejected")
+            return {}
+
+    result = checks.run_trial(RejectingClient(), "ground-a", "watchdog", io.StringIO())
+    assert result["failureType"] == "admission_failure"
+    assert result["goalAdmissionAttempted"] and not result["goalAdmitted"] and not result["stopTriggered"]
+
+
+def test_trial_denominators_separate_skips_admission_and_actual_stops(monkeypatch):
+    monkeypatch.setattr(checks, "wait_for_readiness", lambda *a, **kw: {"ready": True})
+    monkeypatch.setattr(checks, "run_trial", lambda *a, **kw: {
+        "passed": False, "goalAdmissionAttempted": True, "goalAdmitted": False, "stopTriggered": False})
+    result = checks.run_campaign(None, ["ground-a", "ground-b", "uav-a"], io.StringIO())
+    assert result["requestedTrialCount"] == 6 and len(result["trials"]) == 6
+    assert result["goalAdmissionAttemptCount"] == 3 and result["skippedTrialCount"] == 3
+    assert result["admittedTrialCount"] == result["physicallyTriggeredTrialCount"] == 0
+
+
+def test_finite_inputs_cannot_overflow_into_nonfinite_stop_metrics():
+    trigger = state(1., -1e308, .3)
+    with pytest.raises(checks.MeasurementError, match="derived"):
+        measured_stop([state(1.1, 1e308, 0)], trigger)

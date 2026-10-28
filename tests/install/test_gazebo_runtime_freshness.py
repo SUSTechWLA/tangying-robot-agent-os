@@ -16,6 +16,64 @@ RUNTIME_SOURCE = (Path(__file__).resolve().parents[2] /
 BLOCKERS = ["RGBD_NOT_READY", "JOINT_FEEDBACK_STALE", "SUCTION_FEEDBACK_STALE", "IMU_NOT_READY", "ODOMETRY_STALE"]
 
 
+def test_home_operational_margin_refuses_before_any_nonzero_pulse(runtime_module, monkeypatch):
+    import time
+
+    import numpy as np
+    from tangying_robot_gateway import gazebo_commissioning
+    from tangying_robot_gateway.home_commissioning import HOME_OPERATIONAL_RADIUS_M
+
+    monkeypatch.setattr(gazebo_commissioning, "commissioning", lambda: {"home": True})
+    node = runtime_module.GazeboRuntimeNode.__new__(runtime_module.GazeboRuntimeNode)
+    node.runtime = NS(base_pose=np.eye(4))
+    node._motion_lock = threading.Lock()
+    node._obstacle_received_ns = {camera: time.monotonic_ns()
+                                 for camera in runtime_module.GAZEBO_CAMERA_MOUNTS}
+    node.motion_allowed = lambda: True
+    node.readiness_snapshot = lambda: {"blockers": []}
+    node._obstacle_points = lambda: np.array([[.35, 0., .2]])
+    node._log_step = lambda _message: None
+    events, pulses, radii = [], [], []
+    node._record_bounded_evidence = events.append
+    node._publish_velocity = lambda x, z, **_kw: pulses.append((x, z)) or {
+        "published": True, "nonzero": bool(x or z)}
+    guard = runtime_module.swept_disc_step_is_clear
+    def record_guard(points, **kwargs):
+        radii.append(kwargs["radius"])
+        return guard(points, **kwargs)
+    monkeypatch.setattr(runtime_module, "swept_disc_step_is_clear", record_guard)
+    result = node._bounded_step([0., 0., 0., .995004165, 0., 0., .099833417], threading.Event())
+    assert result["code"] == "NAV_ENVELOPE"
+    assert radii == [HOME_OPERATIONAL_RADIUS_M]
+    assert pulses and all(pulse == (0., 0.) for pulse in pulses)
+    assert result["motionEvidence"]["nonzeroPublishedPulseCount"] == 0
+    assert result["motionEvidence"]["finalZeroPublished"] is True
+
+
+@pytest.mark.parametrize("ready,cancelled,expected", [
+    (False, False, "NAVIGATION_NOT_READY"),
+    (True, True, "CANCELLED"),
+    (True, False, "SUCCEEDED"),
+])
+def test_navigation_checks_driver_before_any_arm_preparation(runtime_module, ready, cancelled, expected):
+    node = runtime_module.GazeboRuntimeNode.__new__(runtime_module.GazeboRuntimeNode)
+    calls = []
+    cancel = threading.Event()
+    if cancelled:
+        cancel.set()
+    node._command_lock = threading.Lock()
+    node._actuator_lock = threading.Lock()
+    node.navigation = NS(readiness=lambda: calls.append("readiness") or {"ready": ready},
+                         navigate=lambda *_a, **_k: calls.append("navigate") or {"ok": True, "code": "SUCCEEDED"})
+    node.prepare_navigation = lambda _c: calls.append("prepare") or NS(success=True)
+    node.stop_navigation = lambda: calls.append("stop")
+    result = node.navigate([0., 0., 0., 1., 0., 0., 0.], "command", cancel)
+    assert result["code"] == expected
+    assert calls == (["readiness", "prepare", "navigate", "stop"] if expected == "SUCCEEDED"
+                     else ["readiness", "stop"])
+    assert not node._command_lock.locked()
+
+
 @pytest.fixture
 def runtime_module(monkeypatch):
     for name, module in {

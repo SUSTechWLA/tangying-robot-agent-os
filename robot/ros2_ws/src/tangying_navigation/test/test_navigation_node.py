@@ -1,6 +1,7 @@
 """Run in ROS CI/container: real node, messages and SQLite, no external actuation."""
 
 import math
+import time
 from concurrent.futures import Future
 from types import SimpleNamespace
 
@@ -10,6 +11,7 @@ rclpy = pytest.importorskip("rclpy")
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import TransformStamped
 from tangying_navigation import navigation_node as module
+from tangying_navigation.http_api import ApiError
 
 
 class IsolatedAction:
@@ -60,6 +62,7 @@ def node(monkeypatch, tmp_path):
     value.info_ms = value.odom_ms = stamp
     value.info_ref = 1
     value.visual_quality = {"ready": True, "currentFrameWords": 30, "dictionaryWords": 50}
+    value.nav2_states = {name: (3, "active", time.monotonic()) for name in value.nav2_clients}
     yield value
     value.destroy_node()
     rclpy.shutdown()
@@ -67,6 +70,77 @@ def node(monkeypatch, tmp_path):
 
 def goal():
     return {"commandId": "repeat-approach", "goalPose": [.05, 0, 0, 1, 0, 0, 0], "frameId": "odom"}
+
+
+@pytest.mark.parametrize("state,age", [(2, 0.), (3, 4.), (0, 0.)])
+def test_discovered_action_does_not_hide_inactive_or_stale_nav2(node, state, age):
+    node.nav2_states["planner_server"] = (state, "test-state", time.monotonic() - age)
+    result = node.map_status()
+    assert result["ready"] is False
+    assert "NAV2_PLANNER_SERVER_INACTIVE" in result["readinessBlockers"]
+    assert node.action.server_is_ready()
+    with pytest.raises(ApiError) as error:
+        node.registry.submit(goal())
+    assert error.value.code == "NAVIGATION_NOT_READY"
+    assert node.action.sent == []
+
+
+def test_lifecycle_poll_receipt_and_loss_are_reflected_in_admission(node):
+    pending = Future()
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True, call_async=lambda _request: pending)
+    node.poll_nav2_states()
+    pending.set_result(SimpleNamespace(current_state=SimpleNamespace(id=2, label="inactive")))
+    node.poll_nav2_states()
+    assert node.nav2_states["planner_server"][:2] == (2, "inactive")
+    assert not node.map_status()["ready"]
+    node.nav2_clients["planner_server"].service_is_ready = lambda: False
+    node.poll_nav2_states()
+    assert "planner_server" not in node.nav2_states
+
+
+def test_delayed_lifecycle_reply_does_not_refresh_an_old_active_state(node):
+    late = Future()
+    late.set_result(SimpleNamespace(current_state=SimpleNamespace(id=3, label="active")))
+    node.nav2_pending["planner_server"] = (late, time.monotonic() - 4.)
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True, call_async=lambda _request: Future())
+    node.poll_nav2_states()
+    assert "planner_server" not in node.nav2_states
+    assert not node.map_status()["ready"]
+
+
+def test_lifecycle_freshness_budget_includes_request_latency(node, monkeypatch):
+    clock = [100.]
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: clock[0], time=time.time))
+    late = Future()
+    late.set_result(SimpleNamespace(current_state=SimpleNamespace(id=3, label="active")))
+    node.nav2_pending["planner_server"] = (late, 97.1)
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True, call_async=lambda _request: Future())
+    node.poll_nav2_states()
+    assert node.nav2_states["planner_server"][2] == 97.1
+    assert "NAV2_PLANNER_SERVER_INACTIVE" not in node.map_status()["readinessBlockers"]
+    clock[0] += .2
+    assert "NAV2_PLANNER_SERVER_INACTIVE" in node.map_status()["readinessBlockers"]
+
+
+@pytest.mark.parametrize("failure", ["discovery", "request"])
+def test_lifecycle_client_exception_clears_authority_and_continues_other_nodes(node, failure):
+    def broken(*_args):
+        raise RuntimeError("ROS client destroyed")
+    calls = []
+    node.nav2_clients["controller_server"] = SimpleNamespace(
+        service_is_ready=broken if failure == "discovery" else lambda: True,
+        call_async=broken)
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True,
+        call_async=lambda _request: calls.append("planner") or Future())
+    node.poll_nav2_states()
+    assert "controller_server" not in node.nav2_states
+    assert "controller_server" not in node.nav2_pending
+    assert calls == ["planner"]
+    assert not node.map_status()["ready"]
 
 
 def test_actual_node_confirms_existing_pose_after_tf_binding_without_action_or_velocity(node):

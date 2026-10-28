@@ -1,0 +1,82 @@
+[
+  {
+    "scenario": "wrong_robot_clock_world",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "physics robot, clock, frame or world identity mismatch",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "nonfinite_global_clock",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "invalid finite nonnegative simulation clock",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "missing_final_execution_events",
+    "beforeAccepted": true,
+    "afterAccepted": true,
+    "afterError": null,
+    "afterClosureVerified": false,
+    "afterPlannedTasks": 1
+  },
+  {
+    "scenario": "contradictory_sqlite_terminal",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "task journal terminal state contradicts final task",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "unfinished_declared_trial",
+    "beforeAccepted": true,
+    "afterAccepted": true,
+    "afterError": null,
+    "afterClosureVerified": false,
+    "afterPlannedTasks": 2
+  },
+  {
+    "scenario": "nonterminal_result",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "retained final task is not terminal",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "missing_roster_state",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "physics frame omits a configured robot",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "nan_stop_position",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "measured state requires finite three-dimensional vectors",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "infinite_stop_clock",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "invalid measured simulation clock",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  },
+  {
+    "scenario": "foreign_stop_identity",
+    "beforeAccepted": true,
+    "afterAccepted": false,
+    "afterError": "measured robot, clock, world or frame identity mismatch",
+    "afterClosureVerified": null,
+    "afterPlannedTasks": null
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "task-004-draft/cancelled.json": {
+    "bytes": 465431,
+    "sha256": "e14aa5a551955a28519c5091f7644946737b7cdb89ae820667ad4290ca120fae"
+  },
+  "task-004-draft/draft.json": {
+    "bytes": 464882,
+    "sha256": "a35ccbe9e588119e1199b1a46fa09861b96609f50065b53278fcd7790253ac68"
+  },
+  "task-005-closure/api-final-after-backup.json": {
+    "bytes": 215387,
+    "sha256": "fa968d0fdc620af7c5db3e6916356a8c2f3ef7d601ca8febdc9cda09c9ef16ad"
+  },
+  "task-005-closure/api-final-before-backup.json": {
+    "bytes": 215387,
+    "sha256": "fa968d0fdc620af7c5db3e6916356a8c2f3ef7d601ca8febdc9cda09c9ef16ad"
+  },
+  "task-005-closure/report.json": {
+    "bytes": 4930,
+    "sha256": "2362905260a75f90ef606156d1488a9f9ade155bc562bb8989c8242d92f69926"
+  },
+  "task-005-closure/manifest.json": {
+    "bytes": 1053,
+    "sha256": "3db7cce673cdee9f4846c560968b7cb3ca931a66497f0dd3ef06c50dce072383"
+  },
+  "task-005-closure/journal-backup.sqlite": {
+    "sha256": "6007c7597428d7140f03208388d44aedfd3efcc65fcfe4fab29465e6261bbf81",
+    "bytes": 5394432
+  },
+  "model-usage.jsonl": {
+    "bytes": 6603,
+    "sha256": "e57c2faedc9f82af6d2e3874dfd58ed4b118fd1bc6048dfb9d37af124d66a175"
+  },
+  "task-004-draft/metrics.json": {
+    "bytes": 673,
+    "sha256": "1805c016a11a6bf8348bf5125c75cc7767b1b9bf15a742c680f82b32220ba3a2"
+  }
+}

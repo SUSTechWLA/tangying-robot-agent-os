@@ -1,0 +1,9 @@
+{
+  "robot/gateway/tangying_robot_gateway/robot_workflow.py": "5a37881667f397a2061f404388c779518257b1fc9517f38bf118c7ba1fac5d8d",
+  "robot/gateway/tangying_robot_gateway/survey.py": "8c7303b3a45438201cfbeb34b0e40567a8dc88a66e29de56ad0169ed1a206e32",
+  "robot/gateway/tests/test_robot_services.py": "397a6eba50df01db962fa6650daa8916a94300c03055c628f9ca39026eae7d15",
+  "robot/gateway/tests/test_survey.py": "bc5fe4145cc6130ea3c59f2a5ee961ea646ef292d06c56f3587f27f6041c7e18",
+  "artifacts/acceptance/user-e2e-20261028-001/mapping-002/final.json": "e30f5fba81168aef47401e4969a0398d8258d1ffabfb3864e6d40465a3984284",
+  "artifacts/acceptance/user-e2e-20261028-001/mapping-002/progress.jsonl": "45135eb9c974e3919b4106f69b8f4b7a4bceb787ef2c9c699e1c48e2df3b9190",
+  "artifacts/acceptance/user-e2e-20261028-001/environment/scan002-bounded-step-events.jsonl": "82dcaabb25c570c4f6c2cd9044b7d590ee9b8c7456670e00826eedf6b2c83cce"
+}

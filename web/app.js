@@ -471,12 +471,14 @@ async function createTask() {
       body: JSON.stringify({ request: requestInput.value.trim(), adapter: adapterInput.value }),
     });
     const body = await response.json();
+    if (selectionGeneration !== localSelectionGeneration) { void loadLocalTasks(); return; }
     if (!response.ok) {
-      stateLabel.textContent = `${body.code || "ERROR"}: ${body.message || "请求失败"}`;
+      // A rejected new request must not relabel the previously selected task.
+      if (!activeTask) stateLabel.textContent = `${body.code || "ERROR"}: ${body.message || "请求失败"}`;
+      renderPlanningFailure(body);
       globalThis.TangyingConsoleUI?.feedback(body.message || "任务未能创建，请检查描述后重试。", true);
       return;
     }
-    if (selectionGeneration !== localSelectionGeneration) { void loadLocalTasks(); return; }
     activeTask = body;
     renderTask(body);
     connectEvents(body.id);
@@ -490,6 +492,33 @@ async function createTask() {
     button.disabled = false;
     button.textContent = "生成任务";
   }
+}
+
+// Rejected planning has no executable task ID. Keep its durable archive link
+// beside the composer, bound to the robot URL at failure time.
+function renderPlanningFailure(body) {
+  const panel = $("#planning-failures");
+  const list = $("#planning-failure-list");
+  if (!panel || !list) return;
+  const id = String(body.planningAttemptId || "");
+  if (!/^planning-attempt-[0-9a-f]{32}$/.test(id) && !body.auditUnavailable) return;
+  panel.hidden = false;
+  panel.open = true;
+  const entry = document.createElement("li");
+  entry.append(makeTextElement("p", "", body.message || "规划未通过；没有创建可执行任务。"));
+  if (body.auditUnavailable) {
+    entry.append(makeTextElement("p", "hint", "规划失败且回溯归档不可用。请保留本次错误；不能按零模型消耗或未发生请求处理。"));
+  } else {
+    entry.append(makeTextElement("code", "", id));
+    const link = document.createElement("a");
+    link.href = edgeURL(`/v1/planning-attempts/${encodeURIComponent(id)}`);
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "打开已保存的规划证据（JSON）";
+    entry.append(link);
+  }
+  list.prepend(entry);
+  while (list.children.length > 10) list.lastElementChild.remove();
 }
 
 async function taskAction(action) {
@@ -506,6 +535,9 @@ async function taskAction(action) {
     if (activeTask?.id !== taskId) return;
     if (!response.ok) {
       globalThis.TangyingConsoleUI?.feedback(body.message || "操作未得到服务确认，请查看任务状态后重试。", true);
+      // Approval may have committed before queue admission failed. Read that
+      // fact back so retrying startup remains possible without new consent.
+      if (action === "approve") await refreshTask(taskId);
       return;
     }
     if (body.taskId === taskId) {
@@ -707,7 +739,7 @@ function renderTask(task) {
   const source = task.plan?.source || "deterministic";
   $("#plan-source").textContent = source === "llm_consensus" ? "LLM consensus" : source;
   const intents = task.intent?.sequence?.length ? task.intent.sequence : task.intent ? [task.intent] : [];
-  $("#subtask-count").textContent = intents.length;
+  $("#subtask-count").textContent = task.plan?.capabilities?.calls?.length || intents.length;
   // Once evidence has arrived, a task metadata refresh must not reset its
   // confirmed steps to the static plan's pending state.
   if (localTaskExperienceState.revision === 0) renderPlanSteps(task.plan?.plans || [], task);
@@ -786,7 +818,9 @@ function resetLocalTaskExperience(taskId) {
 function updateLocalActionButtons() {
   const task = activeTask;
   const terminal = !task || ["SUCCEEDED", "CANCELLED", "FAILED", "FAILED_SAFE"].includes(task.state);
-  approveButton.disabled = localActionPending || terminal || task?.approved || !["READY", "WAITING_APPROVAL"].includes(task?.state);
+  const retryStart = task?.approved && task?.state === "READY";
+  approveButton.disabled = localActionPending || terminal || (task?.approved && !retryStart) || !["READY", "WAITING_APPROVAL"].includes(task?.state);
+  approveButton.textContent = retryStart ? "重试启动（已批准）" : "批准物理动作";
   cancelButton.disabled = localActionPending || terminal;
   const current = localRecovery?.taskId === task?.id ? localRecovery : null;
   const currentState = !current?.state || current.state === task?.state;
@@ -1806,7 +1840,8 @@ function renderOnboarding(mapStatus) {
     adapter: telemetry.adapter || adapterInput?.value || "",
     emergencyStopped: typeof telemetry.emergencyStopped === "boolean" ? telemetry.emergencyStopped : null,
     safetyAcknowledged: acknowledgedForThisSituation(telemetry),
-    calibration: globalThis.TangyingOnboarding.calibrationReadiness(latestCalibrationServiceResult, robotState),
+    calibration: globalThis.TangyingOnboarding.calibrationReadiness(
+      latestCalibrationServiceResult?.robotId === telemetry.robotId ? latestCalibrationServiceResult : null, robotState),
     map: mapStatus || null,
     // The authoritative answer, from the same endpoint support reads.
     server: latestReadiness,
@@ -1871,7 +1906,9 @@ async function refreshOnboarding() {
   }
   try {
     const result = await globalThis.TangyingRobotServices?.readCalibrationReadiness();
-    latestCalibrationServiceResult = result?.robotId === primaryTelemetry?.robotId ? result : null;
+    // Initial telemetry can still be selecting its adapter. Retain the bound
+    // result, but render it only when the live robot identity matches above.
+    latestCalibrationServiceResult = result?.robotId ? result : null;
   } catch (_) {
     latestCalibrationServiceResult = null;
   }
@@ -3177,19 +3214,28 @@ async function pollMetrics() {
 }
 
 function renderMetrics(metrics) {
-  const fields = [
-    ["总任务", metrics.totalTasks ?? 0],
-    ["LLM 计划率", percent(metrics.llmPlanRate)],
-    ["候选通过率", percent(metrics.llmCandidateRate)],
-    ["端到端成功率", percent(metrics.endToEndSuccessRate)],
-    ["综合编排分", (metrics.orchestrationScore ?? 0).toFixed(1)],
-    ["序列任务", metrics.sequenceTasks ?? 0],
-    ["LLM 接管", metrics.llmGeneratedTasks ?? 0],
-    ["回退任务", metrics.llmFallbackTasks ?? 0],
-    ["成功 / 失败", `${metrics.succeededTasks ?? 0} / ${metrics.failedTasks ?? 0}`],
-    ["安全停止", metrics.safetyStoppedTasks ?? 0],
-  ];
   const grid = $("#metrics-grid");
+  if (metrics.available === false) {
+    grid.replaceChildren(makeTextElement("p", "hint", "任务指标读取失败；无法将缺失数据当作零。"));
+    return;
+  }
+  const fields = [
+    ["已创建任务", metrics.totalTasks ?? 0],
+    ["LLM 计划率", percent(metrics.llmPlanRate)],
+    ["旧规划器候选通过率", metrics.legacyCandidateAttempts > 0 ? percent(metrics.llmCandidateRate) : "无样本"],
+    ["已创建任务成功占比（含待执行、取消）", percent(metrics.endToEndSuccessRate)],
+    ["旧口径综合分", (metrics.orchestrationScore ?? 0).toFixed(1)],
+    ["多意图 / 多能力任务", metrics.sequenceTasks ?? 0],
+    ["模型来源计划（含经验复用）", metrics.llmGeneratedTasks ?? 0],
+    ["回退任务", metrics.llmFallbackTasks ?? 0],
+    ["成功 / 失败 / 取消（当前状态）", `${metrics.succeededTasks ?? 0} / ${metrics.failedTasks ?? 0} / ${metrics.cancelledTasks ?? 0}`],
+    ["安全停止", metrics.safetyStoppedTasks ?? 0],
+    ["GOAL 客户端调用尝试", metrics.goalModelCallAttempts ?? "—"],
+    ["GOAL 决策输出拒绝", metrics.goalDecisionRejected ?? "—"],
+    ["GOAL 提案通过 / 提交", `${metrics.goalAcceptedProposals ?? "—"} / ${metrics.goalProposalAttempts ?? "—"}`],
+    ["GOAL 提案通过率", metrics.goalProposalAcceptanceRate == null ? "无样本" : percent(metrics.goalProposalAcceptanceRate)],
+    ["规划经验复用", metrics.goalRecipeHits ?? "—"],
+  ];
   grid.replaceChildren();
   for (const [label, value] of fields) {
     const article = document.createElement("article");
@@ -3200,6 +3246,7 @@ function renderMetrics(metrics) {
     article.append(span, strong);
     grid.append(article);
   }
+  grid.append(makeTextElement("p", "hint", "范围：已成功创建并保存的任务；创建前的规划失败单独归档，不在此分母。旧口径综合分沿用旧规划器权重，不适合跨架构比较或作为论文指标。调用尝试不等于实际 HTTP 请求或计费 token，费用请查看用量账本。"));
 }
 
 function percent(value) {
@@ -5527,7 +5574,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
     card.append(
       makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待机器人反馈"}`),
       makeTextElement("strong", "", activity.displayName || "机器人能力"),
-      makeTextElement("p", "", activity.purpose || "机器人正在执行当前步骤"),
+      makeTextElement("p", "", activity.purpose || "此步骤的用途尚未提供，请查看执行记录。"),
     );
 	if (activity.controlMethod) {
 	  const control = document.createElement("div");
@@ -6192,7 +6239,9 @@ function startLocalMode() {
   localModeStarted = true;
   cameraPageWasVisible = scenePageVisible();
   globalThis.TangyingConsoleUI?.update({ mode: "local" });
-  pollTelemetry();
+  // Read existing calibration only after resolving the connected robot identity.
+  // No calibration or other physical operation is started by this refresh.
+  void pollTelemetry().finally(() => refreshOnboarding());
   pollMetrics();
   pollRuntime();
   loadLLMConfig();
@@ -6251,10 +6300,8 @@ async function bootApplication() {
   return "local";
 }
 
-// Once at load, after every module-level binding exists, so the readiness panel
-// is never an empty shell. This deliberately renders from state the console
-// already holds: loading a page must not add API requests, and the map row says
-// so honestly until the operator asks for a fresh check.
+// Render an unknown initial view; local boot then reads the connected Runtime's
+// existing readiness, map and calibration without starting a physical action.
 renderOnboarding(null);
 renderCalibration(null);
 renderMap(null);

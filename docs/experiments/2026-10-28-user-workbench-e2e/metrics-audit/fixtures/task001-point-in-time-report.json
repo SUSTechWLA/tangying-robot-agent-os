@@ -1,0 +1,374 @@
+{
+  "schemaVersion": "task.closure-audit.v1",
+  "taskId": "task-e133310fd2f0b570d65e4dce",
+  "state": "RECOVERABLE_FAILURE",
+  "apiClosure": {
+    "status": "legacy_no_explicit_finish",
+    "verified": false,
+    "state": "RECOVERABLE_FAILURE",
+    "revision": 1,
+    "matchingFinishSequences": [],
+    "successMarkerPresent": false
+  },
+  "journal": {
+    "backupSHA256": "a67343572322fafa845b48d58b9762fa81ad3b99b2d7dac363bcb7140a44ac89",
+    "backupSeconds": 0.024421290960162878,
+    "apiEventCount": 45,
+    "databaseEventCount": 45,
+    "taskFieldMismatches": [],
+    "eventDifferenceSequences": [],
+    "exactMatch": true,
+    "databaseClosure": {
+      "status": "legacy_no_explicit_finish",
+      "verified": false,
+      "state": "RECOVERABLE_FAILURE",
+      "revision": 1,
+      "matchingFinishSequences": [],
+      "successMarkerPresent": false
+    },
+    "stepRuns": [
+      {
+        "step_id": "rev-1-cap-01-observe",
+        "status": "COMPLETED",
+        "reconcile_outcome": ""
+      },
+      {
+        "step_id": "rev-1-cap-01-pre_position",
+        "status": "STARTED",
+        "reconcile_outcome": ""
+      }
+    ],
+    "fleetCheckpointRowsForTask": 0,
+    "checkpointBoundary": "consistent SQLite online backup includes WAL; no PRAGMA checkpoint or writes to live journal"
+  },
+  "apiStableAcrossBackup": true,
+  "apiObservationsMatchBackup": true,
+  "identity": {
+    "robotId": "gazebo-home_furnished",
+    "taskRevision": 1,
+    "observationRecords": 2,
+    "confirmedReceiptLinks": [
+      {
+        "stepId": "rev-1-cap-01-observe",
+        "captureId": "gazebo-home_furnished/head-rgbd-769000000000-1793201627050",
+        "identityAndPostSendTimeVerified": true
+      }
+    ],
+    "errors": [],
+    "scope": "retained identity and timestamps only; not image interpretation or physical arrival certification"
+  },
+  "closureVerified": false,
+  "taskSucceeded": false,
+  "physicalOutcomeUnknown": true,
+  "unknownRecoveryContractCoherent": true,
+  "automaticTaskRetryPerformed": false,
+  "modelUsage": {
+    "planningTraceRows": 4,
+    "planningRounds": 4,
+    "planningVerdicts": {
+      "MODEL_DECISION_REJECTED": 1,
+      "READ_OK": 2,
+      "FROZEN_FOR_APPROVAL": 1
+    },
+    "uniqueModelCallRecords": 4,
+    "recordReferences": 4,
+    "duplicateReferencesExcluded": 0,
+    "conflictingCallIdentities": [],
+    "recordedHTTPResponseCount": 4,
+    "httpStatuses": {
+      "200": 4
+    },
+    "modelOutcomes": {
+      "invalid_decision": 1,
+      "accepted": 3
+    },
+    "providerUsageValidCalls": 4,
+    "providerUsageUnknownCalls": 0,
+    "providerUsageInvalidCalls": 0,
+    "providerReportedTotals": {
+      "prompt_tokens": 46135,
+      "completion_tokens": 1503,
+      "total_tokens": 47638,
+      "cached_tokens": 20352
+    },
+    "providerCachedInputFraction": 0.4411401322206568,
+    "estimatedTokenTotal": null,
+    "usageBoundary": "usage_status=valid is retained provider-reported telemetry, not invoice or packet-capture attestation; unknown usage is not zero; output_tokens is a cap; cached_tokens is part of prompt_tokens",
+    "recordedModelDurationSumMs": 11647,
+    "recordedModelWallSpanMs": 11685.783203125,
+    "calls": [
+      {
+        "call_id": "34fb620b-2325-4d54-8df6-048d9c2e2efc",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-10-28T15:31:35.364899Z",
+        "duration_ms": 1560,
+        "http_status": 200,
+        "outcome": "invalid_decision",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 9961,
+          "completion_tokens": 205,
+          "total_tokens": 10166,
+          "cached_tokens": 0
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 36798,
+        "response_bytes": 1712
+      },
+      {
+        "call_id": "20016d11-2a2b-4678-a511-d21c6805a243",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-10-28T15:31:36.925941Z",
+        "duration_ms": 3040,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 10168,
+          "completion_tokens": 360,
+          "total_tokens": 10528,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 37550,
+        "response_bytes": 2322
+      },
+      {
+        "call_id": "559203a0-a2f0-4dbf-b2af-009789b18677",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-10-28T15:31:39.969912Z",
+        "duration_ms": 2632,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 12808,
+          "completion_tokens": 284,
+          "total_tokens": 13092,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 46001,
+        "response_bytes": 2008
+      },
+      {
+        "call_id": "adfc62bb-7e3d-4670-a300-55013a22d6b8",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-10-28T15:31:42.635682Z",
+        "duration_ms": 4415,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 13198,
+          "completion_tokens": 654,
+          "total_tokens": 13852,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 47339,
+        "response_bytes": 3565
+      }
+    ]
+  },
+  "timing": {
+    "createdAt": "2026-10-28T15:31:48.940419Z",
+    "approvedAt": "2026-10-28T15:33:46.010372Z",
+    "terminalTransitionAt": "2026-10-28T15:36:47.609444Z",
+    "lastTaskUpdatedAt": "2026-10-28T15:36:54.733912Z",
+    "approvedToTerminalMs": 181599.07202148438,
+    "createdToTerminalMs": 298669.02490234375,
+    "boundary": "createdAt occurs after planning; browser action recording times are not HTTP request-start timestamps; updatedAt can include later ops events"
+  },
+  "retainedSnapshotEventCount": 45,
+  "retainedSnapshotEqualsCollected": true,
+  "retainedInputs": {
+    "draft.json": {
+      "sha256": "60f03a83cfcfbb43bd72981248cca3128dd979d6e82bffb64df94ef64bc9e0e1",
+      "bytes": 660109
+    },
+    "final.json": {
+      "sha256": "3b022ae8091ba956ab270954b6683c1cf3d7cdae7a1f12c4fa5b2155a9d856e3",
+      "bytes": 2204061
+    },
+    "metrics-before.json": {
+      "sha256": "69f352ce2dc2335ca897ae0fb6f129161df2f6d1ca96e955b05aa09cad2e1422",
+      "bytes": 371
+    },
+    "metrics-after.json": {
+      "sha256": "497eea18a622c897da32e9b0acd20444531f12ff16232831b3618fe01620db79",
+      "bytes": 371
+    },
+    "latency-after.json": {
+      "sha256": "e23801789f011d1190e9135c64ccc1b588d994f43724e23e217d44cfbde99b1a",
+      "bytes": 2510
+    },
+    "user-actions.jsonl": {
+      "sha256": "948a50190b4d5a57ca6ea9efef67695cb8918687addefb52a753d1b7eb4e1998",
+      "bytes": 340
+    }
+  },
+  "snapshotMetrics": {
+    "metrics-before.json": {
+      "totalTasks": 1,
+      "sequenceTasks": 0,
+      "deterministicTasks": 0,
+      "llmGeneratedTasks": 1,
+      "consensusTasks": 0,
+      "llmFallbackTasks": 0,
+      "llmPlanRate": 1,
+      "llmCandidateRate": 0,
+      "llmRejectionCount": 0,
+      "succeededTasks": 0,
+      "failedTasks": 0,
+      "safetyStoppedTasks": 0,
+      "endToEndSuccessRate": 0,
+      "successByPlanSource": {},
+      "orchestrationScore": 15
+    },
+    "metrics-after.json": {
+      "totalTasks": 1,
+      "sequenceTasks": 0,
+      "deterministicTasks": 0,
+      "llmGeneratedTasks": 1,
+      "consensusTasks": 0,
+      "llmFallbackTasks": 0,
+      "llmPlanRate": 1,
+      "llmCandidateRate": 0,
+      "llmRejectionCount": 0,
+      "succeededTasks": 0,
+      "failedTasks": 1,
+      "safetyStoppedTasks": 0,
+      "endToEndSuccessRate": 0,
+      "successByPlanSource": {},
+      "orchestrationScore": 15
+    },
+    "latency-after.json": {
+      "groupBy": "capability",
+      "windowMs": 3600000,
+      "nowUnixMs": 1793201823007,
+      "count": 2,
+      "retainedSamples": 2,
+      "capacity": 4096,
+      "droppedSamples": 0,
+      "groups": [
+        {
+          "key": "navigation.pre_position",
+          "count": 1,
+          "outcomes": {
+            "FAILED": 1
+          },
+          "phases": {
+            "admission": {
+              "count": 1,
+              "p50Ms": 19.062,
+              "p95Ms": 19.062,
+              "p99Ms": 19.062,
+              "maxMs": 19.062,
+              "meanMs": 19.062
+            },
+            "execute": {
+              "count": 1,
+              "p50Ms": 180159.926,
+              "p95Ms": 180159.926,
+              "p99Ms": 180159.926,
+              "maxMs": 180159.926,
+              "meanMs": 180159.926
+            },
+            "queue": {
+              "count": 1,
+              "p50Ms": 0.032,
+              "p95Ms": 0.032,
+              "p99Ms": 0.032,
+              "maxMs": 0.032,
+              "meanMs": 0.032
+            },
+            "verify": {
+              "count": 1,
+              "p50Ms": 0.001,
+              "p95Ms": 0.001,
+              "p99Ms": 0.001,
+              "maxMs": 0.001,
+              "meanMs": 0.001
+            }
+          },
+          "total": {
+            "count": 1,
+            "p50Ms": 180179.023,
+            "p95Ms": 180179.023,
+            "p99Ms": 180179.023,
+            "maxMs": 180179.023,
+            "meanMs": 180179.023
+          },
+          "slowestStepId": "rev-1-cap-01-pre_position",
+          "slowestTotalMs": 180179.023
+        },
+        {
+          "key": "observe_scene",
+          "count": 1,
+          "outcomes": {
+            "COMPLETED": 1
+          },
+          "phases": {
+            "admission": {
+              "count": 1,
+              "p50Ms": 21.37,
+              "p95Ms": 21.37,
+              "p99Ms": 21.37,
+              "maxMs": 21.37,
+              "meanMs": 21.37
+            },
+            "execute": {
+              "count": 1,
+              "p50Ms": 625.782,
+              "p95Ms": 625.782,
+              "p99Ms": 625.782,
+              "maxMs": 625.782,
+              "meanMs": 625.782
+            },
+            "queue": {
+              "count": 1,
+              "p50Ms": 0.078,
+              "p95Ms": 0.078,
+              "p99Ms": 0.078,
+              "maxMs": 0.078,
+              "meanMs": 0.078
+            },
+            "verify": {
+              "count": 1,
+              "p50Ms": 4.506,
+              "p95Ms": 4.506,
+              "p99Ms": 4.506,
+              "maxMs": 4.506,
+              "meanMs": 4.506
+            }
+          },
+          "total": {
+            "count": 1,
+            "p50Ms": 651.737,
+            "p95Ms": 651.737,
+            "p99Ms": 651.737,
+            "maxMs": 651.737,
+            "meanMs": 651.737
+          },
+          "slowestStepId": "rev-1-cap-01-observe",
+          "slowestTotalMs": 651.737
+        }
+      ]
+    }
+  },
+  "metricBoundary": "orchestration metrics are a global snapshot, not LLM HTTP or decision failure rates; capability latency p95 with n=1 is one sample, not a population percentile",
+  "scope": "read-only GET and consistent online SQLite backup; no credential file or environment read, no commands, approval, resume, retry or reconciliation"
+}
