@@ -29,7 +29,7 @@ func edgeGoalPlanner() (*capabilityagent.Planner, error) {
 		return json.Marshal(parsed)
 	}}
 	if strings.EqualFold(goal.Provider, "openai") {
-		p.Decider = &actionloop.LLMDecider{BaseURL: goal.BaseURL, APIKey: goal.APIKey, Model: goal.Model}
+		p.Decider = &actionloop.LLMDecider{BaseURL: goal.BaseURL, APIKey: goal.APIKey, Model: goal.Model, Cache: goal.Cache}
 	}
 	return p, nil
 }

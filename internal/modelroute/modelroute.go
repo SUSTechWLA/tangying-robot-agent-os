@@ -24,10 +24,12 @@ const (
 )
 
 type Endpoint struct {
-	Provider string
-	BaseURL  string
-	APIKey   string
-	Model    string
+	Provider   string
+	BaseURL    string
+	APIKey     string
+	Model      string
+	Cache      CachePolicy
+	cacheStage string
 }
 
 // Resolve applies per-stage overrides to the legacy AGENT_* defaults. An
@@ -58,7 +60,8 @@ func Resolve(values map[string]string, stage string) Endpoint {
 			apiKey = ""
 		}
 	}
-	return Endpoint{Provider: provider, BaseURL: baseURL, APIKey: apiKey, Model: model}
+	return Endpoint{Provider: provider, BaseURL: baseURL, APIKey: apiKey, Model: model,
+		Cache: CachePolicy{Mode: strings.ToLower(strings.TrimSpace(values["AGENT_"+stage+"_CACHE_MODE"])), Namespace: strings.TrimSpace(values["AGENT_"+stage+"_CACHE_NAMESPACE"])}, cacheStage: stage}
 }
 
 func Environment(stage string) Endpoint {
@@ -71,10 +74,26 @@ func Environment(stage string) Endpoint {
 			values[stageKey] = value
 		}
 	}
+	// Cache hints deliberately have no global fallback across stages/origins.
+	for _, field := range []string{"CACHE_MODE", "CACHE_NAMESPACE"} {
+		key := "AGENT_" + stage + "_" + field
+		values[key] = os.Getenv(key)
+	}
 	return Resolve(values, stage)
 }
 
 func (e Endpoint) Validate() error {
+	if err := e.Cache.Validate(); err != nil {
+		return err
+	}
+	if e.Cache.EffectiveMode() != "off" {
+		if !strings.EqualFold(e.Provider, "openai") {
+			return errors.New("cache hints require an openai-compatible provider")
+		}
+		if e.cacheStage != "" && e.cacheStage != Goal && e.cacheStage != Recovery {
+			return errors.New("cache hints are supported only by GOAL and RECOVERY action-loop stages")
+		}
+	}
 	switch strings.ToLower(e.Provider) {
 	case "deterministic":
 		return nil
@@ -104,6 +123,9 @@ type Assist struct {
 func (a Assist) ClientFor(endpoint Endpoint) (*http.Client, error) {
 	if a.URL == "" || strings.TrimRight(a.URL, "/") != strings.TrimRight(endpoint.BaseURL, "/") {
 		return nil, nil
+	}
+	if endpoint.Cache.EffectiveMode() != "off" {
+		return nil, errors.New("cloud model assist does not accept cache hints; use cache mode off")
 	}
 	if a.RobotID == "" || a.DeviceToken == "" {
 		return nil, errors.New("cloud model assist requires robot ID and device token")

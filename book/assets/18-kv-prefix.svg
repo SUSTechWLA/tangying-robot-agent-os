@@ -40,5 +40,5 @@
 <text x="567" y="601" font-family="sans-serif" font-size="17" font-weight="normal" text-anchor="middle" fill="#173544">后面文字相同，但历史已不同；不能假定这段缓存可复用</text>
 <text x="30" y="674" font-family="sans-serif" font-size="18" font-weight="bold" text-anchor="start" fill="#173544">必要的新观测不能删；为了命中保留旧授权会破坏正确性。</text>
 <text x="30" y="715" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">KV 容量 ≈ 2 × 层数 × 序列数 × 长度 × KV 头数 × 头维度 × 每数的字节数</text>
-<text x="30" y="747" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">当前客户端未采集缓存指标；图中优化是待验证的接入设计。</text>
+<text x="30" y="747" font-family="sans-serif" font-size="16" font-weight="normal" text-anchor="start" fill="#173544">客户端已有可选 hint / usage；总耗时非 TTFT，实际收益待测。</text>
 </svg>

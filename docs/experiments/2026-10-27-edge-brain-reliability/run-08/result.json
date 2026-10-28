@@ -1,0 +1,167 @@
+{
+  "repetition": 8,
+  "startedAtUTC": "2026-10-28T00:12:43.688090+00:00",
+  "finishedAtUTC": "2026-10-28T00:13:13.351614+00:00",
+  "wallSeconds": 29.64345387497451,
+  "exitCode": 0,
+  "terminationReason": null,
+  "sourceBefore": "ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519",
+  "sourceAfter": "ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519",
+  "sourceChangedDuringRound": false,
+  "topLevelTests": [
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange",
+      "test": "TestRejectCrossPeerIncomingCredentialDisclosureRegardlessOfOrder",
+      "outcome": "pass",
+      "elapsedSeconds": 0
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+      "test": "TestScopedDispatchSurvivesPeerReconfigurationAndRestart",
+      "outcome": "pass",
+      "elapsedSeconds": 0.16
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+      "test": "TestPlanningReadBudgetLeavesArchiveThenTwoProposalDecisions",
+      "outcome": "pass",
+      "elapsedSeconds": 0.04
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+      "outcome": "pass",
+      "elapsedSeconds": 19.41
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+      "outcome": "pass",
+      "elapsedSeconds": 7.06
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart",
+      "outcome": "pass",
+      "elapsedSeconds": 0.55
+    }
+  ],
+  "leafTests": [
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange",
+      "test": "TestRejectCrossPeerIncomingCredentialDisclosureRegardlessOfOrder/destination-after-credential-owner",
+      "outcome": "pass",
+      "elapsedSeconds": 0
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange",
+      "test": "TestRejectCrossPeerIncomingCredentialDisclosureRegardlessOfOrder/destination-before-credential-owner",
+      "outcome": "pass",
+      "elapsedSeconds": 0
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+      "test": "TestScopedDispatchSurvivesPeerReconfigurationAndRestart/domain",
+      "outcome": "pass",
+      "elapsedSeconds": 0.06
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+      "test": "TestScopedDispatchSurvivesPeerReconfigurationAndRestart/robot",
+      "outcome": "pass",
+      "elapsedSeconds": 0.05
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+      "test": "TestScopedDispatchSurvivesPeerReconfigurationAndRestart/removed-peer",
+      "outcome": "pass",
+      "elapsedSeconds": 0.05
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+      "test": "TestPlanningReadBudgetLeavesArchiveThenTwoProposalDecisions",
+      "outcome": "pass",
+      "elapsedSeconds": 0.04
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+      "outcome": "pass",
+      "elapsedSeconds": 19.41
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+      "outcome": "pass",
+      "elapsedSeconds": 7.06
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/retry-quota",
+      "outcome": "pass",
+      "elapsedSeconds": 0.35
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/read-budget",
+      "outcome": "pass",
+      "elapsedSeconds": 0.1
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart/permission",
+      "outcome": "pass",
+      "elapsedSeconds": 0.09
+    }
+  ],
+  "requiredTestsNotPassed": [],
+  "unexpectedTopLevelTests": [],
+  "duplicateTopLevelTerminals": false,
+  "nonJSONLines": [],
+  "extractionError": null,
+  "taskOutcomesExpected": true,
+  "taskRecords": [
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+      "scenario": "sqlite_close_reopen_verified_goal",
+      "taskId": "task-d0cb467c0100f19f211aa71a",
+      "outcome": "SUCCEEDED",
+      "targetCount": 32,
+      "writes": 32,
+      "confirmed": 32,
+      "complete": true,
+      "pending": false,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "duplicateStarts": 0,
+      "durationNs": 19373887000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "runError": "<nil>",
+      "restartError": "<nil>"
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+      "scenario": "unknown_effect_after_long_confirmed_prefix",
+      "taskId": "task-66e4e09875ec0295d4b451e1",
+      "outcome": "RECONCILIATION",
+      "targetCount": 64,
+      "writes": 25,
+      "confirmed": 24,
+      "complete": false,
+      "pending": true,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "duplicateStarts": 0,
+      "durationNs": 7025673000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "runError": "capability outcome requires reconciliation: capability outcome requires reconciliation: lost physical response after movement",
+      "restartError": "capability outcome requires reconciliation: child dispatch interrupted"
+    }
+  ],
+  "rawLogSHA256": "d886a9c418157d006c43927948b959087daf083d81220dbb61bd81ccdf37f84b",
+  "rawLogBytes": 168668,
+  "testAssertionsPassed": true,
+  "validForRecordedSource": true
+}

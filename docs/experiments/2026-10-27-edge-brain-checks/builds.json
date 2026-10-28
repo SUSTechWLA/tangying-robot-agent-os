@@ -1,0 +1,50 @@
+{
+  "dateAsiaShanghai": "2026-10-28",
+  "commands": [
+    "go build -o /tmp/edge-brain-native/ ./cmd/local-agent ./cmd/edge-worker ./cmd/edge-exchange",
+    "GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o /tmp/edge-brain-linux-arm64/ ./cmd/local-agent ./cmd/edge-worker ./cmd/edge-exchange"
+  ],
+  "exitCodes": [
+    0,
+    0
+  ],
+  "artifacts": [
+    {
+      "path": "/tmp/edge-brain-native/edge-worker",
+      "bytes": 32680962,
+      "sha256": "3dffad0befd0e88bc402fcce162c9ce62e9b52c3a2945133a43649dea373d08b",
+      "format": "/tmp/edge-brain-native/edge-worker: Mach-O 64-bit executable arm64"
+    },
+    {
+      "path": "/tmp/edge-brain-native/local-agent",
+      "bytes": 82303202,
+      "sha256": "019a811cf625e72815a397a53f760617a298edfa58f41fdd5422d3b726bbcba5",
+      "format": "/tmp/edge-brain-native/local-agent: Mach-O 64-bit executable arm64"
+    },
+    {
+      "path": "/tmp/edge-brain-native/edge-exchange",
+      "bytes": 16721218,
+      "sha256": "1072a495a4c86beb133cabef76c01c413b27a93d06f3289e82616d9b79f8b8df",
+      "format": "/tmp/edge-brain-native/edge-exchange: Mach-O 64-bit executable arm64"
+    },
+    {
+      "path": "/tmp/edge-brain-linux-arm64/edge-worker",
+      "bytes": 31386790,
+      "sha256": "2c30672cbb72367f923225c965edf4ae03d5815d65e71f13dd3000f997e72e4b",
+      "format": "/tmp/edge-brain-linux-arm64/edge-worker: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, Go BuildID=bPKCEl6vO_-O-g3o111K/kp7izJn6zuyh_bGx8PWu/YhtjRmmP64aCgcp77ymu/8yQJ5kJDGmEMBK_W-me9, BuildID[sha1]=708e305637afa1e0decf2dfdaea000a280bb8c76, with debug_info, not stripped"
+    },
+    {
+      "path": "/tmp/edge-brain-linux-arm64/local-agent",
+      "bytes": 80805146,
+      "sha256": "6f8a186b04886b3a192cefbcbd0837012bd8916c234f30bf799be25657e37f96",
+      "format": "/tmp/edge-brain-linux-arm64/local-agent: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, Go BuildID=WHAhcZ6-cHJ53CUAia87/Yxo4zHLio9v7mtYaySQ7/qrJUP046nr0Df42sDn0J/X6Sw-xSriuHlmS8g7twg, BuildID[sha1]=810c4718e44ede5b1c867dafa472e9f83bf4d107, with debug_info, not stripped"
+    },
+    {
+      "path": "/tmp/edge-brain-linux-arm64/edge-exchange",
+      "bytes": 16197412,
+      "sha256": "78b02c603b0d21fb9aa12901237d5f4d8abcef05fde317e362ca252605cbf394",
+      "format": "/tmp/edge-brain-linux-arm64/edge-exchange: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, Go BuildID=eaG8eWUgrPRuhbDMlX8H/oSzOutnW6Hilt20YGTyu/misSzuwUPcehJtDj7oZt/eHvjv6MQevtsm_a_io-N, BuildID[sha1]=957699e35bc9b5509df1ad5e45de7eefd528a9e5, with debug_info, not stripped"
+    }
+  ],
+  "boundary": "Compilation only. These binaries were not deployed to hardware."
+}

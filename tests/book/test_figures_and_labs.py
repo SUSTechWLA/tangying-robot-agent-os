@@ -14,7 +14,7 @@ def test_figures_are_embedded_and_identified_in_both_publications(tmp_path):
     manifest, docs = book.load_manifest()
     book.build(tmp_path, manifest, docs)
     assets = book.figures(docs)
-    assert len(assets) == 22
+    assert len(assets) == 25
     html = (tmp_path / 'index.html').read_text()
     provenance = json.loads((tmp_path / 'provenance.json').read_text())
     checksums = (tmp_path / 'SHA256SUMS').read_text()

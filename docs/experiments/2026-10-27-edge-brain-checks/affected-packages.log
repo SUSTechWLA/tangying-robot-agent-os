@@ -1,0 +1,14 @@
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop	3.168s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute	2.100s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext	43.966s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent	19.083s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent	5.946s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec	4.299s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness	4.262s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange	5.343s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite	17.354s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/exchangecontract	5.587s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent	5.529s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-worker	4.319s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/fleet-control-plane	3.710s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange	4.058s

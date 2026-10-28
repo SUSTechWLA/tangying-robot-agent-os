@@ -203,7 +203,11 @@ func (e *Executor) record(ctx context.Context, request Request, result Result, e
 	if e.Record == nil {
 		return
 	}
-	e.Record(ctx, request, result, err)
+	// Recording is cleanup, not new robot work. A canceled execution must not
+	// erase the very failure it is meant to report; still bound ledger I/O.
+	recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	e.Record(recordCtx, request, result, err)
 }
 
 // execute runs one approved action.
@@ -345,12 +349,18 @@ func (e *Executor) execute(ctx context.Context, request Request) (Result, error)
 	} else {
 		outcome, err = loop.Run(runContext, request.Action.Summary)
 	}
-	if err != nil {
-		return result, err
-	}
+	// The loop can fail after a model request or a dispatched tool. Preserve
+	// that partial record before returning; an error does not undo execution.
 	result.Executed = outcome.Calls > 0
 	result.Rounds = outcome.Rounds
 	result.Reason = outcome.Reason
+	if err != nil {
+		if result.Reason == "" {
+			result.Reason = err.Error()
+		}
+		trail("loop.failed", err.Error())
+		return result, err
+	}
 	if result.Executed {
 		trail("executed", outcome.Reason)
 	} else {

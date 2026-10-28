@@ -178,6 +178,17 @@ func loadConfig(path string) (*prepared, error) {
 		p.incoming[peer.Identity.AgentID] = incoming
 		destinations[peer.Identity.AgentID] = exchange.Destination{URL: peer.URL, Token: outgoing}
 	}
+	// Validate after collecting every peer so configuration order cannot hide a
+	// cross-peer credential leak. A symmetric token for the same peer remains
+	// compatible; sending another peer's inbound credential would let the
+	// destination impersonate that peer on this receiver.
+	for destinationID, destination := range destinations {
+		for incomingID, incoming := range p.incoming {
+			if incomingID != destinationID && destination.Token == incoming {
+				return nil, errors.New("outgoing token must not reuse another peer's incoming token")
+			}
+		}
+	}
 	clientTLS := &tls.Config{MinVersion: tls.VersionTLS13}
 	if c.PeerCAFile != "" {
 		raw, err := os.ReadFile(c.PeerCAFile)

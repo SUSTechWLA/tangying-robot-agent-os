@@ -433,7 +433,7 @@ robot-agent demo
 
 云边和算法扩展的当前能力、模块职责与后续门槛见[模块化与扩展性评价](docs/architecture/modular-extensibility.md)；新的建图实现按[SLAM Provider 指南](docs/development/slam-providers.md)接入。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.1.0：19 章、22 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖执行权威、Harness、失败恢复、跨域消息、模型输入、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.2.0：19 章、25 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖执行权威、Harness、失败恢复、跨域消息、模型输入、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
 
 ## 十、这个仓库故意不做什么
 

@@ -266,6 +266,44 @@ func (s *ExchangeStore) Accept(ctx context.Context, e x.Envelope, nowMS int64) (
 }
 
 func (s *ExchangeStore) Pending(ctx context.Context, nowMS int64, limit int) ([]x.Envelope, error) {
+	return s.pending(ctx, nowMS, limit, "", nil)
+}
+
+// PendingFor keeps old envelopes for retention/audit while excluding their
+// identities BEFORE FIFO and per-peer head selection. It does not acknowledge
+// them or rewrite their identity after a peer configuration change.
+func (s *ExchangeStore) PendingFor(ctx context.Context, sender x.Identity, peers []x.Identity, nowMS int64, limit int) ([]x.Envelope, error) {
+	if err := sender.Validate(); err != nil {
+		return nil, err
+	}
+	if len(peers) < 1 || len(peers) > 256 {
+		return nil, errors.New("pending selection requires 1..256 peers")
+	}
+	seen := make(map[string]bool, len(peers))
+	for _, peer := range peers {
+		if err := peer.Validate(); err != nil {
+			return nil, err
+		}
+		if seen[peer.AgentID] || peer.AgentID == sender.AgentID {
+			return nil, errors.New("pending peer identities must be unique and different from sender")
+		}
+		seen[peer.AgentID] = true
+	}
+	raw, err := json.Marshal(peers)
+	if err != nil {
+		return nil, err
+	}
+	filter := ` AND json_extract(a.envelope,'$.sender.agentId')=?
+	AND json_extract(a.envelope,'$.sender.robotId')=?
+	AND json_extract(a.envelope,'$.sender.domain')=?
+	AND EXISTS(SELECT 1 FROM json_each(?) p
+		WHERE json_extract(p.value,'$.agentId')=json_extract(a.envelope,'$.recipient.agentId')
+		AND json_extract(p.value,'$.robotId')=json_extract(a.envelope,'$.recipient.robotId')
+		AND json_extract(p.value,'$.domain')=json_extract(a.envelope,'$.recipient.domain'))`
+	return s.pending(ctx, nowMS, limit, filter, []any{sender.AgentID, sender.RobotID, sender.Domain, string(raw)})
+}
+
+func (s *ExchangeStore) pending(ctx context.Context, nowMS int64, limit int, identityFilter string, identityArgs []any) ([]x.Envelope, error) {
 	if limit < 1 || limit > 1000 {
 		return nil, errors.New("invalid pending limit")
 	}
@@ -273,10 +311,15 @@ func (s *ExchangeStore) Pending(ctx context.Context, nowMS int64, limit int) ([]
 	// delivery must not allow its successor to advance the remote cursor.
 	// Select one stream head per recipient. A disconnected recipient cannot
 	// occupy every slot and starve the next healthy peer behind its backlog.
-	rows, err := s.db.QueryContext(ctx, `WITH heads AS (
-	SELECT a.envelope,a.rowid AS ordinal,ROW_NUMBER() OVER(PARTITION BY json_extract(a.envelope,'$.recipient.agentId') ORDER BY a.rowid) AS peer_rank
-	FROM exchange_outbox a WHERE a.acked_ms IS NULL AND a.expires_ms>? AND NOT EXISTS(SELECT 1 FROM exchange_outbox b WHERE b.stream=a.stream AND b.sequence<a.sequence AND b.acked_ms IS NULL AND b.expires_ms>?)
-	) SELECT envelope FROM heads WHERE peer_rank=1 ORDER BY ordinal LIMIT ?`, nowMS, nowMS, limit)
+	args := append([]any{nowMS}, identityArgs...)
+	args = append(args, limit)
+	rows, err := s.db.QueryContext(ctx, `WITH eligible AS (
+	SELECT a.envelope,a.rowid AS ordinal,a.stream,a.sequence FROM exchange_outbox a
+	WHERE a.acked_ms IS NULL AND a.expires_ms>?`+identityFilter+`
+	), heads AS (
+	SELECT a.envelope,a.ordinal,ROW_NUMBER() OVER(PARTITION BY json_extract(a.envelope,'$.recipient.agentId') ORDER BY a.ordinal) AS peer_rank
+	FROM eligible a WHERE NOT EXISTS(SELECT 1 FROM eligible b WHERE b.stream=a.stream AND b.sequence<a.sequence)
+	) SELECT envelope FROM heads WHERE peer_rank=1 ORDER BY ordinal LIMIT ?`, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -165,7 +165,7 @@ func run(listen, storeMode string) error {
 	}
 	goalPlanner := &fleet.CapabilityPlanner{Registry: deviceRegistry, Parser: parser}
 	if strings.EqualFold(goalModel.Provider, "openai") {
-		goalPlanner.Decider = &actionloop.LLMDecider{BaseURL: goalModel.BaseURL, APIKey: goalModel.APIKey, Model: goalModel.Model}
+		goalPlanner.Decider = &actionloop.LLMDecider{BaseURL: goalModel.BaseURL, APIKey: goalModel.APIKey, Model: goalModel.Model, Cache: goalModel.Cache}
 	}
 	service.SetGoalPlanner(goalPlanner)
 

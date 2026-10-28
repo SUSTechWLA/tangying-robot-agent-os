@@ -399,7 +399,93 @@ func TestChangedPeerIdentityCannotReceiveOldQueuedData(t *testing.T) {
 	}
 	reconfigured.now = a.now
 	deliveries, err := reconfigured.Dispatch(ctx, wrongReceipt{}, 10)
-	if err != nil || len(deliveries) != 1 || !strings.Contains(deliveries[0].Error, "identity no longer matches") {
+	if err != nil || len(deliveries) != 0 {
 		t.Fatalf("reconfigured=%+v %v", deliveries, err)
+	}
+	counts, err := reconfigured.Counts(ctx)
+	if err != nil || counts.Pending != 1 || counts.Delivered != 0 {
+		t.Fatalf("old queued evidence was altered: %+v %v", counts, err)
+	}
+}
+
+type receiverTransport struct{ receiver *Service }
+
+func (t receiverTransport) Send(ctx context.Context, e x.Envelope) (x.Receipt, error) {
+	return t.receiver.Receive(ctx, e.Sender.AgentID, e)
+}
+
+func TestScopedDispatchSurvivesPeerReconfigurationAndRestart(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*x.Identity)
+	}{
+		{"domain", func(i *x.Identity) { i.Domain = "new-domain" }},
+		{"robot", func(i *x.Identity) { i.RobotID = "replacement-robot" }},
+		{"removed-peer", func(i *x.Identity) { i.AgentID = "replacement-agent" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			dir := t.TempDir()
+			path := filepath.Join(dir, "sender.db")
+			sender, store := openService(t, path, identityA, identityB, 20)
+			oldOther := request("old-other-stream")
+			oldOther.Stream = "other-stream"
+			if _, err := sender.Publish(ctx, oldOther); err != nil {
+				t.Fatal(err)
+			}
+			publish(t, sender, "old-same-stream")
+			changed := identityB
+			tc.change(&changed)
+			reconfigured, err := New(ctx, identityA, []x.Identity{changed}, store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reconfigured.now = sender.now
+			var expected []x.Envelope
+			for _, id := range []string{"new-first", "new-second"} {
+				r := request(id)
+				r.PeerID = changed.AgentID
+				e, err := reconfigured.Publish(ctx, r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				expected = append(expected, e)
+			}
+			if err := store.Close(); err != nil {
+				t.Fatal(err)
+			}
+			// The filtered head selection must survive a restart with both old
+			// identities and the current FIFO still present in the same journal.
+			sender, store = openService(t, path, identityA, changed, 20)
+			defer store.Close()
+			receiver, receiverStore := openService(t, filepath.Join(dir, "receiver.db"), changed, identityA, 20)
+			defer receiverStore.Close()
+			transport := receiverTransport{receiver}
+			for _, e := range expected {
+				deliveries, err := sender.Dispatch(ctx, transport, 1)
+				if err != nil || len(deliveries) != 1 || deliveries[0].Error != "" || deliveries[0].MessageID != e.MessageID {
+					t.Fatalf("current identity FIFO blocked: deliveries=%+v err=%v", deliveries, err)
+				}
+			}
+			feed, err := receiver.Feed(ctx, 0, 10)
+			if err != nil || len(feed.Items) != 2 || feed.Items[0].Envelope.MessageID != expected[0].MessageID || feed.Items[1].Envelope.MessageID != expected[1].MessageID {
+				t.Fatalf("wrong receiver history: %+v %v", feed, err)
+			}
+			counts, err := sender.Counts(ctx)
+			if err != nil || counts.Pending != 2 || counts.Delivered != 2 {
+				t.Fatalf("old evidence must remain pending, not acknowledged: %+v %v", counts, err)
+			}
+			// The old envelopes are retained, not silently deleted or marked
+			// delivered. Restoring the prior configuration can select them again.
+			restored, err := New(ctx, identityA, []x.Identity{identityB}, store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			restored.now = sender.now
+			deliveries, err := restored.Dispatch(ctx, wrongReceipt{}, 1)
+			if err != nil || len(deliveries) != 1 || deliveries[0].Error == "" {
+				t.Fatalf("old envelope evidence lost: %+v %v", deliveries, err)
+			}
+		})
 	}
 }

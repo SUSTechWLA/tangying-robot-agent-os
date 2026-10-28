@@ -151,7 +151,7 @@ def model_request():
     r=begin('图 18-2　模型输入与执行权分离','模型返回候选；当前事实与权限在执行前再次校验。',710)
     r+=box(30,90,'权威事实 / 阶段源',['目标、约束、当前观测','旧记录、未决命令、scope'],width=390)
     r+=box(540,90,'独立工具目录',['当轮 allowlist 与 schema','工具别名映射、能力版本'],width=390,color=1)
-    r+=box(30,280,'ProjectManaged → user',['保留 guards，历史可冷存','system：角色规则与目标'],width=390)
+    r+=box(30,280,'ProjectManaged → user',['保留 guards，仅 Detail 等可外置','system 固定规则；目标在 user'],width=390)
     r+=box(540,280,'序列化模型请求',['messages + tools + 输出预算','保存原正文与 request SHA'],width=390,color=1)
     r+=line(225,195,225,280,'投影',240)
     r+=line(420,330,540,330,'组装',316)
@@ -189,7 +189,7 @@ def kv_prefix():
         r.append(text(567,y+31,'后面文字相同，但历史已不同；不能假定这段缓存可复用',17,anchor='middle'))
     r.append(text(30,674,'必要的新观测不能删；为了命中保留旧授权会破坏正确性。',18,'bold'))
     r.append(text(30,715,'KV 容量 ≈ 2 × 层数 × 序列数 × 长度 × KV 头数 × 头维度 × 每数的字节数',16))
-    r.append(text(30,747,'当前客户端未采集缓存指标；图中优化是待验证的接入设计。',16));r.append('</svg>')
+    r.append(text(30,747,'客户端已有可选 hint / usage；总耗时非 TTFT，实际收益待测。',16));r.append('</svg>')
     return '18-kv-prefix\n'+'\n'.join(r)+'\n'
 
 
@@ -257,7 +257,69 @@ def cas_boundary():
     return '08-cas-outbox\n'+'\n'.join(r)+'\n'
 
 
+def authority_window():
+    r=begin('图 8-3　慢查询之后，再查一次当前执行权',
+            '目录读取期间可能发生取消；最后重查缩短竞争窗口，但不能跨进程原子提交。',790)
+    r+=box(30,95,'初次权限检查',['原任务 / revision / claim','此时有效，不保证稍后仍有效'])
+    r+=box(350,95,'慢 Catalogue RPC',['读取当前能力与合同','等待期间不能冻结外部状态'],color=1)
+    r+=box(670,95,'异步权限变化',['操作员取消 / claim 变更','可在目录返回之前发生'],color=2)
+    r+=line(290,147,350,147,'通过',133)
+    r+=box(350,310,'派发前最后重查',['重新核对当前 authority','不复用初检的“已允许”'])
+    r+=line(480,200,480,310,'目录返回后',257)
+    r.append('<path d="M800,200 L800,362 L610,362" fill="none" stroke="#006f78" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow)"/>')
+    r.append(text(815,285,'权限已变',16))
+    r+=box(30,550,'拒绝本次 dispatch',['记录取消 / 过期 / 版本冲突','候选仍在，也不调用设备'],width=390,color=2)
+    r+=box(540,550,'进入设备执行边界',['Runtime 核对身份 / 租约 / journal','设备反馈与物理后置条件另验'],width=390)
+    r+=line(430,415,225,550,'不通过',477)
+    r+=line(530,415,735,550,'通过',439)
+    r.append('<rect x="540" y="466" width="390" height="51" rx="8" fill="#fff0d5" stroke="#9db8bf" stroke-dasharray="5 4"/>')
+    r.append(text(735,498,'重查 → 派发仍有跨进程时间窗',17,anchor='middle'))
+    r.append(text(30,704,'修复的是“慢查询后仍沿用旧许可”；不能把最后重查说成分布式原子事务。',17,'bold'))
+    r.append(text(30,747,'接收端仍需执行自己的准入、租约与停止规则；物理效果仍在数据库事务外。',17))
+    r.append('</svg>')
+    return '08-authority-window\n'+'\n'.join(r)+'\n'
+
+
+def model_budget():
+    r=begin('图 18-5　模型等待必须放进任务总预算',
+            '12 秒教学算例：模型 4 秒、执行 6 秒、停止 1 秒、余量 1 秒；该调度预算尚未自动实现。',835)
+    r.append(text(30,91,'D − t = B_model + B_exec + B_stop + m',23,'bold'))
+    r.append(text(30,129,'剩余 12 s：先为执行、停止与余量留位，再计算可用模型时间。',18))
+    segments=[(54,284,'模型','4 s',0),(338,426,'执行','6 s',1),
+              (764,71,'停止','1 s',2),(835,71,'余量','1 s',1)]
+    for x,width,label,duration,color in segments:
+        r.append(f'<rect x="{x}" y="155" width="{width}" height="80" fill="{COLORS[color]}" stroke="#9db8bf"/>')
+        r.append(text(x+width/2,188,label,19,'bold','middle'))
+        r.append(text(x+width/2,218,duration,19,anchor='middle'))
+    for x,label in [(54,'0'),(338,'4'),(764,'10'),(835,'11'),(906,'12 s')]:
+        r.append(text(x,261,label,16,anchor='middle'))
+    r.append(text(30,310,'在 4 s 模型预算内比较重试策略（横轴比例相同）',20,'bold'))
+    r.append(text(30,375,'可装入：3.5 s',18,'bold'))
+    r.append(text(30,468,'超预算：4.5 s',18,'bold'))
+    rows=[(340,[(210,240,'尝试 1：1.5 s',0),(450,80,'退避',1),
+                (530,240,'尝试 2：1.5 s',0),(770,80,'剩余',1)]),
+          (433,[(210,320,'尝试 1：2 s',0),(530,80,'退避',1),
+                (610,320,'尝试 2：2 s',2)])]
+    for y,blocks in rows:
+        for x,width,label,color in blocks:
+            r.append(f'<rect x="{x}" y="{y}" width="{width}" height="60" rx="5" fill="{COLORS[color]}" stroke="#9db8bf"/>')
+            r.append(text(x+width/2,y+26,label,16,anchor='middle'))
+            if width==80:
+                r.append(text(x+width/2,y+49,'0.5 s',15,anchor='middle'))
+    r.append('<line x1="850" y1="329" x2="850" y2="526" stroke="#a35d16" stroke-width="2" stroke-dasharray="5 4"/>')
+    r.append(text(850,550,'4 s 边界',16,anchor='middle',color='#925215'))
+    r.append(text(890,520,'超 0.5 s',15,anchor='middle',color='#925215'))
+    r+=box(30,587,'设计预算：尚未自动调度',['执行 / 停止的保守上界需设备验证','每次重试后用当前时刻重算'],width=390,color=2)
+    r+=box(540,587,'已有 ModelCall 观测',['非流式调用耗时、结果与 usage','总耗时 ≠ TTFT ≠ 纯 GPU 时间'],width=390)
+    r.append(text(30,746,'调用限时不等于停止保证；模型重试也不能触发未知物理命令的重放。',18,'bold'))
+    r.append(text(30,795,'现有 Host deadline 与单次模型超时可约束等待；自动执行 / 停止预留仍是扩展设计。',16))
+    r.append('</svg>')
+    return '18-model-budget\n'+'\n'.join(r)+'\n'
+
+
 def all_figures():
+    yield authority_window()
+    yield model_budget()
     yield model_request()
     yield kv_prefix()
     yield domain_contracts()

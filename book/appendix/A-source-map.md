@@ -77,3 +77,15 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 | 第 18 章 | [core/agentcontext/managed.go](../../core/agentcontext/managed.go)、[internal/actionloop/context.go](../../internal/actionloop/context.go) | 保护状态、冷档案、模型请求分别由哪一层生成？ |
 
 若文件在更新分支改名，先检出出版说明指定快照，或在对应包内搜索测试名；不要用相似函数替代语义核验。
+
+## A.6 从本轮修复回到设计推导
+
+| 机制 | 源码与回归 | 教学问题 |
+| --- | --- | --- |
+| 最后时刻的授权 | [Host 竞态测试](../../internal/edgeagent/authority_test.go) | 为什么慢目录 RPC 应排在任务权重查前？ |
+| 预算与停止 | [operation 预算测试](../../internal/capabilityagent/operation_budget_test.go) | 哪些错误不能靠重试自愈，停止为什么仍须核对 owner？ |
+| 身份重配 | [Exchange 往返/重启测试](../../edge/exchange/service_test.go) | 过滤与选择队首为何不交换？ |
+| 模型计算记录 | [请求与 usage 测试](../../internal/actionloop/model_call_test.go) | 0 token 与未报告如何在 SQLite 重启后保持区别？ |
+| 失败轨迹 | [Recovery 失败测试](../../internal/recoveryexec/failure_trace_test.go) | 调用取消为什么不应同时取消记录失败？ |
+
+配置、字段和部署限制见[边缘模型交互运行说明](../../docs/production/edge-brain-model-context.md)。
