@@ -1,0 +1,29 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "./internal/actionloop",
+    "./internal/modelroute",
+    "./core/agentcontext",
+    "./internal/edgeagent",
+    "./internal/capabilityagent",
+    "./internal/recoveryexec",
+    "./internal/agentharness",
+    "./edge/exchange",
+    "./middleware/sqlite",
+    "./core/exchangecontract",
+    "./cmd/local-agent",
+    "./cmd/edge-worker",
+    "./cmd/fleet-control-plane",
+    "./cmd/edge-exchange",
+    "-skip",
+    "Campaign",
+    "-count=1",
+    "-timeout=120s"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 44.66223691694904,
+  "scope": "affected Go packages with race detector; Campaign tests run separately with repeated evidence collector",
+  "logSha256": "fafa4b31ccc413504c7124a13022c945e95fd3c12ec13488cfaec118123dc2db"
+}

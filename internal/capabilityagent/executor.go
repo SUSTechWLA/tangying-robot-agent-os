@@ -439,6 +439,12 @@ func (e *Executor) wait(ctx context.Context, task, step, robot, id string, resul
 		if err != nil && strings.Contains(err.Error(), "OPERATION_LEASE_EXPIRED") {
 			return nil, e.stop(task, step, robot, id, identity, op, fmt.Errorf("%w: operation lease expired", ErrOutcomeUnknown))
 		}
+		if errors.Is(err, ErrNeedsInput) {
+			// A durable budget/input refusal cannot heal by polling. Supervise
+			// only this owned operation's stop now, preserving the original cause
+			// if confirmed; stop() keeps an unconfirmed outcome unknown.
+			return nil, e.stop(task, step, robot, id, identity, op, err)
+		}
 		select {
 		case <-ctx.Done():
 			return nil, e.stop(task, step, robot, id, identity, op, ctx.Err())

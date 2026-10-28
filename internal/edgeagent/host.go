@@ -187,11 +187,17 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if before != nil {
-			if err := before(ctx); err != nil {
-				return err
-			}
+		robot, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
+		if err != nil {
+			return err
 		}
+		if err = c.ValidateCatalog(robot, entries); err != nil {
+			return err
+		}
+		// Catalogue may be a slow remote read. Re-read mutable authority after
+		// it returns, so cancellation, approval/revision changes or an expired
+		// external claim during that read cannot admit the next service call.
+		// This ordering does not replace provider-side fencing at actuation.
 		current, err := h.Tasks.Get(ctx, task.ID)
 		if err != nil {
 			return err
@@ -199,11 +205,12 @@ func (h *Host) runGoal(ctx context.Context, task *tasks.Task, c objective.Contra
 		if !current.Approved || current.CurrentRevision != task.CurrentRevision || capability.Fingerprint(current.Plan) != capability.Fingerprint(task.Plan) || current.State == taskgraph.StateCancelled || current.State == taskgraph.StateFailed {
 			return fmt.Errorf("objective authority changed or cancelled")
 		}
-		robot, entries, err := capabilityagent.Catalogue(ctx, h.Provider)
-		if err != nil {
-			return err
+		if before != nil {
+			if err := before(ctx); err != nil {
+				return err
+			}
 		}
-		return c.ValidateCatalog(robot, entries)
+		return ctx.Err()
 	}
 	if err = checkAuthority(ctx); err != nil {
 		return nil, err

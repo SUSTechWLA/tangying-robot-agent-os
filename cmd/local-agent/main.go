@@ -25,6 +25,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/console"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -260,7 +261,7 @@ func readConfigFile(path string) (map[string]string, error) {
 		"LOCAL_POLICY_ROBOT_MODEL": true, "LOCAL_POLICY_TRANSFORM_REVISION": true, "LOCAL_POLICY_CALIBRATION_REVISION": true,
 	}
 	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
-		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL"} {
+		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL", "CACHE_MODE", "CACHE_NAMESPACE"} {
 			allowed["AGENT_"+stage+"_"+field] = true
 		}
 	}
@@ -608,7 +609,7 @@ func run(configuration config) error {
 				},
 			}.Registry(),
 		),
-		Observer: recoveryObserver{service: service},
+		Observer: recoveryObserver{service: service, robotID: configuration.robotID},
 		// No Approve port: the only way to reach this executor today is the
 		// operator's endpoint, which sets OperatorApproved itself. An automatic
 		// initiator added later must supply one, and until it does, nothing it
@@ -885,11 +886,17 @@ func stepRunDetail(runs []middleware.StepRun) map[string]any {
 // world, or a plan can be approved against a state that has already changed.
 type recoveryObserver struct {
 	service *tasks.Service
+	robotID string // identity already bound to the connected Runtime at startup
 }
 
 func (o recoveryObserver) Observe(ctx context.Context, taskID string) (actionloop.Observation, error) {
 	if strings.TrimSpace(taskID) == "" {
-		return actionloop.Observation{Summary: "没有指定任务；这是一次机器人级的恢复"}, nil
+		observation := actionloop.Observation{Summary: "没有指定任务；这是一次机器人级的恢复"}
+		if o.robotID != "" {
+			observation.Context = &agentcontext.Document{SchemaVersion: agentcontext.Version,
+				Stage: "recovery", Role: "recovery", Scope: agentcontext.Scope{RobotID: o.robotID}}
+		}
+		return observation, nil
 	}
 	task, err := o.service.Get(ctx, taskID)
 	if err != nil {
@@ -1056,5 +1063,5 @@ func (c config) recoveryDecider() (actionloop.Decider, error) {
 		endpoint.APIKey = ""
 	}
 	return &actionloop.LLMDecider{BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey,
-		Model: endpoint.Model, Client: client}, nil
+		Model: endpoint.Model, Cache: endpoint.Cache, Client: client}, nil
 }

@@ -109,6 +109,15 @@ func (s *Service) Prune(ctx context.Context) error { return s.journal.Prune(ctx,
 type Transport interface {
 	Send(context.Context, x.Envelope) (x.Receipt, error)
 }
+
+// identityPendingJournal filters the configured identities before selecting FIFO
+// heads. Otherwise a retained envelope for an old peer identity can hide every
+// valid successor until its TTL expires. The base Journal remains compatible
+// with existing adapters; Dispatch still rejects mismatched identities below.
+type identityPendingJournal interface {
+	PendingFor(context.Context, x.Identity, []x.Identity, int64, int) ([]x.Envelope, error)
+}
+
 type Delivery struct {
 	MessageID string `json:"messageId"`
 	PeerID    string `json:"peerId"`
@@ -121,7 +130,17 @@ func (s *Service) Dispatch(ctx context.Context, transport Transport, limit int) 
 	if transport == nil {
 		return nil, errors.New("exchange transport is required")
 	}
-	pending, err := s.journal.Pending(ctx, s.now().UnixMilli(), limit)
+	var pending []x.Envelope
+	var err error
+	if journal, ok := s.journal.(identityPendingJournal); ok {
+		peers := make([]x.Identity, 0, len(s.peers))
+		for _, peer := range s.peers {
+			peers = append(peers, peer)
+		}
+		pending, err = journal.PendingFor(ctx, s.identity, peers, s.now().UnixMilli(), limit)
+	} else {
+		pending, err = s.journal.Pending(ctx, s.now().UnixMilli(), limit)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +148,8 @@ func (s *Service) Dispatch(ctx context.Context, transport Transport, limit int) 
 	var group sync.WaitGroup
 	for index, e := range pending {
 		// One pending head per peer is selected by the journal. The configured
-		// allowlist bounds concurrent network requests to at most 256; stale
-		// destinations left after configuration changes are reported locally.
+		// allowlist bounds concurrent network requests to at most 256. Retain
+		// this check for legacy adapters and as a second admission boundary.
 		if peer, ok := s.peers[e.Recipient.AgentID]; !ok || peer != e.Recipient || e.Sender != s.identity {
 			result[index] = Delivery{MessageID: e.MessageID, PeerID: e.Recipient.AgentID, Error: "queued envelope identity no longer matches configuration"}
 			continue

@@ -14,6 +14,7 @@ import (
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/securehttp"
 )
 
@@ -64,6 +65,7 @@ type LLMDecider struct {
 	Timeout time.Duration
 	// Client, when set, replaces the default HTTP client. Tests use it.
 	Client *http.Client
+	Cache  modelroute.CachePolicy
 }
 
 // DefaultDecisionTimeout bounds one round's model call.
@@ -75,6 +77,14 @@ const DefaultDecisionTimeout = 20 * time.Second
 
 // Decide asks the model for one round.
 func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, error) {
+	// Even a configuration failure must not leave a preceding call in this trace.
+	if request.ContextSnapshot != nil {
+		request.ContextSnapshot.Model = ""
+		request.ContextSnapshot.ModelCall = nil
+		request.ContextSnapshot.ModelRequest = nil
+		request.ContextSnapshot.ModelRequestJSON = ""
+		request.ContextSnapshot.ModelRequestSHA256 = ""
+	}
 	if strings.TrimSpace(d.BaseURL) == "" {
 		return Decision{}, errors.New("the decider has no model endpoint")
 	}
@@ -114,7 +124,11 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if err != nil {
 		return Decision{}, err
 	}
-	body, err := json.Marshal(chatRequest{
+	cacheID, toolsHash, err := d.cacheIdentity(request, wireTools)
+	if err != nil {
+		return Decision{}, err
+	}
+	payload := chatRequest{
 		MaxTokens: budget.OutputTokens,
 		Model:     d.Model,
 		Messages:  messages(request),
@@ -126,7 +140,14 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		// returned three calls would have decided an order the harness never
 		// validated.
 		ParallelToolCalls: false,
-	})
+	}
+	switch d.Cache.EffectiveMode() {
+	case "openai":
+		payload.PromptCacheKey = cacheID
+	case "vllm":
+		payload.CacheSalt = cacheID
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return Decision{}, err
 	}
@@ -138,12 +159,28 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	request.ContextSnapshot.ModelRequestJSON = string(body)
 	request.ContextSnapshot.ModelRequestSHA256 = agentcontext.Hash(string(body))
 
+	started := time.Now()
+	call := &agentcontext.ModelCall{SchemaVersion: "agent.model-call.v1", PromptTemplateVersion: PromptTemplateVersion,
+		ToolsSHA256: toolsHash, CacheMode: d.Cache.EffectiveMode(), CacheIdentitySHA256: cacheID,
+		StartedAt: started.UTC().Format(time.RFC3339Nano), RequestBytes: len(body), Outcome: "request_error", UsageStatus: "missing"}
+	request.ContextSnapshot.ModelCall = call
+	defer func() { call.DurationMS = time.Since(started).Milliseconds() }()
+
 	timeout := d.Timeout
 	if timeout <= 0 {
 		timeout = DefaultDecisionTimeout
 	}
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	defer func() {
+		if call.Outcome == "transport_error" || call.Outcome == "response_error" {
+			if errors.Is(callCtx.Err(), context.DeadlineExceeded) {
+				call.Outcome = "timeout"
+			} else if errors.Is(callCtx.Err(), context.Canceled) {
+				call.Outcome = "canceled"
+			}
+		}
+	}()
 	httpRequest, err := http.NewRequestWithContext(
 		callCtx, http.MethodPost, strings.TrimRight(d.BaseURL, "/")+"/chat/completions",
 		bytes.NewReader(body))
@@ -160,25 +197,39 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	}
 	response, err := securehttp.NoRedirect(client).Do(httpRequest)
 	if err != nil {
+		call.Outcome = "transport_error"
+		if errors.Is(callCtx.Err(), context.DeadlineExceeded) {
+			call.Outcome = "timeout"
+		} else if errors.Is(callCtx.Err(), context.Canceled) {
+			call.Outcome = "canceled"
+		}
 		return Decision{}, err
 	}
+	call.HTTPStatus = response.StatusCode
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		call.Outcome = "http_error"
 		detail, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		call.ResponseBytes = len(detail)
 		return Decision{}, fmt.Errorf("model returned %d: %s", response.StatusCode, strings.TrimSpace(string(detail)))
 	}
 	const maxModelResponse = 1 << 20
+	call.Outcome = "response_error"
 	result, err := io.ReadAll(io.LimitReader(response.Body, maxModelResponse+1))
+	call.ResponseBytes = len(result)
 	if err != nil {
 		return Decision{}, err
 	}
 	if len(result) > maxModelResponse {
 		return Decision{}, errors.New("model response exceeds 1 MiB")
 	}
+	call.ResponseSHA256 = agentcontext.Hash(string(result))
 	var completion chatResponse
 	if err := json.Unmarshal(result, &completion); err != nil {
 		return Decision{}, err
 	}
+	call.Usage, call.UsageStatus = modelUsage(completion.Usage)
+	call.Outcome = "invalid_decision"
 	if len(completion.Choices) == 0 {
 		return Decision{}, errors.New("the model returned no choices")
 	}
@@ -191,7 +242,11 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		}
 		message.ToolCalls[i].Function.Name = original
 	}
-	return decisionFrom(message, request.Tools)
+	decision, err := decisionFrom(message, request.Tools)
+	if err == nil {
+		call.Outcome = "accepted"
+	}
+	return decision, err
 }
 
 // decisionFrom turns the model's message into a decision.
@@ -284,18 +339,17 @@ func describeRound(round Round) string {
 	return round.Tool + "（" + round.Reason + "）"
 }
 
-// systemPrompt states the goal and the rules that will be enforced.
+// systemPrompt is a stable rule prefix. The changing goal is in the managed user context.
 func systemPrompt(request Request) string {
 	if request.Role == "planning" {
-		return "你是机器人目标 Agent。每轮必须只调用一个工具；如需多项读取，请分多轮调用。你可逐轮调用提供的只读语义工具理解当前标定、地图、定位和地点状态；这些工具返回融合后的结构化数据，不读取原始 IMU 或图像。涉及条件的目标先取证，再由你决定分支。完整保留用户的否定、顺序、约束和目标；不预设固定步骤。最终用 propose_capability_plan 提交有界、完整的动作计划供审批，提案本身不会执行。缺少能力、条件或存在歧义时用 cannot_proceed 澄清；绝不能用 finish 宣称机器人已经完成任务。目标：" + request.Goal
+		return "你是机器人目标 Agent。每轮必须只调用一个工具；如需多项读取，请分多轮调用。你可逐轮调用提供的只读语义工具理解当前标定、地图、定位和地点状态；这些工具返回融合后的结构化数据，不读取原始 IMU 或图像。涉及条件的目标先取证，再由你决定分支。完整保留用户的否定、顺序、约束和目标；不预设固定步骤。最终用 propose_capability_plan 提交有界、完整的动作计划供审批，提案本身不会执行。缺少能力、条件或存在歧义时用 cannot_proceed 澄清；绝不能用 finish 宣称机器人已经完成任务。"
 	}
 	var builder strings.Builder
 	if request.Role == "system" {
 		builder.WriteString("你是机群服务器的系统任务 Agent。每一轮只能调用一个已提供的 Fleet 工具、报告分析或提案已完成，或说明无法继续。任务草案仍需独立操作员审批，绝不能把模型文字当成机器人动作授权。\n\n")
 	} else {
-		builder.WriteString("你是一台家用机器人的执行决策器。每一轮你只能做一件事：调用一个工具、宣告任务完成、或者说明你无法继续。\n\n")
+		builder.WriteString("你是边缘机器人的执行决策器。每一轮你只能做一件事：调用一个工具、宣告任务完成、或者说明你无法继续。\n\n")
 	}
-	builder.WriteString("目标：" + request.Goal + "\n\n")
 	builder.WriteString("规则（由 harness 强制执行，不是建议）：\n")
 	builder.WriteString("- 工具返回成功不等于完成：改变世界的动作必须有动作之后的新鲜观测才能确认。\n")
 	builder.WriteString("- 物理动作需要人工批准；没有被批准的物理动作不会执行，也不会换一个工具绕过去。\n")
@@ -394,6 +448,8 @@ func parametersSchema(names []string) map[string]any {
 // Wire shapes. They mirror the OpenAI chat-completions format, which every
 // OpenAI-compatible endpoint this repository talks to also speaks.
 type chatRequest struct {
+	PromptCacheKey    string        `json:"prompt_cache_key,omitempty"`
+	CacheSalt         string        `json:"cache_salt,omitempty"`
 	MaxTokens         int           `json:"max_tokens,omitempty"`
 	Model             string        `json:"model"`
 	Messages          []chatMessage `json:"messages"`
@@ -429,6 +485,7 @@ type toolFunction struct {
 }
 
 type chatResponse struct {
+	Usage   json.RawMessage `json:"usage,omitempty"`
 	Choices []struct {
 		Message chatMessage `json:"message"`
 	} `json:"choices"`

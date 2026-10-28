@@ -77,3 +77,51 @@ func TestRejectWorldReadableSecrets(t *testing.T) {
 		t.Fatal("public secret accepted")
 	}
 }
+
+func TestRejectCrossPeerIncomingCredentialDisclosureRegardlessOfOrder(t *testing.T) {
+	for _, reverse := range []bool{false, true} {
+		name := "destination-after-credential-owner"
+		if reverse {
+			name = "destination-before-credential-owner"
+		}
+		t.Run(name, func(t *testing.T) {
+			c, path := testConfig(t)
+			dir := filepath.Dir(path)
+			write := func(name, value string) string {
+				path := filepath.Join(dir, name)
+				if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				return path
+			}
+			// A different file still leaks the same bearer value. Check values,
+			// never just paths, and never echo a token in a configuration error.
+			leakedToken := strings.Repeat("b", 32)
+			other := peerConfig{Identity: x.Identity{AgentID: "edge-c", RobotID: "legged-c", Domain: "lab"}, URL: "http://127.0.0.1:9831", IncomingTokenFile: write("incoming-c", strings.Repeat("d", 32)), OutgoingTokenFile: write("outgoing-c", leakedToken)}
+			c.Peers = append(c.Peers, other)
+			if reverse {
+				c.Peers[0], c.Peers[1] = c.Peers[1], c.Peers[0]
+			}
+			saveConfig(t, c, path)
+			_, err := loadConfig(path)
+			if err == nil || !strings.Contains(err.Error(), "another peer's incoming token") {
+				t.Fatalf("cross-peer credential reuse accepted: %v", err)
+			}
+			if strings.Contains(err.Error(), leakedToken) || strings.Contains(err.Error(), strings.Repeat("d", 32)) {
+				t.Fatal("configuration error disclosed a bearer credential")
+			}
+			if _, err := os.Stat(filepath.Dir(c.Database)); !os.IsNotExist(err) {
+				t.Fatal("rejected configuration created state directory")
+			}
+		})
+	}
+}
+
+func TestSamePeerSymmetricCredentialRemainsCompatible(t *testing.T) {
+	c, path := testConfig(t)
+	c.Peers[0].OutgoingTokenFile = c.Peers[0].IncomingTokenFile
+	saveConfig(t, c, path)
+	if _, err := loadConfig(path); err != nil {
+		t.Fatalf("symmetric token for its own authenticated peer rejected: %v", err)
+	}
+}

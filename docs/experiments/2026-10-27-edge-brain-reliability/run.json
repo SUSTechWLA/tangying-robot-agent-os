@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "edge.brain.reliability.v1",
+  "startedAtUTC": "2026-10-28T00:09:06.363364+00:00",
+  "planDate": "2026-10-27",
+  "reportDateAsiaShanghai": "2026-10-28",
+  "command": [
+    "go",
+    "test",
+    "-json",
+    "-race",
+    "-count=1",
+    "-timeout=180s",
+    "-run",
+    "^(?:TestScopedDispatchSurvivesPeerReconfigurationAndRestart|TestRejectCrossPeerIncomingCredentialDisclosureRegardlessOfOrder|TestSingleRobotCampaignSQLiteCloseReopen|TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix|TestDelegatedCompletionReadFailureIsBoundedAcrossRestart|TestPlanningReadBudgetLeavesArchiveThenTwoProposalDecisions)$",
+    "./edge/exchange",
+    "./cmd/edge-exchange",
+    "./internal/edgeagent",
+    "./internal/capabilityagent"
+  ],
+  "repeats": 10,
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "cpuCount": 10,
+  "pythonVersion": "3.11.9",
+  "goVersion": "go version go1.26.2 darwin/arm64",
+  "goEnvironment": {
+    "CGO_ENABLED": "1",
+    "GOARCH": "arm64",
+    "GOOS": "darwin",
+    "GOTOOLCHAIN": "local",
+    "GOVERSION": "go1.26.2"
+  },
+  "explicitEnvironmentOverrides": {
+    "GOFLAGS": "",
+    "GORACE": "",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off"
+  },
+  "removedContextEnvironmentVariables": [
+    "TANGYING_AGENT_CONTEXT",
+    "TANGYING_CONTEXT_SYNTAX",
+    "TANGYING_CONTEXT_ORDER",
+    "TANGYING_CONTEXT_ANNOTATION",
+    "TANGYING_CONTEXT_MAX_BYTES",
+    "TANGYING_MODEL_REQUEST_MAX_BYTES",
+    "TANGYING_MODEL_OUTPUT_TOKENS"
+  ],
+  "sourceIdentity": "SHA-256 of the saved repository Go sources, go.mod/go.sum and this runner; no Git command is executed",
+  "initialSourceSetDigest": "ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519",
+  "evidenceType": "deterministic_in_process_software_contract_fixture",
+  "gazebo": false,
+  "realRobot": false,
+  "externalModelInference": false,
+  "sampling": "Repeated deterministic scenarios on one host; repetitions are not independent robot trials",
+  "limits": {
+    "rawLogBytesPerRound": 8388608,
+    "outerTimeoutSecondsPerRound": 240
+  }
+}

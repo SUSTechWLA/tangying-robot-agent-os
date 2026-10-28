@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
 )
@@ -241,5 +242,36 @@ func TestAMissingDefaultConfigIsNotAnError(t *testing.T) {
 	}
 	if len(values) != 0 {
 		t.Fatalf("values = %#v, want none", values)
+	}
+}
+
+func TestCachePolicyFromLocalFileReachesGoalAndRecoveryDeciders(t *testing.T) {
+	path := t.TempDir() + "/cache.env"
+	content := "LOCAL_ROBOT_ID=robot-cache\nAGENT_PROVIDER=deterministic\n" +
+		"AGENT_GOAL_PROVIDER=openai\nAGENT_GOAL_BASE_URL=http://127.0.0.1:8000/v1\nAGENT_GOAL_MODEL=local\nAGENT_GOAL_CACHE_MODE=vllm\nAGENT_GOAL_CACHE_NAMESPACE=site-A\n" +
+		"AGENT_RECOVERY_PROVIDER=openai\nAGENT_RECOVERY_BASE_URL=https://example.com/v1\nAGENT_RECOVERY_MODEL=remote\nAGENT_RECOVERY_CACHE_MODE=openai\nAGENT_RECOVERY_CACHE_NAMESPACE=site-A\n"
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := parseConfig([]string{"--config", path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.model(modelroute.Goal).Cache.Mode != "vllm" || c.model(modelroute.Recovery).Cache.Mode != "openai" || c.model(modelroute.Intent).Cache.EffectiveMode() != "off" {
+		t.Fatal("cache routes not isolated")
+	}
+	p, err := c.goalPlanner(nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Decider.(*actionloop.LLMDecider).Cache.Mode != "vllm" {
+		t.Fatal("goal decider dropped cache policy")
+	}
+	d, err := c.recoveryDecider()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.(*actionloop.LLMDecider).Cache.Namespace != "site-A" {
+		t.Fatal("recovery decider dropped cache namespace")
 	}
 }

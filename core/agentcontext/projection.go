@@ -25,8 +25,9 @@ type Projection struct {
 	ModelRequest    json.RawMessage  `json:"model_request,omitempty"`
 	// A string preserves exact transport bytes across map/SQLite/HTTP projections.
 	// model_request remains a convenient structured view for older consumers.
-	ModelRequestJSON   string `json:"model_request_json,omitempty"`
-	ModelRequestSHA256 string `json:"model_request_sha256,omitempty"`
+	ModelRequestJSON   string     `json:"model_request_json,omitempty"`
+	ModelRequestSHA256 string     `json:"model_request_sha256,omitempty"`
+	ModelCall          *ModelCall `json:"model_call,omitempty"`
 }
 
 func (p Projection) ModelRequestBytes() ([]byte, error) {

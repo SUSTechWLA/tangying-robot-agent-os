@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "edge.brain.reliability.summary.v1",
+  "startedAtUTC": "2026-10-28T00:09:06.363364+00:00",
+  "finishedAtUTC": "2026-10-28T00:14:13.580478+00:00",
+  "passed": true,
+  "stableSourceAcrossCampaign": true,
+  "initialSourceSetDigest": "ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519",
+  "finalSourceSetDigest": "ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519",
+  "plannedRounds": 10,
+  "executedRounds": 10,
+  "roundsPassingAssertions": 10,
+  "roundsWithSourceChanges": [],
+  "denominators": {
+    "plannedTopLevelTestExecutions": 60,
+    "observedTopLevelTestExecutions": 60,
+    "failedTopLevelTestExecutions": 0,
+    "observedLeafTestExecutions": 110,
+    "failedLeafTestExecutions": 0
+  },
+  "totalWallSeconds": 306.63957724906504,
+  "perTest": [
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange",
+      "test": "TestRejectCrossPeerIncomingCredentialDisclosureRegardlessOfOrder",
+      "plannedExecutions": 10,
+      "observedExecutions": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "medianTestSeconds": 0.0,
+      "maxTestSeconds": 0
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+      "test": "TestScopedDispatchSurvivesPeerReconfigurationAndRestart",
+      "plannedExecutions": 10,
+      "observedExecutions": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "medianTestSeconds": 0.17,
+      "maxTestSeconds": 0.37
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+      "test": "TestPlanningReadBudgetLeavesArchiveThenTwoProposalDecisions",
+      "plannedExecutions": 10,
+      "observedExecutions": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "medianTestSeconds": 0.04,
+      "maxTestSeconds": 0.13
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestDelegatedCompletionReadFailureIsBoundedAcrossRestart",
+      "plannedExecutions": 10,
+      "observedExecutions": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "medianTestSeconds": 0.54,
+      "maxTestSeconds": 0.58
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+      "plannedExecutions": 10,
+      "observedExecutions": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "medianTestSeconds": 19.455,
+      "maxTestSeconds": 22.74
+    },
+    {
+      "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+      "plannedExecutions": 10,
+      "observedExecutions": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "medianTestSeconds": 7.074999999999999,
+      "maxTestSeconds": 7.48
+    }
+  ],
+  "taskRecordOutcomes": {
+    "SUCCEEDED": 10,
+    "RECONCILIATION": 10,
+    "FAILED_UNEXPECTED": 0
+  },
+  "limitations": [
+    "Software contract assertions only; no Gazebo, ROS 2 runtime, real robot, or external LLM was used.",
+    "32-step success and 64-step target stopped at unknown write 25 have different outcomes and denominators.",
+    "Repeated deterministic cases are not independent samples of physical mission reliability.",
+    "Go race instrumentation, compilation and host contention affect wall time; no real-time latency or MTBF estimate.",
+    "Any source change excludes the campaign from a single-version acceptance claim; raw outcomes remain retained."
+  ]
+}
