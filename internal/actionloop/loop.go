@@ -378,7 +378,8 @@ func (l Loop) maxUnproductive() int {
 // It never returns an error for a refusal or a failed call: those are rounds, and
 // rounds are the record. An error is returned only when the loop could not run at
 // all — no decider, or an unreadable world — because those are the caller's
-// problems rather than the task's.
+// problems rather than the task's. An explicitly configured accounting failure
+// is also terminal: another model response cannot repair the required ledger.
 func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 	if l.Decider == nil {
 		return Outcome{}, errors.New("actionloop requires a decider")
@@ -464,6 +465,11 @@ func (l Loop) Run(ctx context.Context, goal string) (Outcome, error) {
 				Round: round, Candidates: names(request.Tools), Verdict: VerdictRefused,
 				Detail: "决策失败：" + err.Error(), ObservedAt: l.now(),
 			}))
+			if errors.Is(err, ErrModelUsageLog) {
+				outcome.Escalated = true
+				outcome.Reason = "模型调用计量无法持久化；保留当前尝试并停止，修复账本后再继续"
+				return outcome, err
+			}
 			if unproductive >= l.maxUnproductive() {
 				outcome.Escalated = true
 				outcome.Reason = "模型连续两次没能给出可执行的决策，需要人工介入"

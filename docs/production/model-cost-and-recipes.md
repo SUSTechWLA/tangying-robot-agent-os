@@ -80,6 +80,23 @@ python3 scripts/model_usage_report.py /var/lib/tangying-agent/model-usage.jsonl 
 
 启用计量后，调用前写入失败就拒绝发新请求；结果落盘失败时保留真实 ModelCall 并拒绝消费候选，不把已发送请求记成“未调用”。尾行不完整会阻止继续追加：先保存原文件和失败痕迹，离线核对后切换到新账本，不静默截断。计量文件没有自动轮转，应监测磁盘并归档；不能在活动写入时用复制/截断制造遗漏。
 
+### 区分模型可修正错误、计量故障与取消
+
+显式启用的计量账本属于本次调用必须满足的运行条件。写入失败返回可由 `errors.Is(err, actionloop.ErrModelUsageLog)` 识别的错误；GOAL 规划器和 RECOVERY / SYSTEM 共用的 `actionloop.Loop` 都保留当前 round / ModelCall 后立即终止。Loop 同时返回 `Escalated=true` 和原错误，不将它改成普通拒绝后的 `nil` 错误。修复文件权限、磁盘或日志完整性前，再请求一个模型回答无法解决此故障。
+
+| 情况 | 留存的事实 | 后续处理 |
+| --- | --- | --- |
+| 普通模型输出不符合工具协议 | 原请求、响应状态和拒绝原因 | 在原决策/无进展预算内允许修正；不增加预算或执行无效候选 |
+| `start` 落盘失败 | 本次客户端准备记录、`usage_log_status=write_error`；尚未发出 HTTP | 返回 `ErrModelUsageLog`，停止本轮，不请求模型解释文件故障 |
+| 已收到 HTTP 响应，但 `result` 落盘失败 | ModelCall 中保留 HTTP 状态、解析结果和已返回 usage；独立账本可能只有 `start` | 返回 `ErrModelUsageLog`，拒绝消费候选，不重试模型来覆盖缺失记录 |
+| 父任务取消或期限耗尽 | 已有规划 trace；在途 Provider 读取或模型尝试的状态 | 结束本轮并保留 `context.Canceled` / `context.DeadlineExceeded` 身份，不继续发起规划决策 |
+
+普通规划在进入下一轮、模型返回后和 Provider 读取返回后检查父 context；即使底层读取在取消后仍返回结构化结果，也不能凭该结果继续规划。取消与计量失败都不是“模型没有听懂”，不能把它们反复反馈给模型要求修复。模型自身的临时传输/格式错误仍按原有有限重试策略处理，不据此承诺所有网络错误都能恢复。
+
+例如，服务已返回 100 个 prompt tokens，而本机 `result` 写入失败：任务 trace 可以保留这个已知字段，独立 usage 报告则将对应 start 列为 unfinished。二者记录的是不同的证据完整性，不能将报告中的未知字段补成 0，也不能把请求重发后的一条成功记录当作原失败不存在。另需区分 **ModelCall 客户端尝试数**和**服务实际收到的 HTTP 请求数**：取消的 context 可以在 HTTP 发出前阻止请求，尝试记录本身不证明服务已计费。
+
+可复现的取消、计量故障、SQLite 重开与重复规划场景见[本轮成本路径验证](../experiments/2026-10-28-edge-task-validation/cost/README.md)。它验证实际 HTTP/SQLite 接线，usage 是 fixture 数值，且只完成规划，没有执行机器人动作。
+
 ## 4. 如何比较效果
 
 用相同目标、机器人目录、初始语义条件和配置分别执行 `off`、`hint`、`validated`；再加入状态变化、不同目标、重启、超期、权限拒绝和取消负例。至少记录：模型调用数、Provider 查询数、请求字节、返回的 prompt/completion/cached tokens、usage 缺失率、规划耗时、计划有效率、任务最终结果以及 unknown/拒绝次数。

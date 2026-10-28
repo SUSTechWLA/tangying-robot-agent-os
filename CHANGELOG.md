@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 任务复测后修复规划取消/计量故障的错误重试、peer 小批次发送饥饿与歧义/超长 ACK 接受、Gazebo 停止锁存的就绪误判；保留三机器人完整路线、独立 6 项停止及 HTTP/SQLite 故障重启原始证据。物理运行版本与新补丁软件验证分开，UAV 接触覆盖仍未证实。见[变更](docs/development/2026-10-28-task-validation-fixes.md)与[实验](docs/experiments/2026-10-28-edge-task-validation/README.md)。
+
 - 改善边缘持续运行与模型成本管理：SQLite 按流最新值生成协作视图，长任务审计增量追加，GOAL/RECOVERY 输出预算与可汇总调用用量，重复目标的持久规划经验及当前条件重验证；同步 README、架构和运维资料。实现、兼容与实际验证见[升级记录](docs/development/2026-10-28-edge-scalability.md)。
 
 - 强化边缘执行与教材 3.2.0：修复慢目录读取后的授权竞态、operation 读预算耗尽后无效轮询、身份重配队首堵塞与跨 peer 凭据错误复用；接通可选缓存提示、可缺失的模型用量和失败轨迹，保留取消后的审计写入。重复软件实验、实现边界与教材推导见[本轮记录](docs/development/2026-10-28-edge-brain-reliability.md)。

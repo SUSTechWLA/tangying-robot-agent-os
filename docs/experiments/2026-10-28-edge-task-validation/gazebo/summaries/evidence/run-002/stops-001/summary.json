@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "gazebo.physical_stop_checks.v1",
+  "setup": {
+    "ready": true,
+    "attempts": 2,
+    "elapsedWallSeconds": 0.10254145900000822,
+    "initialSimulationTimes": {
+      "ground-a": 98.284,
+      "ground-b": 98.284,
+      "uav-a": 98.284
+    },
+    "readySimulationTimes": {
+      "ground-a": 98.392,
+      "ground-b": 98.392,
+      "uav-a": 98.392
+    },
+    "motionCommandsSent": false
+  },
+  "trials": [
+    {
+      "robotId": "ground-a",
+      "mode": "watchdog",
+      "passed": false,
+      "landingVerified": false,
+      "commandId": "stop-check-ground-a-watchdog-9c509a1a66b04befb06f831db0d4bd4d",
+      "goal": {
+        "robotId": "ground-a",
+        "commandId": "stop-check-ground-a-watchdog-9c509a1a66b04befb06f831db0d4bd4d",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793198939110,
+        "goalPose": [
+          -0.4709772995578305,
+          -0.938273003863534,
+          0.14999995610025968,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "error": "HTTP Error 400: Bad Request",
+      "cleanupError": "HTTP Error 400: Bad Request"
+    },
+    {
+      "robotId": "ground-a",
+      "mode": "explicit_stop",
+      "passed": false,
+      "skippedReason": "watchdog trial failed; robot latched stopped"
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "watchdog",
+      "passed": false,
+      "landingVerified": false,
+      "commandId": "stop-check-ground-b-watchdog-eb2dff50bd33415499fe29499c867cdc",
+      "goal": {
+        "robotId": "ground-b",
+        "commandId": "stop-check-ground-b-watchdog-eb2dff50bd33415499fe29499c867cdc",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793198939111,
+        "goalPose": [
+          0.4710121495371904,
+          0.938113838161774,
+          0.14999995610025946,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "error": "HTTP Error 400: Bad Request",
+      "cleanupError": "HTTP Error 400: Bad Request"
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "explicit_stop",
+      "passed": false,
+      "skippedReason": "watchdog trial failed; robot latched stopped"
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "watchdog",
+      "passed": false,
+      "landingVerified": false,
+      "commandId": "stop-check-uav-a-watchdog-3c3aab37fada43959003553141d2e4dc",
+      "goal": {
+        "robotId": "uav-a",
+        "commandId": "stop-check-uav-a-watchdog-3c3aab37fada43959003553141d2e4dc",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793198939112,
+        "goalPose": [
+          -1.4992946810940115,
+          -3.002112882958049,
+          1.199686250927825,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "error": "HTTP Error 400: Bad Request",
+      "cleanupError": "HTTP Error 400: Bad Request"
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "explicit_stop",
+      "passed": false,
+      "skippedReason": "watchdog trial failed; robot latched stopped"
+    }
+  ],
+  "passed": false,
+  "outcome": "trial_failure",
+  "uavStopMode": "hover",
+  "landingVerified": false,
+  "hardwareValidation": false,
+  "poseResetUsed": false,
+  "physicalStateSource": "Gazebo force-driven rigid-body physics"
+}

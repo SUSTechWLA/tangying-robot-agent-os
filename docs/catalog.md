@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **285 份 Markdown** 与 **1036 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **290 份 Markdown** 与 **1128 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 114 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 115 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 20 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 53 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 57 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -191,6 +191,7 @@
 | [2026-10-28 · 边缘长任务与协作状态扩展计划](development/2026-10-28-edge-scalability-plan.md) | `development/2026-10-28-edge-scalability-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 · 持续运行、模型成本与规划经验升级](development/2026-10-28-edge-scalability.md) | `development/2026-10-28-edge-scalability.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 边缘系统能力与实机接入评估](development/2026-10-28-system-upgrade-assessment.md) | `development/2026-10-28-system-upgrade-assessment.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 任务复测后的边缘故障修复](development/2026-10-28-task-validation-fixes.md) | `development/2026-10-28-task-validation-fixes.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -362,6 +363,10 @@
 | [执行前范围核对](experiments/2026-10-27-edge-brain-reliability/scope-review.md) | `experiments/2026-10-27-edge-brain-reliability/scope-review.md` | 实验 / 验收记录 |
 | [2026-10-28 边缘持续运行与成本实验](experiments/2026-10-28-edge-scalability/README.md) | `experiments/2026-10-28-edge-scalability/README.md` | 导航 / 维护 |
 | [Edge long-task journal performance evidence](experiments/2026-10-28-edge-scalability/performance/README.md) | `experiments/2026-10-28-edge-scalability/performance/README.md` | 导航 / 维护 |
+| [2026-10-28 边缘任务复测与故障修复](experiments/2026-10-28-edge-task-validation/README.md) | `experiments/2026-10-28-edge-task-validation/README.md` | 导航 / 维护 |
+| [Model cost and recipe integration validation — 2026-10-28](experiments/2026-10-28-edge-task-validation/cost/README.md) | `experiments/2026-10-28-edge-task-validation/cost/README.md` | 导航 / 维护 |
+| [Gazebo 三机器人任务与停止证据](experiments/2026-10-28-edge-task-validation/gazebo/README.md) | `experiments/2026-10-28-edge-task-validation/gazebo/README.md` | 导航 / 维护 |
+| [通信与云边故障验收（2026-10-28，Asia/Shanghai）](experiments/2026-10-28-edge-task-validation/peer/README.md) | `experiments/2026-10-28-edge-task-validation/peer/README.md` | 导航 / 维护 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -565,6 +570,98 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [sha256.json](experiments/2026-10-28-edge-scalability/verification-final/sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
 | [source-sha256.json](experiments/2026-10-28-edge-scalability/verification-final/source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
 | [summary.json](experiments/2026-10-28-edge-scalability/verification-final/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [archive-sha256.json](experiments/2026-10-28-edge-task-validation/archive-sha256.json) | JSON | `experiments/2026-10-28-edge-task-validation` |
+| [book-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/book-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [catalog-build.txt](experiments/2026-10-28-edge-task-validation/checks-final/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [catalog-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [diff-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/diff-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [gazebo-archive.txt](experiments/2026-10-28-edge-task-validation/checks-final/gazebo-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [go-docs.txt](experiments/2026-10-28-edge-task-validation/checks-final/go-docs.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [gofmt.txt](experiments/2026-10-28-edge-task-validation/checks-final/gofmt.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [peer-archive.txt](experiments/2026-10-28-edge-task-validation/checks-final/peer-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [python-docs.txt](experiments/2026-10-28-edge-task-validation/checks-final/python-docs.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [ruff.txt](experiments/2026-10-28-edge-task-validation/checks-final/ruff.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [staged-diff-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/staged-diff-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/checks-final/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [book-check.txt](experiments/2026-10-28-edge-task-validation/checks-initial/book-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [catalog-build.txt](experiments/2026-10-28-edge-task-validation/checks-initial/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [catalog-check.txt](experiments/2026-10-28-edge-task-validation/checks-initial/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [diff-check.txt](experiments/2026-10-28-edge-task-validation/checks-initial/diff-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [gazebo-archive.txt](experiments/2026-10-28-edge-task-validation/checks-initial/gazebo-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [go-docs.txt](experiments/2026-10-28-edge-task-validation/checks-initial/go-docs.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [gofmt.txt](experiments/2026-10-28-edge-task-validation/checks-initial/gofmt.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [peer-archive.txt](experiments/2026-10-28-edge-task-validation/checks-initial/peer-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [python-docs.txt.gz](experiments/2026-10-28-edge-task-validation/checks-initial/python-docs.txt.gz) | GZ | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [ruff.txt](experiments/2026-10-28-edge-task-validation/checks-initial/ruff.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/checks-initial/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [MANIFEST.json](experiments/2026-10-28-edge-task-validation/cost/MANIFEST.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [affected-race-test.log](experiments/2026-10-28-edge-task-validation/cost/affected-race-test.log) | LOG | `experiments/2026-10-28-edge-task-validation/cost` |
+| [cases.json](experiments/2026-10-28-edge-task-validation/cost/after/cases.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [model-usage.jsonl](experiments/2026-10-28-edge-task-validation/cost/after/model-usage.jsonl) | JSONL | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/cost/after/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [usage-report.json](experiments/2026-10-28-edge-task-validation/cost/after/usage-report.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [after-source.json](experiments/2026-10-28-edge-task-validation/cost/after-source.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [baseline-source.json](experiments/2026-10-28-edge-task-validation/cost/baseline-source.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [baseline-test.log](experiments/2026-10-28-edge-task-validation/cost/baseline-test.log) | LOG | `experiments/2026-10-28-edge-task-validation/cost` |
+| [cases.json](experiments/2026-10-28-edge-task-validation/cost/before/cases.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [model-usage.jsonl](experiments/2026-10-28-edge-task-validation/cost/before/model-usage.jsonl) | JSONL | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/cost/before/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [usage-report.json](experiments/2026-10-28-edge-task-validation/cost/before/usage-report.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [commands.json](experiments/2026-10-28-edge-task-validation/cost/commands.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [comparison.json](experiments/2026-10-28-edge-task-validation/cost/comparison.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [final-source-after.json](experiments/2026-10-28-edge-task-validation/cost/final-source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [final-source-before.json](experiments/2026-10-28-edge-task-validation/cost/final-source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [final-targeted.jsonl](experiments/2026-10-28-edge-task-validation/cost/final-targeted.jsonl) | JSONL | `experiments/2026-10-28-edge-task-validation/cost` |
+| [loop-baseline-test.log](experiments/2026-10-28-edge-task-validation/cost/loop-baseline-test.log) | LOG | `experiments/2026-10-28-edge-task-validation/cost` |
+| [llmdecider.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/llmdecider.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [loop.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/loop.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [usage_log.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/usage_log.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [usage_log_test.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/usage_log_test.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [cost_campaign_test.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent/cost_campaign_test.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent` |
+| [planner.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent/planner.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent` |
+| [cost_campaign_test.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/before/cost_campaign_test.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/before` |
+| [environment.json](experiments/2026-10-28-edge-task-validation/gazebo/environment.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [frozen-source-manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/frozen-source-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [patch-manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/patch-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [evidence.tar.gz](experiments/2026-10-28-edge-task-validation/gazebo/public/evidence.tar.gz) | GZ | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/public/manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [redactions.json](experiments/2026-10-28-edge-task-validation/gazebo/public/redactions.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [verify.py](experiments/2026-10-28-edge-task-validation/gazebo/public/verify.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [restoration.json](experiments/2026-10-28-edge-task-validation/gazebo/restoration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [run-env.sh](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-env.sh) | SH | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [run-field-002.py](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-field-002.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [run-field.py](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-field.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [run-stops-003.py](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-stops-003.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [stop-regression.txt](experiments/2026-10-28-edge-task-validation/gazebo/stop-regression.txt) | TXT | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [orchestration.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/orchestration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence` |
+| [input-manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis/input-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis` |
+| [metrics.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis/metrics.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/campaign-001/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/campaign-001` |
+| [orchestration.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/orchestration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/stops-001/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/stops-001` |
+| [orchestration.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops/orchestration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops/stops-001/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops/stops-001` |
+| [pytest.txt](experiments/2026-10-28-edge-task-validation/harness/pytest.txt) | TXT | `experiments/2026-10-28-edge-task-validation/harness` |
+| [results.xml](experiments/2026-10-28-edge-task-validation/harness/results.xml) | XML | `experiments/2026-10-28-edge-task-validation/harness` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/harness/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/harness` |
+| [SHA256SUMS](experiments/2026-10-28-edge-task-validation/peer/SHA256SUMS) |  | `experiments/2026-10-28-edge-task-validation/peer` |
+| [evidence-manifest.json](experiments/2026-10-28-edge-task-validation/peer/evidence-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/peer` |
+| [exchange-changes.patch.gz](experiments/2026-10-28-edge-task-validation/peer/exchange-changes.patch.gz) | GZ | `experiments/2026-10-28-edge-task-validation/peer` |
+| [raw-evidence.tar.gz](experiments/2026-10-28-edge-task-validation/peer/raw-evidence.tar.gz) | GZ | `experiments/2026-10-28-edge-task-validation/peer` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/peer/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/peer` |
+| [verify_evidence.py](experiments/2026-10-28-edge-task-validation/peer/verify_evidence.py) | PY | `experiments/2026-10-28-edge-task-validation/peer` |
+| [metadata.json](experiments/2026-10-28-edge-task-validation/verification/go-final/metadata.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [output.txt](experiments/2026-10-28-edge-task-validation/verification/go-final/output.txt) | TXT | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [result.json](experiments/2026-10-28-edge-task-validation/verification/go-final/result.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [source-after.json](experiments/2026-10-28-edge-task-validation/verification/go-final/source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [source-before.json](experiments/2026-10-28-edge-task-validation/verification/go-final/source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [metadata.json](experiments/2026-10-28-edge-task-validation/verification/python-final/metadata.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [output.txt](experiments/2026-10-28-edge-task-validation/verification/python-final/output.txt) | TXT | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [result.json](experiments/2026-10-28-edge-task-validation/verification/python-final/result.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [results.xml](experiments/2026-10-28-edge-task-validation/verification/python-final/results.xml) | XML | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [source-after.json](experiments/2026-10-28-edge-task-validation/verification/python-final/source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [source-before.json](experiments/2026-10-28-edge-task-validation/verification/python-final/source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [run.py](experiments/2026-10-28-edge-task-validation/verification/run.py) | PY | `experiments/2026-10-28-edge-task-validation/verification` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |

@@ -1,0 +1,69 @@
+{
+  "baseline": "a98c0681d",
+  "startedAtUnixMs": 1793198698590,
+  "naturalLanguageEntry": "/v1/tasks deterministic legacy route",
+  "newGoalRecipeUsageHierarchicalHostValidated": false,
+  "rosDomainId": 128,
+  "gzPartition": "tangying-field-20261028-001",
+  "seed": [
+    3
+  ],
+  "robots": [
+    "ground-a",
+    "ground-b",
+    "uav-a"
+  ],
+  "worldResetDuringTasks": false,
+  "commands": [
+    [
+      "gz",
+      "sim",
+      "-s",
+      "--headless-rendering",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/world.sdf"
+    ],
+    [
+      "/opt/navigation-venv/bin/python",
+      "sim/gazebo/field_hub.py",
+      "--transport",
+      "/tmp/tangying-gazebo-field-20261028-001/build/field-transport",
+      "--output",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/hub",
+      "--port",
+      "18128"
+    ],
+    [
+      "/opt/navigation-venv/bin/python",
+      "scripts/run_gazebo_field_campaign.py",
+      "--binary",
+      "/tmp/tangying-gazebo-field-20261028-001/source/bin/local-agent",
+      "--output",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001",
+      "--hub",
+      "http://127.0.0.1:18128",
+      "--robots",
+      "ground-a",
+      "ground-b",
+      "uav-a",
+      "--seeds",
+      "3"
+    ],
+    [
+      "/opt/navigation-venv/bin/python",
+      "scripts/run_gazebo_stop_checks.py",
+      "--output",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/stops-001",
+      "--hub",
+      "http://127.0.0.1:18128",
+      "--robots",
+      "ground-a",
+      "ground-b",
+      "uav-a"
+    ]
+  ],
+  "worldSha256": "845ef8fcde16072ac5ac2897bd744efbf76674ae5688a5f16cf7ba391ad0c64c",
+  "campaignExitCode": 0,
+  "stopsExitCode": 1,
+  "success": false,
+  "endedAtUnixMs": 1793198889305
+}

@@ -1,5 +1,7 @@
 # 实验协议、报告与证据索引
 
+2026-10-28 [任务复测与故障修复](2026-10-28-edge-task-validation/README.md)：10 个连续规划情景、通信/云边重复故障、异构 Harness 合同、Gazebo 三条完整路线和独立 6 项停止。保留取消、账本写入、异常 ACK、停止编排的原始失败；UAV 接触证据未齐，严格安全判据未通过。
+
 2026-10-28 当前升级的[实验与来源](2026-10-28-edge-scalability/README.md)：协作视图容量、长任务增量审计、规划经验与用量统计。性能对照、故障回归和真实模型/设备未测项分别列出。
 
 2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。

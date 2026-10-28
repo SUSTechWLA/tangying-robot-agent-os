@@ -199,7 +199,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (resultDecisio
 				// failed ledger write must never turn them into an unbilled call.
 				call.UsageLogStatus = "write_error"
 				resultDecision = Decision{}
-				resultErr = errors.Join(resultErr, fmt.Errorf("persist model usage result: %w", err))
+				resultErr = errors.Join(resultErr, fmt.Errorf("%w: persist model usage result: %w", ErrModelUsageLog, err))
 			}
 		}
 	}()
@@ -207,7 +207,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (resultDecisio
 		call.UsageLogStatus = "started"
 		if err := appendModelUsage(d.UsageFile, "start", *call, request.ContextSnapshot.Scope); err != nil {
 			call.UsageLogStatus = "write_error"
-			return Decision{}, fmt.Errorf("persist model usage start before HTTP: %w", err)
+			return Decision{}, fmt.Errorf("%w: persist model usage start before HTTP: %w", ErrModelUsageLog, err)
 		}
 		usageStarted = true
 	}

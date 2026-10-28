@@ -1,4 +1,6 @@
 import io
+import json
+import urllib.error
 
 import pytest
 
@@ -69,7 +71,7 @@ class SnapshotClient:
 def ready_snapshot(at):
     own = state(at, 0, 0)
     own.update(robotId="ground-a", clockDomain="simulation", quaternionWXYZ=[1., 0., 0., 0.])
-    return {"states": {"ground-a": own}}
+    return {"states": {"ground-a": own}, "stoppedRobots": []}
 
 
 def test_readiness_waits_for_states_and_two_advancing_measurements_without_motion():
@@ -98,3 +100,40 @@ def test_setup_failure_creates_zero_physical_trials(monkeypatch):
     result = checks.run_campaign(SnapshotClient([{}]), ["ground-a", "ground-b", "uav-a"], io.StringIO())
     assert result["outcome"] == "setup_failure"
     assert result["trials"] == [] and not result["passed"]
+
+
+def test_latched_robot_fails_setup_without_attempting_motion(monkeypatch):
+    snapshot = ready_snapshot(1.)
+    snapshot["stoppedRobots"] = ["ground-a"]
+    client = SnapshotClient([snapshot])
+    monkeypatch.setattr(checks, "run_trial", lambda *a, **kw: pytest.fail("latched robot must not move"))
+    result = checks.run_campaign(client, ["ground-a"], io.StringIO())
+    assert result["outcome"] == "setup_failure" and result["trials"] == []
+    assert result["setup"]["latchedRobots"] == ["ground-a"]
+    assert result["setup"]["motionCommandsSent"] is False
+    assert len(client.calls) == 1 and client.calls[0][0] == "/snapshot"
+
+
+def test_missing_latch_observation_cannot_claim_readiness():
+    snapshot = ready_snapshot(1.)
+    del snapshot["stoppedRobots"]
+    clock = ReadinessClock()
+    result = wait_for_readiness(SnapshotClient([snapshot]), ["ground-a"], timeout=.5,
+                                clock=clock.clock, sleep=clock.sleep)
+    assert not result["ready"] and not result["motionCommandsSent"]
+
+
+def test_http_rejection_body_is_retained_and_reported(monkeypatch):
+    journal = io.StringIO()
+    client = checks.HubClient("http://127.0.0.1:18128", journal)
+    body = b'{"error":"robot is latched stopped"}'
+
+    def reject(*args, **kwargs):
+        raise urllib.error.HTTPError("http://127.0.0.1:18128/goal", 400, "Bad Request", {}, io.BytesIO(body))
+
+    monkeypatch.setattr(client.opener, "open", reject)
+    with pytest.raises(ValueError, match="robot is latched stopped"):
+        client.call("/goal", {"robotId": "ground-a"})
+    record = json.loads(journal.getvalue())
+    assert record["httpStatus"] == 400 and record["responseBody"] == body.decode()
+    assert record["payload"] == {"robotId": "ground-a"}

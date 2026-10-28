@@ -1,0 +1,33 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "-json",
+    "./internal/actionloop",
+    "./internal/capabilityagent",
+    "./internal/recoveryexec",
+    "./internal/edgeagent",
+    "./edge/exchange",
+    "./middleware/sqlite",
+    "./edge/worker",
+    "./cmd/local-agent",
+    "./cmd/edge-worker",
+    "./cmd/edge-exchange",
+    "./cmd/fleet-control-plane",
+    "-skip",
+    "^TestSingleRobot.*Campaign",
+    "-count=1",
+    "-timeout=180s"
+  ],
+  "cwd": "/Users/wanglian/Projects/tangying-robot-agent-os",
+  "head": "a98c0681d524a6db7036a7a5bbe121df6f8e239d",
+  "startedAtUTC": "2026-10-28T15:02:42.848088+00:00",
+  "scope": "Software regression; no live LLM or robot. Physical evidence is a separate campaign.",
+  "environmentOverrides": {
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "cleared": "GOFLAGS,GORACE,AGENT_*,EDGE_*,TANGYING_*"
+  }
+}

@@ -1,0 +1,10 @@
+=== RUN   TestCostCampaignSequentialHTTPAndSQLite
+    cost_campaign_test.go:56: COST_EVIDENCE_DIR /tmp/edge-task-validation-cost-20261028/campaign-3843067824
+    cost_campaign_test.go:221: off-cancel-read: handled=true HTTP=1/1 reads=1/1 modelCalls=4/1 error=unsupported intent: clarification required: model could not select one planning tool: Post "http://127.0.0.1:57582/chat/completions": context canceled expectedError=true physicalWrites=0
+    cost_campaign_test.go:223: normal planning lost cancellation identity
+    cost_campaign_test.go:227: off-ledger-result-failure: handled=true HTTP=1/1 reads=0/0 modelCalls=3/1 error=unsupported intent: clarification required: model could not select one planning tool: persist model usage start before HTTP: model usage file must be an owned regular file with mode 0600 and no hard links expectedError=true physicalWrites=0
+    cost_campaign_test.go:240: COST_CAMPAIGN cases=10 httpRequests=13 providerReads=9 physicalWrites=0
+--- FAIL: TestCostCampaignSequentialHTTPAndSQLite (0.21s)
+FAIL
+FAIL	github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent	0.826s
+FAIL

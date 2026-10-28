@@ -3,6 +3,7 @@ package actionloop_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,35 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 )
+
+func TestLoopAccountingFailureStopsAfterOneRecordedHTTPAttempt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.jsonl")
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_, _ = io.Copy(io.Discard, r.Body)
+		if err := os.Chmod(path, 0o644); err != nil {
+			t.Error(err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": toolCallMessage("observe_scene", `{"source":"head"}`)}}, "usage": map[string]any{"prompt_tokens": 100, "completion_tokens": 20}})
+	}))
+	defer server.Close()
+	d := newDecider(t, server)
+	d.UsageFile = path
+	var toolsCalled []string
+	observation := cacheRequest(t).Observation
+	loop := actionloop.Loop{Decider: d, Tools: offeredTools(&toolsCalled), ContextRole: "recovery",
+		Observe: func(context.Context) (actionloop.Observation, error) { return observation, nil }}
+	outcome, err := loop.Run(context.Background(), "核验当前场景")
+	t.Logf("LOOP_USAGE_FAULT httpRequests=%d rounds=%d toolCalls=%d ledgerError=%v", requests.Load(), len(outcome.Rounds), len(toolsCalled), errors.Is(err, actionloop.ErrModelUsageLog))
+	if !errors.Is(err, actionloop.ErrModelUsageLog) || !outcome.Escalated || outcome.Completed || requests.Load() != 1 || len(outcome.Rounds) != 1 || len(toolsCalled) != 0 {
+		t.Fatalf("fatal accounting failure retried or consumed candidate: outcome=%+v err=%v", outcome, err)
+	}
+	call := outcome.Rounds[0].Context.ModelCall
+	if call == nil || call.HTTPStatus != 200 || call.Outcome != "accepted" || call.UsageLogStatus != "write_error" || call.Usage == nil || *call.Usage.PromptTokens != 100 {
+		t.Fatalf("original HTTP accounting lost: %+v", call)
+	}
+}
 
 type recordedUsage struct {
 	SchemaVersion string                 `json:"schema_version"`

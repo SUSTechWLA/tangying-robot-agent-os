@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -20,6 +21,11 @@ type Service struct {
 	peers    map[string]x.Identity
 	journal  x.Journal
 	now      func() time.Time
+
+	// A scheduling hint only: durable delivery identity, FIFO and receipts stay
+	// in the journal. A new Service starts a new fairness cycle after restart.
+	dispatchMu sync.Mutex
+	lastPeer   string
 }
 
 func New(ctx context.Context, identity x.Identity, peers []x.Identity, journal x.Journal) (*Service, error) {
@@ -130,6 +136,9 @@ func (s *Service) Dispatch(ctx context.Context, transport Transport, limit int) 
 	if transport == nil {
 		return nil, errors.New("exchange transport is required")
 	}
+	if limit < 1 || limit > 1000 {
+		return nil, errors.New("invalid pending limit")
+	}
 	var pending []x.Envelope
 	var err error
 	if journal, ok := s.journal.(identityPendingJournal); ok {
@@ -137,7 +146,13 @@ func (s *Service) Dispatch(ctx context.Context, transport Transport, limit int) 
 		for _, peer := range s.peers {
 			peers = append(peers, peer)
 		}
-		pending, err = journal.PendingFor(ctx, s.identity, peers, s.now().UnixMilli(), limit)
+		// Obtain every configured peer's head before applying the delivery
+		// budget. Limiting the oldest heads in SQL would let offline peers
+		// monopolize a small batch forever. This read is bounded by 256 peers.
+		pending, err = journal.PendingFor(ctx, s.identity, peers, s.now().UnixMilli(), len(peers))
+		if err == nil {
+			pending = s.rotatePeerHeads(pending, limit)
+		}
 	} else {
 		pending, err = s.journal.Pending(ctx, s.now().UnixMilli(), limit)
 	}
@@ -173,4 +188,27 @@ func (s *Service) Dispatch(ctx context.Context, transport Transport, limit int) 
 	}
 	group.Wait()
 	return result, ctx.Err()
+}
+
+// rotatePeerHeads fairly shares successive Dispatch calls within this Service.
+// PendingFor returns one FIFO head per peer; it remains responsible for current
+// identity filtering and ordering. Legacy Journals keep their existing bounded
+// Pending behavior, without acquiring a stronger fairness guarantee.
+func (s *Service) rotatePeerHeads(pending []x.Envelope, limit int) []x.Envelope {
+	if len(pending) == 0 {
+		return pending
+	}
+	sort.Slice(pending, func(i, j int) bool { return pending[i].Recipient.AgentID < pending[j].Recipient.AgentID })
+	s.dispatchMu.Lock()
+	defer s.dispatchMu.Unlock()
+	start := sort.Search(len(pending), func(i int) bool { return pending[i].Recipient.AgentID > s.lastPeer })
+	if limit > len(pending) {
+		limit = len(pending)
+	}
+	selected := make([]x.Envelope, limit)
+	for i := range selected {
+		selected[i] = pending[(start+i)%len(pending)]
+	}
+	s.lastPeer = selected[len(selected)-1].Recipient.AgentID
+	return selected
 }

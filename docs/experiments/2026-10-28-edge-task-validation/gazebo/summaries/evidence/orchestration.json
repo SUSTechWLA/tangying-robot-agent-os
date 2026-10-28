@@ -1,0 +1,40 @@
+{
+  "baseline": "a98c0681d",
+  "startedAtUnixMs": 1793198639756,
+  "naturalLanguageEntry": "/v1/tasks deterministic legacy route",
+  "newGoalRecipeUsageHierarchicalHostValidated": false,
+  "rosDomainId": 128,
+  "gzPartition": "tangying-field-20261028-001",
+  "seed": [
+    3
+  ],
+  "robots": [
+    "ground-a",
+    "ground-b",
+    "uav-a"
+  ],
+  "worldResetDuringTasks": false,
+  "commands": [
+    [
+      "gz",
+      "sim",
+      "-s",
+      "--headless-rendering",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/world.sdf"
+    ],
+    [
+      "/opt/navigation-venv/bin/python",
+      "sim/gazebo/field_hub.py",
+      "--transport",
+      "/tmp/tangying-gazebo-field-20261028-001/build/field-transport",
+      "--output",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/hub",
+      "--port",
+      "18128"
+    ]
+  ],
+  "worldSha256": "845ef8fcde16072ac5ac2897bd744efbf76674ae5688a5f16cf7ba391ad0c64c",
+  "error": "field hub has no measured robot snapshot",
+  "success": false,
+  "endedAtUnixMs": 1793198664078
+}

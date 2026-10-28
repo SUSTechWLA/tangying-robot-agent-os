@@ -2,6 +2,8 @@
 
 2026-10-28 增量：SQLite 的当前覆盖视图改用每流最新收件，历史更新超过 1,000 条不再耗尽当前视图额度；[实现与测试](2026-10-28-edge-scalability.md)。历史 feed 的分页/GC 缺口语义保留。
 
+同日通信复测补充严格 ACK 解码和小 batch 的 peer 轮转；[本轮任务复测记录](../experiments/2026-10-28-edge-task-validation/README.md)分别登记 HTTP/SQLite 软件场景与 Gazebo 场景，不将两类证据混为真实无线机群验收。
+
 2026-10-18 增量：[持久收件游标、作用域覆盖视图与现有探索 Runner 接线](2026-10-18-scoped-peer-cooperation.md)。新增可靠消费扩展；peer 数据仍无执行权限，GC 缺口必须重新取得完整有效快照。
 
 [开发导航](README.md) · [模块化边界](../architecture/modular-extensibility.md) · [长程协作](../architecture/long-horizon-collaboration.md)
@@ -77,11 +79,29 @@ SQLite 事务在读取游标之前取得写锁，所以同一 journal 的并发�
 1. 本地发布先原子写 outbox 与发送游标，然后才联网。断网、退出或重启不会重建内容 ID。
 2. 收件校验认证主体、域、机器人、接收者、版本、校验值和时效，然后原子写 inbox 与接收游标，再返回 `accepted`。同一持久化消息重放返回 `duplicate`，包含完全相同的 ID 和序号。
 3. 相同 stream/sequence 但不同内容拒绝为冲突；从未见过的旧序号拒绝为 stale。协议允许跳号，适合状态、证据和引用；它不是要求所有中间事件都必须送达的事件日志。
-4. 发送队列只选每个 stream 的最早有效消息，并按 peer 取一个待发项。每个配置 peer 至多一个并发发送；最多 256 个 peer。断连 peer 不会占满待发送批次、阻止健康 peer 通讯。单 peer 的吞吐目标是状态/证据交换，不适合点云、视频或实时控制流。
-5. 远端 Receipt 的版本、ID、序号和 disposition 必须全部匹配，才把 outbox 记为送达。丢失 HTTP 响应会重发原消息，接收端去重；错误 ACK 不会删除待发记录。
+4. 发送队列只选每个 stream 的最早有效消息，并按 peer 取一个待发项。支持 `PendingFor` 的 Journal 先按完整 sender/recipient 身份过滤，再选每个 peer 的 FIFO head；Service 在全部当前 head 上轮转后应用 batch limit。一次 Dispatch 对每个配置 peer 至多选一个发送项，最多 256 个 peer。单 peer 的吞吐目标是状态/证据交换，不适合点云、视频或实时控制流。
+5. 远端 Receipt 先通过下述严格解码，随后其版本、ID、序号必须对应原 Envelope，且 disposition 只能为 `accepted` 或 `duplicate`，才把 outbox 记为送达。丢失 HTTP 响应会重发原消息，接收端去重；错误 ACK 不会删除待发记录。
 6. TTL 到期即停止发送新副本。每分钟清理**到期后再保留 24 小时**的 inbox / outbox body，并累计记录清理计数。未送达且过期的数据也会结束保留；这是明确的数据有效期，不是无限保证送达。
 
 准确 ID 回执与 requestId 幂等窗口持续到原消息到期后的 24 小时；清理以后仍保留 stream 游标，旧序号不能重新入库。生产者必须永不把历史 requestId 当新提交复用，超出保留窗口重放同一个 requestId 会视作新发布。应用需要无限期去重的业务事项，应另存不可复用业务 ID 和处理结果；机器人动作必须继续使用执行 journal/租约机制。
+
+### ACK 的解码与退役条件
+
+HTTP 发送端只接受状态码 200 的回执，正文总长度不得超过 **4,096 bytes，包含空白与末尾换行**。读取时多取一个字节检测越界，不以截断后的 EOF 掩盖后续内容。JSON 必须是仅含 `schemaVersion`、`messageId`、`sequence`、`disposition` 四个精确字段名的对象；拒绝重复键、大小写别名、未知/缺失字段、尾随 JSON、过深嵌套和类型错误。`sequence` 仍按合同使用十进制 JSON 字符串。
+
+例如同时出现 `"Disposition":"rejected"` 与 `"disposition":"accepted"` 会被拒绝。只使用 Go 的 `DisallowUnknownFields` 不足以做到这一点，因为结构体解码接受大小写不敏感的字段匹配；本实现先校验精确字段集合，再解码类型。错误正文不会原样拼入发送端诊断，防止远端字段内容泄漏到本地日志。
+
+严格 JSON 解码并不证明消息已持久化。Service 还会核对 schema、message ID、sequence 和 disposition；只有全部匹配，才更新本地 outbox 的确认标记。接收端已持久化而 ACK 丢失/损坏时，发送端保留同一个 Envelope，重启后重放得到 `duplicate` 回执再确认，不能生成新的消息身份来“绕过”失败。
+
+### 轮转的作用域、取消与兼容边界
+
+小 batch 指 `Dispatch(..., limit)` 的额度小于当前待发 peer 数量。例如三个 peer 中前两个离线、`limit=1` 时，每次只取数据库中最早的一项会让第三个 peer 一直得不到机会；新版先读取每个配置 peer 的一个 head，按 Agent ID 排序并从上次位置之后轮转。cursor 仅是受锁保护的内存调度提示，不更改消息序号、FIFO 或确认状态；**公平周期只在同一 Service 生命周期内连续，重启重新开始**。被取消的一轮可能已经推进调度位置，这不构成送达证据。
+
+当前 `edge-exchange` CLI 发送循环使用 `limit=1000`，配置最多 256 个 peer，因此默认一次调用能够容纳全部 peer head。本次小 batch 修复面向使用较小 limit 的库调用及后续调度扩展，不能据此声称现有 CLI 默认配置已发生同类饥饿。未实现可选 `PendingFor` 的第三方 Journal 继续走原 `Pending(ctx, now, limit)` 路径；Service 仍拒绝不匹配的 Envelope 身份，但不会为旧适配器补造新的轮转或先过滤后选头保证。
+
+并发 Dispatch 的轮转位置不会数据竞争，但它不是全进程的在途去重或全局并发限流器：两个调用仍可能读到同一个未确认 head。发送端采用允许重复投递的 **at-least-once 重试方式**，接收端在保留窗口内对同一消息幂等处理；这不是物理动作的 exactly-once 保证。取消时发送请求使用原 context；若接收端已入库而本地 ACK 提交失败，outbox 保留并等待后续重放。TTL 与保留清理限制可重试时间，一条消息可能在通信恢复前就过期，不能把“至少一次”解释成每条发布都最终送达。
+
+相关实现与回归：[Dispatch](../../edge/exchange/service.go)、[HTTP ACK](../../edge/exchange/http.go)、[小 batch、并发、畸形 ACK 与重启测试](../../edge/exchange/dispatch_faults_test.go)。
 
 容量达到配置上限会显式拒绝新数据，状态计数可用于告警。游标数量也有限额（配置容量的两倍），因此 stream 使用稳定类别，如 `mission-status` / `map-references`，把 taskId 放 payload，不能每次请求发明新 stream。**不要删除或轮换数据库来解决容量问题**，那会丢失身份/序号连续性；先核对过期时间、归档需求与清理计数，必要时调高容量。不可依靠数据回执判定机器人完成动作；完成事实仍需本地执行记录及物理验证证据。
 

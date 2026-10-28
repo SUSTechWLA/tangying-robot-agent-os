@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
@@ -224,6 +225,9 @@ func (p *Planner) modelPlanSeeded(ctx context.Context, goal, robot string, entri
 	feedback := "先判断是否需要只读查询；若目标含条件，请读取相关状态，再提交覆盖全部目标的计划。提案不会执行，物理动作需后续审批。"
 	reads, proposals, decisionErrors := seedReads, 0, 0
 	for round := seedReads + 1; round <= 10; round++ {
+		if err := ctx.Err(); err != nil {
+			return nil, trace, err
+		}
 		// Reserve the last two decisions for a complete proposal or an explicit
 		// refusal. The model sees the same bounds that dispatch enforces below.
 		proposalOnly := round >= 9
@@ -281,10 +285,19 @@ func (p *Planner) modelPlanSeeded(ctx context.Context, goal, robot string, entri
 		// Pass a snapshot pointer before Decide: LLMDecider retains the exact
 		// HTTP body in it even when the response or transport fails.
 		decision, err := p.Decider.Decide(ctx, request)
+		if ctx.Err() != nil {
+			err = errors.Join(ctx.Err(), err)
+		}
 		if err != nil {
 			decisionErrors++
 			step := capability.PlanningStep{Round: round, Verdict: "MODEL_DECISION_REJECTED", Detail: err.Error(), Context: &snapshot}
 			trace = append(trace, step)
+			if ctx.Err() != nil || errors.Is(err, actionloop.ErrModelUsageLog) {
+				// Cancellation and an unavailable accounting ledger are terminal
+				// infrastructure conditions, not repairable model syntax. Retain
+				// the original attempt/usage and its error identity without retry.
+				return nil, trace, err
+			}
 			history = append(history, actionloop.Round{Round: round, Verdict: step.Verdict, Detail: step.Detail, ObservedAt: time.Now().UTC()})
 			feedback = "上一轮模型输出无效：" + err.Error() + "。每轮只选一个当前提供的工具，并遵守剩余预算。"
 			if decisionErrors >= 3 {
@@ -363,7 +376,13 @@ func (p *Planner) modelPlanSeeded(ctx context.Context, goal, robot string, entri
 				readCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				reads++ // Invalid arguments and archive reads never call the provider.
 				response, callErr := p.Provider.CallService(readCtx, &robotv1.ServiceRequest{RobotId: robot, Name: decision.Tool, Parameters: args})
+				readContextErr := readCtx.Err()
 				cancel()
+				if ctx.Err() != nil || readContextErr != nil {
+					stopErr := errors.Join(ctx.Err(), readContextErr, callErr)
+					step.Verdict, step.Detail = "READ_FAILED", stopErr.Error()
+					return nil, append(trace, step), stopErr
+				}
 				if callErr != nil {
 					step.Verdict, step.Detail = "READ_FAILED", callErr.Error()
 				} else if response == nil {

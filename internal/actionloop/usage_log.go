@@ -14,6 +14,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// ErrModelUsageLog means explicitly configured accounting could not be
+// persisted. Another model response cannot repair it; callers must retain the
+// current attempt and stop, rather than treating it as invalid model output.
+var ErrModelUsageLog = errors.New("model usage accounting failed")
+
 // usageEvent is intentionally independent of Projection. It contains accounting
 // and scope identifiers, never prompt text, raw responses, API keys or URLs.
 type usageEvent struct {

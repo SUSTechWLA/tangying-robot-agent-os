@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Measure stopping motion in the running loopback Gazebo field hub.
 
-Run after natural-language trials: explicit stop latches each tested robot.
+Use a fresh field world, or run before the natural-language controllers exit:
+controller shutdown and explicit stop both latch each tested robot. This checker
+never clears a stop latch; an already latched robot is a setup failure.
 For each robot, controller-command loss is tested first with the hub command
 lease still renewed, then an explicit stop is tested. No pose reset is used.
 UAV completion means measured hover; landing is not claimed by this campaign.
@@ -70,6 +72,13 @@ class HubClient:
         try:
             with self.opener.open(request, timeout=timeout) as response:
                 value = json.load(response)
+        except urllib.error.HTTPError as exc:
+            # Keep the rejection reason, otherwise all admission failures become
+            # indistinguishable "400 Bad Request" physical stopping failures.
+            body = exc.read(4096).decode("utf-8", errors="replace")
+            self.record({"path": path, "payload": payload, "atUnixMs": int(started*1000),
+                         "error": str(exc), "httpStatus": exc.code, "responseBody": body})
+            raise ValueError(f"hub HTTP {exc.code}: {body}") from exc
         except (OSError, ValueError) as exc:
             self.record({"path": path, "payload": payload, "atUnixMs": int(started*1000), "error": str(exc)})
             raise
@@ -120,6 +129,15 @@ def wait_for_readiness(client, robots, *, timeout=15., clock=time.monotonic, sle
         attempts += 1
         try:
             snapshot = client.call("/snapshot", timeout=min(1., remaining))
+            stopped = snapshot["stoppedRobots"]
+            if not isinstance(stopped, list) or any(not isinstance(r, str) for r in stopped):
+                raise ValueError("invalid stop-latch observation")
+            latched = sorted(set(robots).intersection(stopped))
+            if latched:
+                return {"ready": False, "failureType": "setup_failure", "attempts": attempts,
+                        "elapsedWallSeconds": clock()-started, "latchedRobots": latched,
+                        "error": "robot is latched stopped; use an independent fresh trial world",
+                        "motionCommandsSent": False}
             states = snapshot["states"]
             times = {}
             for robot in robots:
@@ -251,7 +269,7 @@ def run_campaign(client, robots, samples, *, timeout=30.):
                 trials.append(run_trial(client, robot, "explicit_stop", samples, timeout=timeout))
             else:
                 trials.append({"robotId": robot, "mode": "explicit_stop", "passed": False,
-                               "skippedReason": "watchdog trial failed; robot latched stopped"})
+                               "skippedReason": "watchdog trial failed; no further motion attempted"})
     passed = setup["ready"] and len(trials) == len(robots)*2 and all(t["passed"] for t in trials)
     return {"setup": setup, "trials": trials, "passed": passed,
             "outcome": "setup_failure" if not setup["ready"] else "passed" if passed else "trial_failure"}

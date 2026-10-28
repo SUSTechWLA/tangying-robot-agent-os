@@ -21,6 +21,8 @@
 
 2026-10-28 增量聚焦持续运行：当前协作视图与历史 feed 分离，长任务审计增量写入，模型用量可统计，重复目标保留可校验的规划经验。缓存命中不代表任务已完成；完整机制及配置见[模型成本与任务经验](docs/production/model-cost-and-recipes.md)。前一轮的授权竞态、预算停止、缓存提示和失败回溯修复见[可靠性记录](docs/development/2026-10-28-edge-brain-reliability.md)。
 
+同日[任务复测](docs/experiments/2026-10-28-edge-task-validation/README.md)完成 Gazebo 三机器人完整路线（30 次导航与 30 次独立到达确认）及独立场景 6 项停止测试，并[修复](docs/development/2026-10-28-task-validation-fixes.md)取消后的无效规划重试、模型计量写入失败继续请求、小批次通信饥饿、异常 ACK 接受和停止就绪误判。模型/通信补丁另经软件回归；UAV 接触通道覆盖仍未证实，严格安全指标保持未通过，完整失败记录与源码版本一并留存。
+
 单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
 
 空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
