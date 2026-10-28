@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **279 份 Markdown** 与 **968 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **279 份 Markdown** 与 **969 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -466,6 +466,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [affected-packages.json](experiments/2026-10-27-edge-brain-checks/affected-packages.json) | JSON | `experiments/2026-10-27-edge-brain-checks` |
 | [affected-packages.log](experiments/2026-10-27-edge-brain-checks/affected-packages.log) | LOG | `experiments/2026-10-27-edge-brain-checks` |
 | [builds.json](experiments/2026-10-27-edge-brain-checks/builds.json) | JSON | `experiments/2026-10-27-edge-brain-checks` |
+| [publication.json](experiments/2026-10-27-edge-brain-checks/publication.json) | JSON | `experiments/2026-10-27-edge-brain-checks` |
 | [manifest.json](experiments/2026-10-27-edge-brain-reliability/manifest.json) | JSON | `experiments/2026-10-27-edge-brain-reliability` |
 | [go-test-events.jsonl](experiments/2026-10-27-edge-brain-reliability/run-01/go-test-events.jsonl) | JSONL | `experiments/2026-10-27-edge-brain-reliability/run-01` |
 | [result.json](experiments/2026-10-27-edge-brain-reliability/run-01/result.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/run-01` |
