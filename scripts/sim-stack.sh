@@ -63,6 +63,10 @@ Options:
 
 The same values can be set with SIM_STACK_SIM_PORT, SIM_STACK_AGENT_PORT,
 SIM_STACK_ARTIFACTS_DIR, SIM_STACK_SEED, and SIM_STACK_STARTUP_TIMEOUT.
+For isolated Gazebo trials, SIM_STACK_GAZEBO_ASSETS_ROOT selects a separate
+asset root, SIM_STACK_GAZEBO_IMAGE a separate image tag, and
+SIM_STACK_GAZEBO_NAVIGATION_PORT a separate navigation port. Set ROS_DOMAIN_ID
+independently and use distinct Runtime/Agent ports and an artifacts directory.
 SIM_STACK_STOP_TIMEOUT bounds each shutdown phase. SIM_STACK_LOCK_TIMEOUT
 bounds contention separately; by default it covers a complete restart and rollback.
 EOF

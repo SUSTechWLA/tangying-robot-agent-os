@@ -4,13 +4,29 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from tangying_robot_gateway.gazebo_workflow import GazeboWorkflowBindings, swept_disc_step_is_clear
+from tangying_robot_gateway.gazebo_workflow import (
+    GazeboWorkflowBindings,
+    swept_disc_refusal_evidence,
+    swept_disc_step_is_clear,
+)
 from tangying_robot_gateway.grid_navigation import plan_grid_path
 from tangying_robot_gateway.home_commissioning import HOME_OPERATIONAL_RADIUS_M
 from tangying_robot_gateway.map_pipeline import PointCloud, build_map
 from tangying_robot_gateway.service_registry import ServiceError
 
 from robot.gateway.tests.test_robot_services import workflow_fixture
+
+
+def test_disc_refusal_records_exact_guard_geometry_without_inventing_collision():
+    points = np.array([[.40, .02, .2], [.35, 0., .2], [.20, 0., .8], [np.nan, 0., .2]])
+    evidence = swept_disc_refusal_evidence(points, forward_m=.05, turn_rad=0.)
+    assert evidence["intrudingPointCount"] == 2
+    assert evidence["relevantPointCount"] == 2
+    assert evidence["closestPointBaseM"] == [.35, 0., .2]
+    assert evidence["minimumSweptDistanceM"] == pytest.approx(.30)
+    assert evidence["scope"] == "guard_snapshot_not_collision_or_observed_free_space"
+    assert swept_disc_refusal_evidence(points, forward_m=0., turn_rad=0.) is None
+    assert swept_disc_refusal_evidence(np.array([[.5, 0., .2]]), forward_m=0., turn_rad=.1) is None
 
 
 def test_home_planning_and_live_disc_guard_share_the_operational_envelope(tmp_path):

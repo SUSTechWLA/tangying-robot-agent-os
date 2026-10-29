@@ -43,12 +43,32 @@ from tangying_robot_gateway.gazebo_workflow import (
     GAZEBO_STEP_LINEAR_MPS,
     GAZEBO_STEP_TIMEOUT_S,
     bounded_step_command,
+    swept_disc_refusal_evidence,
     swept_disc_step_is_clear,
     swept_step_is_clear,
     yaw_from_quaternion,
 )
 from tangying_robot_gateway.home_commissioning import HOME_OPERATIONAL_RADIUS_M
 from tangying_robot_proto.robot.v1 import robot_pb2, robot_pb2_grpc
+
+# Gazebo bridge timestamps come from the same simulation clock. These checks
+# are not a clock-synchronization or capture-age guarantee for real hardware.
+GAZEBO_CLOUD_MAX_BEHIND_ODOM_NS = 1_000_000_000
+GAZEBO_CLOUD_MAX_AHEAD_ODOM_NS = 250_000_000
+GAZEBO_ODOM_RECEIPT_MAX_AGE_NS = 500_000_000
+
+
+def _cloud_source_fault(cloud_stamp, odom_stamp):
+    if cloud_stamp <= 0:
+        return "CLOUD_SOURCE_STAMP_MISSING"
+    if odom_stamp <= 0:
+        return "ODOM_SOURCE_STAMP_MISSING"
+    delta = odom_stamp - cloud_stamp
+    if delta > GAZEBO_CLOUD_MAX_BEHIND_ODOM_NS:
+        return "CLOUD_SOURCE_TOO_OLD"
+    if delta < -GAZEBO_CLOUD_MAX_AHEAD_ODOM_NS:
+        return "CLOUD_SOURCE_AHEAD_OF_ODOM"
+    return ""
 
 #: Runtime camera name -> (image topic, depth topic, info topic).
 #:
@@ -98,6 +118,10 @@ GAZEBO_CAMERA_MOUNTS = {
     "base-rgbd": (0.36, 0.0, 0.16, 15.0),
     "head-rgbd": (-0.1, 0.0, 1.30, 45.0),
 }
+# The point cloud transform below is valid only for these configured optical
+# frames. A frame label check catches wiring errors, not mislabeled geometry.
+GAZEBO_OBSTACLE_FRAMES = {camera: camera.split("-")[0] + "_camera_optical_frame"
+                          for camera in GAZEBO_CAMERA_MOUNTS}
 
 
 def camera_mount(camera: str) -> np.ndarray:
@@ -222,6 +246,9 @@ class GazeboRuntimeNode(Node):
         self._imu = None
         self._obstacles: dict[str, np.ndarray] = {}
         self._obstacle_received_ns = {}
+        self._obstacle_source = {}
+        self._obstacle_faults = {}
+        self._obstacle_fault_details = {}
         self._cmd_vel = None
         self.motion_allowed = lambda: True
         self.trace_steps = os.environ.get("TANGYING_TRACE_STEPS") == "1"
@@ -293,6 +320,31 @@ class GazeboRuntimeNode(Node):
         and the cost of doing it per point per control tick would be paid inside the
         control loop.
         """
+        frame_id = str(message.header.frame_id)
+        expected_frame = GAZEBO_OBSTACLE_FRAMES[camera]
+        if frame_id != expected_frame:
+            with self._motion_lock:
+                self._obstacle_faults[camera] = "CLOUD_FRAME_MISMATCH"
+                self._obstacle_fault_details[camera] = {
+                    "expectedFrameId": expected_frame,
+                    "receivedFrameId": frame_id[:128],
+                    "receivedFrameIdTruncated": len(frame_id) > 128,
+                }
+            return
+        stamp = message.header.stamp
+        sensor_stamp = stamp.sec * 1_000_000_000 + stamp.nanosec
+        with self._lock:
+            odom_stamp = self._odom_stamp_ns
+            odom_received = self._odom_received_ns
+            checked = time.monotonic_ns()
+        fault = _cloud_source_fault(sensor_stamp, odom_stamp)
+        if not 0 <= checked - odom_received <= GAZEBO_ODOM_RECEIPT_MAX_AGE_NS:
+            fault = "ODOM_RECEIPT_STALE"
+        if fault:
+            with self._motion_lock:
+                self._obstacle_faults[camera] = fault
+                self._obstacle_fault_details.pop(camera, None)
+            return
         try:
             points = read_points_numpy(message, field_names=("x", "y", "z"), skip_nans=True).reshape(-1, 3)
         except Exception as error:  # noqa: BLE001 — a bad cloud must not stop the guard.
@@ -307,13 +359,37 @@ class GazeboRuntimeNode(Node):
         local = (base_from_optical[:3, :3] @ points[:, :3].T).T + base_from_optical[:3, 3]
         from tangying_robot_gateway.gazebo_workflow import remove_chassis_returns
         with self._motion_lock:
+            previous_stamp = int(self._obstacle_source.get(camera, {}).get("sensorStampNs", "0"))
+            if sensor_stamp <= previous_stamp:
+                self._obstacle_faults[camera] = "CLOUD_SOURCE_NOT_ADVANCING"
+                self._obstacle_fault_details.pop(camera, None)
+                return
             self._obstacles[camera] = remove_chassis_returns(local)
             self._obstacle_received_ns[camera] = time.monotonic_ns()
+            self._obstacle_faults.pop(camera, None)
+            self._obstacle_fault_details.pop(camera, None)
+            self._obstacle_source[camera] = {
+                "sourceFrameId": frame_id[:128], "sourceFrameIdTruncated": len(frame_id) > 128,
+                "sensorStampNs": str(sensor_stamp),
+                "sensorClock": "ros_header_clock_unspecified",
+            }
 
     def _obstacle_points(self) -> np.ndarray:
         with self._motion_lock:
             clouds = [value for value in self._obstacles.values() if len(value)]
         return np.vstack(clouds) if clouds else np.zeros((0, 3))
+
+    def _obstacle_snapshot(self):
+        """Take clouds and their matching receipt/source metadata under one lock."""
+        with self._motion_lock:
+            clouds = [value for value in self._obstacles.values() if len(value)]
+            sources = {camera: {**self._obstacle_source.get(camera, {}),
+                                "fault": self._obstacle_faults.get(camera, ""),
+                                "faultDetails": self._obstacle_fault_details.get(camera, {}),
+                                "pointCount": len(self._obstacles.get(camera, ())),
+                                "receivedMonotonicNs": str(self._obstacle_received_ns.get(camera, 0))}
+                       for camera in GAZEBO_CAMERA_MOUNTS}
+        return np.vstack(clouds) if clouds else np.zeros((0, 3)), sources
 
     def _log_step(self, text: str) -> None:
         """Per-step trace of the bounded driver, off unless asked for.
@@ -338,24 +414,51 @@ class GazeboRuntimeNode(Node):
             self._publish_velocity(0.0, 0.0)
 
     def _publish_velocity(self, linear_x: float, angular_z: float, linear_y: float = 0.,
-                          *, deadline_monotonic=None, cancel=None) -> dict:
+                          *, deadline_monotonic=None, cancel=None, guard_sources=None) -> dict:
         message = Twist()
         # A zero command must not wait for the sensor lock before stopping.
         requested_motion = any(value != 0 for value in (linear_x, linear_y, angular_z))
-        allowed = not requested_motion or (self.motion_allowed() and not self.readiness_blockers())
+        motion_allowed = self.motion_allowed() if requested_motion else True
+        blockers = self.readiness_blockers() if requested_motion and motion_allowed else []
+        readiness_checked = time.monotonic_ns() if requested_motion else None
+        deadline_expired = False
+        allowed = not requested_motion or (motion_allowed and not blockers)
+        guard_faults, guard_context = {}, None
+        if requested_motion and guard_sources is not None:
+            with self._lock:
+                odom_stamp, odom_received = self._odom_stamp_ns, self._odom_received_ns
+                checked = time.monotonic_ns()
+            with self._motion_lock:
+                current_faults = dict(self._obstacle_faults)
+            guard_faults = {camera: current_faults.get(camera) or
+                            _cloud_source_fault(int(source.get("sensorStampNs", "0")), odom_stamp)
+                            for camera, source in guard_sources.items()}
+            guard_faults = {camera: fault for camera, fault in guard_faults.items() if fault}
+            if not 0 <= checked-odom_received <= GAZEBO_ODOM_RECEIPT_MAX_AGE_NS:
+                guard_faults["odom"] = "ODOM_RECEIPT_STALE"
+            guard_context = {"odomSensorStampNs": str(odom_stamp),
+                             "odomReceivedMonotonicNs": str(odom_received),
+                             "checkedMonotonicNs": str(checked), "sources": guard_sources}
+            allowed = allowed and not guard_faults
         if requested_motion:
             # The readiness lock itself can block. Recheck authority afterwards,
             # immediately before forming the actual driver publication.
-            allowed = (allowed and self.motion_allowed()
-                       and (deadline_monotonic is None or time.monotonic() < deadline_monotonic)
+            motion_allowed = self.motion_allowed()
+            deadline_expired = deadline_monotonic is not None and time.monotonic() >= deadline_monotonic
+            allowed = (allowed and motion_allowed and not deadline_expired
                        and (cancel is None or not cancel.is_set()))
         message.linear.x = float(linear_x) if allowed else 0.0
         message.linear.y = float(linear_y) if allowed else 0.0
         message.angular.z = float(angular_z) if allowed else 0.0
         if self._cmd_vel is not None:
             self._cmd_vel.publish(message)
-        return {"published": self._cmd_vel is not None,
-                "nonzero": bool(message.linear.x or message.linear.y or message.angular.z)}
+        receipt = {"published": self._cmd_vel is not None,
+                   "nonzero": bool(message.linear.x or message.linear.y or message.angular.z)}
+        if guard_sources is not None:
+            receipt.update(guardSourceFaults=guard_faults, guardSourceContext=guard_context,
+                           readinessBlockers=list(blockers), readinessCheckedMonotonicNs=str(readiness_checked),
+                           motionAllowed=motion_allowed, deadlineExpired=deadline_expired)
+        return receipt
 
     def joint_snapshot(self):
         with self._lock:
@@ -645,10 +748,6 @@ class GazeboRuntimeNode(Node):
                         emit("observation_hold")
                     time.sleep(.05)
                     continue
-                if stale_since is not None:
-                    evidence["observationHolds"][-1]["resumedAtMonotonicNs"] = str(time.monotonic_ns())
-                    emit("observation_resumed", readiness=snapshot)
-                stale_since = None
                 pose = self.runtime.base_pose
                 if pose is None:
                     return ended("NO_BASE_POSE", "尚未收到里程计位姿。")
@@ -668,18 +767,55 @@ class GazeboRuntimeNode(Node):
                 ahead = float(np.dot(target[:2] - current[:2],
                                      [math.cos(current[2]), math.sin(current[2])]))
                 guard = swept_disc_step_is_clear if home else swept_step_is_clear
+                points, guard_sources = self._obstacle_snapshot()
+                guard_now = time.monotonic_ns()
+                if cancel is not None and cancel.is_set():
+                    return ended("CANCELLED", "扫描移动已停止。")
+                with self._lock:
+                    guard_odom_stamp = self._odom_stamp_ns
+                    guard_odom_received = self._odom_received_ns
+                    guard_now = time.monotonic_ns()
+                source_faults = {camera: source.get("fault") or
+                                 _cloud_source_fault(int(source.get("sensorStampNs", "0")), guard_odom_stamp)
+                                 for camera, source in guard_sources.items()}
+                source_faults = {camera: reason for camera, reason in source_faults.items() if reason}
+                if not 0 <= guard_now-guard_odom_received <= GAZEBO_ODOM_RECEIPT_MAX_AGE_NS:
+                    source_faults["odom"] = "ODOM_RECEIPT_STALE"
+                if source_faults:
+                    zero()
+                    evidence["guardSourceFaults"] = source_faults
+                    evidence["guardSourceContext"] = {"odomSensorStampNs": str(guard_odom_stamp),
+                        "odomReceivedMonotonicNs": str(guard_odom_received),
+                        "checkedMonotonicNs": str(guard_now), "sources": guard_sources}
+                    return ended("SENSOR_STALE", "障碍点云来源时间不可验证，已停止。")
+                guard_expiry_ns = min(int(source["receivedMonotonicNs"])
+                                      for source in guard_sources.values()) + 1_000_000_000
+                if not all(0 <= guard_now-int(source["receivedMonotonicNs"]) <= 1_000_000_000
+                           for source in guard_sources.values()):
+                    if not zero():
+                        return ended("MOTION_PUBLISHER_UNAVAILABLE")
+                    continue
+                forward = max(0.0, min(ahead, abs(linear_x) * 0.4)) if linear_x else 0.0
+                turn = angular_z * 0.4 if angular_z else 0.0
                 clear = guard(
-                    self._obstacle_points(),
-                    forward_m=max(0.0, min(ahead, abs(linear_x) * 0.4)) if linear_x else 0.0,
-                    turn_rad=angular_z * 0.4 if angular_z else 0.0,
+                    points, forward_m=forward, turn_rad=turn,
                     **({"radius":HOME_OPERATIONAL_RADIUS_M,"height_band":(.02,.40)} if home else {}))
                 if not clear:
                     zero()
+                    if home:
+                        evidence["guardRefusal"] = swept_disc_refusal_evidence(
+                            points, forward_m=forward, turn_rad=turn,
+                            radius=HOME_OPERATIONAL_RADIUS_M, height_band=(.02, .40))
+                        evidence["guardRefusal"]["pointCoordinatesFrame"] = "base_link"
+                        evidence["guardRefusal"]["guardCheckedMonotonicNs"] = str(guard_now)
+                        evidence["guardRefusal"]["sources"] = guard_sources
+                        evidence["guardRefusal"]["odomSensorStampNs"] = str(guard_odom_stamp)
+                        evidence["guardBasePoseAtCheck"] = current.tolist()
                     self._log_step(
                         f"REFUSED target=({target[0]:.2f},{target[1]:.2f}) "
                         f"at=({current[0]:.2f},{current[1]:.2f},{current[2]:+.2f}) "
                         f"goal_yaw={yaw_from_quaternion(target):+.2f} "
-                        f"cmd=({linear_x:.3f},{angular_z:.3f}) points={len(self._obstacle_points())}")
+                        f"cmd=({linear_x:.3f},{angular_z:.3f}) points={len(points)}")
                     return ended("NAV_ENVELOPE", "安全包络内有障碍，这一步被拒绝。")
                 # Geometry work and callback scheduling can cross the deadline.
                 # Never emit one final pulse after the authority has expired.
@@ -687,10 +823,63 @@ class GazeboRuntimeNode(Node):
                     return ended("STEP_TIMEOUT", f"这一步未在 {GAZEBO_STEP_TIMEOUT_S:.0f} 秒内完成。")
                 if cancel is not None and cancel.is_set():
                     return ended("CANCELLED", "扫描移动已停止。")
+                # The readiness check in the publisher can itself wait on a
+                # sensor lock. It must not publish against an expired cloud even
+                # if callbacks concurrently refresh an unrelated camera sample.
+                odom_expiry_ns = guard_odom_received + GAZEBO_ODOM_RECEIPT_MAX_AGE_NS
+                pulse_deadline = min(deadline, guard_expiry_ns / 1_000_000_000,
+                                     odom_expiry_ns / 1_000_000_000)
+                if stale_since is not None:
+                    pulse_deadline = min(pulse_deadline, stale_since + hold_budget)
                 receipt = self._publish_velocity(linear_x, angular_z,
-                                                 deadline_monotonic=deadline, cancel=cancel)
+                                                 deadline_monotonic=pulse_deadline, cancel=cancel,
+                                                 guard_sources=guard_sources)
                 if not receipt or not receipt.get("published"):
                     return ended("MOTION_PUBLISHER_UNAVAILABLE")
+                if not receipt.get("nonzero"):
+                    evidence["zeroPublishedCount"] += 1
+                    evidence["publisherLastRejection"] = {
+                        "readinessBlockers": receipt.get("readinessBlockers", []),
+                        "readinessCheckedMonotonicNs": receipt.get("readinessCheckedMonotonicNs"),
+                        "motionAllowed": receipt.get("motionAllowed"),
+                        "deadlineExpired": receipt.get("deadlineExpired"),
+                        "guardSourceFaults": receipt.get("guardSourceFaults", {}),
+                    }
+                    if cancel is not None and cancel.is_set():
+                        return ended("CANCELLED", "扫描移动已停止。")
+                    if time.monotonic() >= deadline:
+                        return ended("STEP_TIMEOUT", f"这一步未在 {GAZEBO_STEP_TIMEOUT_S:.0f} 秒内完成。")
+                    if stale_since is not None and time.monotonic()-stale_since >= hold_budget:
+                        return ended("SENSOR_STALE", "观测等待预算已耗尽，已停止。")
+                    if receipt.get("motionAllowed") is False:
+                        return ended("EMERGENCY_STOP_LATCHED")
+                    if receipt.get("guardSourceFaults"):
+                        evidence["guardSourceFaults"] = receipt["guardSourceFaults"]
+                        evidence["guardSourceContext"] = receipt.get("guardSourceContext")
+                        return ended("SENSOR_STALE", "动作发布前点云来源时间不可验证，已停止。")
+                    if set(receipt.get("readinessBlockers", [])) == {"RGBD_NOT_READY"}:
+                        # Publisher already issued zero. Keep the same hold budget
+                        # across flapping checks until a nonzero pulse actually resumes.
+                        if stale_since is None:
+                            stale_since = time.monotonic()
+                            evidence["observationHoldCount"] += 1
+                            evidence["observationHolds"].append({
+                                "stoppedAtMonotonicNs": str(time.monotonic_ns()),
+                                "maxDurationSeconds": hold_budget, "trigger": "publisher_readiness",
+                                "publisherRejection": dict(evidence["publisherLastRejection"])})
+                            del evidence["observationHolds"][:-16]
+                            emit("observation_hold")
+                        time.sleep(.05)
+                        continue
+                    if receipt.get("readinessBlockers"):
+                        return ended("SENSOR_STALE", ",".join(receipt["readinessBlockers"]))
+                    if time.monotonic_ns() >= min(guard_expiry_ns, odom_expiry_ns):
+                        return ended("SENSOR_STALE", "障碍点云在动作发布前过期，已停止。")
+                    return ended("MOTION_NOT_READY", "动作发布前的安全条件不满足，已停止。")
+                if stale_since is not None:
+                    evidence["observationHolds"][-1]["resumedAtMonotonicNs"] = str(time.monotonic_ns())
+                    emit("observation_resumed", readiness=snapshot)
+                    stale_since = None
                 evidence["nonzeroPublishedPulseCount"] += int(receipt["nonzero"])
                 self._log_step(
                     f"DRIVE target=({target[0]:.2f},{target[1]:.2f}) "
@@ -736,6 +925,8 @@ class GazeboRuntimeNode(Node):
         matrix[:3, :3], matrix[:3, 3] = rotation, translation
         with self._lock:
             stamp = message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec
+            if stamp <= self._odom_stamp_ns:
+                return  # Duplicate, invalid, or clock rollback cannot refresh feedback.
             if self._imu is None or abs(stamp-self._imu[2]) > 200_000_000 or time.monotonic_ns()-self._imu[3] > 500_000_000:
                 return  # A planar odometer cannot authorize tilted-camera geometry.
             from scipy.spatial.transform import Rotation

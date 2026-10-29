@@ -88,14 +88,20 @@ def main() -> int:
         with open(token_path, 'x', opener=lambda p, f: os.open(p, f, 0o600)) as handle:
             handle.write(secrets.token_urlsafe(32))
     image = os.environ.get('SIM_STACK_GAZEBO_IMAGE', 'tangying-navigation:dev')
-    assets = ROOT / 'artifacts/sim-assets'
+    # Keep each physical trial's exported world separate when explicitly
+    # requested: an existing Gazebo container may still have the default
+    # directory mounted read-only, so re-exporting there changes its inputs.
+    assets = Path(os.environ.get('SIM_STACK_GAZEBO_ASSETS_ROOT') or ROOT / 'artifacts/sim-assets').expanduser().resolve()
     assets.mkdir(parents=True, exist_ok=True)
     if args.scene in ('home', 'home_task', 'home_furnished'):
         if not (assets / 'furnished-home/manifest.json').is_file():
             owner.run([os.sys.executable, str(ROOT / 'scripts/prepare_home_world.py'), '--output', str(assets)])
-            owner.run([os.sys.executable, str(ROOT / 'scripts/prepare_furnished_home.py')])
+            owner.run([os.sys.executable, str(ROOT / 'scripts/prepare_furnished_home.py'),
+                       '--source', str(assets / 'aws-small-house'),
+                       '--output', str(assets / 'furnished-home')])
         owner.run([os.sys.executable, str(ROOT / 'scripts/export_gazebo_home.py'),
-                   '--output', str(assets / 'xlerobot-home')])
+                   '--output', str(assets / 'xlerobot-home'),
+                   '--pack', str(assets / 'furnished-home')])
     ensure_image(owner, image)
     port_file = root / 'navigation-port'
     navigation_port = os.environ.get('SIM_STACK_GAZEBO_NAVIGATION_PORT') or (port_file.read_text().strip() if port_file.exists() else '18791')
@@ -132,7 +138,11 @@ def main() -> int:
     # requiring a source edit, and printing them keeps the run's log self-describing
     # about which diagnostics were on.
     for key, value in sorted(os.environ.items()):
-        if key.startswith('TANGYING_') and key not in container_environment:
+        # The Compose base receives the private token through its process
+        # environment, not the persisted override. The navigation URL is for
+        # the host console: its loopback address is wrong inside the container.
+        console_only = {'TANGYING_NAVIGATION_TOKEN', 'TANGYING_NAVIGATION_URL'}
+        if key.startswith('TANGYING_') and key not in console_only and key not in container_environment:
             container_environment[key] = value
     passthrough = sorted(key for key in container_environment if os.environ.get(key) is not None
                          and key not in ('TANGYING_GAZEBO_SCENE', 'TANGYING_GAZEBO_EPISODE_SEED',

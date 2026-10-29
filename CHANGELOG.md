@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 改善家庭巡检的建图准备：操作身份检查防止取消错误会话，租约在建图线程运行前生效，运动故障保留可验证的部分地图与原故障；登记家庭路线从附近起点沿已登记边接入，并保持实时保护圈。Gazebo 点云拒绝证据、来源时间与短暂视觉等待处理，以及隔离试验与失败记录一并增强。代码边界见[实现说明](docs/development/2026-10-30-exploration-operation-integrity.md)，各次仿真和巡检结论以[续测记录](docs/experiments/2026-10-30-patrol-continuation.md)为准；不代表未知环境覆盖或实机认证。
+
 - 工作台端到端验收：补充真实导航依赖检查、批准后入队重试、执行结束审计、物理动作回放与 GOAL 指标；修复建图相机、续段首帧等待及规划/操作包络不一致。只读与取消流程通过，家庭完整物理巡检仍未完成；保留失败与未验收边界。见[实现说明](docs/development/2026-10-28-workbench-e2e-hardening.md)和[实验记录](docs/experiments/2026-10-28-user-workbench-e2e/README.md)。
 
 - 任务复测后修复规划取消/计量故障的错误重试、peer 小批次发送饥饿与歧义/超长 ACK 接受、Gazebo 停止锁存的就绪误判；保留三机器人完整路线、独立 6 项停止及 HTTP/SQLite 故障重启原始证据。物理运行版本与新补丁软件验证分开，UAV 接触覆盖仍未证实。见[变更](docs/development/2026-10-28-task-validation-fixes.md)与[实验](docs/experiments/2026-10-28-edge-task-validation/README.md)。

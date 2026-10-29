@@ -136,6 +136,8 @@ class RobotWorkflow:
         self._lock = threading.RLock()
         self._slam_lock = threading.Lock()
         self._cancel = threading.Event()
+        self._fatal_motion_stop = False
+        self._session_fault = None
         self._worker = None
         self._reservation = None
         self._pause_requested = False
@@ -221,7 +223,7 @@ class RobotWorkflow:
             ("mapping.move","执行有界扫描移动",object_schema({"action":{"type":"string","enum":["forward","backward","left","right","turn_left","turn_right"]},"distanceM":number(.5),"angleRad":number(.5)},["action"]),self.move_step,True),
             ("mapping.stop_motion","停止当前扫描移动",object_schema(),self.stop_motion,True),
             ("mapping.finish","仅操作员手动扫描结束时使用；自动建图会自行保存",object_schema(),self.finish,True),
-            ("mapping.cancel","取消本次扫描",object_schema(),self.cancel,True),
+            ("mapping.cancel","取消本次扫描；可指定 expectedOperationId 避免误取消后来启动的扫描",object_schema({"expectedOperationId":{"type":"string","minLength":1,"maxLength":128}}),self.cancel,True),
             ("mapping.activate","验证并加载保存的机器人地图",object_schema({"mapId":{"type":"string"}},["mapId"]),self.activate,True),
             ("mapping.inventory","只读：列出本机当前机器人、当前标定下可用的地图（含在用地图与最新一张）",object_schema(),lambda _:self.map_inventory(),False),
             ("mapping.ensure","面向自然语言意图的入口：需要地图时，已有可用地图就复用它，没有就自动探索建图；可给 environment 指定地点、mapId 指定具体地图",object_schema({"environment":{"type":"string"},"mapId":{"type":"string"},"name":{"type":"string"},"maxTravelM":{"type":"number","minimum":2.,"maximum":120.},"maxLegs":{"type":"integer","minimum":1,"maximum":6}}),self.ensure_map,True),
@@ -268,7 +270,8 @@ class RobotWorkflow:
                     "outputSchema":{"type":"object","additionalProperties":True},**contract}
                 if name in planning_views:
                     contract["planningFields"] = planning_views[name]
-            registry.register(RegisteredService(name,description,schema,handler,mutation,contract,self._service_authority))
+            invoker = self._invoke_operation if name in {"mapping.start", "mapping.build", "mapping.ensure", "mapping.finish", "mapping.move"} else None
+            registry.register(RegisteredService(name,description,schema,handler,mutation,contract,self._service_authority,invoker))
         from .semantic_cloud_services import SemanticCloudServices
         # One signer per workflow process. Restart invalidates old execution bindings.
         if not hasattr(self, "semantic_cloud_services"):
@@ -279,6 +282,38 @@ class RobotWorkflow:
         if args.get("mode", "explore") == "survey" and any(key in args for key in ("maxTravelM", "maxLegs")):
             raise ServiceError("SURVEY_BUDGET_UNSUPPORTED", "巡检路线模式不接受探索预算，请使用 explore 或明确的有界路线。", rejected=True)
         return self.start({"mode":"explore", **args})
+
+    def _invoke_operation(self, request, parameters, handler):
+        # The worker waits on this same lock before its first capture or motion.
+        # No shared request context is installed, so other RPCs cannot borrow a
+        # lease. Handler and authority either both finish or the new worker is
+        # cancelled before it crosses that gate.
+        with self._lock:
+            if request.operation_lease_ms and request.name == "mapping.finish" and not request.operation_id:
+                raise ServiceError("OPERATION_ID_REQUIRED", "受监督的地图保存必须绑定已有扫描操作。", rejected=True)
+            if request.operation_lease_ms and request.name == "mapping.move" and not request.operation_id:
+                raise ServiceError("OPERATION_ID_REQUIRED", "受监督移动必须绑定已有扫描操作。", rejected=True)
+            if request.operation_lease_ms and request.operation_id:
+                if (request.operation_id != self.operation_id
+                        or request.operation_owner_id != self._operation_owner):
+                    raise ServiceError("OPERATION_OWNER_MISMATCH", "Operation lease identity differs", rejected=True)
+                if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                    self._expire_operation_lease()
+                    raise ServiceError("OPERATION_LEASE_EXPIRED", "Operation supervision expired", rejected=True)
+                if request.name in {"mapping.start", "mapping.build", "mapping.ensure"}:
+                    # These create/select operations; renew an existing lease via
+                    # status, not by changing a map before renewal completes.
+                    raise ServiceError("OPERATION_ID_UNEXPECTED", "请通过状态接口续租已有操作。", rejected=True)
+            previous_worker = self._worker
+            try:
+                payload = handler(parameters)
+                self._service_authority(request, payload)
+                return payload
+            except BaseException:
+                if self._worker is not previous_worker and self._worker is not None:
+                    self._user_cancel = True
+                    self._cancel.set()
+                raise
 
     def _service_authority(self, request, payload):
         """Supervise a whole operation across leg changes, outside business args."""
@@ -385,14 +420,22 @@ class RobotWorkflow:
         produced it.
         """
         fault = _fault_of(error)
+        with self._lock:
+            self._session_fault = copy.deepcopy(fault)
         published = False
+        salvage = {"status": "not_attempted", "faultCode": fault.get("code", "") if fault else ""}
         if (fault is not None and not self._user_cancel and not self._pause_requested
                 and self.slam.frame_count):
             try:
                 self._build(fault=fault)
                 published = True
-            except Exception:  # noqa: BLE001 - the original fault is the headline.
+                salvage["status"] = "published"
+            except Exception as build_error:  # noqa: BLE001 - retain both faults, do not manufacture a map.
+                salvage.update(status="failed", errorCode=getattr(build_error, "code", "SAVE_FAILED"),
+                               errorMessage=str(build_error)[:512])
                 published = False
+        with self._lock:
+            self._summary["faultSalvage"] = salvage
         if not published:
             with self._lock:
                 self.state = ("cancelled" if self._user_cancel
@@ -401,12 +444,34 @@ class RobotWorkflow:
         if self.state != "recording":
             self._release_session()
 
-    def _spawn(self, callback):
+    def _spawn(self, callback, *, publication_fault=None):
         def run():
             try:
+                with self._lock:
+                    if publication_fault is not None:
+                        self._check_publication_cancel(publication_fault)
+                    else:
+                        if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                            self._expire_operation_lease()
+                        self._check_cancel()
                 callback()
+                if publication_fault is not None:
+                    with self._lock:
+                        self._summary["faultSalvage"] = {"status": "published", "faultCode": publication_fault["code"],
+                                                        "method": "manual_retry"}
             except Exception as error:  # noqa: BLE001 - provider fault terminates the owned workflow.
-                self._handle_session_fault(error)
+                if publication_fault is None:
+                    self._handle_session_fault(error)
+                else:
+                    # A manual salvage failure must never replace the original
+                    # motion fault or recursively pretend the save succeeded.
+                    with self._lock:
+                        self._summary["faultSalvage"] = {"status": "failed", "faultCode": publication_fault["code"],
+                            "errorCode": getattr(error, "code", "SAVE_FAILED"), "errorMessage": str(error)[:512]}
+                        self.state = "cancelled" if self._user_cancel else "recording" if self._pause_requested else "failed"
+                        self.message = f"原扫描故障（{publication_fault['code']}）；保存失败：{error}"
+                    if self.state != "recording":
+                        self._release_session()
         self._worker = threading.Thread(target=run,name="robot-mapping",daemon=True)
         try:self._worker.start()
         except Exception:
@@ -417,7 +482,8 @@ class RobotWorkflow:
 
     def start(self, parameters):
         with self._lock:
-            if self.state in {"recording","moving","finalizing"}:
+            if (self.state in {"recording","moving","exploring","surveying","finalizing"}
+                    or self._worker is not None and self._worker.is_alive()):
                 raise ServiceError("MAPPING_ACTIVE","已有扫描进行中，请先完成或取消。")
             next_provider = self._new_slam_provider()
             self._reservation = self.reserve()
@@ -426,15 +492,24 @@ class RobotWorkflow:
                 self._release_session()
                 raise
             self._cancel = threading.Event()
+            self._fatal_motion_stop = False
+            self._session_fault = None
             self._pause_requested,self._user_cancel = False,False
             # Resolve the continuation anchor before the robot moves. Doing it here
             # rather than at save time means a wrong base map is reported while the
             # operator is still standing there, not after a survey has been driven.
             self._base_anchor = None
             self._base_map_id = ""
-            if parameters.get("baseMapId"):
-                self._base_map_id = str(parameters["baseMapId"])
-                self._base_anchor = self._continuation_anchor(self._base_map_id)
+            try:
+                if parameters.get("baseMapId"):
+                    self._base_map_id = str(parameters["baseMapId"])
+                    self._base_anchor = self._continuation_anchor(self._base_map_id)
+            except Exception:
+                # No worker exists yet to release this reservation. A malformed
+                # or incompatible base must not lock out the next valid attempt.
+                self._base_map_id, self._base_anchor = "", None
+                self._release_session()
+                raise
             self.slam = next_provider
             self._slam_info = self.slam.info
             self.session_id = uuid.uuid4().hex
@@ -453,7 +528,7 @@ class RobotWorkflow:
             self._preview = {"points":[],"colors":[]}
             self._summary = {"frameCount":0,"pointCount":0,"travelledM":0.,"registrationCount":0,"loopClosures":0,"trajectory":[]}
             self._spawn(lambda:self._begin(parameters.get("mode","manual"),parameters))
-        return self.status()
+            return self.status()
 
     def _begin(self, mode, parameters=None):
         parameters = parameters or {}
@@ -479,6 +554,16 @@ class RobotWorkflow:
     def _check_cancel(self):
         if self._cancel.is_set():
             raise ServiceError("CANCELLED","扫描移动已停止。")
+
+    def _check_publication_cancel(self, fault):
+        """An internally stopped driver may save evidence, never resume motion."""
+        with self._lock:
+            if self._operation_deadline and time.monotonic() >= self._operation_deadline:
+                self._expire_operation_lease()
+            if self._user_cancel or self._pause_requested:
+                raise ServiceError("CANCELLED", "扫描保存已取消。")
+            if self._cancel.is_set() and (fault is None or not self._fatal_motion_stop):
+                raise ServiceError("CANCELLED", "扫描保存已取消。")
 
     #: How often a survey asks the driver for perceived entities. Perception is
     #: heavier than a capture, and an object does not move between two keyframes,
@@ -692,7 +777,12 @@ class RobotWorkflow:
             self._sample()
         except BaseException:
             if fatal:
-                self._cancel.set()
+                with self._lock:
+                    # Set only when the fault, not a concurrent operator/lease
+                    # cancellation, initiated the driver's stop signal.
+                    if not self._cancel.is_set():
+                        self._fatal_motion_stop = True
+                    self._cancel.set()
             # Reservation remains held until the controller acknowledges stop.
             thread.join()
             raise
@@ -713,6 +803,7 @@ class RobotWorkflow:
                 se2[:2] += distance*np.array([math.cos(direction),math.sin(direction)])
             goal = [float(se2[0]),float(se2[1]),pose[2],math.cos(se2[2]/2),0.,0.,math.sin(se2[2]/2)]
             self._cancel = threading.Event()
+            self._fatal_motion_stop = False
             self._pause_requested,self._user_cancel = False,False
             self.state,self.message = "moving","正在执行有界移动并采集深度。"
             self._spawn(lambda:self._manual_move(goal))
@@ -771,9 +862,12 @@ class RobotWorkflow:
                     if self._base_map_id:
                         self.map_id = self._base_map_id
                         reason = self._exploration.get("stopReason", "unknown")
-                        self.state = "failed" if reason in {
-                            "no_frames", "insufficient_map_evidence", "depth_starved",
-                            "continuation_scan_refused"} else "completed"
+                        # Completing a bounded operation is not the same as
+                        # exhausting its frontiers. Keep normal budget stops
+                        # compatible, but never call an unreachable or stalled
+                        # continuation successful simply because an old map exists.
+                        self.state = "completed" if complete or reason in {
+                            "travel_budget", "frame_budget", "leg_timeout"} else "failed"
                         self.message = f"保留上一段地图；本段无足够平移证据，停止原因：{reason}。"
                     else:
                         self.state,self.message = "failed",(
@@ -1229,8 +1323,11 @@ class RobotWorkflow:
             self._cancel.set()
         return self.status()
 
-    def cancel(self, _):
+    def cancel(self, parameters):
         with self._lock:
+            expected = parameters.get("expectedOperationId")
+            if expected is not None and expected != self.operation_id:
+                raise ServiceError("OPERATION_ID_MISMATCH", "扫描任务已变化；未取消当前任务。", rejected=True)
             if self.state in {"idle","completed","cancelled"}:return self.status()
             self._user_cancel = True
             self._cancel.set()
@@ -1241,7 +1338,7 @@ class RobotWorkflow:
                 self._release_session()
             else:
                 self.message = "正在停止机器人并取消扫描。"
-        return self.status()
+            return self.status()
 
     def finish(self, _):
         with self._lock:
@@ -1253,9 +1350,20 @@ class RobotWorkflow:
                 raise ServiceError("SCAN_NOT_READY","等待移动结束后再保存地图。", rejected=True)
             if self._worker is not None and self._worker.is_alive():
                 raise ServiceError("MOTION_STOPPING","等待机器人完成停止后再保存地图。")
+            if self.state == "failed":
+                fault = copy.deepcopy(self._session_fault)
+                if not isinstance(fault, dict) or not isinstance(fault.get("code"), str) or not fault["code"] or not isinstance(fault.get("message"), str):
+                    raise ServiceError("FAULT_IDENTITY_UNAVAILABLE", "缺少原始故障身份，无法安全标记抢救地图。", rejected=True)
+                self._check_publication_cancel(fault)
+                if not self._reservation:
+                    self._reservation = self.reserve()
+                self.state,self.message = "finalizing","正在保存原故障前已测绘的部分地图。"
+                self._spawn(lambda:self._build(fault=fault), publication_fault=fault)
+                return self.status()
             if not self._reservation:
                 self._reservation = self.reserve()
             self._cancel = threading.Event()
+            self._fatal_motion_stop = False
             self._pause_requested,self._user_cancel = False,False
             self.state,self.message = "finalizing","正在优化轨迹并生成导航地图和三维地图。"
             self._spawn(self._build)
@@ -1390,7 +1498,7 @@ class RobotWorkflow:
         is the durable record: a reader can tell a complete survey from a partial
         one without asking the service that produced it.
         """
-        self._check_cancel()
+        self._check_publication_cancel(fault)
         with self._slam_lock:
             progress = self.slam.progress()
             if self.slam.frame_count < 3 or not progress.registration_count or self._summary["travelledM"] < .15:
@@ -1458,7 +1566,10 @@ class RobotWorkflow:
             if fault:
                 provenance_extra = {"partial": True, "fault": dict(fault)}
             else:
-                provenance_extra = {"partial": False}
+                # A successful bounded exploration may publish a useful map
+                # without exhausting even its observed-grid frontiers. This is
+                # a coverage property, distinct from operation terminal state.
+                provenance_extra = {"partial": bool(self._exploration) and not self._explore_complete}
             provenance = {**snapshot.provenance,**provenance_extra,
                           "provider":snapshot.info.document(),
                           "name":self.name,"calibrationRevision":self.calibration_revision,
@@ -1506,7 +1617,7 @@ class RobotWorkflow:
             with self._lock:
                 # Cancellation wins before this publication boundary; after it,
                 # the immutable map and completion state are committed together.
-                self._check_cancel()
+                self._check_publication_cancel(fault)
                 os.rename(staging,self.root/self.map_id)
                 self._load_map(self.map_id)
                 if fault:

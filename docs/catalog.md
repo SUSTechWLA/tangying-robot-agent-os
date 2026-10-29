@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **297 份 Markdown** 与 **1261 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **299 份 Markdown** 与 **1266 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 116 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 117 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 20 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 63 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 64 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -193,6 +193,7 @@
 | [2026-10-28 边缘系统能力与实机接入评估](development/2026-10-28-system-upgrade-assessment.md) | `development/2026-10-28-system-upgrade-assessment.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 任务复测后的边缘故障修复](development/2026-10-28-task-validation-fixes.md) | `development/2026-10-28-task-validation-fixes.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [工作台用户流程与执行收尾修正](development/2026-10-28-workbench-e2e-hardening.md) | `development/2026-10-28-workbench-e2e-hardening.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [探索操作身份与部分地图语义](development/2026-10-30-exploration-operation-integrity.md) | `development/2026-10-30-exploration-operation-integrity.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -374,6 +375,7 @@
 | [独立指标审计与只读 task 收尾校验](experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md` | 导航 / 维护 |
 | [后续用户任务独立复核：task004 与 task005](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md) | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md` | 导航 / 维护 |
 | [工作台交互、投影与执行收尾审计](experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md` | 导航 / 维护 |
+| [2026-10-30 家庭巡检续测](experiments/2026-10-30-patrol-continuation.md) | `experiments/2026-10-30-patrol-continuation.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -693,6 +695,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/live-evidence/evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/live-evidence` |
 | [manifest.json](experiments/2026-10-28-user-workbench-e2e/live-evidence/manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/live-evidence` |
 | [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/metrics-audit/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [collect_task_closure.cpython-311.pyc](experiments/2026-10-28-user-workbench-e2e/metrics-audit/__pycache__/collect_task_closure.cpython-311.pyc) | PYC | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/__pycache__` |
 | [collect_task_closure.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/collect_task_closure.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
 | [commands.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
 | [evidence-manifest.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/evidence-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
@@ -802,6 +805,8 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [result.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
 | [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
 | [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [package_evidence.cpython-311.pyc](experiments/2026-10-30-patrol-evidence/__pycache__/package_evidence.cpython-311.pyc) | PYC | `experiments/2026-10-30-patrol-evidence/__pycache__` |
+| [package_evidence.py](experiments/2026-10-30-patrol-evidence/package_evidence.py) | PY | `experiments/2026-10-30-patrol-evidence` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
@@ -1676,6 +1681,8 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [source-manifest.json](experiments/evidence/2026-10-20-edge-workspaces/source-manifest.json) | JSON | `experiments/evidence/2026-10-20-edge-workspaces` |
 | [summary.json](experiments/evidence/2026-10-20-edge-workspaces/summary.json) | JSON | `experiments/evidence/2026-10-20-edge-workspaces` |
 | [web.log.gz](experiments/evidence/2026-10-20-edge-workspaces/web.log.gz) | GZ | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [evidence.tar.gz](experiments/evidence/2026-10-30-patrol-continuation-final/evidence.tar.gz) | GZ | `experiments/evidence/2026-10-30-patrol-continuation-final` |
+| [manifest.json](experiments/evidence/2026-10-30-patrol-continuation-final/manifest.json) | JSON | `experiments/evidence/2026-10-30-patrol-continuation-final` |
 | [task-replay-desktop.png](frontend/assets/console-ux-20260927/task-replay-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-desktop.png](frontend/assets/console-ux-20260927/workspace-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-mobile.png](frontend/assets/console-ux-20260927/workspace-mobile.png) | PNG | `frontend/assets/console-ux-20260927` |

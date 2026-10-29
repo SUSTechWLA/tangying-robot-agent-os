@@ -1,5 +1,7 @@
 """Default engine deployment contracts independent of an installed Docker daemon."""
 import importlib.util
+import json
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -11,6 +13,87 @@ def module(path):
     result = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(result)
     return result
+
+
+def test_gazebo_trial_uses_only_its_selected_asset_root(tmp_path, monkeypatch):
+    runner = module('scripts/gazebo_process.py')
+    repo = tmp_path / 'repo'
+    shared = repo / 'artifacts/sim-assets'
+    shared.mkdir(parents=True)
+    sentinel = shared / 'existing-world'
+    sentinel.write_text('existing world stays untouched')
+    isolated = tmp_path / 'trial-assets'
+    trial = tmp_path / 'trial'
+    calls = []
+
+    class Owner:
+        def run(self, args, **kwargs):
+            calls.append((args, kwargs))
+            return 0
+
+    monkeypatch.setattr(runner, 'ROOT', repo)
+    monkeypatch.setattr(runner, 'ProcessOwner', Owner)
+    monkeypatch.setattr(runner, 'ensure_image', lambda owner, image: calls.append((['image', image], {})))
+    monkeypatch.setattr(runner.subprocess, 'run', lambda *args, **kwargs: None)
+    monkeypatch.setenv('SIM_STACK_GAZEBO_ASSETS_ROOT', str(isolated))
+    monkeypatch.setenv('SIM_STACK_GAZEBO_IMAGE', 'tangying-navigation:isolated-test')
+    monkeypatch.setenv('SIM_STACK_GAZEBO_NAVIGATION_PORT', '18942')
+    monkeypatch.setenv('ROS_DOMAIN_ID', '92')
+    monkeypatch.setenv('TANGYING_NAVIGATION_TOKEN', 'private-parent-token-fixture-should-not-be-serialized')
+    monkeypatch.setenv('TANGYING_NAVIGATION_URL', 'http://127.0.0.1:18942')
+    monkeypatch.setattr(sys, 'argv', ['gazebo_process.py', '--listen', '127.0.0.1:50462',
+                                      '--scene', 'home_furnished', '--artifacts-dir', str(trial)])
+    assert runner.main() == 0
+    commands = [args for args, _ in calls]
+    prepare = next(c for c in commands if any('prepare_home_world.py' in a for a in c))
+    furnish = next(c for c in commands if any('prepare_furnished_home.py' in a for a in c))
+    export = next(c for c in commands if any('export_gazebo_home.py' in a for a in c))
+    assert prepare[-1] == str(isolated)
+    assert furnish[-4:] == ['--source', str(isolated / 'aws-small-house'), '--output', str(isolated / 'furnished-home')]
+    assert export[-4:] == ['--output', str(isolated / 'xlerobot-home'), '--pack', str(isolated / 'furnished-home')]
+    compose, options = next((c, o) for c, o in calls if c[0:2] == ['docker', 'compose'])
+    assert options['env']['TANGYING_GAZEBO_ASSETS'] == str(isolated)
+    assert options['env']['TANGYING_NAVIGATION_PORT'] == '18942'
+    assert options['env']['TANGYING_GAZEBO_RUNTIME_PORT'] == '50462'
+    assert options['env']['ROS_DOMAIN_ID'] == '92'
+    assert options['env']['TANGYING_NAVIGATION_IMAGE'] == 'tangying-navigation:isolated-test'
+    assert compose[3].startswith('tangying-gazebo-')
+    override = json.loads((trial / 'compose.json').read_text())
+    assert 'TANGYING_NAVIGATION_TOKEN' not in override['services']['gazebo-house']['environment']
+    assert 'TANGYING_NAVIGATION_URL' not in override['services']['gazebo-house']['environment']
+    assert 'private-parent-token-fixture-should-not-be-serialized' not in (trial / 'compose.json').read_text()
+    assert str(trial / 'maps') + ':/data/maps' in override['services']['gazebo-house']['volumes']
+    assert sentinel.read_text() == 'existing world stays untouched'
+    assert list(shared.iterdir()) == [sentinel]
+
+
+def test_gazebo_default_assets_stay_under_the_original_repository_root(tmp_path, monkeypatch):
+    runner = module('scripts/gazebo_process.py')
+    repo = tmp_path / 'repo'
+    assets = repo / 'artifacts/sim-assets'
+    (assets / 'furnished-home').mkdir(parents=True)
+    (assets / 'furnished-home/manifest.json').write_text('{}')
+    calls = []
+
+    class Owner:
+        def run(self, args, **kwargs):
+            calls.append((args, kwargs))
+            return 0
+
+    monkeypatch.setattr(runner, 'ROOT', repo)
+    monkeypatch.setattr(runner, 'ProcessOwner', Owner)
+    monkeypatch.setattr(runner, 'ensure_image', lambda *args: None)
+    monkeypatch.setattr(runner.subprocess, 'run', lambda *args, **kwargs: None)
+    monkeypatch.delenv('SIM_STACK_GAZEBO_ASSETS_ROOT', raising=False)
+    monkeypatch.setattr(sys, 'argv', ['gazebo_process.py', '--listen', '127.0.0.1:50462',
+                                      '--scene', 'home_furnished', '--artifacts-dir', str(tmp_path / 'trial')])
+    assert runner.main() == 0
+    commands = [args for args, _ in calls]
+    assert not any('prepare_home_world.py' in a for c in commands for a in c)
+    export = next(c for c in commands if any('export_gazebo_home.py' in a for a in c))
+    assert export[-4:] == ['--output', str(assets / 'xlerobot-home'), '--pack', str(assets / 'furnished-home')]
+    _, options = next((c, o) for c, o in calls if c[0:2] == ['docker', 'compose'])
+    assert options['env']['TANGYING_GAZEBO_ASSETS'] == str(assets)
 
 
 def test_source_revision_tracks_changes_even_under_hidden_worktree_parent(tmp_path, monkeypatch):
