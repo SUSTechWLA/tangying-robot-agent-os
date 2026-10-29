@@ -57,6 +57,13 @@ class Hub:
         self.events.write(json.dumps({"type": event_type, "atUnixMs": int(time.time()*1000), **data}) + "\n")
         self.events.flush()
 
+    def public_snapshot(self):
+        # A live measured state does not imply motion admission is available.
+        # Expose the latch without adding a reset path or clearing any authority.
+        with self.lock:
+            return {**{k: v for k, v in self.snapshot.items() if k != "scans"},
+                    "stoppedRobots": sorted(self.stopped)}
+
     def status(self, robot):
         state = self.snapshot.get("states", {}).get(robot)
         goal = self.goals.get(robot)
@@ -250,7 +257,7 @@ def main():
                     if data is not None:
                         value = hub.request(url.path, data)
                     elif url.path == "/snapshot":
-                        value = {k: v for k, v in hub.snapshot.items() if k != "scans"}
+                        value = hub.public_snapshot()
                     elif url.path == "/status":
                         query = parse_qs(url.query)
                         value = hub.status(query["robotId"][0])

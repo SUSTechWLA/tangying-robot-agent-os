@@ -1,5 +1,7 @@
 # 研究与论文资料导航
 
+2026-10-28 新研究入口：[长任务性能与成本实现](../development/2026-10-28-edge-scalability.md)、[实验指标与对照设计](../production/model-cost-and-recipes.md#4-如何比较效果)。分别报告软件长任务、实时状态重验证、真实模型 usage 的已知样本数；fixture 的 token 值不能作为商用模型成本结论。
+
 2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。
 
 

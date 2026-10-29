@@ -1,0 +1,228 @@
+{
+  "plannedDate": "2026-10-28",
+  "reportTimezone": "Asia/Shanghai",
+  "baselineHead": "a98c0681d524a6db7036a7a5bbe121df6f8e239d",
+  "scope": "temporary SQLite and loopback HTTP/TLS software fixtures only, no Gazebo/ROS/real robots/real LLM",
+  "phases": [
+    {
+      "phase": "baseline",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-timeout=120s",
+        "./edge/exchange",
+        "./middleware/sqlite",
+        "./edge/worker",
+        "-run",
+        "Test(RestartLostAcknowledgementAndFIFO|OfflineBacklogDoesNotBlockHealthyPeer|ScopedDispatchSurvivesPeerReconfigurationAndRestart|LatestExchangeSnapshot|DurableFeed|ContextConcurrentWorkersOnlyOneAccepts|ContextRejectsMixedMissingAndForeignBasisBeforeInvoking|PhysicalResultLossCannotBecomeCloudFailureOrReplayAfterRestart|CompletionResponseLostAfterRevisionActivationSurvivesBothRestarts|ObjectiveResumedClaimReportsUnknownOutcome|ObjectiveLostReceiptResumesAfterWorkerRestartWithoutActionReplay|WorkerRefusesClaimFromSupersededTaskRevision|ControlPlaneOutageDoesNotDiscardNotificationAfterSixtyRetries)"
+      ],
+      "startedAtUTC": "2026-10-28T14:34:00.377814+00:00",
+      "endedAtUTC": "2026-10-28T14:34:11.460055+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 5.818311000009999,
+      "topLevel": {
+        "pass": 15
+      },
+      "leafOutcomes": {
+        "pass": 34,
+        "fail": 0,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "064f93a3773f8b1ad078d2e11402616ca62e55f1279ecf40ca1f7293f12ec707",
+      "rawSHA256": "629af9f80a561552af12dd0884c44b77ce1d8c2c8e8b732db59d0d697816569f",
+      "experimentLogCount": 1
+    },
+    {
+      "phase": "reproduce",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-timeout=60s",
+        "./edge/exchange",
+        "-run",
+        "TestDispatchSmallBatchRotatesOfflinePeersAndRestarts|TestMalformedAcknowledgementRetainsOutboxAcrossHTTPRestart"
+      ],
+      "startedAtUTC": "2026-10-28T14:49:09.949372+00:00",
+      "endedAtUTC": "2026-10-28T14:49:17.294041+00:00",
+      "exitCode": 1,
+      "elapsedSeconds": 2.284272041055374,
+      "topLevel": {
+        "fail": 2
+      },
+      "leafOutcomes": {
+        "pass": 1,
+        "fail": 5,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "aabdc1469c6c30b27335e6937d04f9b8d4a8c0a91ff0cf6d198dc4f7dec389f4",
+      "rawSHA256": "9ff94bb4d510eb52884859196698c5609016c5327bc7563aa16fa56a74d5c156",
+      "experimentLogCount": 1
+    },
+    {
+      "phase": "corrected",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-timeout=60s",
+        "./edge/exchange",
+        "-run",
+        "TestDispatchSmallBatchRotatesOfflinePeersAndRestarts|TestMalformedAcknowledgementRetainsOutboxAcrossHTTPRestart"
+      ],
+      "startedAtUTC": "2026-10-28T14:50:24.883015+00:00",
+      "endedAtUTC": "2026-10-28T14:50:30.315472+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 2.8376694170292467,
+      "topLevel": {
+        "pass": 2
+      },
+      "leafOutcomes": {
+        "pass": 6,
+        "fail": 0,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "5fcc0b64d060d6e64318ec3d382ef4865fac98ef438cc96c2dc345c64f48c45a",
+      "rawSHA256": "770af41aafd1ad9bbaf10ff099671b46a64eadbac6aea89b95f784c9a03d8556",
+      "experimentLogCount": 6
+    },
+    {
+      "phase": "alias-reproduce",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-timeout=60s",
+        "./edge/exchange",
+        "-run",
+        "^TestMalformedAcknowledgementRetainsOutboxAcrossHTTPRestart$/case-alias-disposition$"
+      ],
+      "startedAtUTC": "2026-10-28T14:52:43.604126+00:00",
+      "endedAtUTC": "2026-10-28T14:52:48.706231+00:00",
+      "exitCode": 1,
+      "elapsedSeconds": 2.1123520000837743,
+      "topLevel": {
+        "fail": 1
+      },
+      "leafOutcomes": {
+        "pass": 0,
+        "fail": 1,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "078e69cad974a1c66ea055dea9d64c25b6a0d8456072ccf1d854508e08409323",
+      "rawSHA256": "7a4b5113532c674faf3eb17e4aa3bd86b99d92529b532246d397f985e1fad663",
+      "experimentLogCount": 0
+    },
+    {
+      "phase": "repeated-http-restart",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=10",
+        "-timeout=120s",
+        "./edge/exchange",
+        "-run",
+        "TestDispatchSmallBatchRotatesOfflinePeersAndRestarts|TestMalformedAcknowledgementRetainsOutboxAcrossHTTPRestart|TestDispatchConcurrentFairnessAndLegacyJournal|TestAcknowledgementByteLimitIncludesWhitespace"
+      ],
+      "startedAtUTC": "2026-10-28T14:53:38.261561+00:00",
+      "endedAtUTC": "2026-10-28T14:53:49.401491+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 8.505891165928915,
+      "topLevel": {
+        "pass": 40
+      },
+      "leafOutcomes": {
+        "pass": 100,
+        "fail": 0,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "040024b9477630021781f0a4336c3a5ad8e901890048e91fd5e2518c6dab430a",
+      "rawSHA256": "e1e4f6b9e2e63d2ec7214e176cf2143703d58c9cd37e53d65e2f3e6266a93c40",
+      "experimentLogCount": 70
+    },
+    {
+      "phase": "final-packages",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-timeout=120s",
+        "./core/exchangecontract",
+        "./edge/exchange",
+        "./middleware/sqlite",
+        "./cmd/edge-exchange"
+      ],
+      "startedAtUTC": "2026-10-28T14:54:17.564118+00:00",
+      "endedAtUTC": "2026-10-28T14:54:34.627245+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 14.332406167057343,
+      "topLevel": {
+        "pass": 65
+      },
+      "leafOutcomes": {
+        "pass": 100,
+        "fail": 0,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "040024b9477630021781f0a4336c3a5ad8e901890048e91fd5e2518c6dab430a",
+      "rawSHA256": "7b0fc5972ea4d345dc1f3167b8a8b63a1cd0e8f78f2452a432908dce56c99eb1",
+      "experimentLogCount": 7
+    },
+    {
+      "phase": "repeated-cloud-reconciliation",
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=10",
+        "-timeout=120s",
+        "./edge/worker",
+        "-run",
+        "Test(ContextConcurrentWorkersOnlyOneAccepts|ContextRejectsMixedMissingAndForeignBasisBeforeInvoking|PhysicalResultLossCannotBecomeCloudFailureOrReplayAfterRestart|CompletionResponseLostAfterRevisionActivationSurvivesBothRestarts|ObjectiveResumedClaimReportsUnknownOutcome|ObjectiveLostReceiptResumesAfterWorkerRestartWithoutActionReplay|WorkerRefusesClaimFromSupersededTaskRevision|ControlPlaneOutageDoesNotDiscardNotificationAfterSixtyRetries)"
+      ],
+      "startedAtUTC": "2026-10-28T14:54:18.682566+00:00",
+      "endedAtUTC": "2026-10-28T14:54:38.729136+00:00",
+      "exitCode": 0,
+      "elapsedSeconds": 17.25045258307364,
+      "topLevel": {
+        "pass": 80
+      },
+      "leafOutcomes": {
+        "pass": 190,
+        "fail": 0,
+        "skip": 0
+      },
+      "sourceStable": true,
+      "changedSource": [],
+      "sourceDigest": "040024b9477630021781f0a4336c3a5ad8e901890048e91fd5e2518c6dab430a",
+      "rawSHA256": "a129f7733025172924309ef7c2a24aa1f977f0e87f1d7a5c5c737541ef7625bc",
+      "experimentLogCount": 10
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "collectorTask00145ExitCode": 2,
+  "collectorTask00165ExitCode": 2,
+  "reason": "legacy_no_explicit_finish, not task retry or collector crash",
+  "portableTests": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "docs/experiments/2026-10-28-user-workbench-e2e/metrics-audit/test_task_collector.py"
+  ],
+  "archiveVerify": [
+    "python3",
+    "docs/experiments/2026-10-28-user-workbench-e2e/metrics-audit/verify.py"
+  ],
+  "priorArchiveVerify": [
+    "python3",
+    "docs/experiments/2026-10-28-edge-task-validation/gazebo/public/verify.py"
+  ],
+  "collectorSourceSHA256": "6f2aabf9e96a3384eb05c9c22ff1465fd406a24bedb2e618efe46cb14c85c3ca",
+  "testsSourceSHA256": "6dfb3c6a4978fa86074dd963a69a99efad228b4f306e5834cecd074170605257"
+}

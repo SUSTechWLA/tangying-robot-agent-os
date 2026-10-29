@@ -28,6 +28,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/closedloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/robotclient"
@@ -77,6 +78,7 @@ type config struct {
 	llmAPIKey            string
 	llmModel             string
 	llmSamples           int
+	recipeMode           string
 	models               map[string]modelroute.Endpoint
 	harness              agentharness.Profile
 	assist               modelroute.Assist
@@ -115,6 +117,10 @@ func parseConfig(arguments []string) (config, error) {
 	flags.StringVar(&result.llmBaseURL, "llm-base-url", values["AGENT_BASE_URL"], "OpenAI-compatible API base URL")
 	flags.StringVar(&result.llmAPIKey, "llm-api-key", values["AGENT_API_KEY"], "OpenAI-compatible API key")
 	flags.StringVar(&result.llmModel, "llm-model", values["AGENT_MODEL"], "LLM model name")
+	result.recipeMode = configValue(values, "AGENT_GOAL_RECIPE_MODE", os.Getenv("AGENT_GOAL_RECIPE_MODE"))
+	if err := capabilityagent.ValidateRecipeMode(result.recipeMode); err != nil {
+		return config{}, err
+	}
 	defaultSamples, err := integerConfig(values, "AGENT_ORCHESTRATION_SAMPLES")
 	if err != nil {
 		return config{}, err
@@ -250,7 +256,9 @@ func readConfigFile(path string) (map[string]string, error) {
 	}
 	defer file.Close()
 	allowed := map[string]bool{
-		"LOCAL_LISTEN": true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true,
+		"AGENT_GOAL_RECIPE_MODE": true,
+		"AGENT_MODEL_USAGE_FILE": true,
+		"LOCAL_LISTEN":           true, "ROBOT_ADDRESS": true, "ROBOT_SERVER_NAME": true,
 		"ROBOT_CA": true, "ROBOT_CERT": true, "ROBOT_KEY": true,
 		"ROBOT_SAFETY_PROFILE": true, "LOCAL_ROBOT_ID": true,
 		"LOCAL_WORKSPACES_FILE": true,
@@ -261,7 +269,7 @@ func readConfigFile(path string) (map[string]string, error) {
 		"LOCAL_POLICY_ROBOT_MODEL": true, "LOCAL_POLICY_TRANSFORM_REVISION": true, "LOCAL_POLICY_CALIBRATION_REVISION": true,
 	}
 	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
-		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL", "CACHE_MODE", "CACHE_NAMESPACE"} {
+		for _, field := range []string{"PROVIDER", "BASE_URL", "API_KEY", "MODEL", "CACHE_MODE", "CACHE_NAMESPACE", "OUTPUT_TOKENS"} {
 			allowed["AGENT_"+stage+"_"+field] = true
 		}
 	}
@@ -435,6 +443,10 @@ func run(configuration config) error {
 	}
 	service := tasks.NewService(store, parser, planner)
 	goalPlanner, err := configuration.goalPlanner(robot, parser)
+	if err != nil {
+		return err
+	}
+	goalPlanner.Memory, err = capabilityagent.NewRecipeMemory(store, capabilityagent.RecipeNamespace(configuration.model(modelroute.Goal)), configuration.recipeMode)
 	if err != nil {
 		return err
 	}
@@ -725,37 +737,17 @@ func run(configuration config) error {
 		if err != nil {
 			return err
 		}
-		updated := configuration
-		updated.models = map[string]modelroute.Endpoint{}
-		for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
-			updated.models[stage] = modelroute.Resolve(reloaded, stage)
-			if err := updated.models[stage].Validate(); err != nil {
-				return fmt.Errorf("%s model: %w", stage, err)
-			}
-		}
-		updated.harness, err = agentharness.New(agentharness.Edge, updated.models)
-		if err != nil {
+		if err := configuration.applyReloadedModels(reloaded, robot, store, func(newParser intent.Parser, newPlanner orchestration.Planner, newRecoveryDecider actionloop.Decider, newGoalPlanner *capabilityagent.Planner) {
+			service.SetParser(newParser)
+			service.SetPlanner(newPlanner)
+			service.SetGoalPlanner(withFailedPlanningRecorder(&edgeagent.Host{Planner: newGoalPlanner}, planningAttempts))
+			goalExecutor.SetPlanner(newGoalPlanner)
+			recoveryModelMu.Lock()
+			currentRecoveryDecider = newRecoveryDecider
+			recoveryModelMu.Unlock()
+		}); err != nil {
 			return err
 		}
-		newParser, newPlanner, err := updated.taskModels()
-		if err != nil {
-			return err
-		}
-		newRecoveryDecider, err := updated.recoveryDecider()
-		if err != nil {
-			return err
-		}
-		newGoalPlanner, err := updated.goalPlanner(robot, newParser)
-		if err != nil {
-			return err
-		}
-		service.SetParser(newParser)
-		service.SetPlanner(newPlanner)
-		service.SetGoalPlanner(withFailedPlanningRecorder(&edgeagent.Host{Planner: newGoalPlanner}, planningAttempts))
-		goalExecutor.SetPlanner(newGoalPlanner)
-		recoveryModelMu.Lock()
-		currentRecoveryDecider = newRecoveryDecider
-		recoveryModelMu.Unlock()
 		log.Printf("language settings applied without a restart: provider=%s model=%s",
 			status.Provider, status.Model)
 		return nil
@@ -1034,6 +1026,46 @@ func (c config) taskModels() (intent.Parser, orchestration.Planner, error) {
 	return parser, planner, nil
 }
 
+// Prepare every replacement before changing a running model consumer. The
+// caller's settings transaction can restore the file if any preparation fails.
+func (c config) applyReloadedModels(values map[string]string, provider capabilityagent.Provider, store eventstore.Store, apply func(intent.Parser, orchestration.Planner, actionloop.Decider, *capabilityagent.Planner)) error {
+	updated := c
+	updated.recipeMode = configValue(values, "AGENT_GOAL_RECIPE_MODE", os.Getenv("AGENT_GOAL_RECIPE_MODE"))
+	if err := capabilityagent.ValidateRecipeMode(updated.recipeMode); err != nil {
+		return err
+	}
+	updated.models = map[string]modelroute.Endpoint{}
+	for _, stage := range []string{modelroute.Intent, modelroute.Planning, modelroute.Recovery, modelroute.Goal} {
+		updated.models[stage] = modelroute.Resolve(values, stage)
+		if err := updated.models[stage].Validate(); err != nil {
+			return fmt.Errorf("%s model: %w", stage, err)
+		}
+	}
+	var err error
+	updated.harness, err = agentharness.New(agentharness.Edge, updated.models)
+	if err != nil {
+		return err
+	}
+	parser, planner, err := updated.taskModels()
+	if err != nil {
+		return err
+	}
+	recovery, err := updated.recoveryDecider()
+	if err != nil {
+		return err
+	}
+	goal, err := updated.goalPlanner(provider, parser)
+	if err != nil {
+		return err
+	}
+	goal.Memory, err = capabilityagent.NewRecipeMemory(store, capabilityagent.RecipeNamespace(updated.model(modelroute.Goal)), updated.recipeMode)
+	if err != nil {
+		return err
+	}
+	apply(parser, planner, recovery, goal)
+	return nil
+}
+
 // The development placeholder is resolved once, before constructing any task,
 // grounding, runtime or telemetry router. All of them use the verified identity.
 func (c *config) bindRuntimeIdentity(actual string) error {
@@ -1063,5 +1095,5 @@ func (c config) recoveryDecider() (actionloop.Decider, error) {
 		endpoint.APIKey = ""
 	}
 	return &actionloop.LLMDecider{BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey,
-		Model: endpoint.Model, Cache: endpoint.Cache, Client: client}, nil
+		Model: endpoint.Model, Cache: endpoint.Cache, Client: client, Stage: modelroute.Recovery, OutputTokens: endpoint.OutputTokens, UsageFile: endpoint.UsageFile}, nil
 }

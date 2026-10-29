@@ -1,0 +1,232 @@
+"""scan002 regression fixtures: no ROS, network, controller or physical action."""
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+from tangying_robot_gateway import robot_workflow as workflow_module
+from tangying_robot_gateway.exploration import Grid
+from tangying_robot_gateway.service_registry import ServiceError
+from tangying_robot_gateway.survey import EXPLORATION, SurveyRefusal, SurveyRunner
+
+from .test_robot_services import frame, workflow_fixture
+from .test_survey import FakeDriver, FakeMap, FakeReport, run
+
+
+class Clock:
+    def __init__(self):
+        self.now = 0.
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+def setup(tmp_path, monkeypatch, captures):
+    clock = Clock()
+    # Replace this module's clock object, not Python's shared time module.
+    monkeypatch.setattr(workflow_module, "time", SimpleNamespace(
+        monotonic=clock.monotonic, sleep=clock.sleep, time=lambda: 10.+clock.now))
+    queue = iter(captures)
+    calls = []
+
+    def capture():
+        item = next(queue)
+        calls.append(item)
+        return item
+
+    workflow, owner = workflow_fixture(tmp_path, capture=capture)
+    workflow.calibration_revision = workflow.calibration_get()["revision"]
+    workflow.map_id = "scan-saved-first-leg"
+    workflow.operation_id = "test-owned-operation"
+    workflow._leg_anchor = [0., 0., 0.]
+    workflow.move = lambda *_args, **_kwargs: pytest.fail("bootstrap must be stationary")
+    return workflow, owner, calls, clock
+
+
+def exposure(stamp, *, depth=True, identifier="capture"):
+    observation = frame(stamp=9_900+stamp)
+    observation.observation_id = identifier
+    observation.robot_state["perception"] = {"source_id": "fixture/rgbd",
+                                               "sensor_stamp_ns": str(stamp)}
+    if not depth:
+        observation.rgbd_frame.depth_metres_f32 = bytes(80*60*4)
+    return observation
+
+
+def test_continuation_waits_for_real_frame_after_one_insufficient_depth(tmp_path, monkeypatch):
+    workflow, owner, calls, _ = setup(tmp_path, monkeypatch,
+        [exposure(1, depth=False), exposure(2)])
+    cancellation = workflow._cancel
+    workflow._open_leg(2)
+    assert len(calls) == 2 and workflow.slam.frame_count == 1
+    assert workflow._summary["travelledM"] == 0.
+    assert workflow._depth_rejected == 1 and workflow._depth_starved == 0
+    assert workflow._base_map_id == "scan-saved-first-leg"
+    assert workflow._cancel is cancellation and not cancellation.is_set()
+    assert workflow.operation_id == "test-owned-operation"
+    assert workflow._scan_evidence["bootstraps"][-1]["status"] == "accepted"
+    assert workflow._scan_evidence["bootstraps"][-1]["acceptedFrameDelta"] == 1
+    workflow._release_session()
+    assert owner[0] is None
+
+
+def test_same_sensor_exposure_under_new_id_is_not_another_depth_rejection(tmp_path, monkeypatch):
+    workflow, _, _, _ = setup(tmp_path, monkeypatch, [
+        exposure(1, depth=False, identifier="read-one"),
+        exposure(1, depth=False, identifier="read-two"), exposure(2)])
+    workflow._open_leg(2)
+    evidence = workflow._scan_evidence["bootstraps"][-1]
+    assert workflow._depth_rejected == 1
+    assert evidence["duplicateCaptures"] == 1 and evidence["attempts"] == 2
+    assert evidence["status"] == "accepted" and workflow.slam.frame_count == 1
+
+
+def test_fresh_but_unusable_depth_stops_at_distinct_attempt_budget(tmp_path, monkeypatch):
+    workflow, _, calls, _ = setup(tmp_path, monkeypatch,
+        [exposure(index, depth=False) for index in range(1, 4)])
+    workflow._open_leg(2)
+    assert len(calls) == EXPLORATION["firstFrameAttempts"] == 3
+    assert workflow.slam.frame_count == 0 and workflow._depth_starved == 3
+    assert workflow._scan_evidence["bootstraps"][-1]["status"] == "attempt_budget"
+    assert not workflow._initial_scan_pending
+
+
+def test_duplicate_wait_is_bounded_without_manufacturing_depth_loss(tmp_path, monkeypatch):
+    monkeypatch.setitem(EXPLORATION, "firstFrameSeconds", .25)
+    workflow, _, calls, clock = setup(tmp_path, monkeypatch,
+        [exposure(1, depth=False)]*10)
+    workflow._open_leg(2)
+    evidence = workflow._scan_evidence["bootstraps"][-1]
+    assert clock.now == pytest.approx(.25)
+    assert len(calls) == 3 and workflow.slam.frame_count == 0
+    assert workflow._depth_starved == 1
+    assert evidence["status"] == "capture_timeout" and evidence["attempts"] == 1
+
+
+def test_fresh_provider_return_after_budget_cannot_integrate_first_frame(tmp_path, monkeypatch):
+    workflow, _, calls, clock = setup(tmp_path, monkeypatch, [exposure(1)])
+    original_capture = workflow.capture
+
+    def late_capture():
+        observation = original_capture()
+        clock.now = EXPLORATION["firstFrameSeconds"]+.25
+        observation.wall_time_unix_ms = int((10.+clock.now)*1000)
+        return observation
+
+    workflow.capture = late_capture
+    workflow._operation_deadline = 100.  # A valid lease does not extend this phase.
+    workflow._open_leg(2)
+    evidence = workflow._scan_evidence["bootstraps"][-1]
+    assert len(calls) == 1 and not workflow._cancel.is_set()
+    assert workflow.slam.frame_count == 0 and workflow._depth_rejected == 0
+    assert evidence["status"] == evidence["lastSampleOutcome"] == "capture_timeout"
+    assert evidence["acceptedFrameDelta"] == evidence["attempts"] == 0
+
+
+@pytest.mark.parametrize("fault", ["cancel", "lease", "calibration", "stale"])
+def test_first_frame_wait_preserves_fail_closed_authority_and_sensor_checks(tmp_path, monkeypatch, fault):
+    monkeypatch.setitem(EXPLORATION, "firstFrameSeconds", .25)
+    workflow, owner, _, clock = setup(tmp_path, monkeypatch, [exposure(1, depth=False)]*10)
+    original_capture = workflow.capture
+    calls = 0
+
+    def capture():
+        nonlocal calls
+        calls += 1
+        observation = original_capture()
+        if calls == 2:
+            if fault == "cancel":
+                workflow._cancel.set()
+            elif fault == "calibration":
+                workflow.calibration_revision = "changed"
+        if fault == "stale":
+            observation.wall_time_unix_ms = 1
+        return observation
+
+    workflow.capture = capture
+    if fault == "lease":
+        workflow._operation_deadline = .05
+    with pytest.raises(ServiceError) as caught:
+        workflow._open_leg(2)
+    assert caught.value.code == {
+        "cancel": "CANCELLED", "lease": "CANCELLED",
+        "calibration": "CALIBRATION_CHANGED", "stale": "STALE_CAPTURE"}[fault]
+    assert owner[0] is None and workflow._reservation is None
+    assert workflow.slam.frame_count == 0
+    assert clock.now <= .35  # Existing stale poll interval is 100 ms.
+
+
+class EmptyContinuation(FakeMap):
+    measured = False
+
+    def live_grid(self):
+        return super().live_grid() if self.measured else (None, None)
+
+
+class RecoveryDriver(FakeDriver):
+    def look_around(self, grid, blind=None):
+        super().look_around(grid, blind)
+        assert grid is None
+        self.map_port.measured = True
+
+
+def test_continuation_can_acquire_first_grid_with_one_budgeted_look():
+    port = EmptyContinuation(grid=Grid(np.zeros((8, 8), dtype=np.int16), .2, (0., 0.)))
+    driver = RecoveryDriver(map_port=port)
+    result, _, _, _ = run(map_port=port, driver=driver, number=2)
+    assert result.complete and driver.looks == 1 and not driver.steps
+    assert result.exploration["initialScanStatus"] == "skipped_continuation"
+    assert result.exploration["continuationScanAttempted"]
+    assert result.exploration["continuationScanStatus"] == "returned"
+
+
+def test_failed_continuation_look_does_not_repeat_or_claim_completion():
+    result, _, driver, _ = run(map_port=EmptyContinuation(), number=2)
+    assert not result.complete and result.exploration["stopReason"] == "no_frames"
+    assert driver.looks == 1 and not driver.steps
+
+
+def test_continuation_look_respects_disabled_look_budget():
+    driver = FakeDriver()
+    runner = SurveyRunner(config={**EXPLORATION, "maxLooksPerLeg": 0})
+    result = runner.run_leg(EmptyContinuation(), driver, FakeReport(), remaining_m=8., number=2)
+    assert not result.complete and result.exploration["stopReason"] == "no_frames"
+    assert driver.looks == 0 and not driver.steps
+
+
+def test_refused_continuation_look_is_not_retried_or_used_as_free_space():
+    class Refused(FakeDriver):
+        def look_around(self, grid, blind=None):
+            super().look_around(grid, blind)
+            raise SurveyRefusal("NAV_ENVELOPE")
+
+    driver = Refused()
+    result, _, _, _ = run(map_port=EmptyContinuation(), driver=driver, number=2)
+    assert not result.complete and result.exploration["stopReason"] == "continuation_scan_refused"
+    assert result.exploration["continuationScanRefusal"] == "NAV_ENVELOPE"
+    assert driver.looks == 1 and not driver.steps
+
+
+@pytest.mark.parametrize("guard", ["depth", "frames", "travel", "time", "cancel"])
+def test_no_continuation_recovery_motion_after_any_existing_guard(guard):
+    port = EmptyContinuation()
+    driver = FakeDriver()
+    if guard == "depth":
+        port.depth_starved = lambda: EXPLORATION["depthStarvedLimit"]
+    elif guard == "frames":
+        port.frames = port.max_frames()
+    elif guard == "cancel":
+        port.cancelled = True
+    if guard == "cancel":
+        with pytest.raises(RuntimeError, match="cancelled"):
+            run(map_port=port, driver=driver, number=2)
+    else:
+        result, _, _, _ = run(map_port=port, driver=driver, number=2,
+            remaining_m=.1 if guard == "travel" else 8.,
+            step=EXPLORATION["legSeconds"]+1 if guard == "time" else 0.)
+        assert not result.complete
+    assert driver.looks == 0 and not driver.steps

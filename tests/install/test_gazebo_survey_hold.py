@@ -36,7 +36,12 @@ def controlled_step(module, monkeypatch, *, recovered_at=103.0, unsafe=None, clo
     node.runtime = NS(base_pose=np.eye(4))
     node.workflow = NS(operation_id="same-operation", _operation_owner="original-owner")
     node._motion_lock = threading.Lock()
+    node._lock = threading.Lock()
     node._obstacle_received_ns = {}
+    node._obstacles = {name: np.zeros((0, 3)) for name in module.GAZEBO_CAMERA_MOUNTS}
+    node._obstacle_source, node._obstacle_faults = {}, {}
+    node._obstacle_fault_details = {}
+    node._odom_stamp_ns, node._odom_received_ns = 0, 0
     node.motion_allowed = lambda: True
     node._obstacle_points = lambda: np.zeros((0, 3))
     node._log_step = lambda _text: None
@@ -49,6 +54,9 @@ def controlled_step(module, monkeypatch, *, recovered_at=103.0, unsafe=None, clo
         fresh = clock.now >= recovered_at
         node._obstacle_received_ns = {name: int(clock.now*1e9)
             if fresh or not cloud_only else 1 for name in module.GAZEBO_CAMERA_MOUNTS}
+        node._odom_stamp_ns = node._odom_received_ns = int(clock.now*1e9)
+        node._obstacle_source = {name: {"sensorStampNs": str(int(clock.now*1e9))}
+                                 for name in module.GAZEBO_CAMERA_MOUNTS}
         blockers = list(unsafe or []) if unsafe else [] if fresh or cloud_only else ["RGBD_NOT_READY"]
         return {"ready": not blockers, "blockers": blockers,
                 "checkedAtMonotonicNs": str(int(clock.now*1e9))}
@@ -129,6 +137,58 @@ def test_geometry_work_crossing_deadline_cannot_emit_one_last_pulse(runtime_modu
     monkeypatch.setattr(runtime_module, "swept_step_is_clear", guard)
     outcome = node._bounded_step([.1, 0., 0., 1., 0., 0., 0.], threading.Event())
     assert outcome["code"] == "STEP_TIMEOUT" and all(not any(p[1:]) for p in pulses)
+
+
+def test_publisher_visual_rejection_stops_then_resamples_and_resumes(runtime_module, monkeypatch):
+    node, _clock, pulses, logs = controlled_step(runtime_module, monkeypatch, recovered_at=100.)
+    calls = []
+    def readiness():
+        calls.append(1)
+        return ["RGBD_NOT_READY"] if len(calls) == 1 else []
+    node.readiness_blockers = readiness
+    outcome = node._bounded_step([.1, 0., 0., 1., 0., 0., 0.], threading.Event())
+    assert outcome["code"] == "STEP_COMPLETE"
+    assert not any(pulses[0][1:]) and sum(any(p[1:]) for p in pulses) == 1
+    evidence = outcome["motionEvidence"]
+    assert evidence["observationHoldCount"] == 1
+    assert evidence["publisherLastRejection"]["readinessBlockers"] == ["RGBD_NOT_READY"]
+    assert evidence["observationHolds"][0]["trigger"] == "publisher_readiness"
+    assert evidence["observationHolds"][0]["resumedAtMonotonicNs"]
+    assert [json.loads(line.removeprefix("bounded step evidence "))["event"] for line in logs] == [
+        "observation_hold", "observation_resumed", "ended"]
+
+
+def test_publisher_visual_flapping_cannot_reset_stopped_hold_budget(runtime_module, monkeypatch):
+    node, clock, pulses, _logs = controlled_step(runtime_module, monkeypatch, recovered_at=100.)
+    node.readiness_blockers = lambda: ["RGBD_NOT_READY"]
+    outcome = node._bounded_step([.1, 0., 0., 1., 0., 0., 0.], threading.Event())
+    assert outcome["code"] == "SENSOR_STALE" and clock.now >= 108.
+    assert outcome["motionEvidence"]["observationHoldCount"] == 1
+    assert all(not any(p[1:]) for p in pulses)
+
+
+def test_publisher_nonvisual_blocker_never_enters_visual_hold(runtime_module, monkeypatch):
+    node, clock, pulses, _logs = controlled_step(runtime_module, monkeypatch, recovered_at=100.)
+    node.readiness_blockers = lambda: ["ODOMETRY_STALE"]
+    outcome = node._bounded_step([.1, 0., 0., 1., 0., 0., 0.], threading.Event())
+    assert outcome["code"] == "SENSOR_STALE" and outcome["message"] == "ODOMETRY_STALE"
+    assert clock.now == 100. and all(not any(p[1:]) for p in pulses)
+    assert outcome["motionEvidence"]["observationHoldCount"] == 0
+
+
+def test_publisher_wait_cannot_resume_after_visual_hold_budget(runtime_module, monkeypatch):
+    node, clock, pulses, _logs = controlled_step(runtime_module, monkeypatch, recovered_at=100.)
+    calls = []
+    def readiness():
+        calls.append(1)
+        if len(calls) == 1:
+            return ["RGBD_NOT_READY"]
+        clock.now = 108.1
+        return []
+    node.readiness_blockers = readiness
+    outcome = node._bounded_step([.1, 0., 0., 1., 0., 0., 0.], threading.Event())
+    assert outcome["code"] == "SENSOR_STALE"
+    assert all(not any(p[1:]) for p in pulses)
 
 
 @pytest.mark.parametrize("expired", ["deadline", "cancel", "estop"])

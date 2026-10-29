@@ -1,0 +1,93 @@
+{
+  "baselineProvidedByParent": "79a8c3553",
+  "evidenceClass": "HTTP API fixtures and unit/race tests; no physical execution by this subagent",
+  "commands": [
+    "go run /tmp/local-ui-audit-20261028/repro.go",
+    "go test -race ./internal/localapp ./console ./tasks ./orchestration -count=1 -timeout=120s",
+    "node --test web/*test.mjs"
+  ],
+  "results": {
+    "goPackagesPassed": 4,
+    "webTestsPassed": 537,
+    "concurrentApprovalRequests": 16,
+    "fixturePhysicalToolCallsAfterRetry": 7,
+    "approvalEventsAfterRetry": 1
+  },
+  "files": [
+    {
+      "path": "tasks/service.go",
+      "sha256": "a86da049084ef7b48cd5f499577f574dad7a93170b92f83aa3e32caed85bc6f4"
+    },
+    {
+      "path": "tasks/experience.go",
+      "sha256": "d38b1adf9d17d205a1f3888428c3b37e36bdc52c6449a4bb22a1912156961887"
+    },
+    {
+      "path": "tasks/orchestration_metrics_test.go",
+      "sha256": "a0ce33923a95e5d3ecade074d0068e803ade2b90188de9f6fe38026977f1e608"
+    },
+    {
+      "path": "orchestration/metrics.go",
+      "sha256": "cc3005d9afb304eac9ac727b08400e63485187cfba4d7fd40033d2758d666bd9"
+    },
+    {
+      "path": "console/local_experience.go",
+      "sha256": "a0b957df76f424d1146a99fd27ac869dbb51e9095cebf1616a68371327dec489"
+    },
+    {
+      "path": "console/navigation_completion_test.go",
+      "sha256": "5146ae174486ee4624883b26401fe76cb1b6120c469dd613855781bf59d6b268"
+    },
+    {
+      "path": "console/readiness.go",
+      "sha256": "73501218500b97d151896b116656abe45915c4ef8fd6d30d45940f32bd387a22"
+    },
+    {
+      "path": "console/navigation_readiness_test.go",
+      "sha256": "fa76f1dffb1e65883a61ddc5320985492ebb723ad8b7d0a05ba705519cfdc346"
+    },
+    {
+      "path": "internal/localapp/admission_retry_test.go",
+      "sha256": "626f53e4cc3b96696b334c86bdd035ec6f8f3353a3d609a5e9b41537e3d360ac"
+    },
+    {
+      "path": "web/app.js",
+      "sha256": "060681b3074a2745b0077939e21b34a7f5e5ce3b1bd9fc469822a4ff09ab4217"
+    },
+    {
+      "path": "web/index.html",
+      "sha256": "d9f31ee2243bdb30a0b6566111f55906dba7c973b5e424561f1b140a898f36b5"
+    },
+    {
+      "path": "web/onboarding.js",
+      "sha256": "21099af8c5173ef6d4cc0bd57a815978d97d3f78576906c79432d6af6ebaf0b8"
+    },
+    {
+      "path": "web/onboarding_test.mjs",
+      "sha256": "e69f91a11ee13b18d08aa3d41db0b9d51a05abcd9dee0fe0e01f8ac92dbf523b"
+    },
+    {
+      "path": "web/task_trace.js",
+      "sha256": "2c2f1dc03e63b3a0c9a974a18bfe62a0fec2f794836c06a23032d2d29a2dff01"
+    },
+    {
+      "path": "web/task_trace_test.mjs",
+      "sha256": "53c04409c4759dc1186e24a738b90aba91fc119b19d4eea90e4950653746980d"
+    },
+    {
+      "path": "web/task_trace_capability_test.mjs",
+      "sha256": "75c269b61bd7c3a70ccac2c0002d9efaced3547031f4d62bb7be988d90f1e0c8"
+    },
+    {
+      "path": "web/local_lifecycle_audit_test.mjs",
+      "sha256": "f402b6e9e9b1e4404b29a8a578e66029a88d89e28e0c9ee8d8729fb2095fb701"
+    }
+  ],
+  "limitations": [
+    "No Gazebo movement by this subagent. Parent owns physical verification.",
+    "Metrics denominator is persisted tasks only, excludes archived pre-task planning failures.",
+    "GOAL client attempts do not establish actual HTTP requests or billed tokens.",
+    "Legacy orchestrationScore retained for compatibility, not cross-architecture or paper metric.",
+    "Failed planning archive links shown for last 10 failures in page lifetime; IDs or links must be saved for later retrieval."
+  ]
+}

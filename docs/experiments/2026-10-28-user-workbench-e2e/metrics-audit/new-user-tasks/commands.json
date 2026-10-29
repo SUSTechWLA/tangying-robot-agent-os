@@ -1,0 +1,16 @@
+[
+  {
+    "command": ".venv/bin/python docs/experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/audit.py --repo /Users/wanglian/Projects/tangying-robot-agent-os --output /tmp/new-user-task-audit-20261029/result-public-source",
+    "exitCode": 0,
+    "result": "task005 closure and task004 cancelled-without-run verified; 4 unique usage calls matched exactly"
+  },
+  {
+    "command": ".venv/bin/python scripts/model_usage_report.py /tmp/new-user-task-audit-20261029/result-02/model-usage-snapshot.jsonl --output /tmp/new-user-task-audit-20261029/result-02/standard-ledger-report.json",
+    "exitCode": 0,
+    "sourceSHA256": "1592a0aaf222afe9f3bebe5230a5d84cff7a9e8c8b47edbd88c72520982f36af"
+  },
+  {
+    "command": ".venv/bin/python -m ruff check docs/experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/audit.py",
+    "exitCode": 0
+  }
+]

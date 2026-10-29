@@ -1,0 +1,223 @@
+{
+  "schemaVersion": "peer-experiment-evidence-manifest.v1",
+  "createdAtUTC": "2026-10-28T15:06:37.569660+00:00",
+  "originalSourceDirectory": "/tmp/edge-task-validation-peer-20261028",
+  "archive": {
+    "path": "raw-evidence.tar.gz",
+    "rootDirectory": "edge-task-validation-peer-20261028",
+    "sizeBytes": 3893809,
+    "sha256": "135e1bf60fcedda715cafaff05b8f89aa950d488f5201d3366eef317b2f00566",
+    "fileCount": 39,
+    "uncompressedFileBytes": 12973556
+  },
+  "members": [
+    {
+      "path": "README.md",
+      "sizeBytes": 8118,
+      "sha256": "38a63d78fb5c2dc58c704a1aa17ce23186616653f41e42f0a4b354d14a9974da"
+    },
+    {
+      "path": "alias-reproduce/go-test-events.jsonl",
+      "sizeBytes": 3197,
+      "sha256": "7a4b5113532c674faf3eb17e4aa3bd86b99d92529b532246d397f985e1fad663"
+    },
+    {
+      "path": "alias-reproduce/metadata.json",
+      "sizeBytes": 868,
+      "sha256": "17de9a8752f0ab27a0bf5215f99008ead7fcf3b9b0e8e596cf8bf1eebe0c066a"
+    },
+    {
+      "path": "alias-reproduce/result.json",
+      "sizeBytes": 1178,
+      "sha256": "46b59a4b94b2671e92880ba15990bfce8592483824ad18ef7da4c803afd83cab"
+    },
+    {
+      "path": "alias-reproduce/source-after.json",
+      "sizeBytes": 861376,
+      "sha256": "3abdbe3f1e6407bd9a8d8c9e0ca1951afccae3cc89a1ac0f7eb0c8fbf2d16036"
+    },
+    {
+      "path": "alias-reproduce/source-before.json",
+      "sizeBytes": 861376,
+      "sha256": "3abdbe3f1e6407bd9a8d8c9e0ca1951afccae3cc89a1ac0f7eb0c8fbf2d16036"
+    },
+    {
+      "path": "baseline/go-test-events.jsonl",
+      "sizeBytes": 62195,
+      "sha256": "629af9f80a561552af12dd0884c44b77ce1d8c2c8e8b732db59d0d697816569f"
+    },
+    {
+      "path": "baseline/metadata.json",
+      "sizeBytes": 1436,
+      "sha256": "52b3f53fd36d9903d266736baba90fbc5a736b44dcbfc8651a3bf483c56f0823"
+    },
+    {
+      "path": "baseline/result.json",
+      "sizeBytes": 1027,
+      "sha256": "81835dd6efd6c16aba1bd9cc2dd7b7fc265453257f68b920328ada581ffb4f41"
+    },
+    {
+      "path": "baseline/source-after.json",
+      "sizeBytes": 861141,
+      "sha256": "a1d058d17937c4d4d9c8a20e84406844e9e0e34e6a457885e5b4c720c10bbaef"
+    },
+    {
+      "path": "baseline/source-before.json",
+      "sizeBytes": 861141,
+      "sha256": "a1d058d17937c4d4d9c8a20e84406844e9e0e34e6a457885e5b4c720c10bbaef"
+    },
+    {
+      "path": "corrected/go-test-events.jsonl",
+      "sizeBytes": 11552,
+      "sha256": "770af41aafd1ad9bbaf10ff099671b46a64eadbac6aea89b95f784c9a03d8556"
+    },
+    {
+      "path": "corrected/metadata.json",
+      "sizeBytes": 895,
+      "sha256": "0abcf14ffde73cbd476725f936b60708f767a8c09a508cf23ecca2fa724f4e6c"
+    },
+    {
+      "path": "corrected/result.json",
+      "sizeBytes": 4180,
+      "sha256": "84b3d13eb295796fef651dfaa24495c2960a0069576ac8339e9c3e340dd0985e"
+    },
+    {
+      "path": "corrected/source-after.json",
+      "sizeBytes": 861376,
+      "sha256": "a1983c7673b855187cd05ea7a59aa6ef27a0889ea4b9356ed8ec8c87d0849ae0"
+    },
+    {
+      "path": "corrected/source-before.json",
+      "sizeBytes": 861376,
+      "sha256": "a1983c7673b855187cd05ea7a59aa6ef27a0889ea4b9356ed8ec8c87d0849ae0"
+    },
+    {
+      "path": "exchange-changes.patch",
+      "sizeBytes": 19036,
+      "sha256": "6789132b9f6f682da989cf812d5021c387354e88f6cdb7192d0d3f93b3052781"
+    },
+    {
+      "path": "final-packages/go-test-events.jsonl",
+      "sizeBytes": 115458,
+      "sha256": "7b0fc5972ea4d345dc1f3167b8a8b63a1cd0e8f78f2452a432908dce56c99eb1"
+    },
+    {
+      "path": "final-packages/metadata.json",
+      "sizeBytes": 850,
+      "sha256": "e560466aa7481fadd45f435100f2f5d9957dcdc2bfea31b548e4cd71eaa1db45"
+    },
+    {
+      "path": "final-packages/result.json",
+      "sizeBytes": 4802,
+      "sha256": "48873cf0d4035e81863f7935b2f3ce5778648a58b6ddc236cb00e3d1ff0e5ee9"
+    },
+    {
+      "path": "final-packages/source-after.json",
+      "sizeBytes": 862616,
+      "sha256": "a98baee929d786d5749fa5e38881b30028a720b8100e20fbe12f2840893d4c45"
+    },
+    {
+      "path": "final-packages/source-before.json",
+      "sizeBytes": 862616,
+      "sha256": "a98baee929d786d5749fa5e38881b30028a720b8100e20fbe12f2840893d4c45"
+    },
+    {
+      "path": "repeated-cloud-reconciliation/go-test-events.jsonl",
+      "sizeBytes": 430426,
+      "sha256": "a129f7733025172924309ef7c2a24aa1f977f0e87f1d7a5c5c737541ef7625bc"
+    },
+    {
+      "path": "repeated-cloud-reconciliation/metadata.json",
+      "sizeBytes": 1228,
+      "sha256": "a8f7945891ad8fa9fefd87504c61170e714d0dc69a4c08dc1252bc1be6a7d4a9"
+    },
+    {
+      "path": "repeated-cloud-reconciliation/result.json",
+      "sizeBytes": 6355,
+      "sha256": "323062c462a7a6f6ab9c4455135b1b29ac8bfb2d84969daab9fba8a8263ce7f3"
+    },
+    {
+      "path": "repeated-cloud-reconciliation/source-after.json",
+      "sizeBytes": 862616,
+      "sha256": "a98baee929d786d5749fa5e38881b30028a720b8100e20fbe12f2840893d4c45"
+    },
+    {
+      "path": "repeated-cloud-reconciliation/source-before.json",
+      "sizeBytes": 862616,
+      "sha256": "a98baee929d786d5749fa5e38881b30028a720b8100e20fbe12f2840893d4c45"
+    },
+    {
+      "path": "repeated-http-restart/go-test-events.jsonl",
+      "sizeBytes": 163831,
+      "sha256": "e1e4f6b9e2e63d2ec7214e176cf2143703d58c9cd37e53d65e2f3e6266a93c40"
+    },
+    {
+      "path": "repeated-http-restart/metadata.json",
+      "sizeBytes": 991,
+      "sha256": "c4f0efa3735555f52f95c1db6120ba78fdba4fc9eeb87fdce259b5bba3d76353"
+    },
+    {
+      "path": "repeated-http-restart/result.json",
+      "sizeBytes": 44090,
+      "sha256": "b2a883f8187c4d0d68f62dd67e6ebf07ae2e5817617efbd9d705c5fc0c321c5d"
+    },
+    {
+      "path": "repeated-http-restart/source-after.json",
+      "sizeBytes": 862616,
+      "sha256": "a98baee929d786d5749fa5e38881b30028a720b8100e20fbe12f2840893d4c45"
+    },
+    {
+      "path": "repeated-http-restart/source-before.json",
+      "sizeBytes": 862616,
+      "sha256": "a98baee929d786d5749fa5e38881b30028a720b8100e20fbe12f2840893d4c45"
+    },
+    {
+      "path": "reproduce/go-test-events.jsonl",
+      "sizeBytes": 10690,
+      "sha256": "9ff94bb4d510eb52884859196698c5609016c5327bc7563aa16fa56a74d5c156"
+    },
+    {
+      "path": "reproduce/metadata.json",
+      "sizeBytes": 895,
+      "sha256": "790e83df15d09872f9f69ab9763fd3c43114e4e5189c35184f01c27801aae6a9"
+    },
+    {
+      "path": "reproduce/result.json",
+      "sizeBytes": 2893,
+      "sha256": "fd081da238134f1af5dd2f52bed83dfa108af5d8a97d1074ed6c6e0aea1317b5"
+    },
+    {
+      "path": "reproduce/source-after.json",
+      "sizeBytes": 861376,
+      "sha256": "90bec402dc93206fc42bae26588c3965554e8cb91decbb7efee08046273346d2"
+    },
+    {
+      "path": "reproduce/source-before.json",
+      "sizeBytes": 861376,
+      "sha256": "90bec402dc93206fc42bae26588c3965554e8cb91decbb7efee08046273346d2"
+    },
+    {
+      "path": "run.py",
+      "sizeBytes": 3474,
+      "sha256": "4a00ee360a83dec4f9da47098791090ba3c3a657cbcd645409c85c8580571807"
+    },
+    {
+      "path": "summary.json",
+      "sizeBytes": 7657,
+      "sha256": "b77b65e2c98ec217e851578385a94c5819876f4276e543a1a7cb0bf628db8520"
+    }
+  ],
+  "verification": {
+    "allMembersReadAndSHA256Verified": true,
+    "exactMemberSet": true,
+    "regularFilesOnly": true,
+    "sourceUnchangedAfterArchive": true,
+    "verifiedFileCount": 39
+  },
+  "sensitiveDataReview": {
+    "scope": "All 39 UTF-8 files, including raw Go JSON output, metadata, source path/hash lists, script, patch and report. No database, environment dump, symlink or binary source artifact.",
+    "knownSecretPatternScan": "No private-key block, provider/GitHub token, AWS access key ID, JWT, literal long bearer value, or literal secret environment assignment detected.",
+    "manualBoundaryReview": "Metadata records explicit safe environment override names and test execution metadata, not inherited environment values. Tests use generated temporary SQLite and loopback HTTP/TLS plus scripted robot/model fixtures; strings such as secret-must-not-appear are synthetic assertions. No actual API or robot credentials were used or recorded.",
+    "limitation": "Pattern scanning is not a universal secret detector; the evidence scope and fixture-only execution were also inspected."
+  }
+}

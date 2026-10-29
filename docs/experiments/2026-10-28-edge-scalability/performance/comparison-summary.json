@@ -1,0 +1,13 @@
+{
+  "before_median_ms": 803.859,
+  "after_median_ms": 245.779,
+  "median_ratio": 3.2706577860598345,
+  "before_min_max_ms": [
+    785.163,
+    807.731
+  ],
+  "after_min_max_ms": [
+    245.041,
+    249.948
+  ]
+}

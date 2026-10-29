@@ -1,5 +1,7 @@
 # 部署、运维与现场交付导航
 
+2026-10-28 新配置：[模型成本与规划经验](../production/model-cost-and-recipes.md)。按阶段限制输出、保存调用用量；规划经验先 hint 再对照 validated。升级数据库保留原任务、命令与未决事实，详见[兼容和回退](../development/2026-10-28-edge-scalability.md)。
+
 2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。
 
 

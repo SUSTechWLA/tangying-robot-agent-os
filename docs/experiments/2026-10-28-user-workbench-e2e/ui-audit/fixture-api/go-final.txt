@@ -1,0 +1,4 @@
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp	8.976s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	4.137s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	4.840s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration	4.321s

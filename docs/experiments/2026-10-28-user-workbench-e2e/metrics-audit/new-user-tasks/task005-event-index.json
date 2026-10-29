@@ -1,0 +1,248 @@
+[
+  {
+    "sequence": 1,
+    "type": "TASK_CREATED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:53:57.671344Z"
+  },
+  {
+    "sequence": 2,
+    "type": "TASK_APPROVED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.610763Z"
+  },
+  {
+    "sequence": 3,
+    "type": "STATE_CHANGED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.614506Z"
+  },
+  {
+    "sequence": 4,
+    "type": "state.transition",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.614506Z"
+  },
+  {
+    "sequence": 5,
+    "type": "STATE_CHANGED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.617459Z"
+  },
+  {
+    "sequence": 6,
+    "type": "state.transition",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.617459Z"
+  },
+  {
+    "sequence": 7,
+    "type": "STATE_CHANGED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.619927Z"
+  },
+  {
+    "sequence": 8,
+    "type": "state.transition",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.619927Z"
+  },
+  {
+    "sequence": 9,
+    "type": "CAPABILITY_CALL",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.631083Z"
+  },
+  {
+    "sequence": 10,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.632871Z"
+  },
+  {
+    "sequence": 11,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.632871Z"
+  },
+  {
+    "sequence": 12,
+    "type": "CAPABILITY_RECEIPT",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.646935Z"
+  },
+  {
+    "sequence": 13,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.648508Z"
+  },
+  {
+    "sequence": 14,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.648508Z"
+  },
+  {
+    "sequence": 15,
+    "type": "CAPABILITY_VERIFIED",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.652222Z"
+  },
+  {
+    "sequence": 16,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.653924Z"
+  },
+  {
+    "sequence": 17,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-01",
+    "occurredAt": "2026-10-28T16:54:31.653924Z"
+  },
+  {
+    "sequence": 18,
+    "type": "CAPABILITY_CALL",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.686356Z"
+  },
+  {
+    "sequence": 19,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.689651Z"
+  },
+  {
+    "sequence": 20,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.689651Z"
+  },
+  {
+    "sequence": 21,
+    "type": "CAPABILITY_RECEIPT",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.80489Z"
+  },
+  {
+    "sequence": 22,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.807307Z"
+  },
+  {
+    "sequence": 23,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.807307Z"
+  },
+  {
+    "sequence": 24,
+    "type": "CAPABILITY_VERIFIED",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.811864Z"
+  },
+  {
+    "sequence": 25,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.814429Z"
+  },
+  {
+    "sequence": 26,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-02",
+    "occurredAt": "2026-10-28T16:54:31.814429Z"
+  },
+  {
+    "sequence": 27,
+    "type": "CAPABILITY_CALL",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.82316Z"
+  },
+  {
+    "sequence": 28,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.82596Z"
+  },
+  {
+    "sequence": 29,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.82596Z"
+  },
+  {
+    "sequence": 30,
+    "type": "CAPABILITY_RECEIPT",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.893454Z"
+  },
+  {
+    "sequence": 31,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.897443Z"
+  },
+  {
+    "sequence": 32,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.897443Z"
+  },
+  {
+    "sequence": 33,
+    "type": "CAPABILITY_VERIFIED",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.90346Z"
+  },
+  {
+    "sequence": 34,
+    "type": "TOOL_ACTIVITY",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.906382Z"
+  },
+  {
+    "sequence": 35,
+    "type": "action.executed",
+    "stepId": "rev-1-cap-03",
+    "occurredAt": "2026-10-28T16:54:31.906382Z"
+  },
+  {
+    "sequence": 36,
+    "type": "STATE_CHANGED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.914436Z"
+  },
+  {
+    "sequence": 37,
+    "type": "state.transition",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.914436Z"
+  },
+  {
+    "sequence": 38,
+    "type": "STATE_CHANGED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.920542Z"
+  },
+  {
+    "sequence": 39,
+    "type": "state.transition",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.920542Z"
+  },
+  {
+    "sequence": 40,
+    "type": "LOCAL_RUN_SUCCEEDED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.9273Z"
+  },
+  {
+    "sequence": 41,
+    "type": "LOCAL_RUN_FINISHED",
+    "stepId": null,
+    "occurredAt": "2026-10-28T16:54:31.932266Z"
+  }
+]

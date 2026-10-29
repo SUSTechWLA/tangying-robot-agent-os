@@ -29,7 +29,8 @@ func (c config) goalPlanner(provider capabilityagent.Provider, parser intent.Par
 		if client != nil {
 			endpoint.APIKey = ""
 		}
-		p.Decider = &actionloop.LLMDecider{BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey, Model: endpoint.Model, Cache: endpoint.Cache, Client: client}
+		p.Decider = &actionloop.LLMDecider{BaseURL: endpoint.BaseURL, APIKey: endpoint.APIKey, Model: endpoint.Model, Cache: endpoint.Cache, Client: client,
+			Stage: modelroute.Goal, OutputTokens: endpoint.OutputTokens, UsageFile: endpoint.UsageFile}
 	}
 	return p, nil
 }

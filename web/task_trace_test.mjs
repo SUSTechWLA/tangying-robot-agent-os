@@ -260,11 +260,25 @@ test("a resumed task keeps its two runs apart", () => {
 
 test("repeated dispatches of one step are counted and surfaced", () => {
   const { task, observations } = healthyTask();
-  task.events.splice(7, 0, toolEvent(70, "task01-pick", "manipulation.pick", "SENDING").valueOf());
+  task.events.forEach(event => { event.sequence *= 10; });
+  task.events.splice(7, 0, toolEvent(75, "task01-pick", "manipulation.pick", "SENDING", {
+    occurredAt: new Date(OBSERVED_AT - 250).toISOString(),
+  }));
   const trace = buildTaskTrace({ task, observations });
   const pick = trace.steps.find(step => step.stepId === "task01-pick");
   assert.equal(pick.attempts, 2);
   assert.ok(trace.findings.some(finding => finding.code === "STEP_RETRIED" && finding.severity === "info"));
+});
+
+test("a later redispatch cannot borrow the previous attempt's completed status and evidence", () => {
+  const { task, observations } = healthyTask();
+  task.events.push(toolEvent(70, "task01-pick", "manipulation.pick", "SENDING"));
+  const trace = buildTaskTrace({ task, observations });
+  const step = trace.steps.find(step => step.stepId === "task01-pick");
+  assert.equal(step.status, "SENDING");
+  assert.equal(step.durationS, null);
+  assert.equal(step.evidence.length, 0);
+  assert.ok(trace.findings.some(finding => finding.code === "SUCCESS_WITH_UNCONFIRMED_MUTATION"));
 });
 
 test("an unreferenced capture is listed as information, not as an error", () => {

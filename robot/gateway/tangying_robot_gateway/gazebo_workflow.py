@@ -26,6 +26,8 @@ rules that decide whether a survey keeps going or stalls.
 
 from __future__ import annotations
 
+import heapq
+import itertools
 import json
 import math
 import threading
@@ -42,6 +44,7 @@ from tangying_robot_proto.robot.v1 import robot_pb2
 from .calibration import MOTOR_IDS, calibration_revision, validate_calibration
 from .dense_slam_provider import DenseSlamProvider
 from .gazebo_runtime import GazeboRuntimeError, observation_message
+from .home_commissioning import HOME_OPERATIONAL_RADIUS_M
 from .robot_workflow import RobotWorkflow
 
 __all__ = [
@@ -168,12 +171,38 @@ def yaw_from_quaternion(pose) -> float:
     return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
 
 
-def swept_disc_step_is_clear(points_base, *, forward_m, turn_rad, radius=.355, height_band=(.02,.40)):
+def swept_disc_step_is_clear(points_base, *, forward_m, turn_rad,
+                             radius=HOME_OPERATIONAL_RADIUS_M, height_band=(.02,.40)):
     """Swept commissioned circular envelope; a turn preserves this footprint."""
     points = chassis_points(points_base, height_band=height_band)
     if not len(points) or (abs(forward_m)<1e-9 and abs(turn_rad)<1e-9): return True
     nearest_x = np.clip(points[:,0],min(0.,forward_m),max(0.,forward_m))
     return not np.any(np.hypot(points[:,0]-nearest_x,points[:,1])<=radius)
+
+
+def swept_disc_refusal_evidence(points_base, *, forward_m, turn_rad,
+                                radius=HOME_OPERATIONAL_RADIUS_M, height_band=(.02, .40)):
+    """Summarize the exact point snapshot used by a rejected circular guard.
+
+    This is diagnostic evidence, not a collision or free-space certificate.
+    Camera clouds may have different acquisition times and are bounded by the
+    caller's readiness checks, rather than being a synchronized scene snapshot.
+    """
+    points = chassis_points(points_base, height_band=height_band)
+    if not len(points) or (abs(forward_m) < 1e-9 and abs(turn_rad) < 1e-9):
+        return None
+    nearest_x = np.clip(points[:, 0], min(0., forward_m), max(0., forward_m))
+    distances = np.hypot(points[:, 0]-nearest_x, points[:, 1])
+    hits = np.flatnonzero(distances <= radius)
+    if not len(hits):
+        return None
+    nearest = int(hits[np.argmin(distances[hits])])
+    return {"schemaVersion": "gazebo.disc-refusal.v1", "radiusM": float(radius),
+            "heightBandM": [float(v) for v in height_band], "forwardM": float(forward_m),
+            "turnRad": float(turn_rad), "relevantPointCount": len(points),
+            "intrudingPointCount": len(hits), "minimumSweptDistanceM": float(distances[nearest]),
+            "closestPointBaseM": [float(v) for v in points[nearest, :3]],
+            "scope": "guard_snapshot_not_collision_or_observed_free_space"}
 
 
 def bounded_step_command(pose, goal, *, tolerance_m=GAZEBO_STEP_TOLERANCE_M,
@@ -421,6 +450,33 @@ class GazeboNavigationClient:
         path = "/v1/navigation/map" + ("?includeGrid=1" if include_grid else "")
         return self._request("GET", path)
 
+    def readiness(self) -> dict[str, Any]:
+        """Read the actual RTAB-Map / Nav2 admission state, without a goal.
+
+        Keep driver identity separate from the workflow's saved DenseSLAM map.
+        A transport failure is unknown readiness, never a healthy cached map.
+        """
+        try:
+            status = self.map_status()
+        except GazeboNavigationError as error:
+            return {"ready": False, "blockers": [{"code": error.code,
+                    "message": "无法读取导航驱动状态，请检查定位与导航服务。"}]}
+        if not isinstance(status, dict) or type(status.get("ready")) is not bool:
+            return {"ready": False, "blockers": [{"code": "NAVIGATION_INVALID_RESPONSE",
+                    "message": "导航驱动没有返回有效的就绪状态。"}]}
+        result = {key: status[key] for key in (
+            "ready", "mode", "frameId", "mapRevision", "localizationState",
+            "inputAgeMs", "checkedAtUnixMs", "poseObservedAtUnixMs") if key in status}
+        blockers = status.get("readinessBlockers", [])
+        if not isinstance(blockers, list) or any(not isinstance(code, str) for code in blockers):
+            return {"ready": False, "blockers": [{"code": "NAVIGATION_INVALID_RESPONSE"}]}
+        result["blockers"] = [{"code": code} for code in blockers]
+        if result["blockers"]:
+            result["ready"] = False
+        if not result["ready"] and not result["blockers"]:
+            result["blockers"] = [{"code": "NAVIGATION_NOT_READY"}]
+        return result
+
     def goal_status(self, goal_id: str) -> dict[str, Any]:
         return self._request("GET", f"/v1/navigation/goals/{goal_id}")
 
@@ -570,6 +626,101 @@ class GazeboTravelClearance:
         return False
 
 
+def commissioned_survey_approach(start, goals, *, max_offset_m=0.6):
+    """Connect to the declared route, without claiming the connector is observed.
+
+    This is only a route hint for the commissioned reference house. All its
+    segments, including the start connector, still pass the live motion guard.
+    Starts too far away or equidistant from distinct route projections fail closed.
+    """
+    from .service_registry import ServiceError
+
+    if len(start) != 7 or not all(math.isfinite(float(v)) for v in start):
+        raise ServiceError("SURVEY_START_INVALID", "扫描起点位姿无效。", rejected=True)
+    if len(goals) < 2 or any(len(p) != 7 or not all(math.isfinite(float(v)) for v in p) for p in goals):
+        raise ServiceError("SURVEY_ROUTE_INVALID", "已登记巡检路线无效。", rejected=True)
+    if not math.isfinite(max_offset_m) or max_offset_m < 0:
+        raise ServiceError("SURVEY_ROUTE_INVALID", "路线接入距离无效。", rejected=True)
+
+    points = [(float(p[0]), float(p[1])) for p in goals]
+    graph = {p: {} for p in points}
+    segments = []
+    for a, b in itertools.pairwise(points):
+        dx, dy = b[0]-a[0], b[1]-a[1]
+        squared = dx*dx + dy*dy
+        if squared <= 1e-18:
+            continue
+        # A registered node can lie inside another registered edge (for
+        # example the corridor lies on the living-room return). Split there
+        # rather than sending the robot beyond it and back again.
+        on_edge = []
+        for point in graph:
+            t = ((point[0]-a[0])*dx + (point[1]-a[1])*dy)/squared
+            if -1e-10 <= t <= 1+1e-10 and math.dist(point, (a[0]+t*dx, a[1]+t*dy)) <= 1e-8:
+                on_edge.append((t, point))
+        on_edge.sort()
+        for (_, u), (_, v) in itertools.pairwise(on_edge):
+            length = math.dist(u, v)
+            if length > 1e-9:
+                graph[u][v] = min(graph[u].get(v, math.inf), length)
+                graph[v][u] = min(graph[v].get(u, math.inf), length)
+                segments.append((u, v))
+    target = points[0]
+    distance, parent = {target: 0.0}, {}
+    queue = [(0.0, target)]
+    while queue:
+        d, point = heapq.heappop(queue)
+        if d > distance[point]:
+            continue
+        for neighbour, length in graph[point].items():
+            cost = d + length
+            if cost < distance.get(neighbour, math.inf):
+                distance[neighbour], parent[neighbour] = cost, point
+                heapq.heappush(queue, (cost, neighbour))
+
+    x, y = float(start[0]), float(start[1])
+    candidates = []
+    for a, b in segments:
+        dx, dy = b[0]-a[0], b[1]-a[1]
+        squared = dx*dx + dy*dy
+        if squared <= 1e-18:
+            continue
+        t = max(0.0, min(1.0, ((x-a[0])*dx + (y-a[1])*dy)/squared))
+        projection = (a[0]+t*dx, a[1]+t*dy)
+        offset = math.dist((x, y), projection)
+        for endpoint in (a, b):
+            if endpoint in distance:
+                candidates.append((offset, math.dist(projection, endpoint)+distance[endpoint], projection, endpoint))
+    if not candidates:
+        raise ServiceError("SURVEY_ROUTE_INVALID", "已登记路线没有可用边。", rejected=True)
+    nearest = min(item[0] for item in candidates)
+    if nearest > max_offset_m:
+        raise ServiceError("SURVEY_START_UNREGISTERED", "当前位置远离登记的巡检路线，不能自动接入。", rejected=True)
+    near = [item for item in candidates if item[0] <= nearest + 1e-8]
+    reference = near[0][2]
+    if any(math.dist(reference, item[2]) > 1e-6 for item in near):
+        raise ServiceError("SURVEY_START_AMBIGUOUS", "当前位置对应多个不同的路线接入点。", rejected=True)
+    _offset, _cost, projection, endpoint = min(near, key=lambda item: item[1])
+    path = [projection, endpoint]
+    while path[-1] != target:
+        path.append(parent[path[-1]])
+    # Deduplicate coincident projection/vertices and the original first goal.
+    result_xy, previous = [], (x, y)
+    for point in path:
+        if math.dist(point, previous) > 1e-5:
+            result_xy.append(point)
+            previous = point
+    if result_xy and math.dist(result_xy[-1], target) < 1e-5:
+        result_xy.pop()
+    approach = []
+    previous = (x, y)
+    for point in result_xy:
+        yaw = math.atan2(point[1]-previous[1], point[0]-previous[0])
+        approach.append([point[0], point[1], float(start[2]), math.cos(yaw/2), 0., 0., math.sin(yaw/2)])
+        previous = point
+    return approach
+
+
 class GazeboWorkflowBindings:
     """Answers ``RobotWorkflow``'s injected callables from the Gazebo stack.
 
@@ -600,6 +751,7 @@ class GazeboWorkflowBindings:
         self._goals = [list(goal) for goal in survey_goals]
         from .gazebo_commissioning import commissioning
         self.home = commissioning()
+        self._home_default_survey = self.home and not self._goals
         if self.home and not self._goals:
             from .home_commissioning import HOME_WAYPOINTS
             # Door-centre legs preserve the commissioned room connectivity.
@@ -790,7 +942,11 @@ class GazeboWorkflowBindings:
     # -- commissioned routes ------------------------------------------------
 
     def survey_goals(self):
-        return [list(goal) for goal in self._goals]
+        goals = [list(goal) for goal in self._goals]
+        if not self._home_default_survey:
+            return goals
+        start = list(self.capture().robot_state["base_pose"])
+        return commissioned_survey_approach(start, goals) + goals
 
     def semantic_workspaces(self, anchor):
         # Names are explicit commissioning annotations; geometry and navigability
@@ -832,7 +988,9 @@ class GazeboWorkflowBindings:
             calibration_save=self.calibration_save, capture=self.capture, move=self.move,
             reserve=self.reserve, release=self.release, survey_goals=self.survey_goals,
             semantic_workspaces=self.semantic_workspaces, footprint_radius=0.32,
+            operational_radius=HOME_OPERATIONAL_RADIUS_M if self.home else None,
             entity_source=None,
+            navigation_readiness=self.navigation.readiness if self.navigation is not None else None,
             # Ideal planar simulator odometry is measured from actual physics.
             # This driver declares its uncertainty; physical wheel odometry keeps
             # the default or supplies independently calibrated covariance.

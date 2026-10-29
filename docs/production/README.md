@@ -1,5 +1,7 @@
 # 躺营 · Tangying Robot AgentOS 部署与运维手册
 
+2026-10-28 新增[模型成本与规划经验](model-cost-and-recipes.md)：GOAL/RECOVERY 输出预算、调用用量留痕、重复目标重验证和相似目标提示。系统现状及本轮验证见[升级记录](../development/2026-10-28-edge-scalability.md)。
+
 按实际操作顺序查阅[部署与运维导航](../operations/README.md)，按文件查阅[全量分类目录](../catalog.md)。本目录同时包含接口手册和带版本的验收快照。
 
 [2026-09-26 生产就绪审计与实机交接](field-readiness-2026-09-26.md)和 [V1 状态](v1-release-status.md)记录对应阶段的验证边界；[2026-09-05 评估](v1-assessment-2026-09-05.md)保留为历史审计快照。历史发布证据不自动覆盖后续代码改动；离线前置检查通过不等于实机生产就绪。

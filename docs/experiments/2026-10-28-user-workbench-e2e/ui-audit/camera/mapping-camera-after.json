@@ -1,0 +1,24 @@
+{
+  "sourceSha256": "1873f9a05eb3aa9f16bebfce8150de2db399a3c55a79a723436102fa37ef6c31",
+  "requests": [
+    {
+      "path": "/v1/telemetry?adapter=gazebo&history=false",
+      "status": 200,
+      "elapsedMs": 21
+    },
+    {
+      "path": "/v1/scene/camera?adapter=gazebo&sourceId=gazebo-home_furnished%2Fhead-rgbd",
+      "status": 200,
+      "elapsedMs": 93
+    }
+  ],
+  "robotId": "gazebo-home_furnished",
+  "adapter": "gazebo",
+  "sourceId": "gazebo-home_furnished/head-rgbd",
+  "observedAt": 1793205389094,
+  "ageMs": 322,
+  "maxAgeMs": 1000,
+  "rgbBytes": 69357,
+  "mediaType": "image/png",
+  "legacyFallback": false
+}

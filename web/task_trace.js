@@ -21,7 +21,11 @@ const MUTATING_TOOLS = new Set([
   "manipulation.pick",
   "manipulation.place",
   "navigation.navigate",
+  "navigation.pre_position",
   "recover_to_safe_pose",
+]);
+const READ_ONLY_TOOLS = new Set([
+  "observe_scene", "resolve_targets", "plan_grasp", "verify_grasp", "verify_placement", "verify_arrival",
 ]);
 
 // Historical capability plans freeze call identities, but not manifests. These
@@ -85,9 +89,11 @@ function contractEvidenceSummary(step) {
 const TOOL_LABELS = {
   "mapping.build": "扫描并构建地图",
   "robot.task": "执行物理子任务",
+  "navigation.status": "读取导航与定位状态",
   observe_scene: "观察环境",
   resolve_targets: "确认任务目标",
   "navigation.navigate": "移动到操作位置",
+  "navigation.pre_position": "导航前安全摆位",
   "navigation.stop": "中止导航",
   "navigation.explore": "搜索目标",
   "navigation.get_pose": "读取当前位置",
@@ -212,7 +218,7 @@ function nodeFromEvent(event, capabilities) {
     contractEvidence: event.type === "CAPABILITY_VERIFIED" ? payload.evidence : null,
     mutatesWorld: capability
       ? CAPABILITY_WRITES.has(toolName) ? true : CAPABILITY_READS.has(toolName) ? false : null
-      : MUTATING_TOOLS.has(toolName),
+      : MUTATING_TOOLS.has(toolName) ? true : READ_ONLY_TOOLS.has(toolName) ? false : null,
     // The runner puts canonical tool arguments under payload.arguments; the
     // rest of the payload is activity metadata. Only the SENDING event carries
     // them, so whether arguments were present is recorded separately: a later
@@ -284,6 +290,10 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
     if (node.hasArguments) step.arguments = node.arguments;
     if (node.status === "SENDING") {
       step.attempts += 1;
+      step.endMs = null;
+      step.evidence = [];
+      step.error = "";
+      step.errorCode = "";
       if (step.startMs == null) step.startMs = node.atMs;
       if (node.atMs != null) dispatchTimes.set(key, node.atMs);
       if (step.capability) {
@@ -291,7 +301,7 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
         step.hasReceipt = false;
       }
     }
-    if (step.capability && node.status) step.status = node.status;
+    if (node.status) step.status = node.status;
     if (node.type === "CAPABILITY_RECEIPT") step.hasReceipt = true;
     if (node.type === "CAPABILITY_VERIFIED") {
       step.contractEvidence = node.contractEvidence;
@@ -537,6 +547,14 @@ function executionStepId(step) {
  * rather than one.
  */
 function declaredIntentSteps(task) {
+  const calls = task?.plan?.capabilities?.calls;
+  if (Array.isArray(calls) && calls.length) {
+    return calls.map((call, index) => {
+      const rooms = call.legacyIntent?.routeRooms;
+      const route = Array.isArray(rooms) && rooms.length ? `路线 ${rooms.join(" → ")}` : "";
+      return `${index + 1}. ${toolLabel(call.tool)} @${task.plan.capabilities.robotId || "当前机器人"}：${[route, describeArguments(call.tool, call.arguments || {})].filter(Boolean).join("；")}`;
+    });
+  }
   const sequence = task?.intent?.sequence;
   const items = Array.isArray(sequence) && sequence.length ? sequence : task?.intent ? [task.intent] : [];
   return items.map((item, index) => {
@@ -546,6 +564,13 @@ function declaredIntentSteps(task) {
     const robot = item?.robotId ? ` @${item.robotId}` : "";
     return `${index + 1}. ${action}${robot}：${object || "（未指定物体）"} → ${destination || "（未指定终点）"}`;
   });
+}
+
+function alignmentStatus(trace) {
+  if (trace.recovery?.requiresReconciliation) return { label: "结果待核对", text: "存在物理结果未确认的动作，不能宣称全部证据通过；必须先核对现场并完成对账。", tone: "trace-warning" };
+  if (!trace.steps.length) return { label: "尚无证据", text: "尚无可检查的工具步骤，无法判断执行证据是否完整。", tone: "hint" };
+  if (trace.steps.some(step => step.status !== "CONFIRMED" || step.mutatesWorld == null)) return { label: "尚未全部验证", text: "已完成部分未发现记录矛盾；仍有未完成或效果未声明的步骤，不能据此确认整个任务完成。", tone: "hint" };
+  return { label: "已完成步骤未发现不一致", text: "已记录的完成证据通过一致性检查；这不代替任务终态或实机验收。", tone: "trace-ok" };
 }
 
 /** One line summarising the outcome, for the top of the replay. */
@@ -673,7 +698,7 @@ function stepSection(step, taskId, index) {
       ? `<p class="${step.status === "CONFIRMED" && !step.capabilityVerified ? "trace-warning" : "hint"}">${escapeHTML(capabilityEvidenceText(step))}</p>`
     : step.mutatesWorld && step.status === "CONFIRMED"
       ? `<p class="trace-warning">这一步改变了物理世界，但没有关联观测证据 —— 完成判定缺少依据。</p>`
-      : `<p class="hint">这一步没有采集记录（只读步骤不要求证据）。</p>`;
+      : `<p class="hint">${escapeHTML(pendingEvidenceText(step))}</p>`;
   return `<li class="trace-step ${status}">
     <header>
       <span class="trace-step-index">${index + 1}</span>
@@ -698,6 +723,12 @@ function stepSection(step, taskId, index) {
     </details>
     ${evidence}
   </li>`;
+}
+
+function pendingEvidenceText(step) {
+  if (step.mutatesWorld === false) return "这一步没有采集记录（只读步骤不要求证据）。";
+  if (step.mutatesWorld === true) return "物理步骤尚未确认完成，仍需等待动作回执与新的观测证据。";
+  return "能力效果未声明；没有采集记录，不能推断为只读或已经完成。";
 }
 
 function timelineRows(timeline) {
@@ -799,9 +830,9 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
   </section>`);
 
   sections.push(`<section class="trace-block">
-    <h3>一致性检查 <span class="hint">${severe.length === 0 ? "未发现问题" : `${severe.length} 个发现`}</span></h3>
+    <h3>一致性检查 <span class="hint">${severe.length === 0 ? alignmentStatus(trace).label : `${severe.length} 个发现`}</span></h3>
     ${severe.length === 0
-      ? `<p class="trace-ok">${trace.steps.length ? "已记录步骤的完成证据通过一致性检查。" : "尚无可检查的工具步骤，无法判断执行证据是否完整。"}</p>`
+      ? `<p class="${alignmentStatus(trace).tone}">${alignmentStatus(trace).text}</p>`
       : `<ul class="trace-findings">${severe.map(finding =>
           `<li class="trace-finding ${finding.severity}">
              <strong>${escapeHTML(finding.message)}</strong>
@@ -993,7 +1024,7 @@ function stepNode(step, taskId, index) {
   } else if (step.mutatesWorld && step.status === "CONFIRMED") {
     item.append(element("p", "trace-warning", "这一步改变了物理世界，但没有关联观测证据 —— 完成判定缺少依据。"));
   } else {
-    item.append(element("p", "hint", "这一步没有采集记录（只读步骤不要求证据）。"));
+    item.append(element("p", "hint", pendingEvidenceText(step)));
   }
   return item;
 }
@@ -1097,10 +1128,10 @@ function renderTaskTraceNodes(trace) {
   const info = trace.findings.filter(finding => finding.severity === "info");
   const checksTitle = element("h3");
   checksTitle.append(element("span", "", "一致性检查"),
-    element("span", "hint", severe.length ? `${severe.length} 个发现` : "未发现问题"));
+    element("span", "hint", severe.length ? `${severe.length} 个发现` : alignmentStatus(trace).label));
   checks.append(checksTitle);
   if (severe.length === 0) {
-    checks.append(element("p", "trace-ok", trace.steps.length ? "已记录步骤的完成证据通过一致性检查。" : "尚无可检查的工具步骤，无法判断执行证据是否完整。"));
+    checks.append(element("p", alignmentStatus(trace).tone, alignmentStatus(trace).text));
   } else {
     checks.append(findingList(severe));
   }

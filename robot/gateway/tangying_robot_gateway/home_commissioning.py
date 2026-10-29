@@ -109,3 +109,8 @@ HOUSEHOLD_ACTION_CATALOG = ({"id":"ceramic-mug","category":"cup","attributes":{}
 
 # Simulation driver limits; physical profiles must declare their commissioned limits.
 HOME_DRIVE_LIMITS = {"maxLinearMps": .20, "maxAngularRps": .50, "surveyLinearMps": .15}
+
+# Planning and the live bounded-step guard must reserve this same envelope.
+# It includes a commissioned margin; merely occupying a pose does not prove
+# that the margin around the physical body is free.
+HOME_OPERATIONAL_RADIUS_M = .355

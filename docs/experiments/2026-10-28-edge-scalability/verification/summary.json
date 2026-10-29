@@ -1,0 +1,77 @@
+{
+  "schema_version": "edge-scalability-verification.v1",
+  "started_at": "2026-10-28T11:08:38.762436+00:00",
+  "git_base": "deb36504fee4f7281f1f35d0e434f41da168f075",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "go_version": "go version go1.26.2 darwin/arm64",
+  "evidence_level": "in_process_software_fixtures",
+  "real_llm": false,
+  "gazebo": false,
+  "real_robot": false,
+  "source_files": 609,
+  "runs": [
+    {
+      "name": "affected-packages",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-json",
+        "./tasks",
+        "./middleware/sqlite",
+        "./core/exchangecontract",
+        "./edge/exchange",
+        "./internal/edgeagent",
+        "./edge/worker",
+        "./internal/capabilityagent",
+        "./internal/actionloop",
+        "./internal/modelroute",
+        "./core/agentcontext",
+        "./internal/recoveryexec",
+        "./internal/agentharness",
+        "./cmd/local-agent",
+        "./cmd/edge-worker",
+        "./cmd/fleet-control-plane",
+        "./cmd/edge-exchange",
+        "-skip",
+        "Campaign",
+        "-count=1",
+        "-timeout=180s"
+      ],
+      "exit_code": 0,
+      "duration_seconds": 41.347,
+      "sources_stable": true,
+      "test_events": {
+        "passed": 960,
+        "failed": 0,
+        "skipped": 1,
+        "top_level_passed": 581
+      }
+    },
+    {
+      "name": "long-campaign",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-json",
+        "./internal/edgeagent",
+        "-run",
+        "TestSingleRobot.*Campaign",
+        "-count=1",
+        "-timeout=180s"
+      ],
+      "exit_code": 1,
+      "duration_seconds": 181.056,
+      "sources_stable": true,
+      "test_events": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "top_level_passed": 2
+      }
+    }
+  ],
+  "finished_at": "2026-10-28T11:12:21.267800+00:00",
+  "passed": false
+}

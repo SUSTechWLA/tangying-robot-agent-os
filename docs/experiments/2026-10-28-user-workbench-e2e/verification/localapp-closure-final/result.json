@@ -1,0 +1,18 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 9.21536350005772,
+  "sourceStable": true,
+  "sourceDigest": "6bf705bde83d44f28df56d73a10f4f9c82d0594c3695bfb44d02eb656259bb0f",
+  "topLevelGoTests": {
+    "pass": 21
+  },
+  "packages": [
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp",
+      "Action": "pass",
+      "Elapsed": 8.225
+    }
+  ],
+  "failures": [],
+  "outputSHA256": "0bd8b89c8eb014440d65d0b357f7710f702b1e4fb300569d427349d7a98251ac"
+}

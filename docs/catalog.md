@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **279 份 Markdown** 与 **969 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **299 份 Markdown** 与 **1266 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -13,13 +13,13 @@
 | [导航与维护](#catalog-navigation) | 4 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
 | [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 111 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [开发参考与演进记录](#catalog-development) | 117 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 14 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
-| [运行手册、接口与验收快照](#catalog-production) | 19 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
+| [运行手册、接口与验收快照](#catalog-production) | 20 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 51 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 64 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -188,6 +188,12 @@
 | [2026-10-22 · 教材 3.1.0：跨域协议、模型输入、上下文与一致性](development/2026-10-22-book-protocol-context-cache.md) | `development/2026-10-22-book-protocol-context-cache.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-27 · 边缘大脑与教材协同升级计划](development/2026-10-27-edge-brain-book-plan.md) | `development/2026-10-27-edge-brain-book-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-10-28 · 边缘大脑可靠性与教材 3.2.0](development/2026-10-28-edge-brain-reliability.md) | `development/2026-10-28-edge-brain-reliability.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 · 边缘长任务与协作状态扩展计划](development/2026-10-28-edge-scalability-plan.md) | `development/2026-10-28-edge-scalability-plan.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 · 持续运行、模型成本与规划经验升级](development/2026-10-28-edge-scalability.md) | `development/2026-10-28-edge-scalability.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 边缘系统能力与实机接入评估](development/2026-10-28-system-upgrade-assessment.md) | `development/2026-10-28-system-upgrade-assessment.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-10-28 任务复测后的边缘故障修复](development/2026-10-28-task-validation-fixes.md) | `development/2026-10-28-task-validation-fixes.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [工作台用户流程与执行收尾修正](development/2026-10-28-workbench-e2e-hardening.md) | `development/2026-10-28-workbench-e2e-hardening.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [探索操作身份与部分地图语义](development/2026-10-30-exploration-operation-integrity.md) | `development/2026-10-30-exploration-operation-integrity.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -278,6 +284,7 @@
 | [部署拓扑、容量与可观测性](production/deployment-and-capacity.md) | `production/deployment-and-capacity.md` | 操作 / 接口参考 |
 | [边缘模型请求、缓存提示与失败记录](production/edge-brain-model-context.md) | `production/edge-brain-model-context.md` | 操作 / 接口参考 |
 | [2026-09-26 生产就绪审计与实机验证交接](production/field-readiness-2026-09-26.md) | `production/field-readiness-2026-09-26.md` | 验收 / 就绪快照 |
+| [模型成本与任务规划经验](production/model-cost-and-recipes.md) | `production/model-cost-and-recipes.md` | 操作 / 接口参考 |
 | [分布式异常与快速排障手册](production/operations-and-failures.md) | `production/operations-and-failures.md` | 操作 / 接口参考 |
 | [学习型策略工具与 sim2real 接入手册](production/policy-tools.md) | `production/policy-tools.md` | 操作 / 接口参考 |
 | [从零开始快速上手](production/quickstart.md) | `production/quickstart.md` | 操作 / 接口参考 |
@@ -356,6 +363,19 @@
 | [异构三维探索与配对消融：实际软件实验记录](experiments/2026-10-18-spatial-exploration.md) | `experiments/2026-10-18-spatial-exploration.md` | 实验 / 验收记录 |
 | [边缘大脑重复故障实验（2026-10-28）](experiments/2026-10-27-edge-brain-reliability/README.md) | `experiments/2026-10-27-edge-brain-reliability/README.md` | 导航 / 维护 |
 | [执行前范围核对](experiments/2026-10-27-edge-brain-reliability/scope-review.md) | `experiments/2026-10-27-edge-brain-reliability/scope-review.md` | 实验 / 验收记录 |
+| [2026-10-28 边缘持续运行与成本实验](experiments/2026-10-28-edge-scalability/README.md) | `experiments/2026-10-28-edge-scalability/README.md` | 导航 / 维护 |
+| [Edge long-task journal performance evidence](experiments/2026-10-28-edge-scalability/performance/README.md) | `experiments/2026-10-28-edge-scalability/performance/README.md` | 导航 / 维护 |
+| [2026-10-28 边缘任务复测与故障修复](experiments/2026-10-28-edge-task-validation/README.md) | `experiments/2026-10-28-edge-task-validation/README.md` | 导航 / 维护 |
+| [Model cost and recipe integration validation — 2026-10-28](experiments/2026-10-28-edge-task-validation/cost/README.md) | `experiments/2026-10-28-edge-task-validation/cost/README.md` | 导航 / 维护 |
+| [Gazebo 三机器人任务与停止证据](experiments/2026-10-28-edge-task-validation/gazebo/README.md) | `experiments/2026-10-28-edge-task-validation/gazebo/README.md` | 导航 / 维护 |
+| [通信与云边故障验收（2026-10-28，Asia/Shanghai）](experiments/2026-10-28-edge-task-validation/peer/README.md) | `experiments/2026-10-28-edge-task-validation/peer/README.md` | 导航 / 维护 |
+| [2026-10-28 工作台真实用户流程验收](experiments/2026-10-28-user-workbench-e2e/README.md) | `experiments/2026-10-28-user-workbench-e2e/README.md` | 导航 / 维护 |
+| [scan002 续段首帧缺失审计](experiments/2026-10-28-user-workbench-e2e/exploration-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/README.md` | 导航 / 维护 |
+| [首帧预算的迟到返回补充修复](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/README.md) | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/README.md` | 导航 / 维护 |
+| [独立指标审计与只读 task 收尾校验](experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md` | 导航 / 维护 |
+| [后续用户任务独立复核：task004 与 task005](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md) | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md` | 导航 / 维护 |
+| [工作台交互、投影与执行收尾审计](experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md` | 导航 / 维护 |
+| [2026-10-30 家庭巡检续测](experiments/2026-10-30-patrol-continuation.md) | `experiments/2026-10-30-patrol-continuation.md` | 实验 / 验收记录 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -492,6 +512,301 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [runner-source.py.txt](experiments/2026-10-27-edge-brain-reliability/runner-source.py.txt) | TXT | `experiments/2026-10-27-edge-brain-reliability` |
 | [ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519.json](experiments/2026-10-27-edge-brain-reliability/sources/ff3fd15edef6b1e4f3642887db58c4909cb7333c68233cebc476740ed0651519.json) | JSON | `experiments/2026-10-27-edge-brain-reliability/sources` |
 | [summary.json](experiments/2026-10-27-edge-brain-reliability/summary.json) | JSON | `experiments/2026-10-27-edge-brain-reliability` |
+| [archive-sha256.json](experiments/2026-10-28-edge-scalability/archive-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [builds-final.json](experiments/2026-10-28-edge-scalability/builds-final.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [builds.json](experiments/2026-10-28-edge-scalability/builds.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [catalog-build.txt](experiments/2026-10-28-edge-scalability/checks/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks` |
+| [catalog-check.txt](experiments/2026-10-28-edge-scalability/checks/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks` |
+| [summary.json](experiments/2026-10-28-edge-scalability/checks/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/checks` |
+| [book-check.txt](experiments/2026-10-28-edge-scalability/checks-final/book-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [catalog-build.txt](experiments/2026-10-28-edge-scalability/checks-final/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [catalog-check.txt](experiments/2026-10-28-edge-scalability/checks-final/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [diff-check.txt](experiments/2026-10-28-edge-scalability/checks-final/diff-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [go-docs.txt](experiments/2026-10-28-edge-scalability/checks-final/go-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [gofmt.txt](experiments/2026-10-28-edge-scalability/checks-final/gofmt.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [python-docs.txt](experiments/2026-10-28-edge-scalability/checks-final/python-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [ruff.txt](experiments/2026-10-28-edge-scalability/checks-final/ruff.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [summary.json](experiments/2026-10-28-edge-scalability/checks-final/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [usage-report.txt](experiments/2026-10-28-edge-scalability/checks-final/usage-report.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-final` |
+| [book-check.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/book-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [catalog-build.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [catalog-check.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [diff-check.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/diff-check.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [go-docs.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/go-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [gofmt.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/gofmt.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [python-docs.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/python-docs.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [ruff.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/ruff.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [summary.json](experiments/2026-10-28-edge-scalability/checks-readme-count/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [usage-report.txt](experiments/2026-10-28-edge-scalability/checks-readme-count/usage-report.txt) | TXT | `experiments/2026-10-28-edge-scalability/checks-readme-count` |
+| [final-precision-fix.json](experiments/2026-10-28-edge-scalability/child-writer/final-precision-fix.json) | JSON | `experiments/2026-10-28-edge-scalability/child-writer` |
+| [full-campaign.jsonl](experiments/2026-10-28-edge-scalability/child-writer/full-campaign.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/child-writer` |
+| [summary.json](experiments/2026-10-28-edge-scalability/child-writer/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/child-writer` |
+| [after-profile-run.txt](experiments/2026-10-28-edge-scalability/performance/after-profile-run.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [after-profile.txt](experiments/2026-10-28-edge-scalability/performance/after-profile.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [after-source-sha256.json](experiments/2026-10-28-edge-scalability/performance/after-source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [after.cpu](experiments/2026-10-28-edge-scalability/performance/after.cpu) | CPU | `experiments/2026-10-28-edge-scalability/performance` |
+| [after.jsonl](experiments/2026-10-28-edge-scalability/performance/after.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [append-benchmark.txt](experiments/2026-10-28-edge-scalability/performance/append-benchmark.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [artifact-manifest.json](experiments/2026-10-28-edge-scalability/performance/artifact-manifest.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [before-profile.txt](experiments/2026-10-28-edge-scalability/performance/before-profile.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [before-source-sha256.json](experiments/2026-10-28-edge-scalability/performance/before-source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [before.cpu](experiments/2026-10-28-edge-scalability/performance/before.cpu) | CPU | `experiments/2026-10-28-edge-scalability/performance` |
+| [before.jsonl](experiments/2026-10-28-edge-scalability/performance/before.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [campaign-128-build-interrupted.jsonl](experiments/2026-10-28-edge-scalability/performance/campaign-128-build-interrupted.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [campaign-128-race.jsonl](experiments/2026-10-28-edge-scalability/performance/campaign-128-race.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [campaign-race.jsonl](experiments/2026-10-28-edge-scalability/performance/campaign-race.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/performance` |
+| [commands.txt](experiments/2026-10-28-edge-scalability/performance/commands.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [comparison-summary.json](experiments/2026-10-28-edge-scalability/performance/comparison-summary.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-1-after.log](experiments/2026-10-28-edge-scalability/performance/paired-1-after.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-1-before.log](experiments/2026-10-28-edge-scalability/performance/paired-1-before.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-2-after.log](experiments/2026-10-28-edge-scalability/performance/paired-2-after.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-2-before.log](experiments/2026-10-28-edge-scalability/performance/paired-2-before.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-3-after.log](experiments/2026-10-28-edge-scalability/performance/paired-3-after.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-3-before.log](experiments/2026-10-28-edge-scalability/performance/paired-3-before.log) | LOG | `experiments/2026-10-28-edge-scalability/performance` |
+| [paired-results.json](experiments/2026-10-28-edge-scalability/performance/paired-results.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [regressions-race.txt](experiments/2026-10-28-edge-scalability/performance/regressions-race.txt) | TXT | `experiments/2026-10-28-edge-scalability/performance` |
+| [summary.json](experiments/2026-10-28-edge-scalability/performance/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/performance` |
+| [task-summary.json](experiments/2026-10-28-edge-scalability/task-summary.json) | JSON | `experiments/2026-10-28-edge-scalability` |
+| [affected-packages.jsonl](experiments/2026-10-28-edge-scalability/verification/affected-packages.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification` |
+| [long-campaign.jsonl](experiments/2026-10-28-edge-scalability/verification/long-campaign.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification` |
+| [runner-source.py.txt](experiments/2026-10-28-edge-scalability/verification/runner-source.py.txt) | TXT | `experiments/2026-10-28-edge-scalability/verification` |
+| [sha256.json](experiments/2026-10-28-edge-scalability/verification/sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification` |
+| [source-sha256.json](experiments/2026-10-28-edge-scalability/verification/source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification` |
+| [summary.json](experiments/2026-10-28-edge-scalability/verification/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/verification` |
+| [affected-packages.jsonl](experiments/2026-10-28-edge-scalability/verification-final/affected-packages.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [long-campaign.jsonl](experiments/2026-10-28-edge-scalability/verification-final/long-campaign.jsonl) | JSONL | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [runner-source.py.txt](experiments/2026-10-28-edge-scalability/verification-final/runner-source.py.txt) | TXT | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [sha256.json](experiments/2026-10-28-edge-scalability/verification-final/sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [source-sha256.json](experiments/2026-10-28-edge-scalability/verification-final/source-sha256.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [summary.json](experiments/2026-10-28-edge-scalability/verification-final/summary.json) | JSON | `experiments/2026-10-28-edge-scalability/verification-final` |
+| [archive-sha256.json](experiments/2026-10-28-edge-task-validation/archive-sha256.json) | JSON | `experiments/2026-10-28-edge-task-validation` |
+| [book-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/book-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [catalog-build.txt](experiments/2026-10-28-edge-task-validation/checks-final/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [catalog-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [diff-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/diff-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [gazebo-archive.txt](experiments/2026-10-28-edge-task-validation/checks-final/gazebo-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [go-docs.txt](experiments/2026-10-28-edge-task-validation/checks-final/go-docs.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [gofmt.txt](experiments/2026-10-28-edge-task-validation/checks-final/gofmt.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [peer-archive.txt](experiments/2026-10-28-edge-task-validation/checks-final/peer-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [python-docs.txt](experiments/2026-10-28-edge-task-validation/checks-final/python-docs.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [ruff.txt](experiments/2026-10-28-edge-task-validation/checks-final/ruff.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [staged-diff-check.txt](experiments/2026-10-28-edge-task-validation/checks-final/staged-diff-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/checks-final/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/checks-final` |
+| [book-check.txt](experiments/2026-10-28-edge-task-validation/checks-initial/book-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [catalog-build.txt](experiments/2026-10-28-edge-task-validation/checks-initial/catalog-build.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [catalog-check.txt](experiments/2026-10-28-edge-task-validation/checks-initial/catalog-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [diff-check.txt](experiments/2026-10-28-edge-task-validation/checks-initial/diff-check.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [gazebo-archive.txt](experiments/2026-10-28-edge-task-validation/checks-initial/gazebo-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [go-docs.txt](experiments/2026-10-28-edge-task-validation/checks-initial/go-docs.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [gofmt.txt](experiments/2026-10-28-edge-task-validation/checks-initial/gofmt.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [peer-archive.txt](experiments/2026-10-28-edge-task-validation/checks-initial/peer-archive.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [python-docs.txt.gz](experiments/2026-10-28-edge-task-validation/checks-initial/python-docs.txt.gz) | GZ | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [ruff.txt](experiments/2026-10-28-edge-task-validation/checks-initial/ruff.txt) | TXT | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/checks-initial/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/checks-initial` |
+| [MANIFEST.json](experiments/2026-10-28-edge-task-validation/cost/MANIFEST.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [affected-race-test.log](experiments/2026-10-28-edge-task-validation/cost/affected-race-test.log) | LOG | `experiments/2026-10-28-edge-task-validation/cost` |
+| [cases.json](experiments/2026-10-28-edge-task-validation/cost/after/cases.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [model-usage.jsonl](experiments/2026-10-28-edge-task-validation/cost/after/model-usage.jsonl) | JSONL | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/cost/after/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [usage-report.json](experiments/2026-10-28-edge-task-validation/cost/after/usage-report.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/after` |
+| [after-source.json](experiments/2026-10-28-edge-task-validation/cost/after-source.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [baseline-source.json](experiments/2026-10-28-edge-task-validation/cost/baseline-source.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [baseline-test.log](experiments/2026-10-28-edge-task-validation/cost/baseline-test.log) | LOG | `experiments/2026-10-28-edge-task-validation/cost` |
+| [cases.json](experiments/2026-10-28-edge-task-validation/cost/before/cases.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [model-usage.jsonl](experiments/2026-10-28-edge-task-validation/cost/before/model-usage.jsonl) | JSONL | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/cost/before/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [usage-report.json](experiments/2026-10-28-edge-task-validation/cost/before/usage-report.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost/before` |
+| [commands.json](experiments/2026-10-28-edge-task-validation/cost/commands.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [comparison.json](experiments/2026-10-28-edge-task-validation/cost/comparison.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [final-source-after.json](experiments/2026-10-28-edge-task-validation/cost/final-source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [final-source-before.json](experiments/2026-10-28-edge-task-validation/cost/final-source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/cost` |
+| [final-targeted.jsonl](experiments/2026-10-28-edge-task-validation/cost/final-targeted.jsonl) | JSONL | `experiments/2026-10-28-edge-task-validation/cost` |
+| [loop-baseline-test.log](experiments/2026-10-28-edge-task-validation/cost/loop-baseline-test.log) | LOG | `experiments/2026-10-28-edge-task-validation/cost` |
+| [llmdecider.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/llmdecider.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [loop.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/loop.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [usage_log.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/usage_log.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [usage_log_test.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop/usage_log_test.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/actionloop` |
+| [cost_campaign_test.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent/cost_campaign_test.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent` |
+| [planner.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent/planner.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/after/internal/capabilityagent` |
+| [cost_campaign_test.go.txt](experiments/2026-10-28-edge-task-validation/cost/sources/before/cost_campaign_test.go.txt) | TXT | `experiments/2026-10-28-edge-task-validation/cost/sources/before` |
+| [environment.json](experiments/2026-10-28-edge-task-validation/gazebo/environment.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [frozen-source-manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/frozen-source-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [patch-manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/patch-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [evidence.tar.gz](experiments/2026-10-28-edge-task-validation/gazebo/public/evidence.tar.gz) | GZ | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/public/manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [redactions.json](experiments/2026-10-28-edge-task-validation/gazebo/public/redactions.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [verify.py](experiments/2026-10-28-edge-task-validation/gazebo/public/verify.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/public` |
+| [restoration.json](experiments/2026-10-28-edge-task-validation/gazebo/restoration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [run-env.sh](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-env.sh) | SH | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [run-field-002.py](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-field-002.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [run-field.py](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-field.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [run-stops-003.py](experiments/2026-10-28-edge-task-validation/gazebo/runner-source/run-stops-003.py) | PY | `experiments/2026-10-28-edge-task-validation/gazebo/runner-source` |
+| [stop-regression.txt](experiments/2026-10-28-edge-task-validation/gazebo/stop-regression.txt) | TXT | `experiments/2026-10-28-edge-task-validation/gazebo` |
+| [orchestration.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/orchestration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence` |
+| [input-manifest.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis/input-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis` |
+| [metrics.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis/metrics.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/analysis` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/campaign-001/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/campaign-001` |
+| [orchestration.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/orchestration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/stops-001/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-002/stops-001` |
+| [orchestration.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops/orchestration.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops/stops-001/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/gazebo/summaries/evidence/run-003-stops/stops-001` |
+| [pytest.txt](experiments/2026-10-28-edge-task-validation/harness/pytest.txt) | TXT | `experiments/2026-10-28-edge-task-validation/harness` |
+| [results.xml](experiments/2026-10-28-edge-task-validation/harness/results.xml) | XML | `experiments/2026-10-28-edge-task-validation/harness` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/harness/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/harness` |
+| [SHA256SUMS](experiments/2026-10-28-edge-task-validation/peer/SHA256SUMS) |  | `experiments/2026-10-28-edge-task-validation/peer` |
+| [evidence-manifest.json](experiments/2026-10-28-edge-task-validation/peer/evidence-manifest.json) | JSON | `experiments/2026-10-28-edge-task-validation/peer` |
+| [exchange-changes.patch.gz](experiments/2026-10-28-edge-task-validation/peer/exchange-changes.patch.gz) | GZ | `experiments/2026-10-28-edge-task-validation/peer` |
+| [raw-evidence.tar.gz](experiments/2026-10-28-edge-task-validation/peer/raw-evidence.tar.gz) | GZ | `experiments/2026-10-28-edge-task-validation/peer` |
+| [summary.json](experiments/2026-10-28-edge-task-validation/peer/summary.json) | JSON | `experiments/2026-10-28-edge-task-validation/peer` |
+| [verify_evidence.py](experiments/2026-10-28-edge-task-validation/peer/verify_evidence.py) | PY | `experiments/2026-10-28-edge-task-validation/peer` |
+| [metadata.json](experiments/2026-10-28-edge-task-validation/verification/go-final/metadata.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [output.txt](experiments/2026-10-28-edge-task-validation/verification/go-final/output.txt) | TXT | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [result.json](experiments/2026-10-28-edge-task-validation/verification/go-final/result.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [source-after.json](experiments/2026-10-28-edge-task-validation/verification/go-final/source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [source-before.json](experiments/2026-10-28-edge-task-validation/verification/go-final/source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/go-final` |
+| [metadata.json](experiments/2026-10-28-edge-task-validation/verification/python-final/metadata.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [output.txt](experiments/2026-10-28-edge-task-validation/verification/python-final/output.txt) | TXT | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [result.json](experiments/2026-10-28-edge-task-validation/verification/python-final/result.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [results.xml](experiments/2026-10-28-edge-task-validation/verification/python-final/results.xml) | XML | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [source-after.json](experiments/2026-10-28-edge-task-validation/verification/python-final/source-after.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [source-before.json](experiments/2026-10-28-edge-task-validation/verification/python-final/source-before.json) | JSON | `experiments/2026-10-28-edge-task-validation/verification/python-final` |
+| [run.py](experiments/2026-10-28-edge-task-validation/verification/run.py) | PY | `experiments/2026-10-28-edge-task-validation/verification` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/exploration-audit/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [before-after.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/before-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [bootstrap-final-tests.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/bootstrap-final-tests.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [commands.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [_await_first_frame.py.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/_await_first_frame.py.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [_sample.py.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/_sample.py.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [deadline-addendum-ruff.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/deadline-addendum-ruff.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [deadline-addendum-tests.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/deadline-addendum-tests.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [deadline-addendum-tests.xml](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/deadline-addendum-tests.xml) | XML | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [report.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [test_survey_continuation_bootstrap.py.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/test_survey_continuation_bootstrap.py.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum` |
+| [evidence-manifest.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/evidence-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [publication-validation.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/publication-validation.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [raw-evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/exploration-audit/raw-evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [regressions-01.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/regressions-01.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [report.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [ruff.txt](experiments/2026-10-28-user-workbench-e2e/exploration-audit/ruff.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [source-final.json](experiments/2026-10-28-user-workbench-e2e/exploration-audit/source-final.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [verify.py](experiments/2026-10-28-user-workbench-e2e/exploration-audit/verify.py) | PY | `experiments/2026-10-28-user-workbench-e2e/exploration-audit` |
+| [evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/live-evidence/evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/live-evidence` |
+| [manifest.json](experiments/2026-10-28-user-workbench-e2e/live-evidence/manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/live-evidence` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/metrics-audit/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [collect_task_closure.cpython-311.pyc](experiments/2026-10-28-user-workbench-e2e/metrics-audit/__pycache__/collect_task_closure.cpython-311.pyc) | PYC | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/__pycache__` |
+| [collect_task_closure.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/collect_task_closure.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [commands.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [evidence-manifest.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/evidence-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [field-reanalysis.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/field-reanalysis.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-observations.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures/task001-observations.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures` |
+| [task001-point-in-time-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures/task001-point-in-time-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures` |
+| [task001-projection.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures/task001-projection.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/fixtures` |
+| [negative-case-summary.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/negative-case-summary.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [SHA256SUMS](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/SHA256SUMS) |  | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [audit.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/audit.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [commands.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/commands.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [model-usage-snapshot.jsonl](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/model-usage-snapshot.jsonl) | JSONL | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [publication-validation.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/publication-validation.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [source-manifest.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/source-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [standard-ledger-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/standard-ledger-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [task004-event-index.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/task004-event-index.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [task005-event-index.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/task005-event-index.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks` |
+| [raw-evidence.tar.gz](experiments/2026-10-28-user-workbench-e2e/metrics-audit/raw-evidence.tar.gz) | GZ | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [ruff.txt](experiments/2026-10-28-user-workbench-e2e/metrics-audit/ruff.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-45-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/task001-45-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-65-report.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/task001-65-report.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [task001-independent-metrics.json](experiments/2026-10-28-user-workbench-e2e/metrics-audit/task001-independent-metrics.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [test_task_collector.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/test_task_collector.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [tests.txt](experiments/2026-10-28-user-workbench-e2e/metrics-audit/tests.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [tests.xml](experiments/2026-10-28-user-workbench-e2e/metrics-audit/tests.xml) | XML | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [verify.py](experiments/2026-10-28-user-workbench-e2e/metrics-audit/verify.py) | PY | `experiments/2026-10-28-user-workbench-e2e/metrics-audit` |
+| [package_live_evidence.py](experiments/2026-10-28-user-workbench-e2e/package_live_evidence.py) | PY | `experiments/2026-10-28-user-workbench-e2e` |
+| [browser-005-still-unavailable.jpg](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/browser-005-still-unavailable.jpg) | JPG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [browser-006-image-visible.jpg](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/browser-006-image-visible.jpg) | JPG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-after.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-direct-after-final.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-direct-after-final.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-direct-tests.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-direct-tests.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-camera-tests.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-camera-tests.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [mapping-legacy-before.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/camera/mapping-legacy-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/camera` |
+| [localapp-after-race.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/localapp-after-race.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [marker_review_test.go.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/marker_review_test.go.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [overlay.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/overlay.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [regressions-after-race.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/regressions-after-race.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [reproduction.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race/reproduction.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/finish-race` |
+| [after.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/after.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [before.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/before.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [go-final.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/go-final.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [go-race-after.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/go-race-after.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [go-race.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/go-race.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [map-navigation-guidance-node.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/map-navigation-guidance-node.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [repro.go.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/repro.go.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [summary.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/summary.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [web-all.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/web-all.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [web-targeted-after.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/web-targeted-after.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [web-targeted.txt](experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api/web-targeted.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/ui-audit/fixture-api` |
+| [import-manifest.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/import-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit` |
+| [readonly-experience-before.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly/readonly-experience-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly` |
+| [readonly-experience-regression-before.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly/readonly-experience-regression-before.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/readonly` |
+| [source-manifest.json](experiments/2026-10-28-user-workbench-e2e/ui-audit/source-manifest.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/ui-audit` |
+| [final-independent-go-race.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/verification/final-independent-go-race.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/verification` |
+| [final-independent-targeted.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/verification/final-independent-targeted.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/verification` |
+| [final-independent-web.log](experiments/2026-10-28-user-workbench-e2e/ui-audit/verification/final-independent-web.log) | LOG | `experiments/2026-10-28-user-workbench-e2e/ui-audit/verification` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/go-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/go-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/go-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/lint-final-002` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/localapp-closure-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/mapping-camera-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/metrics-outcomes-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/navigation-ui-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/onboarding-final` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/python-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/python-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/python-final` |
+| [run.py](experiments/2026-10-28-user-workbench-e2e/verification/run.py) | PY | `experiments/2026-10-28-user-workbench-e2e/verification` |
+| [metadata.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/metadata.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [output.txt](experiments/2026-10-28-user-workbench-e2e/verification/web-final/output.txt) | TXT | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [result.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/result.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [source-after.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/source-after.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [source-before.json](experiments/2026-10-28-user-workbench-e2e/verification/web-final/source-before.json) | JSON | `experiments/2026-10-28-user-workbench-e2e/verification/web-final` |
+| [package_evidence.cpython-311.pyc](experiments/2026-10-30-patrol-evidence/__pycache__/package_evidence.cpython-311.pyc) | PYC | `experiments/2026-10-30-patrol-evidence/__pycache__` |
+| [package_evidence.py](experiments/2026-10-30-patrol-evidence/package_evidence.py) | PY | `experiments/2026-10-30-patrol-evidence` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
@@ -1366,6 +1681,8 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [source-manifest.json](experiments/evidence/2026-10-20-edge-workspaces/source-manifest.json) | JSON | `experiments/evidence/2026-10-20-edge-workspaces` |
 | [summary.json](experiments/evidence/2026-10-20-edge-workspaces/summary.json) | JSON | `experiments/evidence/2026-10-20-edge-workspaces` |
 | [web.log.gz](experiments/evidence/2026-10-20-edge-workspaces/web.log.gz) | GZ | `experiments/evidence/2026-10-20-edge-workspaces` |
+| [evidence.tar.gz](experiments/evidence/2026-10-30-patrol-continuation-final/evidence.tar.gz) | GZ | `experiments/evidence/2026-10-30-patrol-continuation-final` |
+| [manifest.json](experiments/evidence/2026-10-30-patrol-continuation-final/manifest.json) | JSON | `experiments/evidence/2026-10-30-patrol-continuation-final` |
 | [task-replay-desktop.png](frontend/assets/console-ux-20260927/task-replay-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-desktop.png](frontend/assets/console-ux-20260927/workspace-desktop.png) | PNG | `frontend/assets/console-ux-20260927` |
 | [workspace-mobile.png](frontend/assets/console-ux-20260927/workspace-mobile.png) | PNG | `frontend/assets/console-ux-20260927` |

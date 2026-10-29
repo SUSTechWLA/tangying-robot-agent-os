@@ -99,6 +99,7 @@ func run(listen, storeMode string) error {
 	if strings.EqualFold(systemModel.Provider, "openai") {
 		systemAgent, err = fleet.NewSystemAgent(harnessProfile, &actionloop.LLMDecider{
 			BaseURL: systemModel.BaseURL, APIKey: systemModel.APIKey, Model: systemModel.Model,
+			Stage: modelroute.System, UsageFile: systemModel.UsageFile,
 		})
 		if err != nil {
 			return err
@@ -165,7 +166,8 @@ func run(listen, storeMode string) error {
 	}
 	goalPlanner := &fleet.CapabilityPlanner{Registry: deviceRegistry, Parser: parser}
 	if strings.EqualFold(goalModel.Provider, "openai") {
-		goalPlanner.Decider = &actionloop.LLMDecider{BaseURL: goalModel.BaseURL, APIKey: goalModel.APIKey, Model: goalModel.Model, Cache: goalModel.Cache}
+		goalPlanner.Decider = &actionloop.LLMDecider{BaseURL: goalModel.BaseURL, APIKey: goalModel.APIKey, Model: goalModel.Model, Cache: goalModel.Cache,
+			Stage: modelroute.Goal, OutputTokens: goalModel.OutputTokens, UsageFile: goalModel.UsageFile}
 	}
 	service.SetGoalPlanner(goalPlanner)
 

@@ -56,6 +56,25 @@ def test_navigation_status_exposes_fused_state_without_dense_grid_or_sensor_fram
     assert "cells" not in status and "rgbImage" not in status and "imuSamples" not in status
 
 
+def test_saved_map_and_fresh_pose_cannot_hide_failed_navigation_driver(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.active = {"mapId": "saved-map", "mapRevision": "saved-revision"}
+    workflow.grid = {"width": 1, "height": 1, "resolution": .1,
+                     "cells": np.zeros((1, 1)), "origin": [0., 0., 0.]}
+    state = {"ready": False, "mapRevision": "driver-revision",
+             "blockers": [{"code": "RTABMAP_PROCESSING_STALE"}]}
+    workflow.navigation_readiness = lambda: state.copy()
+    result = workflow.navigation_status()
+    assert result["ready"] is False
+    assert result["mapId"] == "saved-map" and result["mapRevision"] == "saved-revision"
+    assert result["navigationDriver"] == state
+    assert "cells" not in result
+    state["ready"], state["blockers"] = True, []
+    assert workflow.navigation_status()["ready"] is True
+    workflow.capture = lambda: frame(stamp=1)
+    assert workflow.navigation_status()["ready"] is False
+
+
 def test_service_registry_concurrent_duplicate_never_reexecutes():
     entered,release=threading.Event(),threading.Event()
     registry=ServiceRegistry("unit-1")
@@ -229,6 +248,198 @@ def test_mapping_cancel_cannot_release_a_calibration_reservation(tmp_path):
     assert owner[0] is None
 
 
+def test_mapping_cancel_expected_operation_rejects_replaced_operation_without_side_effects(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow._reservation = workflow.reserve()
+    workflow.state, workflow.operation_id = "exploring", "new-operation"
+    workflow.session_id = "new-leg"
+    original = owner[0]
+    with pytest.raises(ServiceError) as error:
+        workflow.cancel({"expectedOperationId": "old-operation"})
+    assert error.value.code == "OPERATION_ID_MISMATCH"
+    assert workflow.state == "exploring" and not workflow._cancel.is_set()
+    assert not workflow._user_cancel and owner[0] is original
+
+    # Leg/session IDs may rotate while the operation identity remains stable.
+    result = workflow.cancel({"expectedOperationId": "new-operation"})
+    assert result["state"] == "cancelled" and result["operationId"] == "new-operation"
+    assert workflow._cancel.is_set() and owner[0] is None
+
+
+def test_mapping_cancel_binding_is_checked_after_lock_acquisition(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow._reservation = workflow.reserve()
+    workflow.state, workflow.operation_id = "exploring", "old-operation"
+    entering = threading.Event()
+    errors = []
+
+    def request_cancel():
+        entering.set()
+        try:
+            workflow.cancel({"expectedOperationId": "old-operation"})
+        except ServiceError as error:
+            errors.append(error.code)
+
+    # The cancel request is pending while the next operation becomes current.
+    with workflow._lock:
+        thread = threading.Thread(target=request_cancel)
+        thread.start()
+        assert entering.wait(1)
+        workflow.operation_id = "new-operation"
+    thread.join(2)
+    assert not thread.is_alive() and errors == ["OPERATION_ID_MISMATCH"]
+    assert not workflow._cancel.is_set() and owner[0] is not None
+    workflow.cancel({})  # Legacy explicit operator cancellation remains valid.
+    assert workflow.state == "cancelled" and owner[0] is None
+
+
+def test_mapping_cancel_service_schema_accepts_bound_id_and_rejects_empty(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.operation_id = "scan-operation"
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    assert registry.call(request("mapping.cancel", "bound", expectedOperationId="scan-operation")).ok
+    assert not registry.call(request("mapping.cancel", "empty", expectedOperationId="")).ok
+
+
+@pytest.mark.parametrize("service", ["mapping.start", "mapping.build", "mapping.ensure", "mapping.finish", "mapping.move"])
+def test_mapping_worker_waits_for_request_lease_before_capture_or_motion(tmp_path, service):
+    workflow, _ = workflow_fixture(tmp_path)
+    entering, release, ran = threading.Event(), threading.Event(), threading.Event()
+    recorded = []
+    if service in {"mapping.finish", "mapping.move"}:
+        workflow.state = "recording"
+        workflow.operation_id = "manual-operation"
+        workflow._operation_owner = "manual-owner"
+        workflow._operation_deadline = time.monotonic() + 5
+        workflow._reservation = workflow.reserve()
+        if service == "mapping.finish":
+            workflow._build = lambda: (recorded.append(workflow._operation_deadline), ran.set())
+        else:
+            workflow._manual_move = lambda *_: (recorded.append(workflow._operation_deadline), ran.set())
+    else:
+        workflow._begin = lambda *_: (recorded.append(workflow._operation_deadline), ran.set())
+    original = workflow._service_authority
+    def delayed_authority(req, payload):
+        entering.set()
+        assert release.wait(2)
+        original(req, payload)
+    workflow._service_authority = delayed_authority
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request(service, "leased-request", **({"action":"forward"} if service == "mapping.move" else {}))
+    req.operation_lease_ms = 5000
+    if service in {"mapping.finish", "mapping.move"}:
+        req.operation_id, req.operation_owner_id = "manual-operation", "manual-owner"
+    responses = []
+    thread = threading.Thread(target=lambda: responses.append(registry.call(req)))
+    thread.start()
+    try:
+        assert entering.wait(1)
+        assert not ran.wait(.05), "worker crossed the authority gate"
+    finally:
+        release.set()
+        thread.join(2)
+    assert responses and responses[0].ok and ran.wait(1)
+    assert recorded[0] > time.monotonic()
+    workflow._worker.join(1)
+    workflow.cancel({})
+
+
+@pytest.mark.parametrize("service", ["mapping.move", "mapping.ensure"])
+def test_wrong_owned_operation_is_rejected_before_mutating_handler(tmp_path, service):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.state, workflow.operation_id, workflow._operation_owner = "recording", "current", "owner"
+    touched = []
+    workflow.capture = lambda: touched.append("capture") or frame()
+    workflow.ensure_map = lambda _: touched.append("activate") or {"started": False}
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request(service, "wrong-owner", **({"action":"forward"} if service == "mapping.move" else {}))
+    req.operation_lease_ms, req.operation_id, req.operation_owner_id = 5000, "old", "owner"
+    response = registry.call(req)
+    assert not response.ok and response.code == "OPERATION_OWNER_MISMATCH"
+    assert response.result["outcome"] == "REJECTED" and touched == []
+    assert workflow.state == "recording" and not workflow._cancel.is_set()
+
+
+def test_unleased_mapping_start_keeps_operator_compatibility(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    ran = threading.Event()
+    workflow._begin = lambda *_: ran.set()
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    response = registry.call(request("mapping.start", "operator"))
+    assert response.ok and ran.wait(1) and workflow._operation_deadline == 0
+    workflow._worker.join(1)
+    workflow.cancel({})
+
+
+def test_leased_manual_move_requires_existing_operation_identity(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.state = "recording"
+    observed = []
+    workflow.capture = lambda: observed.append(True) or frame()
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request("mapping.move", "unbound", action="forward")
+    req.operation_lease_ms = 5000
+    result = registry.call(req)
+    assert not result.ok and result.code == "OPERATION_ID_REQUIRED"
+    assert result.result["outcome"] == "REJECTED" and not observed
+
+
+def test_ensure_does_not_switch_map_when_used_as_lease_renewal(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.operation_id, workflow._operation_owner = "current", "owner"
+    workflow._operation_deadline = time.monotonic() + 5
+    calls = []
+    workflow.ensure_map = lambda _: calls.append("changed") or {"started": False}
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request("mapping.ensure", "renew")
+    req.operation_lease_ms, req.operation_id, req.operation_owner_id = 5000, "current", "owner"
+    result = registry.call(req)
+    assert not result.ok and result.code == "OPERATION_ID_UNEXPECTED"
+    assert result.result["outcome"] == "REJECTED" and not calls
+
+
+def test_mapping_authority_failure_never_allows_new_worker_to_capture(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    ran = threading.Event()
+    workflow._begin = lambda *_: ran.set()
+    def reject(_request, _payload):
+        raise ServiceError("AUTHORITY_REJECTED", "fixture")
+    workflow._service_authority = reject
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request("mapping.build", "rejected")
+    req.operation_lease_ms = 5000
+    result = registry.call(req)
+    workflow._worker.join(2)
+    assert not result.ok and result.code == "AUTHORITY_REJECTED"
+    assert not ran.is_set() and workflow.state == "cancelled" and owner[0] is None
+
+
+def test_mapping_start_rejects_active_leg_gap_and_previous_worker_tail(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.state, workflow.operation_id = "exploring", "original"
+    with pytest.raises(ServiceError) as error:
+        workflow.start({"mode": "manual"})
+    assert error.value.code == "MAPPING_ACTIVE" and workflow.operation_id == "original"
+    release = threading.Event()
+    worker = threading.Thread(target=lambda: release.wait(2))
+    worker.start()
+    workflow.state, workflow._worker = "completed", worker
+    try:
+        with pytest.raises(ServiceError) as error:
+            workflow.start({"mode": "manual"})
+        assert error.value.code == "MAPPING_ACTIVE" and workflow.operation_id == "original"
+    finally:
+        release.set()
+        worker.join(2)
+
+
 def test_cancel_during_first_capture_cannot_return_to_recording(tmp_path):
     entered,finish=threading.Event(),threading.Event()
     def capture():
@@ -240,6 +451,20 @@ def test_cancel_during_first_capture_cannot_return_to_recording(tmp_path):
     assert owner[0] is None
     from tangying_robot_gateway.service_registry import ServiceError
     with pytest.raises(ServiceError):workflow.move_step({"action":"forward"})
+
+
+def test_invalid_continuation_map_releases_reservation_before_next_attempt(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    with pytest.raises((ServiceError, ValueError, OSError)):
+        workflow.start({"mode": "explore", "baseMapId": "missing-map"})
+    assert owner[0] is None and workflow._reservation is None
+    assert workflow._base_map_id == "" and workflow._base_anchor is None
+    assert workflow.operation_id == "" and workflow.state == "idle"
+    result = workflow.start({"mode": "manual"})
+    workflow._worker.join(2)
+    assert result["operationId"] and workflow.state == "recording"
+    workflow.cancel({"expectedOperationId": result["operationId"]})
+    assert owner[0] is None
 
 
 def test_the_recorded_attempt_budget_matches_what_the_console_accepts():
@@ -997,6 +1222,35 @@ def test_a_leg_that_measured_nothing_is_reported_and_not_published(tmp_path):
     assert "未能开始" in workflow.message
 
 
+@pytest.mark.parametrize(("reason", "complete", "expected"), [
+    ("no_reachable_frontier", False, "failed"),
+    ("no_progress", False, "failed"),
+    ("no_executable_waypoint", False, "failed"),
+    ("continuation_scan_refused", False, "failed"),
+    ("travel_budget", False, "completed"),
+    ("frame_budget", False, "completed"),
+    ("complete", True, "completed"),
+])
+def test_empty_continuation_keeps_old_map_but_does_not_call_a_blocked_leg_success(
+        tmp_path, reason, complete, expected):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow._reservation = workflow.reserve()
+    workflow._base_map_id, workflow.map_id = "previous-map", "unsaved-leg"
+    workflow._summary["travelledM"] = 0.0
+
+    def leg(_remaining, _number):
+        workflow._exploration = {"stopReason": reason}
+        workflow._explore_complete = complete
+        return 0.0
+
+    workflow._explore_leg = leg
+    workflow._build = lambda **_: pytest.fail("empty leg must not publish a map")
+    workflow._explore_legs_loop(1, 2.0)
+    assert workflow.state == expected and workflow.map_id == "previous-map"
+    assert reason in workflow.message and owner[0] is None
+    assert workflow._explore_complete is complete
+
+
 def test_the_exploration_policy_is_declared_in_the_service_catalogue(tmp_path):
     workflow, _owner = workflow_fixture(tmp_path)
     from tangying_robot_gateway.service_registry import ServiceRegistry
@@ -1383,6 +1637,227 @@ def test_a_stale_capture_publishes_what_was_mapped_and_names_the_fault(tmp_path)
     assert workflow.state == "failed" and "STALE_CAPTURE" in workflow.message
 
 
+def test_fatal_motion_stop_salvages_real_provider_map_without_clearing_stop(tmp_path):
+    import json
+
+    workflow, owner = workflow_fixture(tmp_path)
+    stamp = int(time.time()*1000)-100
+    workflow.capture = lambda: frame(stamp=stamp)
+    workflow.start({"mode": "manual", "name": "fault salvage fixture"})
+    workflow._worker.join(2)
+    for index, x in enumerate((.2, .4), 1):
+        workflow.capture = lambda x=x, index=index: frame(x, stamp+index)
+        workflow._sample()
+    # Registration is a fixture result, not a Gazebo observation.
+    workflow.slam.estimator.registrations = [{"kind": "unit-test-provider"}]
+    workflow._sample = lambda: None
+    workflow.move = lambda *_args, **_kwargs: {"ok": False, "code": "MOTION_NOT_READY", "message": "stopped"}
+    with pytest.raises(ServiceError) as failure:
+        workflow._move_and_sample([0, 0, 0, 1, 0, 0, 0], bounded=False)
+    assert failure.value.code == "MOTION_NOT_READY" and workflow._cancel.is_set()
+    workflow._handle_session_fault(failure.value)
+    assert workflow._cancel.is_set(), "saving evidence must not re-arm motion"
+    assert workflow.state == "failed" and workflow.active["mapId"] == workflow.map_id
+    assert workflow.status()["faultSalvage"]["status"] == "published" and owner[0] is None
+    session = json.loads((tmp_path/workflow.map_id/"slam-session.json").read_text())
+    assert session["partial"] is True and session["fault"]["code"] == "MOTION_NOT_READY"
+
+
+@pytest.mark.parametrize("mode", ["user", "pause", "unknown", "expired"])
+def test_fault_map_publication_never_bypasses_external_or_unknown_cancellation(tmp_path, mode):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow._cancel.set()
+    workflow._fatal_motion_stop = mode != "unknown"
+    workflow._user_cancel = mode == "user"
+    workflow._pause_requested = mode == "pause"
+    if mode == "expired":
+        workflow._operation_deadline = time.monotonic() - 1
+    with pytest.raises(ServiceError) as error:
+        workflow._check_publication_cancel({"code": "MOTION_NOT_READY"})
+    assert error.value.code == "CANCELLED"
+    assert workflow._cancel.is_set()
+
+
+def test_failed_fault_salvage_exposes_both_original_and_save_failure(tmp_path):
+    workflow = _faulted_workflow(tmp_path)
+    workflow._build = lambda **_: (_ for _ in ()).throw(ServiceError("SCAN_TOO_SMALL", "not enough proof"))
+    workflow._handle_session_fault(ServiceError("MOTION_NOT_READY", "original stop"))
+    assert workflow.state == "failed" and workflow.message == "original stop"
+    assert workflow.status()["faultSalvage"] == {"status": "failed", "faultCode": "MOTION_NOT_READY",
+        "errorCode": "SCAN_TOO_SMALL", "errorMessage": "not enough proof"}
+
+
+def test_manual_fault_salvage_preserves_original_fault_and_never_rearms_motion(tmp_path):
+    import json
+
+    workflow, owner = workflow_fixture(tmp_path)
+    stamp = int(time.time()*1000)-100
+    workflow.capture = lambda: frame(stamp=stamp)
+    workflow.start({"mode": "manual"})
+    workflow._worker.join(2)
+    for index, x in enumerate((.2, .4), 1):
+        workflow.capture = lambda x=x, index=index: frame(x, stamp+index)
+        workflow._sample()
+    workflow.slam.estimator.registrations = [{"kind": "unit-test-provider"}]
+    workflow._fatal_motion_stop = True
+    workflow._cancel.set()
+    original_build = workflow._build
+    workflow._build = lambda **_: (_ for _ in ()).throw(ServiceError("SAVE_FAILED", "disk temporarily unavailable"))
+    workflow._handle_session_fault(ServiceError("MOTION_NOT_READY", "original safety stop"))
+    assert workflow.state == "failed" and owner[0] is None
+    original_cancel = workflow._cancel
+    workflow._build = original_build
+    workflow.finish({})
+    workflow._worker.join(3)
+    assert workflow._cancel is original_cancel and workflow._cancel.is_set()
+    assert workflow.state == "failed" and workflow.active["mapId"] == workflow.map_id
+    metadata = json.loads((tmp_path/workflow.map_id/"slam-session.json").read_text())
+    assert metadata["partial"] is True
+    assert metadata["fault"] == {"code": "MOTION_NOT_READY", "message": "original safety stop"}
+    assert workflow.status()["faultSalvage"] == {"status": "published", "faultCode": "MOTION_NOT_READY", "method": "manual_retry"}
+    assert "MOTION_NOT_READY" in workflow.message and owner[0] is None
+
+
+def test_manual_fault_salvage_rejects_unknown_fault_identity(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.state = "failed"
+    original_cancel = workflow._cancel
+    workflow._cancel.set()
+    with pytest.raises(ServiceError) as error:
+        workflow.finish({})
+    assert error.value.code == "FAULT_IDENTITY_UNAVAILABLE"
+    assert workflow.state == "failed" and workflow._cancel is original_cancel
+    assert workflow._cancel.is_set() and owner[0] is None
+
+
+def test_manual_fault_salvage_failure_preserves_original_fault(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.state = "failed"
+    workflow._session_fault = {"code": "MOTION_NOT_READY", "message": "original stop"}
+    workflow._fatal_motion_stop = True
+    workflow._cancel.set()
+    workflow._build = lambda **_: (_ for _ in ()).throw(ServiceError("SAVE_FAILED", "disk unavailable"))
+    workflow.finish({})
+    workflow._worker.join(2)
+    assert workflow.state == "failed" and owner[0] is None
+    assert workflow._session_fault == {"code": "MOTION_NOT_READY", "message": "original stop"}
+    assert workflow.status()["faultSalvage"] == {"status": "failed", "faultCode": "MOTION_NOT_READY",
+        "errorCode": "SAVE_FAILED", "errorMessage": "disk unavailable"}
+
+
+def test_manual_fault_salvage_honors_cancel_before_worker_gate(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.state, workflow.operation_id = "failed", "scan-id"
+    workflow._session_fault = {"code": "MOTION_NOT_READY", "message": "stopped"}
+    workflow._fatal_motion_stop = True
+    workflow._cancel.set()
+    called = []
+    workflow._build = lambda **_: called.append(True)
+    with workflow._lock:
+        workflow.finish({})
+        workflow.cancel({"expectedOperationId": "scan-id"})
+    workflow._worker.join(2)
+    assert not called and workflow.state == "cancelled" and owner[0] is None
+    assert workflow._session_fault["code"] == "MOTION_NOT_READY"
+
+
+def test_manual_fault_salvage_cannot_reset_expired_lease(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.state = "failed"
+    workflow._session_fault = {"code": "MOTION_NOT_READY", "message": "stopped"}
+    workflow._operation_deadline = time.monotonic()-1
+    old_cancel = workflow._cancel
+    with pytest.raises(ServiceError) as error:
+        workflow.finish({})
+    assert error.value.code == "CANCELLED" and workflow._cancel is old_cancel
+    assert workflow._user_cancel and workflow._cancel.is_set() and owner[0] is None
+
+
+@pytest.mark.parametrize("state", ["recording", "failed"])
+def test_supervised_finish_cannot_create_new_lease_without_owner(tmp_path, state):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.state, workflow.operation_id, workflow._operation_owner = state, "current", "original-owner"
+    workflow._operation_deadline = time.monotonic() + 30
+    workflow._session_fault = {"code": "MOTION_NOT_READY", "message": "stopped"}
+    original_deadline = workflow._operation_deadline
+    called = []
+    workflow._build = lambda **_: called.append(True)
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request("mapping.finish", "unbound-salvage")
+    req.operation_lease_ms = 5000
+    result = registry.call(req)
+    assert not result.ok and result.code == "OPERATION_ID_REQUIRED"
+    assert result.result["outcome"] == "REJECTED" and owner[0] is None
+    assert workflow.state == state and workflow._operation_deadline == original_deadline
+    assert workflow._operation_owner == "original-owner" and workflow._worker is None and not called
+
+
+def test_supervised_finish_rejects_foreign_owner_before_build(tmp_path):
+    workflow, owner = workflow_fixture(tmp_path)
+    workflow.state, workflow.operation_id, workflow._operation_owner = "recording", "current", "original-owner"
+    workflow._operation_deadline = time.monotonic() + 30
+    original_deadline = workflow._operation_deadline
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    req = request("mapping.finish", "foreign-finish")
+    req.operation_lease_ms, req.operation_id, req.operation_owner_id = 5000, "current", "foreign-owner"
+    result = registry.call(req)
+    assert not result.ok and result.code == "OPERATION_OWNER_MISMATCH"
+    assert workflow.state == "recording" and workflow._worker is None and owner[0] is None
+    assert workflow._operation_owner == "original-owner" and workflow._operation_deadline == original_deadline
+
+
+def test_unleased_operator_can_finish_manual_recording(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    workflow.state, workflow.operation_id = "recording", "manual-operation"
+    ran = threading.Event()
+    workflow._build = lambda: ran.set()
+    registry = ServiceRegistry("unit-1")
+    workflow.register(registry)
+    result = registry.call(request("mapping.finish", "operator"))
+    assert result.ok and ran.wait(1)
+    workflow._worker.join(1)
+    workflow.cancel({})
+
+
+def test_operator_cancel_during_fault_salvage_prevents_map_publication(tmp_path):
+    workflow, _ = workflow_fixture(tmp_path)
+    stamp = int(time.time()*1000)-100
+    workflow.capture = lambda: frame(stamp=stamp)
+    workflow.start({"mode": "manual"})
+    workflow._worker.join(2)
+    for index, x in enumerate((.2, .4), 1):
+        workflow.capture = lambda x=x, index=index: frame(x, stamp+index)
+        workflow._sample()
+    workflow.slam.estimator.registrations = [{"kind": "unit-test-provider"}]
+    entered, resume = threading.Event(), threading.Event()
+    optimize = workflow.slam.optimize
+    def delayed_optimize():
+        entered.set()
+        assert resume.wait(2)
+        return optimize()
+    workflow.slam.optimize = delayed_optimize
+    workflow.state = "moving"
+    workflow._fatal_motion_stop = True
+    workflow._cancel.set()
+    errors = []
+    def save():
+        try:
+            workflow._build(fault={"code": "MOTION_NOT_READY", "message": "stopped"})
+        except ServiceError as error:
+            errors.append(error.code)
+    thread = threading.Thread(target=save)
+    workflow._worker = thread
+    thread.start()
+    assert entered.wait(2)
+    workflow.cancel({"expectedOperationId": workflow.operation_id})
+    resume.set()
+    thread.join(3)
+    assert not thread.is_alive() and errors == ["CANCELLED"]
+    assert workflow.active is None and not (tmp_path/workflow.map_id).exists()
+
+
 def test_a_calibration_change_mid_scan_keeps_the_map(tmp_path):
     from tangying_robot_gateway.service_registry import ServiceError
 
@@ -1498,7 +1973,7 @@ def test_exploration_operation_identity_survives_leg_changes(tmp_path):
     workflow = _explore_workflow(tmp_path, _ExplorationWorld())
     workflow.operation_id = "owned-operation"
     workflow.session_id = "first-leg"
-    workflow._sample = lambda: None
+    workflow._await_first_frame = lambda _number: None
     workflow._release_session()
     workflow._open_leg(2)
     assert workflow.session_id != "first-leg"
@@ -1751,6 +2226,7 @@ def test_published_map_retains_exploration_stop_and_scan_evidence(tmp_path):
     workflow._build()
     session = json.loads((tmp_path/workflow.map_id/"slam-session.json").read_text())
     evidence = session["exploration"]
+    assert session["partial"] is True, "budget exhaustion is not complete exploration"
     assert evidence["finalLeg"]["stopReason"] == "travel_budget"
     assert evidence["wholeSceneCoverage"] == "not_measured"
     assert evidence["frontiersExhausted"] is False
@@ -1839,7 +2315,7 @@ def test_successful_leg_boundary_preserves_operation_event_and_identity(tmp_path
     workflow.map_id = "scan-unit-test-base"
     workflow.operation_id = "same-authorized-operation"
     workflow._leg_anchor = [0., 0., 0.]
-    workflow._sample = lambda: None
+    workflow._await_first_frame = lambda _number: None
     cancellation = workflow._cancel
     workflow._open_leg(2)
     assert workflow._cancel is cancellation and not cancellation.is_set()

@@ -1,0 +1,35 @@
+{
+  "command": [
+    ".venv/bin/ruff",
+    "check",
+    "docs/experiments/2026-10-28-user-workbench-e2e/package_live_evidence.py",
+    "robot/gateway/tangying_robot_gateway/gazebo_backend.py",
+    "robot/gateway/tangying_robot_gateway/gazebo_workflow.py",
+    "robot/gateway/tangying_robot_gateway/home_commissioning.py",
+    "robot/gateway/tangying_robot_gateway/robot_workflow.py",
+    "robot/gateway/tangying_robot_gateway/semantic_cloud_services.py",
+    "robot/gateway/tangying_robot_gateway/survey.py",
+    "robot/gateway/tests/test_gazebo_workflow.py",
+    "robot/gateway/tests/test_operational_envelope.py",
+    "robot/gateway/tests/test_robot_services.py",
+    "robot/gateway/tests/test_survey_continuation_bootstrap.py",
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/gazebo_runtime_node.py",
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/navigation_node.py",
+    "robot/ros2_ws/src/tangying_navigation/test/test_navigation_node.py",
+    "scripts/analyze_gazebo_field_campaign.py",
+    "scripts/run_gazebo_stop_checks.py",
+    "tests/install/test_gazebo_runtime_freshness.py",
+    "tests/scripts/test_analyze_gazebo_field_campaign.py",
+    "tests/scripts/test_gazebo_stop_checks.py"
+  ],
+  "cwd": "/Users/wanglian/Projects/tangying-robot-agent-os",
+  "head": "79a8c35535064fe0889980d5f37b3127079660e7",
+  "startedAtUTC": "2026-10-28T17:15:13.612043+00:00",
+  "scope": "Software regression; no live LLM or robot. Physical evidence is a separate campaign.",
+  "environmentOverrides": {
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "cleared": "GOFLAGS,GORACE,AGENT_*,EDGE_*,TANGYING_*"
+  }
+}

@@ -41,6 +41,35 @@ def planar(x, y, yaw):
 # -- calibration -------------------------------------------------------------
 
 
+@pytest.mark.parametrize("payload,ready,codes", [
+    ({"ready": True, "readinessBlockers": []}, True, []),
+    ({"ready": False, "readinessBlockers": ["RTABMAP_PROCESSING_STALE"]}, False,
+     ["RTABMAP_PROCESSING_STALE"]),
+    ({"ready": True, "readinessBlockers": ["NAV2_ACTION_UNAVAILABLE"]}, False,
+     ["NAV2_ACTION_UNAVAILABLE"]),
+    ({"ready": "true"}, False, ["NAVIGATION_INVALID_RESPONSE"]),
+    ({"ready": True, "readinessBlockers": None}, False, ["NAVIGATION_INVALID_RESPONSE"]),
+    ([], False, ["NAVIGATION_INVALID_RESPONSE"]),
+])
+def test_navigation_readiness_uses_live_driver_state(payload, ready, codes):
+    client = GazeboNavigationClient("http://isolated", "test-token")
+    client.map_status = lambda: payload
+    result = client.readiness()
+    assert result["ready"] is ready
+    assert [item["code"] for item in result["blockers"]] == codes
+
+
+def test_navigation_readiness_unreachable_is_a_blocker_not_a_stale_success():
+    client = GazeboNavigationClient("http://isolated", "test-token")
+    def unavailable():
+        raise GazeboNavigationError("NAVIGATION_UNAVAILABLE", "private endpoint detail")
+    client.map_status = unavailable
+    result = client.readiness()
+    assert result["ready"] is False
+    assert result["blockers"][0]["code"] == "NAVIGATION_UNAVAILABLE"
+    assert "private endpoint detail" not in json.dumps(result)
+
+
 def test_the_declared_camera_rotation_is_the_one_the_runtime_converts_with():
     """Two places describe where the camera points: the calibration document and
     the runtime's optical conversion. If they disagree, every depth return lands at

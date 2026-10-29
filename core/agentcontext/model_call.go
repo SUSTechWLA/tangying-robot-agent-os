@@ -5,6 +5,11 @@ package agentcontext
 // comes from the provider; it is not an independent measurement of GPU work.
 type ModelCall struct {
 	SchemaVersion         string      `json:"schema_version"`
+	CallID                string      `json:"call_id,omitempty"`
+	Stage                 string      `json:"stage,omitempty"`
+	Model                 string      `json:"model,omitempty"`
+	EndpointSHA256        string      `json:"endpoint_sha256,omitempty"`
+	OutputTokens          int         `json:"output_tokens,omitempty"`
 	PromptTemplateVersion string      `json:"prompt_template_version"`
 	ToolsSHA256           string      `json:"tools_sha256"`
 	CacheMode             string      `json:"cache_mode"`
@@ -15,6 +20,9 @@ type ModelCall struct {
 	ResponseBytes         int         `json:"response_bytes"`
 	HTTPStatus            int         `json:"http_status,omitempty"`
 	Outcome               string      `json:"outcome"`
+	FinishReason          string      `json:"finish_reason,omitempty"`
+	ResponseTruncated     bool        `json:"response_truncated,omitempty"`
+	UsageLogStatus        string      `json:"usage_log_status,omitempty"`
 	ResponseSHA256        string      `json:"response_sha256,omitempty"`
 	UsageStatus           string      `json:"usage_status"`
 	Usage                 *ModelUsage `json:"usage,omitempty"`

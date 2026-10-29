@@ -378,6 +378,11 @@
           <select id="adapter" hidden aria-hidden="true" tabindex="-1"><option value="" selected disabled>等待机器人连接…</option></select>
           <button id="create">生成任务</button>
         </div>
+        <details id="planning-failures" hidden>
+          <summary>未生成任务的规划记录</summary>
+          <p class="hint">这里显示本页最近 10 次规划失败。保存记录编号或证据链接，刷新页面后仍可凭链接回溯；记录不代表已批准任务。</p>
+          <ol id="planning-failure-list"></ol>
+        </details>
         <div class="status-grid">
           <article>
             <span>任务状态</span>

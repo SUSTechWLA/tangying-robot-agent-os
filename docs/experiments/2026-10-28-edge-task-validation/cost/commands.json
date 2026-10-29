@@ -1,0 +1,38 @@
+[
+  {
+    "phase": "baseline",
+    "command": "TANGYING_COST_EVIDENCE_DIR=/tmp/edge-task-validation-cost-20261028 go test ./internal/capabilityagent -run '^TestCostCampaignSequentialHTTPAndSQLite$' -count=1 -v",
+    "exit_code": 1,
+    "output": "baseline-test.log",
+    "command_sha256": "325a40ca92ba5f09ea63950fcc9139e28853393921734aecdd858a710412ec8f"
+  },
+  {
+    "phase": "loop-before-fix",
+    "command": "go test ./internal/actionloop -run '^TestLoopAccountingFailureStopsAfterOneRecordedHTTPAttempt$' -count=1 -v",
+    "exit_code": 1,
+    "output": "loop-baseline-test.log",
+    "note": "ErrModelUsageLog and planner fixes already present; Loop fatal handling not yet added.",
+    "command_sha256": "fd38231c3d9f15f67853eb17823e5f90e504f5ca56c8adad5407b07ddab31dc3"
+  },
+  {
+    "phase": "affected-packages",
+    "command": "go test -race ./internal/actionloop ./internal/capabilityagent ./internal/recoveryexec -count=1 -timeout=120s",
+    "exit_code": 0,
+    "output": "affected-race-test.log",
+    "command_sha256": "7660a0bceb12e5909b61e248755b8a8e1e0d369dc75ba543042704a03be8fed4"
+  },
+  {
+    "phase": "final",
+    "command": "TANGYING_COST_EVIDENCE_DIR=/tmp/edge-task-validation-cost-20261028 go test -race ./internal/actionloop ./internal/capabilityagent -run '^(TestCostCampaignSequentialHTTPAndSQLite|TestLoopAccountingFailureStopsAfterOneRecordedHTTPAttempt)$' -count=1 -json",
+    "exit_code": 0,
+    "output": "final-targeted.jsonl",
+    "command_sha256": "e79dd20334de5e582bd2ba0895ad48903761bbe832e68e7240d65d5f74e164f6"
+  },
+  {
+    "phase": "report",
+    "command": "python3 scripts/model_usage_report.py PATH/model-usage.jsonl --output PATH/usage-report.json",
+    "exit_code": 0,
+    "note": "Executed separately for before and final campaign directories.",
+    "command_sha256": "e51990a8cd1b51135cf2160b83247b0cfcafd1c491f946ef9412ada9d050e706"
+  }
+]

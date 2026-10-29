@@ -5,13 +5,15 @@
 
 增量核对（2026-10-28）：本轮新增模型调用取证、可选缓存提示，修复授权重查、预算停止、peer 重配与凭据分配。后续行为与迁移详见[实现记录](../development/2026-10-28-edge-brain-reliability.md)及[模型交互运行说明](../production/edge-brain-model-context.md)。下文历史性能观察保留原身份，不用本轮 32 步回归替代旧 96 步性能缺口。
 
+同日后续增量：按永久游标读取 peer 当前视图、父任务增量审计、child 私有写快照、独立模型用量账本和受校验的规划经验。配置和复用边界见[模型成本指南](../production/model-cost-and-recipes.md)，完整连续任务测试及首轮超时见[持续运行实验](../experiments/2026-10-28-edge-scalability/README.md)。经验复用和 writer 缓存不提供共享执行权，当前授权与物理观测仍各自核验。
+
 ## 1. 当前可以交付到哪一步
 
 当前具备**异构边缘 AgentOS 的受控集成候选基础**：单机长任务宿主、持久执行、机器人间建议数据交换、云边目标委托、上下文版本绑定和故障回溯均有实现与回归。适合先在隔离环境和受控场地逐设备集成，再扩大试运行范围。
 
 尚不能据此作为任意 DJI、Unitree、AGV 直接无人值守上线的正式验收版本。主要缺口是具体厂商驱动与物理停止、真实无线与规模负载、离线授权策略，以及跨机器人共同坐标和并发空间冲突的完整闭环。Gazebo 已有物理任务和停止实验，但使用集中式实验 hub、真值定位与通用模型；其证据不能扩展为厂家控制器或分区网络下的群体自治。详见[Gazebo 实验](../experiments/2026-10-18-gazebo-field-validation.md)。
 
-本轮还发现长历史处理的性能门禁未闭合：普通回归完成连续 32–128 步软件任务，但带 race 检测的完整 campaign 在 96 步场景触发默认 10 分钟超时。其余 Host 竞态复核单列通过，不覆盖该长程场景；具体时间、失败日志和范围见[本轮审计](../development/2026-10-18-edge-communication-readiness.md#长程-race-超时与性能观察)。
+2026-10-18 审计发现长历史性能缺口：普通回归完成连续 32–128 步软件任务，但带 race 检测的完整 campaign 在 96 步场景触发默认 10 分钟超时，见[历史审计](../development/2026-10-18-edge-communication-readiness.md#长程-race-超时与性能观察)。10-28 后续优化保留了新的整组 180 秒超时，并在修复后以相同任务规模和上限通过完整 campaign；各版本、命令和失败都在上面的持续运行实验中分别记录。历史增长仍影响授权读取和 child 序列化，软件回归通过不代表已满足目标硬件的实时性或长期资源上限。
 
 最重要的设计判断是：**共享消息、共享执行权和共享物理事实是三件分别校验的事。** 当前实现按这个原则划分，方向合理；“所有 Agent 自动拥有同一份全局上下文”尚不是系统提供的保证。
 
@@ -100,7 +102,7 @@ Task 执行产生任务、步骤、命令和证据事件 → Task 持久事件�
 - 到期后再保留 24 小时的正文与 requestId 幂等窗口，然后 GC；stream 游标保留。不是无限期送达或无限期业务去重，长期业务结果应另存执行/应用账本。
 - 用稳定 stream 类别，把 taskId 放 payload，防止游标数量随每次请求增长。视频、完整点云和高频控制不走这个有界 JSON 通道；传有权限和内容校验的引用，数据存储/取回另行实现。
 
-可靠读取使用 admin `GET /v1/exchange/feed?after=...&limit=...`。feed 的本地收件 `revision/next/head/prunedThrough` 与发送者 sequence 不同，均为字符串。GC 缺口返回 409；不能直接跳到最新游标。覆盖消费重新取得有效快照，仅 `completeRead=true` 才能使用其完整性水位。快照最多 1000 条；截断时返回空建议并保留本机规划。
+可靠回溯使用 admin `GET /v1/exchange/feed?after=...&limit=...`。feed 的本地收件 `revision/next/head/prunedThrough` 与发送者 sequence 不同，均为字符串。GC 缺口返回 409；不能直接跳到最新游标。2026-10-28 起 SQLite 覆盖视图按永久 incoming cursor 选取每流最新正文，完整身份过滤后才计入最多 1,000 个当前流的上限。历史反复更新不再耗尽当前视图；最新无效/过期或已被 GC 删除也不回退旧值。真实当前流截断仍返回空建议；`completeRead=true` 是保留候选集合的完整性，不是全地图覆盖或所有 peer 在线证明。旧 Journal 无新读端口时继续使用全历史 Snapshot。详见[数据交换指南](../development/edge-data-exchange.md#历史记录与当前协作视图)。
 
 两个机器人都叫 `frameId=map` 不表示坐标一致；需要同 world/transform/map revision 或单独验证的变换。peer 覆盖并集是建议，不能写成本机实测 coverage、解除 unknown、签发授权或证明完成。详情和固定互通样例见[数据通道](../development/edge-data-exchange.md)、[有作用域的消费](../development/2026-10-18-scoped-peer-cooperation.md)。
 

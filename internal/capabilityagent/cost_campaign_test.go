@@ -1,0 +1,245 @@
+package capabilityagent
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/eventstore"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
+)
+
+type costCampaignCase struct {
+	Name          string               `json:"name"`
+	Mode          string               `json:"mode"`
+	HTTPRequests  int64                `json:"http_requests"`
+	ProviderReads int                  `json:"provider_reads"`
+	ModelCalls    int                  `json:"model_calls"`
+	UsageValid    int                  `json:"usage_valid"`
+	UsageMissing  int                  `json:"usage_missing"`
+	PromptKnown   int64                `json:"known_prompt_tokens"`
+	Error         string               `json:"error,omitempty"`
+	Canceled      bool                 `json:"canceled"`
+	LedgerFailure bool                 `json:"ledger_failure"`
+	DurationMS    int64                `json:"duration_ms"`
+	Bundle        orchestration.Bundle `json:"bundle"`
+}
+
+// TestCostCampaignSequentialHTTPAndSQLite exercises complete planning calls,
+// not robot execution. Usage values are scripted transport fixtures, never
+// measured provider bills. Set TANGYING_COST_EVIDENCE_DIR to retain raw traces,
+// accounting ledger, SQLite state and the per-invocation experiment summary.
+func TestCostCampaignSequentialHTTPAndSQLite(t *testing.T) {
+	dir := t.TempDir()
+	if parent := os.Getenv("TANGYING_COST_EVIDENCE_DIR"); parent != "" {
+		if err := os.MkdirAll(parent, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		dir, err = os.MkdirTemp(parent, "campaign-")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Logf("COST_EVIDENCE_DIR %s", dir)
+	usagePath := filepath.Join(dir, "model-usage.jsonl")
+	dbPath := filepath.Join(dir, "state.db")
+	store, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	provider := newRecipeProvider()
+	provider.catalogNote = "cost campaign calibration read"
+	var requests atomic.Int64
+	var failResultLog atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := requests.Add(1)
+		var wire struct {
+			MaxTokens int `json:"max_tokens"`
+			Messages  []struct{ Role, Content string }
+			Tools     []struct {
+				Function struct{ Name, Description string }
+			}
+		}
+		if err := json.NewDecoder(r.Body).Decode(&wire); err != nil {
+			t.Error(err)
+			w.WriteHeader(400)
+			return
+		}
+		if wire.MaxTokens != 512 {
+			t.Errorf("output cap: %d", wire.MaxTokens)
+		}
+		tool, args := "", map[string]any{}
+		for _, candidate := range wire.Tools {
+			if strings.Contains(candidate.Function.Description, provider.catalogNote) && candidate.Function.Name != "propose_capability_plan" {
+				tool = candidate.Function.Name
+				break
+			}
+		}
+		for _, message := range wire.Messages {
+			if message.Role == "user" && strings.Contains(message.Content, "READ_OK") {
+				p := recipeProposal()
+				tool, args = p.Tool, p.Arguments
+			}
+			if strings.Contains(message.Content, "unprojected-private-image") {
+				t.Error("raw sensor field leaked into model request")
+			}
+		}
+		encoded, _ := json.Marshal(args)
+		response := map[string]any{"choices": []any{map[string]any{"finish_reason": "tool_calls", "message": map[string]any{"tool_calls": []any{map[string]any{
+			"id": fmt.Sprintf("fixture-%d", n), "type": "function", "function": map[string]any{"name": tool, "arguments": string(encoded)},
+		}}}}}}
+		if n%2 == 1 {
+			response["usage"] = map[string]any{"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120, "prompt_tokens_details": map[string]any{"cached_tokens": 0}}
+		}
+		if failResultLog.Swap(false) {
+			if err := os.Chmod(usagePath, 0o644); err != nil {
+				t.Error(err)
+			}
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+	decider := &actionloop.LLMDecider{BaseURL: server.URL, Client: server.Client(), Model: "scripted-cost-fixture", Stage: modelroute.Goal, OutputTokens: 512, UsageFile: usagePath}
+	planner := &Planner{Provider: provider, Decider: decider}
+	var records []costCampaignCase
+	persisted := map[string][]byte{}
+	run := func(name, mode, goal string, ctx context.Context, wantHTTP int64, wantReads, wantCalls int, wantError bool) costCampaignCase {
+		t.Helper()
+		beforeHTTP, beforeReads := requests.Load(), provider.reads
+		started := time.Now()
+		bundle, handled, planErr := planner.PlanGoal(ctx, goal)
+		record := costCampaignCase{Name: name, Mode: mode, HTTPRequests: requests.Load() - beforeHTTP, ProviderReads: provider.reads - beforeReads, Bundle: bundle, Canceled: errors.Is(planErr, context.Canceled), LedgerFailure: errors.Is(planErr, actionloop.ErrModelUsageLog), DurationMS: time.Since(started).Milliseconds()}
+		if planErr != nil {
+			record.Error = planErr.Error()
+		}
+		if bundle.Capabilities != nil {
+			for _, step := range bundle.Capabilities.PlanningTrace {
+				if step.Context == nil || step.Context.ModelCall == nil {
+					continue
+				}
+				call := step.Context.ModelCall
+				record.ModelCalls++
+				if call.UsageStatus == "valid" {
+					record.UsageValid++
+					if call.Usage.PromptTokens != nil {
+						record.PromptKnown += *call.Usage.PromptTokens
+					}
+				} else if call.UsageStatus == "missing" {
+					record.UsageMissing++
+				}
+			}
+		}
+		records = append(records, record)
+		data, err := json.Marshal(record)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id := "cost-campaign/" + name
+		if err := store.Commit(context.Background(), eventstore.CommitRequest{State: eventstore.AggregateState{AggregateID: id, Version: 1, Data: data, UpdatedAt: time.Now().UTC()}}); err != nil {
+			t.Fatal(err)
+		}
+		persisted[id] = data
+		if !handled || (planErr != nil) != wantError || record.HTTPRequests != wantHTTP || record.ProviderReads != wantReads || record.ModelCalls != wantCalls || provider.starts != 0 {
+			t.Errorf("%s: handled=%v HTTP=%d/%d reads=%d/%d modelCalls=%d/%d error=%v expectedError=%v physicalWrites=%d", name, handled, record.HTTPRequests, wantHTTP, record.ProviderReads, wantReads, record.ModelCalls, wantCalls, planErr, wantError, provider.starts)
+		}
+		if wantError && bundle.Capabilities != nil && len(bundle.Capabilities.Calls) != 0 {
+			t.Errorf("%s: failed planning returned executable candidates", name)
+		}
+		return record
+	}
+	reopen := func() {
+		t.Helper()
+		if err := store.Close(); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		store, err = sqlite.Open(dbPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for id, want := range persisted {
+			state, found, err := store.LoadState(context.Background(), id)
+			if err != nil || !found || agentcontext.Hash(string(state.Data)) != agentcontext.Hash(string(want)) {
+				t.Fatalf("durable trace mismatch for %s: %v", id, err)
+			}
+		}
+	}
+	goal := "检查当前条件，然后建立地图"
+	for _, mode := range []string{"off", "hint", "validated"} {
+		memory, err := NewRecipeMemory(store, "cost-fixture/"+mode, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		planner.Memory = memory
+		run(mode+"-initial", mode, goal, context.Background(), 2, 1, 2, false)
+		if mode == "validated" {
+			reopen()
+			planner.Memory, err = NewRecipeMemory(store, "cost-fixture/"+mode, mode)
+			if err != nil {
+				t.Fatal(err)
+			}
+			record := run("validated-restart-repeat", mode, goal, context.Background(), 0, 1, 0, false)
+			if !recipeVerdict(record.Bundle.Capabilities.PlanningTrace, "RECIPE_HIT") {
+				t.Error("missing restart recipe hit")
+			}
+		} else {
+			record := run(mode+"-repeat", mode, goal, context.Background(), 2, 1, 2, false)
+			if mode == "hint" && !recipeVerdict(record.Bundle.Capabilities.PlanningTrace, "RECIPE_HINT") {
+				t.Error("missing hint trace")
+			}
+		}
+	}
+	provider.view["activeMap"] = map[string]any{"mapId": "map-2", "mapRevision": "map-rev-2"}
+	changed := run("validated-state-changed", "validated", goal, context.Background(), 1, 1, 1, false)
+	if !recipeVerdict(changed.Bundle.Capabilities.PlanningTrace, "RECIPE_REVALIDATION_MISS") {
+		t.Error("changed map bypassed current model reasoning")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	provider.onRead = func(int) { cancel() }
+	canceled := run("validated-cancel-read", "validated", goal, ctx, 0, 1, 0, true)
+	if !canceled.Canceled {
+		t.Error("recipe revalidation lost cancellation identity")
+	}
+	provider.onRead = nil
+	planner.Memory = nil
+	ctx, cancel = context.WithCancel(context.Background())
+	provider.onRead = func(int) { cancel() }
+	canceled = run("off-cancel-read", "off", goal, ctx, 1, 1, 1, true)
+	if !canceled.Canceled {
+		t.Error("normal planning lost cancellation identity")
+	}
+	provider.onRead = nil
+	failResultLog.Store(true)
+	ledgerFailure := run("off-ledger-result-failure", "off", goal, context.Background(), 1, 0, 1, true)
+	if !ledgerFailure.LedgerFailure || ledgerFailure.UsageValid != 1 || ledgerFailure.PromptKnown != 100 {
+		t.Error("ledger failure lost original failure identity or known provider usage")
+	}
+	if err := os.Chmod(usagePath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reopen()
+	data, err := json.MarshalIndent(map[string]any{"schema_version": "edge.cost-campaign.v1", "fixture_only": true, "external_model": false, "robot_execution": false,
+		"sqlite_reopened": true, "physical_writes": provider.starts, "cases": records, "usage_file": usagePath, "database": dbPath}, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "summary.json"), append(data, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("COST_CAMPAIGN cases=%d httpRequests=%d providerReads=%d physicalWrites=%d", len(records), requests.Load(), provider.reads, provider.starts)
+}

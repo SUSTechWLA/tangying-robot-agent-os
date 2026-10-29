@@ -1,5 +1,11 @@
 # 开发与升级导航
 
+2026-10-30 家庭巡检续测：[操作身份、部分地图、路线接入与受控运动](2026-10-30-exploration-operation-integrity.md) → [逐次试验和局限](../experiments/2026-10-30-patrol-continuation.md)。
+
+2026-10-28 任务复测：[五类故障修复与兼容边界](2026-10-28-task-validation-fixes.md) → [完整实验记录](../experiments/2026-10-28-edge-task-validation/README.md)。覆盖规划取消/计量、peer 调度/ACK、Gazebo 停止就绪；物理任务与软件验收分别保留源码和失败证据。
+
+2026-10-28 持续运行增量：[评估与优先级](2026-10-28-system-upgrade-assessment.md)、[实施与验证](2026-10-28-edge-scalability.md)、[模型成本与规划经验](../production/model-cost-and-recipes.md)。当前流视图与历史回溯分离，事件增量追加，规划经验不复用完成证据。
+
 教材 3.2.0（2026-10-28）以取消竞态、身份重配、模型缓存提示与失败回溯讲解边缘实现，提供 25 幅图、误差/时钟/上下文/时间预算推导及可复核的软件实验。 [本轮实现与核验](2026-10-28-edge-brain-reliability.md)。
 
 边缘工作台更新（2026-10-20）：[工作空间、身份隔离与任务回溯实现](2026-10-20-edge-robot-workspaces.md) → [部署与接口说明](../operations/edge-robot-workspaces.md)。每台机器人保持独立执行器，前后端按设备作用域访问任务与证据。

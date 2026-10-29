@@ -1,0 +1,148 @@
+{
+  "checks": [
+    {
+      "name": "catalog-build",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.08809733297675848,
+      "output": "catalog-build.txt",
+      "sha256": "76a679fa9206708440c253d816a739686394e3939ae764e86109f6435f49481b"
+    },
+    {
+      "name": "catalog-check",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py",
+        "--check"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.05280399997718632,
+      "output": "catalog-check.txt",
+      "sha256": "b67a8797620d3632f485f8f80ddc50a35307850ac3c65e4d2709f947626dff69"
+    },
+    {
+      "name": "go-docs",
+      "command": [
+        "go",
+        "test",
+        "./tests/docs",
+        "-count=1",
+        "-timeout=60s"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 1.7568570410367101,
+      "output": "go-docs.txt",
+      "sha256": "f2be98d464a0c85dbe60e0348bf0203b313fe010d680481d09541c569b577a19"
+    },
+    {
+      "name": "python-docs",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "addopts=",
+        "tests/docs"
+      ],
+      "exitCode": 1,
+      "passed": false,
+      "seconds": 0.21846954093780369,
+      "output": "python-docs.txt",
+      "sha256": "e8bc2b6b24d94c271f96f48f876cb77d7dd7ef19a41f80806662b4f9792c1abd"
+    },
+    {
+      "name": "book-check",
+      "command": [
+        "python3",
+        "scripts/build_book.py",
+        "--check"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.15670325001701713,
+      "output": "book-check.txt",
+      "sha256": "61e59679a948f7c8d83dd350e33c9c705e984f96ed160ce2d0646209b57b919f"
+    },
+    {
+      "name": "ruff",
+      "command": [
+        ".venv/bin/ruff",
+        "check",
+        "scripts/run_gazebo_stop_checks.py",
+        "sim/gazebo/field_hub.py",
+        "tests/scripts/test_gazebo_field_hub.py",
+        "tests/scripts/test_gazebo_stop_checks.py"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.04430154198780656,
+      "output": "ruff.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "gofmt",
+      "command": [
+        "gofmt",
+        "-l",
+        "edge/exchange/dispatch_faults_test.go",
+        "edge/exchange/http.go",
+        "edge/exchange/service.go",
+        "internal/actionloop/llmdecider.go",
+        "internal/actionloop/loop.go",
+        "internal/actionloop/usage_log.go",
+        "internal/actionloop/usage_log_test.go",
+        "internal/capabilityagent/cost_campaign_test.go",
+        "internal/capabilityagent/planner.go"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.012108416995033622,
+      "output": "gofmt.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.011466874973848462,
+      "output": "diff-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "gazebo-archive",
+      "command": [
+        "python3",
+        "docs/experiments/2026-10-28-edge-task-validation/gazebo/public/verify.py"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.06763708300422877,
+      "output": "gazebo-archive.txt",
+      "sha256": "46d9d1f9c3ea0e3c7ef2214870274e0954d76528ea24982115e0886e37ac7db7"
+    },
+    {
+      "name": "peer-archive",
+      "command": [
+        "python3",
+        "docs/experiments/2026-10-28-edge-task-validation/peer/verify_evidence.py"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "seconds": 0.040324582951143384,
+      "output": "peer-archive.txt",
+      "sha256": "b1eaae3672abdfe52d87489385d1d4a314dd24cadfc98aa8a6d22fb9cea19faa"
+    }
+  ]
+}

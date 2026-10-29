@@ -1,0 +1,6 @@
+{
+  "newTestsCommand": ".venv/bin/python -m pytest -q robot/gateway/tests/test_survey_continuation_bootstrap.py --junitxml=/tmp/scan002-bootstrap-fix/bootstrap-final-tests.xml",
+  "newTestsResult": "17 passed in 0.71s",
+  "archiveVerification": "24 regular members; archive hash and every member size/hash verified",
+  "scope": "offline fixtures only; no physical run"
+}

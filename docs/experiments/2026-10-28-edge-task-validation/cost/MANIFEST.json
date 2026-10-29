@@ -1,0 +1,126 @@
+{
+  "schema_version": "edge.cost-evidence-manifest.v1",
+  "created_at": "2026-10-28T14:50:41.097628+00:00",
+  "source_set_sha256": "dc767c32b3ceb633752a67b2bbdb797e24d9cc2f2502973077c1f0d2414191cb",
+  "files": {
+    "README.md": {
+      "bytes": 3675,
+      "sha256": "61fc9b2e5cea510f54a5cd7fc0a49d6b63859f3302343d55e326bc1ae089065e"
+    },
+    "affected-race-test.log": {
+      "bytes": 241,
+      "sha256": "23441673a68e7d239bd41d390bca47debcb220c275eb0551f9c1035d536a65f3"
+    },
+    "after/cases.json": {
+      "bytes": 3095,
+      "sha256": "229a00fe9ced29dc10adc6439aa37c7d61c67841f8fd6e2abe7d2031f83e9df9"
+    },
+    "after/model-usage.jsonl": {
+      "bytes": 19674,
+      "sha256": "7a2318c2718ac4f694f2e8e95e29244b8a4c49ea2b22089a1510093e79470d26"
+    },
+    "after/summary.json": {
+      "bytes": 621318,
+      "sha256": "33a0c3b7bb1dde8d0b2222da6e8ec581bc332c26b566060306bac35d976aba15"
+    },
+    "after/usage-report.json": {
+      "bytes": 5217,
+      "sha256": "e9ee91693c1d42e9e64e4ba0aa7ad33be001b06ef0cc490524ed238ab75feff0"
+    },
+    "after-source.json": {
+      "bytes": 1127,
+      "sha256": "de04125fea45d78c4a9277a9f37abef6235adfd7e0e00f7e46d2540719282968"
+    },
+    "baseline-source.json": {
+      "bytes": 894,
+      "sha256": "b1cdb2261ebd5b48604ab2efb08cae44597f6ec6abec01e00ee20a4270bb8d8e"
+    },
+    "baseline-test.log": {
+      "bytes": 1126,
+      "sha256": "af555324d5830e573957f487ebb746af966671940fce650cd05eebf35f357f4e"
+    },
+    "before/cases.json": {
+      "bytes": 2990,
+      "sha256": "771c9ce373ac77f21039b5b4fe0cfbea50d4726042bd2ff7daa10705d35a2235"
+    },
+    "before/model-usage.jsonl": {
+      "bytes": 23881,
+      "sha256": "5faa3f7beb6148d2d9e2b1ca79c11bd8bc0bd51eb66fbdda48add5dfc0ed6a15"
+    },
+    "before/summary.json": {
+      "bytes": 870393,
+      "sha256": "1c82d8d283ea030874bf495e590e0ea33a3745f5ff8eff2320274127d5a837b4"
+    },
+    "before/usage-report.json": {
+      "bytes": 6779,
+      "sha256": "18f96f8e0fa59a896d16f8fdd7d0dafadede9127c6878b07185f5a499ce1f93a"
+    },
+    "commands.json": {
+      "bytes": 1881,
+      "sha256": "df0bd99f7660941c4592145f7bfbc82d5b483b884235c34e682c58eaba5967b9"
+    },
+    "comparison.json": {
+      "bytes": 3086,
+      "sha256": "840ac0a4da002f54356452bfde94542e2c4d9e0ab0409446eb3608fa29d16f17"
+    },
+    "final-source-after.json": {
+      "bytes": 11010,
+      "sha256": "c135c0e98530f781501dd5cae70ddbad7ecd2c626def8c0fc816586290df2516"
+    },
+    "final-source-before.json": {
+      "bytes": 11045,
+      "sha256": "f0ac7de2d7ed381ba8fd1ee8fcf7268463b886af969606faa86031c40494075a"
+    },
+    "final-targeted.jsonl": {
+      "bytes": 4260,
+      "sha256": "9a40c1a292ba979568445fb8502b10bd0f35c3ec5cbcc5ec69ae280b57656e46"
+    },
+    "loop-baseline-test.log": {
+      "bytes": 1427,
+      "sha256": "4f4d262b88c850006a9c170fb49b955f25264f5626476fae3d68ed3a79abea66"
+    },
+    "sources/before/cost_campaign_test.go.txt": {
+      "bytes": 9634,
+      "sha256": "ad13e5f9ea3d0200986c56753d42d88cb6444a2acb885b031eea857c1589301e"
+    },
+    "sources/after/internal/actionloop/llmdecider.go.txt": {
+      "bytes": 22023,
+      "sha256": "3208f0eaee1bdb364f332c5506b745052b90e9a914b6e758d42e59b2efbd1bff"
+    },
+    "sources/after/internal/actionloop/usage_log.go.txt": {
+      "bytes": 4474,
+      "sha256": "b9101638ace977fddbcf89d8e67165ab2b8f1ca1309acd65438366ca95a8fbcd"
+    },
+    "sources/after/internal/actionloop/loop.go.txt": {
+      "bytes": 30362,
+      "sha256": "b0d029dd2ebda77ea156f8b61fd4d0a663ba5b102136dab4b1f5720dc9305b72"
+    },
+    "sources/after/internal/actionloop/usage_log_test.go.txt": {
+      "bytes": 9701,
+      "sha256": "262d15c84977e4177b9d9f05ac569226f8b983be6088b69378942abfbd49524f"
+    },
+    "sources/after/internal/capabilityagent/planner.go.txt": {
+      "bytes": 28271,
+      "sha256": "a63800d2a95c1da64b8a7b2ae878943203eec59d98b573ddba989cb0308238b1"
+    },
+    "sources/after/internal/capabilityagent/cost_campaign_test.go.txt": {
+      "bytes": 9965,
+      "sha256": "aeb934f97b0c2a9c090ecba859065e8afb01e9d7a0085442a6aeb880256dc5f0"
+    }
+  },
+  "external_sqlite": [
+    {
+      "phase": "before",
+      "path": "/tmp/edge-task-validation-cost-20261028/campaign-3843067824/state.db",
+      "bytes": 782336,
+      "sha256": "f5532432ffb0af4a953a3d9d57940b8b2936299603c83beeb0afe3b7abd6eb36"
+    },
+    {
+      "phase": "after",
+      "path": "/tmp/edge-task-validation-cost-20261028/campaign-140253130/state.db",
+      "bytes": 589824,
+      "sha256": "fdd379e5cccac0b460a6e35f2a315e2c6eb6b2465b2508e2a118600a360bdcfa"
+    }
+  ],
+  "archive_content_bytes": 1707549
+}

@@ -1,0 +1,33 @@
+{
+  "scope": "deadline-only follow-up; no physical actions or deployment",
+  "reason": "Fresh capture returned after explicit acquisition deadline could be integrated under still-valid operation lease; late return must not authorize admission",
+  "changes": [
+    "Check explicit deadline after freshness loop and before calibration/SLAM.add",
+    "Return capture_timeout and end bootstrap before counting integration attempt"
+  ],
+  "tests": {
+    "cases": 18,
+    "failures": 0,
+    "command": ".venv/bin/python -m pytest -q robot/gateway/tests/test_survey_continuation_bootstrap.py --junitxml=/tmp/scan002-bootstrap-fix/deadline-addendum-tests.xml"
+  },
+  "source": {
+    "path": "robot/gateway/tangying_robot_gateway/robot_workflow.py",
+    "wholeFileSHA256AtSnapshot": "86cded0a95560596e032b4a6671f201cf423070b9994c82c2ebd89440b702dfe",
+    "functions": {
+      "_sample": {
+        "sha256": "efad1206b62a5cca37b9ea3d6b3e41e609d411bee1c8cac3defcdd057aa4c464",
+        "lineAtSnapshot": 549
+      },
+      "_await_first_frame": {
+        "sha256": "e29e6e2fa746d046a381e361b46f5985b55f1195e8617525349f28dc81f30a29",
+        "lineAtSnapshot": 615
+      }
+    },
+    "boundary": "Other agent concurrently owns operational-radius edits elsewhere in same file; these function hashes identify this isolated follow-up, not a freeze of its whole package"
+  },
+  "test": {
+    "path": "robot/gateway/tests/test_survey_continuation_bootstrap.py",
+    "sha256": "089cbc3c08f5c39979aa34a208e8e85bfb052fc881a113721182735fbcff709e"
+  },
+  "previousArchiveUnchanged": true
+}

@@ -1,0 +1,23 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 4.609860124997795,
+  "sourceStable": true,
+  "sourceDigest": "b9bfa236c2367b5692903d3d5280d92fdf125f44ca4ae6bd3ac66560f6e2a339",
+  "topLevelGoTests": {
+    "pass": 126
+  },
+  "packages": [
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/orchestration",
+      "Action": "pass",
+      "Elapsed": 1.819
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/tasks",
+      "Action": "pass",
+      "Elapsed": 2.901
+    }
+  ],
+  "failures": [],
+  "outputSHA256": "f3ea2ef36388c815801a3eecf99f64c09c9cf671481f1afb07e83422be106964"
+}

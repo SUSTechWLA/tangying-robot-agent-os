@@ -1,0 +1,212 @@
+{
+  "recordedAt": "2026-10-28T17:01:32.558058+00:00",
+  "baselineProvidedByParent": "79a8c35535064fe0889980d5f37b3127079660e7",
+  "files": [
+    {
+      "path": "fixture-api/after.txt",
+      "source": "/tmp/local-ui-audit-20261028/after.txt",
+      "bytes": 2131,
+      "sha256": "b2883a4902462763d872a98e97247dd2477c0ee99ee4683124f4d5bbefd9a371"
+    },
+    {
+      "path": "fixture-api/before.txt",
+      "source": "/tmp/local-ui-audit-20261028/before.txt",
+      "bytes": 1870,
+      "sha256": "a858e8e7974d751c480169e0922e07d16f33ba7d88bcdb96bc4cdf4127d09d58"
+    },
+    {
+      "path": "fixture-api/go-final.txt",
+      "source": "/tmp/local-ui-audit-20261028/go-final.txt",
+      "bytes": 278,
+      "sha256": "f99687f961709f390cfd14cf7dd2f06f1f694fab06093f495eb3f06a226e1927"
+    },
+    {
+      "path": "fixture-api/go-race-after.txt",
+      "source": "/tmp/local-ui-audit-20261028/go-race-after.txt",
+      "bytes": 279,
+      "sha256": "d1eeea0d9febbc8a8e274ee1edf0d58ecd9e71e2e3a2481eba8dcbe400b8f561"
+    },
+    {
+      "path": "fixture-api/go-race.txt",
+      "source": "/tmp/local-ui-audit-20261028/go-race.txt",
+      "bytes": 424,
+      "sha256": "75ef9703319ee35e27b1bb000ba865351331ac98f26580df5c02d64c92360f23"
+    },
+    {
+      "path": "fixture-api/map-navigation-guidance-node.txt",
+      "source": "/tmp/local-ui-audit-20261028/map-navigation-guidance-node.txt",
+      "bytes": 2614,
+      "sha256": "32e9c22d5dd9e75593c0dcc45232070fa45cf6cc306f1364bc2083fc6b8689e2"
+    },
+    {
+      "path": "fixture-api/repro.go.txt",
+      "source": "/tmp/local-ui-audit-20261028/repro.go",
+      "bytes": 2776,
+      "sha256": "bb6f76adae00d3189d021fd59fd9f5979bad68575db2f7c2e3b9c1862f97450b"
+    },
+    {
+      "path": "fixture-api/summary.json",
+      "source": "/tmp/local-ui-audit-20261028/summary.json",
+      "bytes": 3437,
+      "sha256": "ecc1c74023d9d8c75aa7d4965852f7c41011a304cfb5d9bae6278e6c73bc79f1"
+    },
+    {
+      "path": "fixture-api/web-all.txt",
+      "source": "/tmp/local-ui-audit-20261028/web-all.txt",
+      "bytes": 46901,
+      "sha256": "58f97093ddf8c6bbec5ead5de56a0129d04f66884679f9cbfd1bd95a827509ce"
+    },
+    {
+      "path": "fixture-api/web-targeted-after.txt",
+      "source": "/tmp/local-ui-audit-20261028/web-targeted-after.txt",
+      "bytes": 6316,
+      "sha256": "f9a4da9a57ad126712ba2ea04385d1294f6dac9f92e0f7bac44ca955cdbf8d0c"
+    },
+    {
+      "path": "fixture-api/web-targeted.txt",
+      "source": "/tmp/local-ui-audit-20261028/web-targeted.txt",
+      "bytes": 7087,
+      "sha256": "c22c3f8b345cd7ac8526da4e7cd6af0f01cb5c6b7084ef8ca5231a340e8b9330"
+    },
+    {
+      "path": "finish-race/marker_review_test.go.txt",
+      "source": "/tmp/local-marker-review-20261029/marker_review_test.go",
+      "bytes": 3233,
+      "sha256": "096a6778f7a816b45d4ec31b9c501086f1f1f134d2f0d7e3bf347f9d28541988"
+    },
+    {
+      "path": "finish-race/overlay.json",
+      "source": "/tmp/local-marker-review-20261029/overlay.json",
+      "bytes": 167,
+      "sha256": "6f60669eae20c75e12751d116ca089946072eda3c2b71d683ccfab9afbafc1d6"
+    },
+    {
+      "path": "finish-race/reproduction.log",
+      "source": "/tmp/local-marker-review-20261029/reproduction.log",
+      "bytes": 683,
+      "sha256": "a425f13ea7e206e3ae6bae75baf0caf7b22c78e22d0ef2ddd2493e6455163a55"
+    },
+    {
+      "path": "finish-race/localapp-after-race.log",
+      "source": "/tmp/local-marker-review-20261029/localapp-after-race.log",
+      "bytes": 76,
+      "sha256": "59066f26fce3385e3497c598bc8488f2ad7547e76550730d2c9e0a06e7137d8e"
+    },
+    {
+      "path": "finish-race/regressions-after-race.log",
+      "source": "/tmp/local-marker-review-20261029/regressions-after-race.log",
+      "bytes": 76,
+      "sha256": "b22916eedc3e645417a922948b93d914c2c66197da5e358edc1549e9f215ae8e"
+    },
+    {
+      "path": "camera/mapping-legacy-before.json",
+      "source": "/tmp/local-marker-review-20261029/mapping-legacy-before.json",
+      "bytes": 101,
+      "sha256": "e848a282e847a25652e8f83961dc175c068fdcc0603d237daf96d9d7d8007763"
+    },
+    {
+      "path": "camera/mapping-camera-after.json",
+      "source": "/tmp/local-marker-review-20261029/mapping-camera-after.json",
+      "bytes": 626,
+      "sha256": "6b4699a0dce26a20ed7df28aabdfbbf656771bd0899e3e1c95f004a38136646a"
+    },
+    {
+      "path": "camera/mapping-camera-tests.log",
+      "source": "/tmp/local-marker-review-20261029/mapping-camera-tests.log",
+      "bytes": 2748,
+      "sha256": "6256219dd96e7389193a72cb35c5a1a19cee3695f69f56992b67baf1a2747279"
+    },
+    {
+      "path": "camera/mapping-camera-direct-after-final.json",
+      "source": "/tmp/local-marker-review-20261029/mapping-camera-direct-after-final.json",
+      "bytes": 751,
+      "sha256": "118a4ad7565e97df744f0c2d87ed00076655ea32ff28c83e6840403435518b0d"
+    },
+    {
+      "path": "camera/mapping-camera-direct-tests.log",
+      "source": "/tmp/local-marker-review-20261029/mapping-camera-direct-tests.log",
+      "bytes": 2866,
+      "sha256": "a8a3a24af450e96f7f8162f7c7f3ca751c09e8c67babe914a453ae81e1657468"
+    },
+    {
+      "path": "readonly/readonly-experience-before.json",
+      "source": "/tmp/local-marker-review-20261029/readonly-experience-before.json",
+      "bytes": 20164,
+      "sha256": "fcb9d61e93665b89e3dfa31b543cc420c044cfc25b0326db334ff84b3a89ca7e"
+    },
+    {
+      "path": "readonly/readonly-experience-regression-before.log",
+      "source": "/tmp/local-marker-review-20261029/readonly-experience-regression-before.log",
+      "bytes": 4787,
+      "sha256": "1b48d66b4a50f7e28e88cf70d328feb9b211b798ed4f1d7a990d52007d661c53"
+    },
+    {
+      "path": "verification/final-independent-go-race.log",
+      "source": "/tmp/local-marker-review-20261029/final-independent-go-race.log",
+      "bytes": 278,
+      "sha256": "8529e1a2672cab5ae14f7f4645e81da2e3f94b3d7871f0466ee0b0846d15233e"
+    },
+    {
+      "path": "verification/final-independent-targeted.log",
+      "source": "/tmp/local-marker-review-20261029/final-independent-targeted.log",
+      "bytes": 278,
+      "sha256": "71e631c9d964b0edbccd356f2abe1bbab932e1a5fbb8ee4c7c162295264d9b83"
+    },
+    {
+      "path": "verification/final-independent-web.log",
+      "source": "/tmp/local-marker-review-20261029/final-independent-web.log",
+      "bytes": 49015,
+      "sha256": "910cd1a65c7f71c37405748f6f0f05bbb4a8fb7e85009b54db83496effd9fc03"
+    },
+    {
+      "path": "camera/browser-005-still-unavailable.jpg",
+      "source": "artifacts/acceptance/user-e2e-20261028-001/mapping-camera-fixed.jpg",
+      "bytes": 169783,
+      "sha256": "a9227a1a6cd866e8558e1fe860ebb561dd2a2e1777cced9c52d1b2110886b38e"
+    },
+    {
+      "path": "camera/browser-006-image-visible.jpg",
+      "source": "artifacts/acceptance/user-e2e-20261028-001/mapping-camera-006.jpg",
+      "bytes": 170656,
+      "sha256": "5b53aeedbda4c90c47e1183988c05b6791af94d08d350c152eff63df1e001f43"
+    }
+  ],
+  "excludedLocalFiles": [
+    {
+      "path": "/tmp/local-marker-review-20261029/camera-services.json",
+      "bytes": 33906,
+      "sha256": "74d020fe1653178700588b0abb003cba84b5d430ba932ebd4c54eb310c938823",
+      "reason": "large or redundant raw capture/payload/log retained locally; bounded selected evidence archived"
+    },
+    {
+      "path": "/tmp/local-marker-review-20261029/camera-telemetry.json",
+      "bytes": 9349,
+      "sha256": "a16fd003d90a46edcc081fe46f933bfc49dd754e066ab20032cd3d056a70612e",
+      "reason": "large or redundant raw capture/payload/log retained locally; bounded selected evidence archived"
+    },
+    {
+      "path": "/tmp/local-marker-review-20261029/mapping-camera-before.json",
+      "bytes": 421573,
+      "sha256": "52db52ffc59608d6f373d9d9439b195d3fe0b6e27298eb0990b66e5d2cde1079",
+      "reason": "large or redundant raw capture/payload/log retained locally; bounded selected evidence archived"
+    },
+    {
+      "path": "/tmp/local-marker-review-20261029/mapping-camera-after.png",
+      "bytes": 69357,
+      "sha256": "9df24571a7f5d147d6dde1b07b309d97a8762b6a8a5b3371ae7f8e608af51d73",
+      "reason": "large or redundant raw capture/payload/log retained locally; bounded selected evidence archived"
+    },
+    {
+      "path": "/tmp/local-marker-review-20261029/mapping-camera-web-all.log",
+      "bytes": 48662,
+      "sha256": "0f9a8f1ee907fa45e7404d413b1ae6ee80398f6983baf07439fe84494d77ea69",
+      "reason": "large or redundant raw capture/payload/log retained locally; bounded selected evidence archived"
+    },
+    {
+      "path": "/tmp/local-marker-review-20261029/mapping-camera-direct-web-all.log",
+      "bytes": 48758,
+      "sha256": "3fed1c98832e7ec79e893ceec699dc1c223a80ec5e5fedeec166e24b667fb4cd",
+      "reason": "large or redundant raw capture/payload/log retained locally; bounded selected evidence archived"
+    }
+  ]
+}

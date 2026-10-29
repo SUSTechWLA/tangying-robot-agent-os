@@ -99,7 +99,132 @@
     return { ...result, robotId: String(catalogue.robotId || "") };
   }
 
-  const API = { RobotServiceError, createServiceClient, requestId, calibrationSaveParameters, acceptCalibrationSnapshot, mapSelectionAfterStatus, mappingCanFinish, serviceMap, readCalibrationReadiness };
+  function mappingPNGBlob(value) {
+    if (typeof value !== "string" || value.length > 2800000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) throw new Error("invalid camera PNG");
+    const data = atob(value.slice("data:image/png;base64,".length));
+    const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (data.length < signature.length || signature.some((byte, index) => data.charCodeAt(index) !== byte)) throw new Error("invalid camera PNG signature");
+    return new Blob([Uint8Array.from(data, character => character.charCodeAt(0))], { type: "image/png" });
+  }
+
+  // Mapping reads the same atomic camera endpoint as the workspace. Metadata
+  // selects a registered source; it is never used as the image's capture time.
+  async function readMappingCamera(fetchImpl, binding, signal, now = Date.now) {
+    const { robotId, sourceId: selectedSource = "" } = binding;
+    let adapter = binding.adapter || "";
+    if (!robotId) throw new Error("camera robot identity unavailable");
+    const options = { cache: "no-store", signal };
+    // Direct entry at #mapping does not run the workspace's adapter selector.
+    // An empty telemetry adapter is a real empty bucket, not "latest robot".
+    // Resolve it from this workspace's live runtime identity, never by taking
+    // the first adapter in a possibly multi-robot history list.
+    if (!adapter) {
+      const runtimeResponse = await fetchImpl("/v1/runtime", options);
+      if (!runtimeResponse.ok) throw new Error("camera runtime identity unavailable");
+      const runtime = await runtimeResponse.json();
+      if (runtime?.RobotID !== robotId || typeof runtime.Adapter !== "string" || !runtime.Adapter.trim()) throw new Error("camera runtime identity mismatch");
+      adapter = runtime.Adapter;
+    }
+    if (signal?.aborted) throw new Error("camera request superseded");
+    const metadataResponse = await fetchImpl(`/v1/telemetry?adapter=${encodeURIComponent(adapter)}&history=false`, options);
+    if (!metadataResponse.ok) throw new Error("camera metadata unavailable");
+    const metadata = (await metadataResponse.json()).latest;
+    const profile = metadata?.robotProfile;
+    if (metadata?.schemaVersion !== "telemetry.v1" || metadata.robotId !== robotId || !metadata.adapter
+      || (adapter && metadata.adapter !== adapter) || profile?.schemaVersion !== "robot.profile.v1"
+      || profile.robotId !== robotId || profile.adapterId !== metadata.adapter) throw new Error("camera metadata identity mismatch");
+    const sourceId = selectedSource || metadata.reconstruction?.sourceId || metadata.robotState?.perception?.source_id;
+    const sensor = profile.sensors?.find(item => item.sourceType === "rgbd_camera" && item.sourceId === sourceId);
+    if (!sourceId || !sensor?.frameId || !sensor.transformRevision || !Number.isFinite(sensor.maxAgeMs) || sensor.maxAgeMs <= 0) throw new Error("registered camera unavailable");
+    if (signal?.aborted) throw new Error("camera request superseded");
+    const response = await fetchImpl(`/v1/scene/camera?adapter=${encodeURIComponent(metadata.adapter)}&sourceId=${encodeURIComponent(sourceId)}`, options);
+    if (!response.ok) throw new Error("camera capture unavailable");
+    const body = await response.json();
+    const snapshot = body.snapshot, r = snapshot?.reconstruction;
+    const captureProfile = snapshot?.robotProfile;
+    const captureSensor = captureProfile?.sensors?.find(item => item.sourceId === sourceId);
+    const perception = snapshot?.robotState?.perception;
+    const maxAgeMs = Math.min(5000, sensor.maxAgeMs);
+    const fresh = () => Number.isSafeInteger(r?.observedAtUnixMs) && now() - r.observedAtUnixMs >= -250 && now() - r.observedAtUnixMs <= maxAgeMs;
+    if (signal?.aborted || snapshot?.schemaVersion !== "telemetry.v1" || snapshot.adapter !== metadata.adapter || snapshot.robotId !== robotId
+      || !r || r.robotId !== robotId || r.sourceId !== sourceId || r.sourceType !== "rgbd_camera"
+      || r.schemaVersion !== "scene.reconstruction.v1" || r.frameId !== "world" || r.units !== "m"
+      || !r.observationId || !Number.isSafeInteger(r.sequence) || r.sequence < 0
+      || r.sourceFrameId !== sensor.frameId || r.transformRevision !== sensor.transformRevision
+      || captureProfile?.schemaVersion !== "robot.profile.v1" || captureProfile.robotId !== robotId || captureProfile.adapterId !== metadata.adapter
+      || captureSensor?.sourceType !== "rgbd_camera" || captureSensor.frameId !== sensor.frameId
+      || captureSensor.transformRevision !== sensor.transformRevision || captureSensor.maxAgeMs !== sensor.maxAgeMs
+      || Date.parse(snapshot.observedAt || "") !== r.observedAtUnixMs
+      || (perception?.source_id && perception.source_id !== sourceId)
+      || (perception?.observed_at_unix_ms != null && perception.observed_at_unix_ms !== r.observedAtUnixMs)
+      || !fresh()) throw new Error("camera capture identity or freshness mismatch");
+    const rgb = mappingPNGBlob(body.rgbDataUrl), depth = mappingPNGBlob(body.depthDataUrl);
+    if (rgb.size + depth.size > 2 * 1024 * 1024 || !fresh()) throw new Error("camera capture exceeds limits");
+    return { rgb, robotId, adapter: metadata.adapter, sourceId, observedAt: r.observedAtUnixMs, maxAgeMs };
+  }
+
+  function createMappingCameraPreview({ fetchImpl, getBinding, image, empty, now = Date.now, urls = globalThis.URL, schedule = setTimeout, unschedule = clearTimeout }) {
+    let generation = 0, pending = null, currentURL = "", displayedKey = "", expiry = null, expiresAt = 0;
+    const key = binding => JSON.stringify(binding);
+    function clearFrame(message = "相机画面暂不可用；建图状态与采集数据仍会继续更新。") {
+      if (expiry != null) unschedule(expiry);
+      expiry = null;
+      image.onload = image.onerror = null;
+      image.removeAttribute("src"); image.hidden = true; image.removeAttribute("title");
+      for (const field of ["robotId", "sourceId", "observedAt"]) delete image.dataset[field];
+      if (currentURL) urls.revokeObjectURL(currentURL);
+      currentURL = ""; displayedKey = ""; expiresAt = 0;
+      empty.hidden = false; empty.textContent = message;
+    }
+    function reset() {
+      generation += 1;
+      pending?.controller.abort(); pending = null;
+      clearFrame();
+    }
+    async function refresh() {
+      const binding = getBinding();
+      if (!binding) { reset(); return; }
+      if (currentURL && displayedKey !== key(binding)) clearFrame("相机来源已变化，等待新画面。");
+      if (currentURL && now() > expiresAt) clearFrame("相机观测已过期，等待当前机器人的新画面。");
+      if (pending && pending.key === key(binding)) return;
+      if (pending) reset();
+      const request = { generation: ++generation, key: key(binding), controller: new AbortController() };
+      pending = request;
+      const current = () => generation === request.generation && !request.controller.signal.aborted && key(getBinding()) === request.key;
+      const timeout = schedule(() => {
+        if (!current()) return;
+        request.controller.abort();
+        if (pending === request) pending = null;
+        clearFrame("相机请求超时，当前现场未知；等待重新连接。");
+      }, 4000);
+      try {
+        const capture = await readMappingCamera(fetchImpl, binding, request.controller.signal, now);
+        if (!current()) return;
+        clearFrame("正在解码当前相机画面…");
+        const url = urls.createObjectURL(capture.rgb);
+        currentURL = url; displayedKey = request.key; expiresAt = capture.observedAt + capture.maxAgeMs;
+        image.onload = () => {
+          if (!current() || currentURL !== url) return;
+          if (now() > expiresAt) { clearFrame("相机观测已过期，等待新画面。"); return; }
+          image.hidden = false; empty.hidden = true;
+        };
+        image.onerror = () => { if (current() && currentURL === url) clearFrame("相机画面解码失败，当前现场未知。"); };
+        image.dataset.robotId = capture.robotId; image.dataset.sourceId = capture.sourceId;
+        image.dataset.observedAt = String(capture.observedAt);
+        image.title = `${capture.robotId} · ${capture.sourceId} · ${new Date(capture.observedAt).toLocaleTimeString()}`;
+        image.src = url;
+        expiry = schedule(() => { if (currentURL === url) clearFrame("相机观测已过期，等待新画面。"); }, Math.max(0, expiresAt - now()) + 1);
+      } catch (_) {
+        if (current()) clearFrame();
+      } finally {
+        unschedule(timeout);
+        if (pending === request) pending = null;
+      }
+    }
+    return { refresh, reset };
+  }
+
+  const API = { RobotServiceError, createServiceClient, requestId, calibrationSaveParameters, acceptCalibrationSnapshot, mapSelectionAfterStatus, mappingCanFinish, serviceMap, readCalibrationReadiness, readMappingCamera, createMappingCameraPreview };
   globalThis.TangyingRobotServices = API;
   if (typeof document === "undefined") return;
 
@@ -107,7 +232,7 @@
   const all = selector => [...document.querySelectorAll(selector)];
   const client = createServiceClient();
   const state = {
-    route: "", services: new Map(), robotId: "", timer: 0,
+    route: "", services: new Map(), robotId: "", timer: 0, cameraTimer: 0,
     calibration: { document: null, revision: "", remoteRevision: "", session: null, dirty: false },
     mapping: null, mappingMode: "", mappingMapId: "", busy: false, jsonSyncing: false,
   };
@@ -520,7 +645,7 @@
       state.mapping = result;
       state.mappingMapId = selected;
       renderMapping();
-      refreshMappingCamera();
+      void refreshMappingCamera();
       if (newlyCompleted) {
         announce("#mapping-feedback", `地图 ${selected} ${result.state === "completed" ? "已生成" : "已恢复"}，正在加载保存结果。`, "good");
         await globalThis.TangyingWorkflowMap?.selectSavedMap?.(selected, result.activeMap || null);
@@ -547,13 +672,12 @@
     finally { setBusy(false); }
   }
 
-  function refreshMappingCamera() {
-    if (state.route !== "mapping") return;
-    const image = $("#mapping-camera");
-    if (!image) return;
-    const path = `/v1/scene/frame?t=${Date.now()}`;
-    image.src = globalThis.TangyingEdgeWorkspace?.url(path) || path;
-  }
+  const mappingCamera = $("#mapping-camera") && $("#mapping-camera-empty") ? createMappingCameraPreview({
+    fetchImpl: globalThis.TangyingEdgeWorkspace?.fetch || globalThis.fetch.bind(globalThis),
+    getBinding: () => state.route === "mapping" ? { robotId: state.robotId, adapter: $("#adapter")?.value || "", sourceId: $("#scene-camera")?.value || "" } : null,
+    image: $("#mapping-camera"), empty: $("#mapping-camera-empty"),
+  }) : null;
+  function refreshMappingCamera() { return mappingCamera?.refresh(); }
 
   async function activateSelectedMap() {
     const mapId = $("#saved-map-select")?.value;
@@ -566,7 +690,9 @@
   async function enterRoute(route) {
     const generation = ++routeGeneration;
     state.route = route;
+    mappingCamera?.reset();
     if (state.timer) { clearInterval(state.timer); state.timer = 0; }
+    if (state.cameraTimer) { clearInterval(state.cameraTimer); state.cameraTimer = 0; }
     if (![/^(calibration|mapping)$/].some(pattern => pattern.test(route))) return;
     if (globalThis.location?.protocol === "file:") {
       announce(route === "calibration" ? "#calibration-feedback" : "#mapping-feedback",
@@ -587,6 +713,10 @@
       if (state.route === "calibration") void refreshCalibration({ polling: true });
       if (state.route === "mapping") void refreshMapping({ polling: true });
     }, 1500);
+    // Camera captures can have a 1s validity bound. The slower mapping-status
+    // poll cannot keep those images fresh; refresh independently, with the
+    // preview's in-flight deduplication and its unchanged hard expiry.
+    if (route === "mapping") state.cameraTimer = setInterval(() => void refreshMappingCamera(), 500);
   }
 
   API.enter = enterRoute;
@@ -620,14 +750,6 @@
   $("#refresh-mapping")?.addEventListener("click", () => void refreshMapping());
   $("#activate-saved-map")?.addEventListener("click", () => void activateSelectedMap());
   $("#saved-map-select")?.addEventListener("change", updateAvailability);
-  $("#mapping-camera")?.addEventListener("load", event => {
-    event.currentTarget.hidden = false;
-    $("#mapping-camera-empty").hidden = true;
-  });
-  $("#mapping-camera")?.addEventListener("error", event => {
-    event.currentTarget.hidden = true;
-    $("#mapping-camera-empty").hidden = false;
-  });
   globalThis.addEventListener("tangying:page-change", () => void enterRoute(document.body.dataset.page || ""));
   globalThis.addEventListener("hashchange", () => void enterRoute(String(location.hash || "").slice(1)));
   API.controller = { enterRoute, refreshCalibration, refreshMapping, state };

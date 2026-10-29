@@ -1,0 +1,11 @@
+BEFORE CPU: go test ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$' -count=1 -timeout=90s -cpuprofile=/tmp/edge-long-before.cpu
+Observed package result: ok 2.269s; CPU samples: 1.32s, profile wall duration: 1.20s
+BEFORE JSON: go test -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$' -count=1 -timeout=90s > /tmp/edge-scalability-profile/before.jsonl
+PROFILE: go tool pprof -top -cum /tmp/edge-scalability-profile/edgeagent-before.test /tmp/edge-scalability-profile/before.cpu
+AFTER JSON: go test -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$' -count=1 -timeout=90s > after.jsonl
+AFTER CPU: go test ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_01_032_steps$' -count=1 -timeout=90s -cpuprofile=/tmp/edge-scalability-profile/after.cpu -o /tmp/edge-scalability-profile/edgeagent-after.test
+BENCHMARK: go test ./middleware/sqlite -run '^$' -bench '^BenchmarkTaskEventAppend$' -benchtime=50x -benchmem -count=1
+REGRESSION: go test -race ./tasks ./middleware/sqlite ./internal/edgeagent -skip Campaign -count=1 -timeout=90s
+CAMPAIGN: go test -race -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_(01_032|04_096)_steps$|^TestSingleRobotCampaign(SQLiteCloseReopen|UnknownAfterLongConfirmedPrefix|BudgetBoundaries)$' -count=1 -timeout=120s
+PAIRED: see exact executable invocations in paired-results.json; alternate before/after, three repetitions.
+CAMPAIGN128: go test -race -json ./internal/edgeagent -run '^TestSingleRobotLongHorizonCampaign$/^persistent_task_05_128_steps$' -count=1 -timeout=90s

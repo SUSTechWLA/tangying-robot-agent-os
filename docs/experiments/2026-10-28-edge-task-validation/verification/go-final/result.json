@@ -1,0 +1,69 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 17.557634708937258,
+  "sourceStable": true,
+  "sourceDigest": "7bd628c42c66b9b47633a4cdc9ec00eff870eec6d79d0b995e70cfc864759dd8",
+  "topLevelGoTests": {
+    "pass": 446,
+    "skip": 1
+  },
+  "packages": [
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec",
+      "Action": "pass",
+      "Elapsed": 3.502
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop",
+      "Action": "pass",
+      "Elapsed": 3.809
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-worker",
+      "Action": "pass",
+      "Elapsed": 5.743
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+      "Action": "pass",
+      "Elapsed": 6.882
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/edge-exchange",
+      "Action": "pass",
+      "Elapsed": 6.2780000000000005
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/fleet-control-plane",
+      "Action": "pass",
+      "Elapsed": 5.161
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent",
+      "Action": "pass",
+      "Elapsed": 9.095
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+      "Action": "pass",
+      "Elapsed": 10.688
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/exchange",
+      "Action": "pass",
+      "Elapsed": 11.006
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+      "Action": "pass",
+      "Elapsed": 11.496
+    },
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite",
+      "Action": "pass",
+      "Elapsed": 16.173
+    }
+  ],
+  "failures": [],
+  "outputSHA256": "9cce6b871aa4670e6921c34646606a66892a545747f9e1aeef921035e3dd0b54"
+}

@@ -1,0 +1,102 @@
+✔ failed planning exposes only validated durable IDs and binds links to the selected robot (1.89625ms)
+✔ approved READY may retry startup but running or terminal tasks cannot be restarted (0.814125ms)
+✔ metrics label separate populations and preserve no-sample and unavailable states (1.584791ms)
+✔ calibration readiness uses the validated service document cameras (0.951708ms)
+✔ calibration readiness accepts the runtime public validation fields (0.149416ms)
+✔ a fully prepared robot says so and asks for nothing (0.606292ms)
+✔ nothing is assumed when the runtime has not reported it (0.237792ms)
+✔ the first thing to do is the most blocking one (0.144416ms)
+✔ missing calibration information stays unknown and does not demand recalibration (0.104708ms)
+✔ readiness follows service state rather than adapter provenance (0.129334ms)
+✔ an emergency stop outranks everything else (0.081833ms)
+✔ an incomplete map turns into the next place to drive to (0.99125ms)
+✔ missing camera parameters are reported before the servos are blamed (0.197041ms)
+✔ every unfinished item carries a target the console can navigate to (0.108333ms)
+✔ an unreadable map is not blamed on the connection (0.128708ms)
+✔ the screen renders one row per prerequisite with its state in words (0.518458ms)
+✔ every workbench action button is bound to its declared page (1.031834ms)
+✔ an empty readiness result renders nothing rather than an empty shell (0.058583ms)
+✔ the checklist offers a way to clear the safety item (0.079958ms)
+✔ only the safety item is cleared by confirming rather than by fixing (0.063167ms)
+✔ the rendered checklist contains the confirmation control and it reports a click (0.166417ms)
+✔ acknowledging safety is what makes the checklist completable (0.054375ms)
+✔ a blocking row from the server blocks the checklist (0.072709ms)
+✔ the server does not get a second opinion on a row the browser owns (0.047ms)
+✔ a server row with nothing to do still says something to do (0.050583ms)
+✔ an unconfigured model is stated even when everything else is ready (0.07975ms)
+✔ the language note is absent once a model is configured (0.087708ms)
+✔ Gazebo readiness reports observed stop state without claiming physical safety acknowledgement (0.097375ms)
+✔ mapping parent uses capability lifecycle for physical effects, one dispatch and nine-minute duration (7.6705ms)
+✔ a capability receipt and mirrored confirmation alone do not certify completion (0.468209ms)
+✔ an empty capability verification record cannot hide missing proof (0.224583ms)
+✔ robot.task contract verification keeps physical child RGB-D proof checks intact (0.368875ms)
+✔ unlisted capability effects remain unknown and never default to read-only (0.344916ms)
+✔ semantic atlas reads use structured evidence without granting annotation read-only status (0.993042ms)
+✔ capability read recovery counts both dispatches while deduplicating mirrored activity (0.168125ms)
+✔ the DOM renderer used by the console shows capability duration and structured proof (0.730334ms)
+✔ post-failure ops diagnostics do not extend task execution duration (0.557666ms)
+✔ a resumed task uses its last terminal transition, including after pause (0.212875ms)
+✔ active tasks and legacy tasks without a terminal timestamp retain updatedAt fallback (0.197209ms)
+✔ both replay renderers show the same last terminal endpoint used for total duration (0.733375ms)
+✔ navigation pre-position is physical even without safety metadata in the mirrored activity (0.444333ms)
+✔ an explained unknown outcome is still unverified in both replay renderers (0.368917ms)
+✔ capability decomposition exposes frozen routes and status reads instead of empty legacy object slots (0.105833ms)
+✔ a successful status without execution history cannot claim complete evidence (2.06025ms)
+✔ every mutating tool the runtime knows is treated as a write (0.119958ms)
+✔ a healthy task produces steps, evidence and no severe findings (3.286875ms)
+✔ the declared decomposition is flattened into readable lines (0.161584ms)
+✔ a confirmed write with no evidence is reported as a severe finding (0.5955ms)
+✔ evidence captured before its own command is reported (0.296333ms)
+✔ an evidence id missing from the history is reported, not silently dropped (0.202291ms)
+✔ success is questioned when a write never confirmed (0.21625ms)
+✔ a task that failed before any tool ran says so instead of looking empty (0.264041ms)
+✔ a resumed task keeps its two runs apart (0.604666ms)
+✖ repeated dispatches of one step are counted and surfaced (4.802916ms)
+✔ an unreferenced capture is listed as information, not as an error (0.215ms)
+✔ an unexplained unknown outcome is the headline, an explained one is background (0.272666ms)
+✔ verdict text summarises the outcome in one line (0.117584ms)
+✔ tool labels are plain language and fall back to the raw name (0.051958ms)
+✔ argument descriptions stay readable for every tool shape (0.074708ms)
+✔ rendering escapes untrusted content (0.467167ms)
+✔ the rendered replay shows intent, steps, evidence and the event table (0.246958ms)
+✔ the rendered replay marks a write without evidence in the step itself (0.210833ms)
+✔ a missing capture renders as a visible gap rather than a broken image (0.186833ms)
+✔ the replay states the task id it is replaying (0.188416ms)
+✔ an execution chain with no steps is explained by state, not blamed on failure (0.750791ms)
+✔ an empty trace returns the caller's placeholder (0.0495ms)
+✔ retries and read-only steps are distinguished in the summary (0.09475ms)
+✔ both dispatch and completion times are reported per step (0.091875ms)
+✔ alignment checks report missing history for a successful task with no events (0.044166ms)
+✔ a task without an explanation record says why instead of showing a dash (0.39075ms)
+✔ replay labels a saved running explanation as a snapshot after task completion (1.216625ms)
+ℹ tests 71
+ℹ suites 0
+ℹ pass 70
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 96.435125
+
+✖ failing tests:
+
+test at web/task_trace_test.mjs:261:1
+✖ repeated dispatches of one step are counted and surfaced (4.802916ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(trace.findings.some(finding => finding.code === "STEP_RETRIED" && finding.severity === "info"))
+  
+      at TestContext.<anonymous> (file:///Users/wanglian/Projects/tangying-robot-agent-os/web/task_trace_test.mjs:267:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

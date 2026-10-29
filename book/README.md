@@ -35,6 +35,8 @@
 
 本次包含运行时代码：以取消竞态、身份重配、预算耗尽和恢复记录丢失为反例，完成针对性 race 回归和重复软件故障实验。数据入口见[本轮实现与验证](../docs/development/2026-10-28-edge-brain-reliability.md)。没有新增真实模型缓存性能、Gazebo 或实机运动数据。
 
+当前代码的后续增量见[长历史成本与规划经验补充](updates/2026-10-28-cost-and-long-horizon.md)：解释当前视图与审计历史分离、增量事件持久化、重复规划的成本条件和 token 缺失数据处理。它与已发行的 3.2.0 正文分开保存；配置见[模型成本指南](../docs/production/model-cost-and-recipes.md)。
+
 ## 阅读与构建
 
 [合订 Markdown](book.md)可直接阅读。完整目录与出版身份见[出版说明](front/01-publication-notes.md)，改版说明见[RELEASE](RELEASE.md)。

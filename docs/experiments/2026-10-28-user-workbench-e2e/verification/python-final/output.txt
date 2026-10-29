@@ -1,0 +1,26 @@
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+.........                                                                [100%]
+============================= slowest 20 durations =============================
+0.18s call     robot/gateway/tests/test_robot_services.py::test_operation_lease_loss_cancels_owned_mapping_without_agent
+0.11s call     robot/gateway/tests/test_robot_services.py::test_mapping_waits_for_a_new_capture_without_integrating_stale_data
+0.08s call     robot/gateway/tests/test_robot_services.py::test_published_map_retains_exploration_stop_and_scan_evidence
+0.06s call     robot/gateway/tests/test_robot_services.py::test_the_slam_session_record_is_json_serialisable
+0.06s call     robot/gateway/tests/test_robot_services.py::test_exploration_drives_at_the_frontier_until_the_room_is_measured
+0.06s call     robot/gateway/tests/test_robot_services.py::test_a_registration_that_claims_more_than_the_motion_allows_is_refused
+0.04s call     robot/gateway/tests/test_robot_services.py::test_a_registration_reports_why_it_was_refused
+0.04s call     robot/gateway/tests/test_robot_services.py::test_depth_registration_recovers_a_planar_pose_on_real_surface_geometry
+0.03s call     robot/gateway/tests/test_robot_services.py::test_a_published_leg_does_not_report_the_survey_as_finished
+0.03s call     robot/gateway/tests/test_robot_services.py::test_a_leg_that_measured_nothing_is_reported_and_not_published
+0.03s call     robot/gateway/tests/test_robot_services.py::test_slam_filters_keyframes_and_retains_capture_evidence
+0.03s call     robot/gateway/tests/test_robot_services.py::test_a_leg_that_runs_out_of_frames_is_published_and_continued
+0.02s call     robot/gateway/tests/test_robot_services.py::test_a_refused_step_is_routed_around_instead_of_ending_the_survey
+0.02s call     robot/gateway/tests/test_robot_services.py::test_a_corrupt_base_cloud_is_reported_rather_than_silently_skipped
+0.02s call     robot/gateway/tests/test_robot_services.py::test_a_single_flat_wall_is_measured_only_in_the_direction_it_observes
+0.01s call     robot/gateway/tests/test_robot_services.py::test_an_underconstrained_registration_keeps_only_what_it_measured
+0.01s call     robot/gateway/tests/test_robot_services.py::test_surface_normals_find_walls_and_ignore_the_floor
+0.01s call     robot/gateway/tests/test_robot_services.py::test_exploration_reports_a_travel_budget_rather_than_claiming_completion
+0.01s call     robot/gateway/tests/test_robot_services.py::test_the_object_layer_is_read_from_a_base_map_and_revalidated
+0.01s call     robot/gateway/tests/test_robot_services.py::test_the_planned_map_ignores_an_obstacle_only_one_keyframe_ever_saw
+225 passed in 1.94s

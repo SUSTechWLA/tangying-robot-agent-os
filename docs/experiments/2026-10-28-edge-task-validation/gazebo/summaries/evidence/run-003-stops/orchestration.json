@@ -1,0 +1,57 @@
+{
+  "baseline": "a98c0681d",
+  "startedAtUnixMs": 1793199355754,
+  "naturalLanguageEntry": null,
+  "kind": "independent fresh-world physical stop trial",
+  "patch": [
+    "sim/gazebo/field_hub.py",
+    "scripts/run_gazebo_stop_checks.py"
+  ],
+  "newGoalRecipeUsageHierarchicalHostValidated": false,
+  "rosDomainId": 128,
+  "gzPartition": "tangying-field-20261028-001",
+  "seed": [
+    3
+  ],
+  "robots": [
+    "ground-a",
+    "ground-b",
+    "uav-a"
+  ],
+  "worldResetDuringTasks": false,
+  "commands": [
+    [
+      "gz",
+      "sim",
+      "-s",
+      "--headless-rendering",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-003-stops/world.sdf"
+    ],
+    [
+      "/opt/navigation-venv/bin/python",
+      "sim/gazebo/field_hub.py",
+      "--transport",
+      "/tmp/tangying-gazebo-field-20261028-001/build/field-transport",
+      "--output",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-003-stops/hub",
+      "--port",
+      "18128"
+    ],
+    [
+      "/opt/navigation-venv/bin/python",
+      "scripts/run_gazebo_stop_checks.py",
+      "--output",
+      "/tmp/tangying-gazebo-field-20261028-001/evidence/run-003-stops/stops-001",
+      "--hub",
+      "http://127.0.0.1:18128",
+      "--robots",
+      "ground-a",
+      "ground-b",
+      "uav-a"
+    ]
+  ],
+  "worldSha256": "845ef8fcde16072ac5ac2897bd744efbf76674ae5688a5f16cf7ba391ad0c64c",
+  "stopsExitCode": 0,
+  "success": true,
+  "endedAtUnixMs": 1793199377958
+}

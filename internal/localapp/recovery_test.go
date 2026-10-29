@@ -137,7 +137,21 @@ func startPauseTask(t *testing.T, store *sqlite.Store, robot *pauseRobot) (*App,
 	}
 	close(robot.release)
 	waitForState(t, service, task.ID, taskgraph.StatePaused)
+	// PAUSED is visible before the attempt's final audit writes complete.
+	// Resume is intentionally refused while the old worker still owns it.
+	waitForInactive(t, app, task.ID)
 	return app, service, task.ID, stop
+}
+
+func waitForInactive(t *testing.T, app *App, taskID string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for app.ExecutionActive(taskID) {
+		if time.Now().After(deadline) {
+			t.Fatal("previous execution did not finish its audit and release ownership")
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func TestPauseReopenAndResumeDoesNotReplayCompletedPhysicalSteps(t *testing.T) {

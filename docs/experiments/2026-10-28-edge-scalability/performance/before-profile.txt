@@ -1,0 +1,258 @@
+File: edgeagent-before.test
+Type: cpu
+Time: 2026-10-28 18:33:50 CST
+Duration: 1.20s, Total samples = 1.32s (109.63%)
+Showing nodes accounting for 1.32s, 100% of 1.32s total
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      0.77s 58.33%  runtime.systemstack
+         0     0%     0%      0.60s 45.45%  runtime.wakep
+         0     0%     0%      0.59s 44.70%  runtime.notewakeup
+     0.59s 44.70% 44.70%      0.59s 44.70%  runtime.pthread_cond_signal
+         0     0% 44.70%      0.59s 44.70%  runtime.semawakeup
+         0     0% 44.70%      0.59s 44.70%  runtime.startm
+         0     0% 44.70%      0.58s 43.94%  runtime.newproc.func1
+         0     0% 44.70%      0.30s 22.73%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.(*Host).Run
+         0     0% 44.70%      0.30s 22.73%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.(*Host).runGoal
+         0     0% 44.70%      0.30s 22.73%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.TestSingleRobotLongHorizonCampaign.func1
+         0     0% 44.70%      0.30s 22.73%  testing.tRunner
+         0     0% 44.70%      0.22s 16.67%  github.com/SUSTechWLA/tangying-robot-agent-os/tasks.(*Service).AppendEvent
+         0     0% 44.70%      0.22s 16.67%  runtime.mcall
+         0     0% 44.70%      0.22s 16.67%  runtime.schedule
+         0     0% 44.70%      0.21s 15.91%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.(*Store).Get
+         0     0% 44.70%      0.21s 15.91%  runtime.findRunnable
+     0.01s  0.76% 45.45%      0.20s 15.15%  database/sql.withLock
+         0     0% 45.45%      0.19s 14.39%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent.(*Executor).Run
+         0     0% 45.45%      0.19s 14.39%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.(*Store).loadEvents
+         0     0% 45.45%      0.16s 12.12%  runtime.mPark (inline)
+         0     0% 45.45%      0.16s 12.12%  runtime.notesleep
+     0.16s 12.12% 57.58%      0.16s 12.12%  runtime.pthread_cond_wait
+         0     0% 57.58%      0.16s 12.12%  runtime.semasleep
+         0     0% 57.58%      0.16s 12.12%  runtime.stopm
+     0.16s 12.12% 69.70%      0.16s 12.12%  syscall.rawsyscalln
+         0     0% 69.70%      0.16s 12.12%  syscall.syscalln
+         0     0% 69.70%      0.15s 11.36%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent.(*Executor).record
+         0     0% 69.70%      0.15s 11.36%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.childEvents.AppendEvent
+         0     0% 69.70%      0.15s 11.36%  modernc.org/sqlite/lib.Xsqlite3_step
+         0     0% 69.70%      0.15s 11.36%  modernc.org/sqlite/lib._sqlite3Step
+         0     0% 69.70%      0.14s 10.61%  modernc.org/sqlite/lib._sqlite3VdbeExec
+         0     0% 69.70%      0.14s 10.61%  runtime.goexit0
+         0     0% 69.70%      0.12s  9.09%  modernc.org/sqlite.(*conn).step
+         0     0% 69.70%      0.11s  8.33%  database/sql.(*Rows).Next
+         0     0% 69.70%      0.11s  8.33%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.(*Host).finishGoal
+         0     0% 69.70%      0.11s  8.33%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.(*Host).reportGoal
+         0     0% 69.70%      0.11s  8.33%  modernc.org/sqlite/lib._sqlite3VdbeHalt
+         0     0% 69.70%      0.11s  8.33%  modernc.org/sqlite/lib._vdbeCommit
+         0     0% 69.70%      0.10s  7.58%  database/sql.(*Rows).Next.func1
+         0     0% 69.70%      0.10s  7.58%  database/sql.(*Rows).nextLocked
+         0     0% 69.70%      0.10s  7.58%  modernc.org/sqlite.(*rows).Next
+         0     0% 69.70%      0.10s  7.58%  syscall.syscall
+         0     0% 69.70%      0.08s  6.06%  golang.org/x/sys/unix.FcntlFlock (inline)
+         0     0% 69.70%      0.08s  6.06%  golang.org/x/sys/unix.fcntl
+         0     0% 69.70%      0.08s  6.06%  modernc.org/libc.Xfcntl
+         0     0% 69.70%      0.08s  6.06%  modernc.org/libc.Xfcntl64
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._btreeEndTransaction
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._pagerUnlockAndRollback
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._pagerUnlockIfUnused (inline)
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._pager_unlock
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._releasePageOne (inline)
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._sqlite3BtreeCommitPhaseTwo
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._sqlite3OsShmLock (inline)
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._sqlite3PagerUnrefPageOne
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._sqlite3WalEndReadTransaction
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._unixShmLock
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._unixShmSystemLock
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._unlockBtreeIfUnused
+         0     0% 69.70%      0.08s  6.06%  modernc.org/sqlite/lib._walUnlockShared
+         0     0% 69.70%      0.08s  6.06%  runtime.gcBgMarkWorker.func2
+         0     0% 69.70%      0.08s  6.06%  runtime.gcDrain
+         0     0% 69.70%      0.08s  6.06%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 69.70%      0.08s  6.06%  runtime.park_m
+         0     0% 69.70%      0.07s  5.30%  encoding/json.Unmarshal
+         0     0% 69.70%      0.06s  4.55%  runtime.(*mheap).alloc.func1
+         0     0% 69.70%      0.06s  4.55%  runtime.(*mheap).allocSpan
+     0.06s  4.55% 74.24%      0.06s  4.55%  runtime.madvise
+         0     0% 74.24%      0.06s  4.55%  runtime.sysUsed (inline)
+         0     0% 74.24%      0.06s  4.55%  runtime.sysUsedOS (inline)
+     0.06s  4.55% 78.79%      0.06s  4.55%  runtime.usleep
+         0     0% 78.79%      0.06s  4.55%  syscall.syscall6
+         0     0% 78.79%      0.05s  3.79%  modernc.org/sqlite/lib._sqlite3Malloc
+     0.01s  0.76% 79.55%      0.05s  3.79%  modernc.org/sqlite/lib._sqlite3MemMalloc
+         0     0% 79.55%      0.05s  3.79%  runtime.gcBgMarkWorker
+         0     0% 79.55%      0.05s  3.79%  runtime.mallocgc
+     0.02s  1.52% 81.06%      0.05s  3.79%  runtime.stealWork
+         0     0% 81.06%      0.04s  3.03%  database/sql.(*DB).execDC
+         0     0% 81.06%      0.04s  3.03%  database/sql.(*DB).execDC.func2
+         0     0% 81.06%      0.04s  3.03%  database/sql.ctxDriverExec
+         0     0% 81.06%      0.04s  3.03%  encoding/json.(*decodeState).object
+         0     0% 81.06%      0.04s  3.03%  encoding/json.(*decodeState).unmarshal
+         0     0% 81.06%      0.04s  3.03%  encoding/json.(*decodeState).value
+         0     0% 81.06%      0.04s  3.03%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.(*Store).Update
+         0     0% 81.06%      0.04s  3.03%  golang.org/x/sys/unix.MmapPtr (inline)
+         0     0% 81.06%      0.04s  3.03%  golang.org/x/sys/unix.mmap
+         0     0% 81.06%      0.04s  3.03%  modernc.org/libc.Xmalloc
+         0     0% 81.06%      0.04s  3.03%  modernc.org/memory.(*Allocator).UintptrMalloc
+         0     0% 81.06%      0.04s  3.03%  modernc.org/memory.(*Allocator).mmap
+         0     0% 81.06%      0.04s  3.03%  modernc.org/memory.(*Allocator).newSharedPage
+         0     0% 81.06%      0.04s  3.03%  modernc.org/memory.mmap
+         0     0% 81.06%      0.04s  3.03%  modernc.org/sqlite.(*conn).ExecContext
+         0     0% 81.06%      0.04s  3.03%  modernc.org/sqlite.(*conn).exec
+         0     0% 81.06%      0.04s  3.03%  modernc.org/sqlite/lib.Xsqlite3_malloc64
+         0     0% 81.06%      0.04s  3.03%  modernc.org/sqlite/lib._sqlite3RCStrNew
+         0     0% 81.06%      0.04s  3.03%  modernc.org/sqlite/lib._vdbeColumnFromOverflow
+         0     0% 81.06%      0.04s  3.03%  runtime.mProf_Malloc
+         0     0% 81.06%      0.04s  3.03%  runtime.preemptM
+         0     0% 81.06%      0.04s  3.03%  runtime.preemptone
+         0     0% 81.06%      0.04s  3.03%  runtime.profilealloc
+     0.04s  3.03% 84.09%      0.04s  3.03%  runtime.pthread_kill
+         0     0% 84.09%      0.04s  3.03%  runtime.signalM (inline)
+         0     0% 84.09%      0.04s  3.03%  runtime.stkbucket
+         0     0% 84.09%      0.03s  2.27%  database/sql.(*Tx).Commit
+         0     0% 84.09%      0.03s  2.27%  database/sql.(*Tx).Commit.func1
+         0     0% 84.09%      0.03s  2.27%  database/sql.(*Tx).ExecContext
+     0.01s  0.76% 84.85%      0.03s  2.27%  encoding/json.checkValid
+         0     0% 84.85%      0.03s  2.27%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent.(*Executor).call (inline)
+         0     0% 84.85%      0.03s  2.27%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent.(*Executor).callLeased
+         0     0% 84.85%      0.03s  2.27%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.(*Host).runGoal.func2
+         0     0% 84.85%      0.03s  2.27%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.commit
+         0     0% 84.85%      0.03s  2.27%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent.scopedProvider.CallService
+         0     0% 84.85%      0.03s  2.27%  github.com/SUSTechWLA/tangying-robot-agent-os/tasks.(*Service).Get
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite.(*tx).Commit
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite.(*tx).exec
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite/lib.Xsqlite3_exec
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite/lib._pagerWalFrames
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite/lib._sqlite3BtreeCommitPhaseOne
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite/lib._sqlite3PagerCommitPhaseOne
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite/lib._sqlite3WalFrames (inline)
+         0     0% 84.85%      0.03s  2.27%  modernc.org/sqlite/lib._walFrames
+         0     0% 84.85%      0.03s  2.27%  runtime.(*gcControllerState).enlistWorker
+         0     0% 84.85%      0.03s  2.27%  runtime.gcStart.func4
+     0.03s  2.27% 87.12%      0.03s  2.27%  runtime.kevent
+         0     0% 87.12%      0.03s  2.27%  runtime.lock (inline)
+         0     0% 87.12%      0.03s  2.27%  runtime.lock2
+         0     0% 87.12%      0.03s  2.27%  runtime.lockWithRank (inline)
+     0.03s  2.27% 89.39%      0.03s  2.27%  runtime.memmove
+         0     0% 89.39%      0.03s  2.27%  runtime.netpoll
+         0     0% 89.39%      0.03s  2.27%  runtime.osyield (inline)
+         0     0% 89.39%      0.03s  2.27%  runtime.runqgrab
+         0     0% 89.39%      0.03s  2.27%  runtime.runqsteal
+     0.02s  1.52% 90.91%      0.03s  2.27%  runtime.scanObject
+         0     0% 90.91%      0.03s  2.27%  runtime.startTheWorldWithSema
+         0     0% 90.91%      0.02s  1.52%  database/sql.(*Row).Scan
+         0     0% 90.91%      0.02s  1.52%  database/sql.(*Rows).Close
+         0     0% 90.91%      0.02s  1.52%  database/sql.(*Rows).close
+         0     0% 90.91%      0.02s  1.52%  database/sql.(*Rows).close.func1
+         0     0% 90.91%      0.02s  1.52%  encoding/json.(*decodeState).objectInterface
+         0     0% 90.91%      0.02s  1.52%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent.(*Executor).verify
+         0     0% 90.91%      0.02s  1.52%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.(*Store).Commit
+         0     0% 90.91%      0.02s  1.52%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.insertEventRow
+         0     0% 90.91%      0.02s  1.52%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.scanTask
+         0     0% 90.91%      0.02s  1.52%  golang.org/x/sys/unix.Fsync
+         0     0% 90.91%      0.02s  1.52%  golang.org/x/sys/unix.Pwrite (inline)
+         0     0% 90.91%      0.02s  1.52%  golang.org/x/sys/unix.pwrite
+     0.02s  1.52% 92.42%      0.02s  1.52%  internal/runtime/atomic.(*UnsafePointer).Load (inline)
+         0     0% 92.42%      0.02s  1.52%  internal/runtime/maps.(*Map).growToTable
+         0     0% 92.42%      0.02s  1.52%  internal/runtime/maps.(*table).reset
+         0     0% 92.42%      0.02s  1.52%  internal/runtime/maps.newGroups (inline)
+         0     0% 92.42%      0.02s  1.52%  internal/runtime/maps.newTable
+         0     0% 92.42%      0.02s  1.52%  internal/runtime/maps.newarray
+         0     0% 92.42%      0.02s  1.52%  modernc.org/libc.Xfsync
+         0     0% 92.42%      0.02s  1.52%  modernc.org/libc.Xpwrite
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.(*conn).finalize
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.(*conn).prepare (inline)
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.(*conn).prepareV2
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.(*rows).Close
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.(*stmt).exec
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.(*stmt).exec.func2
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite.newStmt
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib.Xsqlite3_finalize
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib.Xsqlite3_prepare_v2 (inline)
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._full_fsync
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._seekAndWrite (inline)
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._seekAndWriteFd
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._sqlite3LockAndPrepare
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._sqlite3OsSync
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._sqlite3OsWrite (inline)
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._sqlite3Prepare
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._sqlite3RunParser
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._sqlite3VdbeReset
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._unixSync
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._unixWrite
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._walWriteOneFrame
+         0     0% 92.42%      0.02s  1.52%  modernc.org/sqlite/lib._walWriteToLog
+         0     0% 92.42%      0.02s  1.52%  runtime.forEachPInternal
+         0     0% 92.42%      0.02s  1.52%  runtime.gcMarkDone.forEachP.func5
+         0     0% 92.42%      0.02s  1.52%  runtime.gopreempt_m (inline)
+         0     0% 92.42%      0.02s  1.52%  runtime.goschedImpl
+         0     0% 92.42%      0.02s  1.52%  runtime.mallocgcSmallScanHeader
+         0     0% 92.42%      0.02s  1.52%  runtime.mapassign_faststr
+         0     0% 92.42%      0.02s  1.52%  runtime.morestack
+         0     0% 92.42%      0.02s  1.52%  runtime.newarray
+         0     0% 92.42%      0.02s  1.52%  runtime.newstack
+         0     0% 92.42%      0.02s  1.52%  runtime.preemptall
+         0     0% 92.42%      0.01s  0.76%  bytes.Clone (inline)
+         0     0% 92.42%      0.01s  0.76%  database/sql.(*DB).ExecContext
+         0     0% 92.42%      0.01s  0.76%  database/sql.(*DB).ExecContext.func1
+         0     0% 92.42%      0.01s  0.76%  database/sql.(*DB).exec
+         0     0% 92.42%      0.01s  0.76%  database/sql.(*DB).retry
+         0     0% 92.42%      0.01s  0.76%  database/sql.(*Rows).Scan
+         0     0% 92.42%      0.01s  0.76%  database/sql.(*Rows).scanLocked
+         0     0% 92.42%      0.01s  0.76%  database/sql.convertAssignRows
+         0     0% 92.42%      0.01s  0.76%  encoding/json.(*decodeState).array
+         0     0% 92.42%      0.01s  0.76%  encoding/json.(*decodeState).literalStore
+         0     0% 92.42%      0.01s  0.76%  encoding/json.Marshal
+     0.01s  0.76% 93.18%      0.01s  0.76%  encoding/json.stateBeginString
+         0     0% 93.18%      0.01s  0.76%  encoding/json.stateBeginStringOrEmpty
+     0.01s  0.76% 93.94%      0.01s  0.76%  encoding/json.stateInString
+         0     0% 93.94%      0.01s  0.76%  encoding/json.unquote (inline)
+     0.01s  0.76% 94.70%      0.01s  0.76%  encoding/json.unquoteBytes
+         0     0% 94.70%      0.01s  0.76%  github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent.(*Executor).callRecoverableRead
+         0     0% 94.70%      0.01s  0.76%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.(*Store).MarkStepStarted
+         0     0% 94.70%      0.01s  0.76%  github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite.(*Store).setStatus
+     0.01s  0.76% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib.Xsqlite3_str_vappendf
+         0     0% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib.Xsqlite3_wal_checkpoint (inline)
+         0     0% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib.Xsqlite3_wal_checkpoint_v2
+         0     0% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib._btreeSetHasContent
+         0     0% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib._clearCellOverflow
+         0     0% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib._doWalCallbacks
+         0     0% 95.45%      0.01s  0.76%  modernc.org/sqlite/lib._freePage2
+     0.01s  0.76% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._keywordCode
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3BitvecCreate (inline)
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3BtreeCheckpoint
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3BtreeInsert
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3Checkpoint
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3GenerateConstraintChecks
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3GetToken
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3Insert
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3MPrintf
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3MallocZero
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3PagerCheckpoint
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3Parser
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3Update
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3UpsertDoUpdate
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3VMPrintf
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3WalCheckpoint
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._sqlite3WalDefaultHook
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._walCheckpoint
+         0     0% 96.21%      0.01s  0.76%  modernc.org/sqlite/lib._yy_reduce
+         0     0% 96.21%      0.01s  0.76%  reflect.Value.SetMapIndex
+         0     0% 96.21%      0.01s  0.76%  reflect.mapassign_faststr
+         0     0% 96.21%      0.01s  0.76%  reflect.mapassign_faststr0
+         0     0% 96.21%      0.01s  0.76%  runtime.(*unwinder).next
+     0.01s  0.76% 96.97%      0.01s  0.76%  runtime.(*unwinder).resolveInternal
+         0     0% 96.97%      0.01s  0.76%  runtime.bgsweep
+     0.01s  0.76% 97.73%      0.01s  0.76%  runtime.freeDeadSpanSPMCs
+     0.01s  0.76% 98.48%      0.01s  0.76%  runtime.greyobject
+         0     0% 98.48%      0.01s  0.76%  runtime.growslice
+     0.01s  0.76% 99.24%      0.01s  0.76%  runtime.heapSetTypeNoHeader (inline)
+         0     0% 99.24%      0.01s  0.76%  runtime.mallocgcSmallNoscan
+         0     0% 99.24%      0.01s  0.76%  runtime.mallocgcSmallScanNoHeader
+         0     0% 99.24%      0.01s  0.76%  runtime.mallocgcTiny
+         0     0% 99.24%      0.01s  0.76%  runtime.markroot
+         0     0% 99.24%      0.01s  0.76%  runtime.markroot.func1
+         0     0% 99.24%      0.01s  0.76%  runtime.newobject
+         0     0% 99.24%      0.01s  0.76%  runtime.resetspinning
+         0     0% 99.24%      0.01s  0.76%  runtime.scanObjectsSmall
+         0     0% 99.24%      0.01s  0.76%  runtime.scanSpan
+         0     0% 99.24%      0.01s  0.76%  runtime.scanstack
+         0     0% 99.24%      0.01s  0.76%  runtime.slicebytetostring
+     0.01s  0.76%   100%      0.01s  0.76%  runtime.typePointers.next

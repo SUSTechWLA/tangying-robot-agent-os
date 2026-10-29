@@ -1,0 +1,12 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite
+cpu: Apple M5
+BenchmarkTaskEventAppend/full_task/history_32-10         	      50	    648585 ns/op	  204620 B/op	    1276 allocs/op
+BenchmarkTaskEventAppend/append_only/history_32-10       	      50	     91930 ns/op	    2651 B/op	      61 allocs/op
+BenchmarkTaskEventAppend/full_task/history_128-10        	      50	   1650299 ns/op	  797159 B/op	    4668 allocs/op
+BenchmarkTaskEventAppend/append_only/history_128-10      	      50	     89214 ns/op	    2249 B/op	      61 allocs/op
+BenchmarkTaskEventAppend/full_task/history_512-10        	      50	   6066583 ns/op	 3173939 B/op	   19272 allocs/op
+BenchmarkTaskEventAppend/append_only/history_512-10      	      50	    106458 ns/op	    2272 B/op	      64 allocs/op
+PASS
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite	0.943s

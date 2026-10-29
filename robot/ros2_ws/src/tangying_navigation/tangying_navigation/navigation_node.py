@@ -14,6 +14,7 @@ import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Twist, TwistStamped
+from lifecycle_msgs.srv import GetState
 from nav2_msgs.action import NavigateToPose
 from nav_msgs.msg import OccupancyGrid, Odometry
 from rclpy.action import ActionClient
@@ -82,6 +83,13 @@ class NavigationNode(Node):
         self.buffer = Buffer(cache_time=Duration(seconds=10))
         self.listener = TransformListener(self.buffer, self)
         self.action = ActionClient(self, NavigateToPose, "navigate_to_pose")
+        # An action endpoint exists while a Nav2 lifecycle node is INACTIVE.
+        # Admission therefore also needs fresh, read-only lifecycle evidence.
+        self.nav2_states = {}
+        self.nav2_pending = {}
+        self.nav2_clients = {name: self.create_client(GetState, name + "/get_state")
+                             for name in ("controller_server", "planner_server", "bt_navigator")}
+        self.create_timer(.5, self.poll_nav2_states)
         self.goal_handles = {}
         self.goal_map_poses = {}
         self.goal_odom_poses = {}
@@ -170,6 +178,37 @@ class NavigationNode(Node):
 
     def clock_ms(self):
         return now_ms()
+
+    def poll_nav2_states(self):
+        now = time.monotonic()
+        with self.lock:
+            for name, client in self.nav2_clients.items():
+                pending = self.nav2_pending.get(name)
+                if pending is not None:
+                    future, started = pending
+                    if now - started > 3.:
+                        future.cancel()
+                        self.nav2_pending.pop(name, None)
+                        self.nav2_states.pop(name, None)
+                    elif future.done():
+                        self.nav2_pending.pop(name, None)
+                        try:
+                            state = future.result().current_state
+                            # The remote sample may already be as old as the
+                            # request. Do not grant another full TTL on delivery.
+                            self.nav2_states[name] = (int(state.id), str(state.label), started)
+                        except Exception:  # noqa: BLE001 - failed ROS replies cannot supply actuation authority.
+                            self.nav2_states.pop(name, None)
+                    else:
+                        continue
+                try:
+                    if client.service_is_ready():
+                        self.nav2_pending[name] = (client.call_async(GetState.Request()), now)
+                    else:
+                        self.nav2_states.pop(name, None)
+                except Exception:  # noqa: BLE001 - a racing ROS client failure is unknown readiness, not authority.
+                    self.nav2_states.pop(name, None)
+                    self.nav2_pending.pop(name, None)
 
     def stamp_unix_ms(self, stamp):
         value = message_ms(stamp)
@@ -343,6 +382,16 @@ class NavigationNode(Node):
             "NAV2_ACTION_UNAVAILABLE": self.action.server_is_ready(),
             "CANCELLATION_PENDING": not cancellation_pending,
         }
+        with self.lock:
+            lifecycle = dict(self.nav2_states)
+        monotonic_now = time.monotonic()
+        nav2_states = {}
+        for name in self.nav2_clients:
+            state_id, label, checked = lifecycle.get(name, (0, "unknown", 0.))
+            age_ms = max(0., (monotonic_now - checked) * 1000.) if checked else None
+            checks["NAV2_" + name.upper() + "_INACTIVE"] = (
+                state_id == 3 and checked > 0 and 0 <= monotonic_now - checked <= 3.)
+            nav2_states[name] = {"stateId": state_id, "label": label, "ageMs": age_ms}
         blockers = [name for name, valid in checks.items() if not valid]
         ready = not blockers
         ages = {
@@ -379,6 +428,7 @@ class NavigationNode(Node):
             "selfFilter": self_filter,
             "visualQuality": quality,
             "readinessBlockers": blockers,
+            "nav2Lifecycle": nav2_states,
             "inputAgeMs": ages,
             "checkedAtUnixMs": current,
             "odomObservedAtUnixMs": odom_ms,

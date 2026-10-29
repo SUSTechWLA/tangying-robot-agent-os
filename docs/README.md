@@ -1,5 +1,7 @@
 # 文档导航：学习、开发、运维与研究
 
+2026-10-28 当前增量：[系统评估](development/2026-10-28-system-upgrade-assessment.md) → [持续运行与成本升级](development/2026-10-28-edge-scalability.md) → [模型用量和规划经验配置](production/model-cost-and-recipes.md)。协作当前视图、长任务审计、真实 token 记录与可校验复用分别验证。
+
 教材 3.2.0（2026-10-28）以取消竞态、身份重配、模型缓存提示与失败回溯讲解边缘实现，提供 25 幅图、误差/时钟/上下文/时间预算推导及可复核的软件实验。
 
 边缘工作台增量（2026-10-20）：[按机器人切换与任务回溯](operations/edge-robot-workspaces.md) → [实现与验证](development/2026-10-20-edge-robot-workspaces.md)。独立 Agent/数据目录、请求身份、地图与浏览器状态按设备隔离；切换不转移执行权。
