@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 新增默认启用的本地自动接收会话：按 robot/adapter 隔离、原始输入事件、预分配任务身份、近期历史预算与原文回查、重启查账和数据目录排它锁。用户无需管理 session，任务与批准保持独立；含会话参考的 recipe 降为提示，纯续跑请求要求显式任务恢复。实现与边界见[变更记录](docs/development/2026-11-01-automatic-edge-sessions.md)，不包含多用户隔离、HTTP 重发去重或新的物理验收。
+
 - 改善家庭巡检的建图准备：操作身份检查防止取消错误会话，租约在建图线程运行前生效，运动故障保留可验证的部分地图与原故障；登记家庭路线从附近起点沿已登记边接入，并保持实时保护圈。Gazebo 点云拒绝证据、来源时间与短暂视觉等待处理，以及隔离试验与失败记录一并增强。代码边界见[实现说明](docs/development/2026-10-30-exploration-operation-integrity.md)，各次仿真和巡检结论以[续测记录](docs/experiments/2026-10-30-patrol-continuation.md)为准；不代表未知环境覆盖或实机认证。
 
 - 工作台端到端验收：补充真实导航依赖检查、批准后入队重试、执行结束审计、物理动作回放与 GOAL 指标；修复建图相机、续段首帧等待及规划/操作包络不一致。只读与取消流程通过，家庭完整物理巡检仍未完成；保留失败与未验收边界。见[实现说明](docs/development/2026-10-28-workbench-e2e-hardening.md)和[实验记录](docs/experiments/2026-10-28-user-workbench-e2e/README.md)。

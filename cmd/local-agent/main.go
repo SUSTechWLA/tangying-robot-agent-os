@@ -38,6 +38,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentharness"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentsession"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/autorecovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
@@ -375,6 +376,11 @@ func run(configuration config) error {
 	if err := os.MkdirAll(configuration.dataDir, 0o700); err != nil {
 		return err
 	}
+	dataOwner, err := controllease.AcquireDataDirectory(configuration.dataDir)
+	if err != nil {
+		return err
+	}
+	defer dataOwner.Close()
 	robot, err := robotclient.New(robotclient.Config{
 		Address: configuration.robotAddress, DevInsecure: configuration.devInsecure,
 		CAFile: configuration.robotCA, CertFile: configuration.robotCert, KeyFile: configuration.robotKey,
@@ -442,6 +448,11 @@ func run(configuration config) error {
 		return err
 	}
 	service := tasks.NewService(store, parser, planner)
+	sessions, err := agentsession.New(store, store, configuration.robotID)
+	if err != nil {
+		return err
+	}
+	service.SetCreationSessions(sessions)
 	goalPlanner, err := configuration.goalPlanner(robot, parser)
 	if err != nil {
 		return err

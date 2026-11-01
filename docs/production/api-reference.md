@@ -80,6 +80,8 @@ curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions/2/confirm" \
 
 ## 3. Local Brain HTTP API
 
+2026-11-01：`cmd/local-agent` 默认给 `POST /v1/tasks` 接入自动 intake session。请求仍为原 `request/adapter`，客户端不管理 session ID；`TASK_CREATED.payload.session` 留存 session、turn、预分配 task、robot、adapter、轮次与上下文摘要绑定。控制台访问 token 与该会话不同。纯“继续／重试”等请求返回 422 澄清，已有任务走下表的 resume/reconcile。接收轮次结束不表示任务完成；外部重发 POST 仍无通用幂等保证。数据流与恢复见[实现说明](../development/2026-11-01-automatic-edge-sessions.md)。
+
 Local Brain 路由由 `console/server.go` 注册：
 
 2026-10-20 增加按机器人访问的工作空间。每个 Agent 仍绑定独立 Runtime 和数据目录；入口通过 `/robots/<workspace-id>/v1/...` 转发既有 API 和任务 WebSocket，`X-Tangying-Robot-ID` 固定预期设备，身份错误或离线不退回本机。目录配置、会话守卫及完整边界见[边缘工作空间指南](../operations/edge-robot-workspaces.md)。该代理不提供用户账户或角色权限。

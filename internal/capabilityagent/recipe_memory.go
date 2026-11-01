@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentsession"
 	"sort"
 	"strings"
 	"sync"
@@ -188,6 +189,11 @@ func (p *Planner) planWithMemory(ctx context.Context, goal, robot string, entrie
 	m := p.Memory
 	scope := p.recipeScope(robot, entries)
 	r, exact, lookupErr := m.find(ctx, robot, scope, goal)
+	if b, ok := agentsession.FromContext(ctx); ok && (b.Context != "" || len(agentsession.HistoryFromContext(ctx)) != 0) {
+		// A goal string alone does not identify the current conversational basis.
+		// Retain the old proposal as a hint, never bypass the model with it.
+		exact = false
+	}
 	var seed []capability.PlanningStep
 	if lookupErr != nil {
 		seed = append(seed, recipeAudit("RECIPE_UNAVAILABLE", nil, "memory read failed; normal planning required"))

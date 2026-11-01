@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+2026-11-01 自动会话：[设计、来源与数据流](2026-11-01-automatic-edge-sessions.md) → [测试与证据](../experiments/2026-11-01-automatic-edge-sessions.md)。Local 自动记录 session/turn/task，独立保留原句与参考历史；重启查账、上下文外置和独立执行授权分别核验。
+
 2026-10-30 家庭巡检续测：[操作身份、部分地图、路线接入与受控运动](2026-10-30-exploration-operation-integrity.md) → [逐次试验和局限](../experiments/2026-10-30-patrol-continuation.md)。
 
 2026-10-28 任务复测：[五类故障修复与兼容边界](2026-10-28-task-validation-fixes.md) → [完整实验记录](../experiments/2026-10-28-edge-task-validation/README.md)。覆盖规划取消/计量、peer 调度/ACK、Gazebo 停止就绪；物理任务与软件验收分别保留源码和失败证据。

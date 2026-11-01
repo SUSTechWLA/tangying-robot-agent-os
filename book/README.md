@@ -37,6 +37,8 @@
 
 当前代码的后续增量见[长历史成本与规划经验补充](updates/2026-10-28-cost-and-long-horizon.md)：解释当前视图与审计历史分离、增量事件持久化、重复规划的成本条件和 token 缺失数据处理。它与已发行的 3.2.0 正文分开保存；配置见[模型成本指南](../docs/production/model-cost-and-recipes.md)。
 
+自动会话增量见[用户不管理 Session，系统仍必须管理它](updates/2026-11-01-automatic-edge-sessions.md)：用数据流和崩溃窗口讲清接收轮次、任务账本和模型缓存的区别。该补充对应 2026-11-01 工作分支，不更改已发行 3.2.0 的实现身份。
+
 ## 阅读与构建
 
 [合订 Markdown](book.md)可直接阅读。完整目录与出版身份见[出版说明](front/01-publication-notes.md)，改版说明见[RELEASE](RELEASE.md)。

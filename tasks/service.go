@@ -56,6 +56,7 @@ type TaskEvent struct {
 
 type Service struct {
 	goalPlanner GoalPlanner
+	sessions    CreationSessions
 	// Serialize read/modify/write mutations so tool receipts, operator actions,
 	// and revision commits cannot overwrite each other's event sequence/state.
 	mu        sync.Mutex
@@ -189,7 +190,7 @@ func NormalizeAdapter(adapter string) string {
 	}
 }
 
-func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, error) {
+func (s *Service) create(ctx context.Context, request, adapter string) (*Task, error) {
 	s.plannerMu.RLock()
 	goalPlanner := s.goalPlanner
 	s.plannerMu.RUnlock()
@@ -206,6 +207,9 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	if err != nil {
 		return nil, err
 	}
+	if err := validateCreationIntent(ctx, parsed); err != nil {
+		return nil, err
+	}
 	adapter = NormalizeAdapter(adapter)
 	// The world the plan has to be consistent with. Without it a plan can instruct
 	// the robot to look for an object in a room it is not in, which always fails
@@ -219,7 +223,7 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	}
 	now := s.now().UTC()
 	task := &Task{
-		ID:               newID("task"),
+		ID:               creationTaskID(ctx),
 		Request:          request,
 		Adapter:          adapter,
 		Intent:           parsed,
@@ -231,7 +235,7 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
-	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now})
+	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now, Payload: creationPayload(ctx, nil)})
 	revision := &TaskRevision{
 		TaskID: task.ID, Revision: 1, Request: request, Understanding: understandingForIntent(parsed),
 		Intent: parsed, Plan: &planBundle, Steps: buildRevisionSteps(parsed, 1, nil),

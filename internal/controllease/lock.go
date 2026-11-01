@@ -16,6 +16,31 @@ import (
 
 type Lock struct{ file *os.File }
 
+// AcquireDataDirectory prevents two local agents from treating the same journal
+// as their own restart state, even when their Runtime endpoints differ. Keep the
+// inode in place after shutdown, as with the Runtime control lock.
+func AcquireDataDirectory(directory string) (*Lock, error) {
+	if !filepath.IsAbs(directory) {
+		return nil, errors.New("agent data directory must be absolute")
+	}
+	path := filepath.Join(directory, ".agent-owner.lock")
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("open agent data owner lock: %w", err)
+	}
+	file := os.NewFile(uintptr(fd), path)
+	var stat unix.Stat_t
+	if err := unix.Fstat(fd, &stat); err != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Uid != uint32(os.Getuid()) {
+		file.Close()
+		return nil, errors.New("agent data lock must be a regular file owned by this user")
+	}
+	if err := unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		file.Close()
+		return nil, fmt.Errorf("agent data directory already has an owner: %w", err)
+	}
+	return &Lock{file: file}, nil
+}
+
 // Acquire holds an advisory host-local lock for one Runtime endpoint until Close
 // or process exit. Distinct simulators may advertise the same RobotID while
 // listening on different ports, so RobotID alone is not a safe lock key. The

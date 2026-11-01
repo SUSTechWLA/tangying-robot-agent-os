@@ -1,0 +1,23 @@
+["go", "test", "./tests/architecture", "./tests/docs"]
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/architecture	4.231s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/docs	3.413s
+
+[".venv/bin/python", "-m", "pytest", "-q", "tests/docs"]
+.......................                                                  [100%]
+============================= slowest 20 durations =============================
+0.18s call     tests/docs/test_production_docs.py::test_every_documentation_link_and_make_target_resolves
+0.02s call     tests/docs/console_session_contract_test.py::test_no_script_talks_to_the_console_without_being_classified
+
+(18 durations < 0.005s hidden.  Use -vv to show these durations.)
+23 passed in 0.23s
+
+["make", "book-check"]
+python3.11 scripts/build_book_figures.py --check
+23 textbook figures verified
+python3.11 scripts/build_book.py --check
+Book sources and generated Markdown verified: 31 sections
+
+["python3", "scripts/build_docs_catalog.py", "--check"]
+Documentation catalog is current
+
+["git", "diff", "--check"]

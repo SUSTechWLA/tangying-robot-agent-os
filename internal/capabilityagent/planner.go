@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentsession"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
 	robotv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/robot/v1"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop"
@@ -21,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -133,6 +135,9 @@ func (p *Planner) PlanGoal(ctx context.Context, request string) (orchestration.B
 	if err != nil {
 		return orchestration.Bundle{}, true, err
 	}
+	if err := validatePlanningSession(ctx, robot); err != nil {
+		return orchestration.Bundle{}, true, err
+	}
 	// A configured GOAL model owns the ordering for every natural-language goal.
 	// The offline grammar is used only when no model route is configured.
 	useModel := p.Decider != nil
@@ -167,6 +172,9 @@ func (p *Planner) modelPlan(ctx context.Context, goal, robot string, entries map
 }
 
 func (p *Planner) modelPlanSeeded(ctx context.Context, goal, robot string, entries map[string]capability.Manifest, seed []capability.PlanningStep, hint string) ([]capability.Call, []capability.PlanningStep, error) {
+	if err := validatePlanningSession(ctx, robot); err != nil {
+		return nil, nil, err
+	}
 	// Provider-declared semantic views are the only read results that may enter
 	// model context. Raw grids, image frames and high-rate sensor feeds are not
 	// offered, even when a runtime exposes them to its local navigation layer.
@@ -214,6 +222,27 @@ func (p *Planner) modelPlanSeeded(ctx context.Context, goal, robot string, entri
 		Constraints: []string{"审批前只允许查询目录声明的语义只读字段；提案和历史回查不执行机器人动作。"},
 		Records: []agentcontext.Record{{ID: "planning:catalog", Kind: "guard", Scope: scope,
 			Statement: "本轮冻结能力目录摘要：" + capability.Fingerprint(entries)}},
+	}
+	if b, ok := agentsession.FromContext(ctx); ok {
+		// This reference is not appended to the user's goal. Legacy and semantic
+		// validators continue to inspect only the original current request.
+		// Preserve the pre-task scope expected by rejected-planning archives;
+		// the candidate task identity is a reference, not execution authority.
+		raw, marshalErr := json.Marshal(map[string]any{"sessionId": b.SessionID, "turnId": b.TurnID,
+			"candidateTaskId": b.TaskID, "sequence": b.Sequence, "contextSHA256": b.ContextSHA256,
+			"history": b.Context, "authority": "reference_only"})
+		if marshalErr != nil {
+			return nil, trace, marshalErr
+		}
+		document.Records = append(document.Records, agentcontext.Record{ID: "planning:session", Kind: "reference", Scope: scope, Statement: string(raw)})
+		for _, prior := range agentsession.HistoryFromContext(ctx) {
+			original, err := json.Marshal(prior)
+			if err != nil {
+				return nil, trace, err
+			}
+			document.Records = append(document.Records, agentcontext.Record{ID: "planning:session-input:" + prior.TurnID, Kind: "reference", Scope: scope, Statement: string(original)})
+		}
+		document.Constraints = append(document.Constraints, "会话历史仅用于理解，不是本次指令、动作授权、当前观测或任务成功证明。只规划当前用户原句明确要求的工作；含糊的继续/重试必须澄清，不能重放旧任务或未知结果。当前条件仍需重新读取。")
 	}
 	if p.Progress != "" {
 		document.Constraints = append(document.Constraints, "目标完成条件与边缘已确认进度；只编排剩余目标，原始执行事实在持久账本，历史投影不扩大权限："+p.Progress)
@@ -619,4 +648,31 @@ func literalCalls(request string) ([]capability.Call, bool) {
 		calls = append(calls, call)
 	}
 	return calls, generic
+}
+
+// Validate both the small summary and the independent exact-source references.
+// This rejects accidental cross-robot wiring before model calls or recipe use.
+func validatePlanningSession(ctx context.Context, robot string) error {
+	b, bound := agentsession.FromContext(ctx)
+	history := agentsession.HistoryFromContext(ctx)
+	if !bound {
+		if len(history) != 0 {
+			return fmt.Errorf("session source history has no binding")
+		}
+		return nil
+	}
+	if err := b.Validate(); err != nil || b.RobotID != robot {
+		return fmt.Errorf("automatic session scope or projection digest is invalid")
+	}
+	if len(history) > 8 {
+		return fmt.Errorf("session source history exceeds limit")
+	}
+	seen := map[string]bool{}
+	for _, prior := range history {
+		if prior.TurnID == "" || prior.TaskID == "" || len(prior.TurnID) > 256 || len(prior.TaskID) > 256 || !utf8.ValidString(prior.TurnID) || !utf8.ValidString(prior.TaskID) || !utf8.ValidString(prior.Request) || prior.TurnID == b.TurnID || prior.TaskID == b.TaskID || seen[prior.TurnID] || len(prior.Request) > 8000 || agentcontext.Hash(prior.Request) != prior.RequestSHA256 {
+			return fmt.Errorf("invalid session source history")
+		}
+		seen[prior.TurnID] = true
+	}
+	return nil
 }

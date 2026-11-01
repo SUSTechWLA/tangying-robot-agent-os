@@ -1,0 +1,54 @@
+[
+  {
+    "command": [
+      "go",
+      "test",
+      "./tests/architecture",
+      "./tests/docs"
+    ],
+    "startedAt": "2026-11-01T15:16:39.013499+00:00",
+    "endedAt": "2026-11-01T15:16:44.120771+00:00",
+    "exitCode": 0
+  },
+  {
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/docs"
+    ],
+    "startedAt": "2026-11-01T15:16:44.120834+00:00",
+    "endedAt": "2026-11-01T15:16:44.656420+00:00",
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "make",
+      "book-check"
+    ],
+    "startedAt": "2026-11-01T15:16:44.656440+00:00",
+    "endedAt": "2026-11-01T15:16:44.926726+00:00",
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "python3",
+      "scripts/build_docs_catalog.py",
+      "--check"
+    ],
+    "startedAt": "2026-11-01T15:16:44.926752+00:00",
+    "endedAt": "2026-11-01T15:16:45.024292+00:00",
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "startedAt": "2026-11-01T15:16:45.024310+00:00",
+    "endedAt": "2026-11-01T15:16:45.047719+00:00",
+    "exitCode": 0
+  }
+]
