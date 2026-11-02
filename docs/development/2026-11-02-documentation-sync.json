@@ -1,0 +1,1987 @@
+{
+  "schemaVersion": "documentation-sync.v1",
+  "date": "2026-11-02",
+  "codeSnapshot": "27cbbbaf96e2d76e1a17a1ea1befc8a8d8db14ce",
+  "documentationSnapshot": "82c1cee03ad60801972e1bbdfcd7aa8db15a3e43",
+  "edition": "3.3.0",
+  "method": "Path/keyword scan, source review of affected current references, independent semantic review; retained does not assert every historical statement was reverified.",
+  "counts": {
+    "markdownInventory": 387,
+    "updated": 80,
+    "retained": 307
+  },
+  "checks": {
+    "bookPublication": "45 passed",
+    "pythonDocsAndRepository": "38 passed",
+    "goDocsAndArchitecture": "passed",
+    "bookSources": 31,
+    "svgFigures": 25,
+    "packagedAssets": 27,
+    "sessionLab": "command passed; four packages selected tests; core/agentsession compiled with no tests matching Session|Reopen"
+  },
+  "attempts": [
+    {
+      "check": "python docs before report creation",
+      "result": "22 passed, 1 missing-link failure; report created"
+    },
+    {
+      "check": "repository README placement",
+      "result": "37 passed, 1 failed before README intro restructure and household-scene wording fix"
+    },
+    {
+      "check": "book generation before doc freeze",
+      "result": "rejected missing frozen 3.2 archive README; documentation snapshot then committed"
+    },
+    {
+      "check": "browser screenshot",
+      "result": "unavailable because test profile in use; no profile modified; SVG Quick Look thumbnails inspected"
+    }
+  ],
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/RELEASE.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/A-source-map.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/B-checklists.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/C-experiment-index.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/D-glossary-and-assumptions.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/E-references.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/F-learning-labs.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/G-course-design.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/H-engineering-playbook.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/appendix/I-exercise-guide.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/assets/EDGE-AUTONOMY-ILLUSTRATION.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/assets/ILLUSTRATION.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/book.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch01-physical-constraints.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/chapters/ch02-architecture-evolution.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch03-closed-loop-contract.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/chapters/ch04-world-model.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/chapters/ch05-tool-layer.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/chapters/ch06-multi-agent-runtime.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/chapters/ch07-orchestration.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch08-distributed-fault-assumptions.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch09-local-single-machine.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch10-sim2real.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/chapters/ch11-observability-recovery.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch12-evaluation-training.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch13-install-deploy-ops.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch14-build-from-zero.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch15-future-directions.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch16-coding-agent-contrast.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch17-cloud-edge-agent-harness.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch18-long-horizon-context.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/chapters/ch19-long-horizon-walkthrough.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/editions/1.0.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.0.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.1/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.1/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.2/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.2/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.3/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.1.3/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.2.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/1.2.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/2.0.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/2.0.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/2.1.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/2.1.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/2.2.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/2.2.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/3.0.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/3.0.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/3.1.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/3.1.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/editions/3.2.0/README.md",
+      "kind": "dated_or_archived",
+      "action": "updated"
+    },
+    {
+      "path": "book/editions/3.2.0/RELEASE.md",
+      "kind": "dated_or_archived",
+      "action": "updated"
+    },
+    {
+      "path": "book/front/00-preface.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/front/01-publication-notes.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/front/02-study-guide.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "book/labs/README.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch02-17-history-future.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch05-closedloop.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch06-09-world-orchestration.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch07-tool-layer.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch08-multi-agent.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch10-11-fleet-distributed.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch12-sim2real.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/research/ch13-15-ops-training.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-09-27-capability-agent.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-15-hierarchical-edge-objectives.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-17-exploration-first-scan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-17-heterogeneous-spatial-exploration.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-18-edge-swarm-readiness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-18-gazebo-field-validation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-18-spatial-coverage-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-10-28-cost-and-long-horizon.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "book/updates/2026-11-01-automatic-edge-sessions.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "core/agentsession/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "core/contextcontract/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/agent-evaluation-system.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/agent-events.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/agent-v1.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/architecture.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/distributed-agentos.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/edge-agent-communication-and-context.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/fleet-cloud.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/fleet-paper-loop.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/hierarchical-edge-objectives.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/lifecycle-objects.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/llm-driven-execution.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/long-horizon-collaboration.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/middleware.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/modular-extensibility.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/module-health-and-faults.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/multi-agent-runtime.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/multi-robot.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/orchestration-post-training.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/orchestration.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/architecture/post-training-pipeline.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/protocols.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/readiness.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/recovery-agent.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/review-agent.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/robot-discovery.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/robot-pairing.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/semantic-execution-protocol.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/supervision-verification.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/train-agent-assessment.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/architecture/why-distributed.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/catalog.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/2026-09-13-demo-map-upgrade-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-13-furnished-home-acceptance.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-13-robot-workflow-acceptance.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-13-system-audit.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-14-semantic-object-layer-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-ai-incident-diagnosis-and-ops-loop.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-extensibility-review-tools-and-navigation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-latency-and-recall-goal-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-optimization-backlog.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-placement-verification-and-certified-goals.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-robot-fault-handling-audit.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-slam-exploration-coverage-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-15-survey-lookback-and-pre-position.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-16-faults-as-observations.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-16-repository-organization.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-17-mute-observer-and-plan-identity.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-17-supervision-blind-spots.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-18-system-review-and-improvement-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-19-agent-initiated-mapping.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-19-gazebo-backend-status.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-19-slam-layering-and-replay.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-21-map-visibility-and-inventory.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-26-gazebo-xlerobot-home-spec.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-agent-capability-architecture-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-book-current-architecture-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-capability-cancel-ack-race.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-capability-goal-implementation-spec.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-console-ux-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-console-ux-spec.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-gazebo-slam-semantic-navigation-spec.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-27-hardware-integration-guide-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-09-28-model-led-goal-semantic-views-spec.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-05-long-horizon-recovery.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-05-physical-robot-integration.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-09-long-horizon-context-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-09-long-horizon-context.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-agent-interaction-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-cloud-edge-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-context-budget-recovery.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-failed-goal-evidence.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-feedback-isolation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-grasp-approach.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-grasp-identity.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-navigation-hold.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-payload-clearance.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-readiness-race.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-gazebo-survey-readiness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-goal-planning-convergence.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-home-pickup-complement.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-long-horizon-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-planning-attempt-store.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-recovery-observation-cost.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-10-sensor-admission-deadline.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-11-book-current-system-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-11-book-textbook-editorial-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-11-collaboration-docs-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-13-documentation-map.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-13-edge-field-candidate.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-13-modular-extensibility.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-13-semantic-cloud-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-13-semantic-execution-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-14-book-and-maintenance-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-14-maintenance-and-book-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-14-readme-onboarding.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-14-spatial-navigation-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-15-hierarchical-edge-objectives.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-15-single-robot-robustness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-16-architecture-book-refresh.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-17-exploration-first-scan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-17-heterogeneous-spatial-exploration.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-18-edge-communication-readiness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-18-edge-swarm-readiness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-18-gazebo-field-validation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-18-mission-console-ui.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-18-scoped-peer-cooperation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-18-spatial-coverage-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-20-edge-robot-workspaces.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-21-book-teaching-redesign.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-22-book-protocol-context-cache.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-27-edge-brain-book-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-28-edge-brain-reliability.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-28-edge-scalability-plan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-28-edge-scalability.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-28-system-upgrade-assessment.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-28-task-validation-fixes.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-28-workbench-e2e-hardening.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-10-30-exploration-operation-integrity.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-11-01-automatic-edge-sessions.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/2026-11-02-documentation-sync.md",
+      "kind": "dated_or_archived",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/adding-an-agent.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/arm-moveit-adapter.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/branching.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/calibration-slam-ros-plan.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/decision-context-fields.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/dense-map-operations.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/dense-map-viewer-plan.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/edge-data-exchange.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/edge-worker-reliability.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/getting-started.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/heterogeneous-mobility.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/home-scene-expansion-plan.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/measured-se3-registration.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/mujoco-compatibility.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/natural-language-evaluation.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/observation-evidence.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/principles.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/development/real2sim-from-robot-slam.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/rgbd-camera-fix.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/robot-adapters.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/robot-calibration.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/robot-tool-layer.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/ros2-rgbd.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/rtabmap-navigation.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/sim2real-onboarding-frontend.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/single-robot-loop.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/slam-providers.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/spatial-mapping.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/development/spatial-navigation.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-14-semantic-object-layer-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-15-latency-and-recall-goal-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-15-slam-exploration-coverage-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-15-survey-lookback-and-pre-position.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-19-exploration-importance-and-coverage.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-19-exploration-robustness-experiment.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-19-slam-coverage-investigation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-20-gazebo-exploration-coverage.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-20-semantic-map-representations-and-nl-navigation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-20-slam-exploration-experiment-report.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-21-agent-context-evaluation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-21-grounded-verification.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-22-gazebo-default.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-22-gazebo-stable-integration.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-26-gazebo-xlerobot-home-closure.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-27-capability-goal-closure.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-27-gazebo-slam-semantic-navigation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-28-complex-model-led-goals.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-09-28-natural-language-goal-matrix.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-05-long-horizon-recovery.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-10-long-horizon-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-13-edge-field-candidate.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-13-semantic-execution.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-13-semantic-point-cloud.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-13-system-evaluation-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-13-system-evaluation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-14-spatial-navigation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-15-hierarchical-edge-objectives.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-15-single-robot-robustness-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-15-single-robot-robustness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-17-exploration-first-scan-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-17-exploration-first-scan.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-17-spatial-exploration-protocol.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-18-edge-agent-ros-campaign.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-18-edge-swarm-readiness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-18-gazebo-field-validation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-18-spatial-coverage-upgrade.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-18-spatial-exploration.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-27-edge-brain-reliability/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-27-edge-brain-reliability/scope-review.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-edge-scalability/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-edge-scalability/performance/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-edge-task-validation/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-edge-task-validation/cost/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-edge-task-validation/gazebo/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-edge-task-validation/peer/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-user-workbench-e2e/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-user-workbench-e2e/exploration-audit/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-user-workbench-e2e/exploration-audit/deadline-addendum/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-user-workbench-e2e/metrics-audit/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-user-workbench-e2e/metrics-audit/new-user-tasks/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-10-30-patrol-continuation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/2026-11-01-automatic-edge-sessions.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-17-exploration-first-scan/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-18-communication-audit/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-18-edge-swarm-readiness/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-18-gazebo-field-validation/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-18-spatial-coverage-upgrade/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-18-spatial-coverage-upgrade/validation/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-18-spatial-exploration/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/evidence/2026-10-20-edge-workspaces/README.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/experiments/long-horizon-harness.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/frontend/console-v1.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/guides/delegated-edge-goals.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/furnished-home-demo.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/gazebo-default.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/gazebo-house-operations.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/hardware-agent-integration.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/home-scene-operations.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/home-sim2real.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/natural-language-task-lifecycle.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/guides/quickstart.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/robot-service-workflow.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/semantic-point-cloud.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/slam-keyframe-inspection.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/slam-semantic-navigation.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/guides/unified-capability-goals.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/guides/user-console.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/install/alicloud-cloud.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/install/cloud.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/install/edge-orin.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/install/local.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/install/robot-pi-quick.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/install/robot-pi.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/install/troubleshooting.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/install/xlerobot-experiment.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/install/xlerobot-setup.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/learning/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/learning/current-system.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/maintenance.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/operations/2026-10-18-local-disk-cleanup.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/operations/agent-runtime-config.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/artifact-retention.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/operations/automatic-edge-sessions.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/operations/delegated-goal-operations.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/deployment.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/edge-field-testing.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/edge-robot-workspaces.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/operations/fresh-deployment.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/operations/production-readiness.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/release-checklist.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/robocasa-handoff.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/ros2-device-bindings.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/operations/safety-checklist.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/agent-harness-docker-acceptance.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/api-reference.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/architecture.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/cloud-edge-upgrade-acceptance.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/configuration-and-security.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/data-contracts.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/deployment-and-capacity.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/edge-brain-model-context.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/field-readiness-2026-09-26.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/model-cost-and-recipes.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/operations-and-failures.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/policy-tools.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/quickstart.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/release-evidence.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/sim-to-real.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/single-robot-v1.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/production/testing-and-acceptance.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/v1-assessment-2026-09-05.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/production/v1-release-status.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/releases/v0.2.0.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/releases/v0.3.0.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/releases/v0.4.0.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/releases/v0.5.0.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/releases/v0.6.0.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/releases/v0.7.0.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/research/README.md",
+      "kind": "current_reference",
+      "action": "updated"
+    },
+    {
+      "path": "docs/sim2real/README.md",
+      "kind": "current_reference",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-17-role-based-installation-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-18-layered-runtime-middleware-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-18-local-first-runtime-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-19-xlerobot-observable-sim-training-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-20-distributed-agentos-world-harness-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-21-robocasa-dual-xlerobot-harness-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-21-robocasa-webgl-digital-twin-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-22-versioned-task-experience-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-24-policy-tools-recovery-sim2real-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-06-heterogeneous-robots-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-08-single-robot-rgbd-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-10-closed-loop-semantic-upgrade-adr.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-10-home-mobile-manipulation.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-11-standard-robot-tool-layer-adr.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-13-general-robot-system-design.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-25-cloud-edge-brain-upgrade-adr.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-09-27-unified-capability-agent-architecture-adr.md",
+      "kind": "dated_or_archived",
+      "action": "retained"
+    }
+  ],
+  "publication": {
+    "localDirectory": "artifacts/book/3.3.0",
+    "filesSHA256": {
+      "index.html": "7cebc75f2f611cd59e651e84816a3fbfaa66661cc5e7867f16f367d377223876",
+      "book.epub": "969e187e99513df983ed12e879298d454dab86262afddb00a97ce523d9ee62a1",
+      "book.md": "f4512072bff83f9772d53ecb809279b2496ccf1059a7a8f5ff81d55fb73fa6fc",
+      "provenance.json": "c9b8a627a0869aaaf42eddb17b336495ebc37900f2ebc86aff59a7d7d02bf381",
+      "SHA256SUMS": "ddda4056602d3746b41eca5c0a7fcb56420ad79a057f7c282925378f9ab2e4a9"
+    }
+  }
+}

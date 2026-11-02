@@ -57,8 +57,21 @@
 | E15 | Vaswani et al. *Attention Is All You Need*. 2017. [原论文](https://arxiv.org/abs/1706.03762) | 第 18 章注意力基础；在因果解码条件下推导 K/V 可复用 |
 | E16 | Kwon et al. *Efficient Memory Management for Large Language Model Serving with PagedAttention*. 2023. [原论文](https://arxiv.org/abs/2309.06180) | KV 分块管理与共享；不将其性能结果外推到机器人 |
 | E17 | vLLM maintainers. [Automatic Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) | 共享输入前缀与 prefill 收益；不减少输出 token 本身的 decode 工作 |
-| E18 | vLLM maintainers. [Prefix caching design](https://docs.vllm.ai/en/latest/design/prefix_caching/) | 前缀块与兼容条件、cache_salt 分组；本轮接入可选参数，实际引擎收益须另测 |
+| E18 | vLLM maintainers. [Prefix caching design](https://docs.vllm.ai/en/latest/design/prefix_caching/) | 前缀块与兼容条件、cache_salt 分组；项目接入可选参数，实际引擎收益须另测 |
 | E20 | OpenAI. [Chat Completions API](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | prompt_cache_key 与可选 usage 字段；与当前请求形状逐项核对 |
 | E19 | OpenAI. [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) | 托管服务的模型相关能力与用量；字段/TTL/计费按实际模型版本核对 |
 
 本书公式是明确假设下的教学推导：注意力省略多头拼接与网络其余部分；显存忽略元数据/分片；延迟忽略复杂调度耦合；空间误差使用线性化与独立性假设。使用时先检查假设是否适合自己的部署，再用实测修正。
+
+## E.5 自动会话的研究来源与本项目选择
+
+下面资料在 2026-11-01 的实现调研中核对，当前书稿沿用当时记录；GitHub 分支文档会继续变化，工程复现应另固定上游提交。官方 Super-agent 仓库自述为研究原型，不是官方产品或生产可靠性承诺。文章讨论、公开原型实现与本项目接收层也不是相同能力集合。
+
+| 编号 | 一手来源 | 对应教学问题与边界 |
+| --- | --- | --- |
+| E21 | DeepSeek. [Super-agent research prototype](https://github.com/deepseek-ai/dsh-superagent-prototype)、[领域对象](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/001-domain.md) | 第 16/18 章：输入、工作对象和执行 session 分离；本项目没有完整移植 Thread/Ticket/Router 模型 |
+| E22 | DeepSeek. [Authorization](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/002-authorization.md)、[Architecture](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/007-architecture.md) | 上下文关联与授权、单写者和事务；机器人效果仍需自己的执行与观测合同 |
+| E23 | DeepSeek Harness. [Session 子系统](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/session.zh.md) | 追加事件源与模型消息视图；本项目复用自身 SQLite/eventstore，不兼容导入其 session 文件 |
+| E24 | DeepSeek API. [Context Caching](https://api-docs.deepseek.com/guides/kv_cache/) | 供应商前缀计算复用和实际 usage；本地 session 不能保证命中或承担供应商缓存持久性 |
+
+用户提供的知乎文章当时返回 403；同文转载只用于阅读讨论，机制判断另核对上述官方资料。完整研究来源、采用与未采用范围见[2026-11-01 设计记录](../../docs/development/2026-11-01-automatic-edge-sessions.md)。本书以这些机制为对照解释工程取舍，不把阅读文章等同于通过仿真或实机验收。

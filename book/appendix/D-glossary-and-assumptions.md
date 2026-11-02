@@ -136,8 +136,28 @@
 
 Host 分别提供原目标和最多 8000 字节的进度 JSON；后者保留完成谓词、已确认总数/摘要、最近 8 次确认调用与诊断。8000 字节限制不包括独立传入的目标文本，也不是整个模型 HTTP 请求上限；完整账本保留配额和全部历史。它与旧 actionloop managed view 的 32768 字节是不同层次，不把二者说成统一全局上下文上限。`maxReads` 不包含 Runtime 控制器 tick；原 claim 丢失后不能凭本地摘要继续运动。
 
-## D.9 阅读新架构时先区分的三个对象
+## D.10 阅读新架构时先区分的三个对象
 
 Local Agent 是独立接受任务的部署入口，Worker 是领取云端任务的部署入口，Host 是它们复用的边缘目标执行核心。工作台 workspace 则是连接和浏览作用域，不拥有目标生命周期。三者见第 2、9 章。
 
 传输 receipt 表示信封持久接受；业务采纳表示数据符合当前任务/地图依据；任务完成表示所需后置条件已验证。第 17 章解释为何三个结果不能合成一个 success。
+
+## D.11 自动会话与模型成本术语
+
+| 对象/字段 | 含义 | 不应混同的对象 |
+| --- | --- | --- |
+| 控制台 session token / sessionFile | 本地操作请求与代理访问凭据 | 用户身份体系、聊天历史或动作批准 |
+| intake session / turn | 系统组织同一 robot/adapter 的近期输入及任务关联 | Worker claim、物理命令 lease、SLAM 分段 session |
+| edge.intake-session.v1 | 接收聚合状态的 schema | 新的跨机器人消息协议 |
+| SESSION_TURN_RECEIVED | 原文、摘要、binding、候选 task 已接收落盘 | Task 已批准或动作已开始 |
+| SESSION_TURN_ENDED / RECOVERED | 接收收尾或精确查账后的关联 | Task SUCCEEDED、动作后置条件通过 |
+| Binding | session/turn/task/robot/adapter/sequence/context 及其摘要 | 数字签名、认证或可继承授权 |
+| reference | 供模型理解的历史原句、摘要或经验 | 本轮 Goal、当前传感器事实、完成证明 |
+| recipe | 通过 freeze 的候选计划与查询方式 | 已完成技能或缓存动作结果 |
+| RECIPE_HIT / RECIPE_HINT | 经实时重验证后跳过 GOAL / 给模型参考 | 两者拥有相同调用成本；新版 Local 有会话时降为 hint |
+| usage start/result | 同一 call ID 的请求前计量与结束报告 | start 无 result 等于零消耗 |
+| output token limit | 单次响应的请求上限 | 整个任务、进程或云账户的总费用上限 |
+
+会话当前采用 30 分钟闲置/32 轮轮换、最多 8 轮近期历史、512 字节单预览、6000 字节投影和 8000 字节单输入。以上都是 UTF-8 字节/轮次，均不是 tokenizer 的 token 数。Host 进度的 8000 字节是另一个对象，不应因数值相同混为同一个限制。
+
+会话恢复是懒处理：同 robot/adapter 下一次 Begin 时先核对 pending；启动不主动扫描全部会话。轮换不删除审计、不取消 Task，不自动召回旧 session。数据目录文件锁只约束本地单所有者，不能替代跨主机写者协调；模型 KV 丢失只影响重算，不能据此删除这些持久事实。

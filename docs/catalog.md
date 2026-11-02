@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **304 份 Markdown** 与 **1275 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **304 份 Markdown** 与 **1276 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -448,6 +448,7 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [2026-10-14-artifact-cleanup.json](development/2026-10-14-artifact-cleanup.json) | JSON | `development` |
 | [2026-10-14-book-and-maintenance-review.json](development/2026-10-14-book-and-maintenance-review.json) | JSON | `development` |
 | [2026-10-16-architecture-book-refresh.json](development/2026-10-16-architecture-book-refresh.json) | JSON | `development` |
+| [2026-11-02-documentation-sync.json](development/2026-11-02-documentation-sync.json) | JSON | `development` |
 | [context-projection.json](development/evidence/2026-10-21-book-teaching-redesign/context-projection.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign` |
 | [device.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded/device.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded` |
 | [trace.json](development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded/trace.json) | JSON | `development/evidence/2026-10-21-book-teaching-redesign/lost-reply/guarded` |
