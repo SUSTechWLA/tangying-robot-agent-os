@@ -111,6 +111,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `POST /v1/tasks/{id}/revisions/{revision}/confirm` | CAS 确认更新 |
 | `GET /v1/tasks/{id}/revisions` | 版本历史 |
 | `GET /v1/tasks/{id}/experience` | 用户任务体验投影 |
+| `GET /v1/tasks/{id}/trace` | `task.trace.v1` 持久诊断：首版原句、当前目标、全部版本/事件、原子命令/RPC 与传感器索引；只读、`Cache-Control: private, no-store`。404 `TASK_NOT_FOUND`；稳定读取重试 3 次仍变化则 503 `TRACE_SNAPSHOT_BUSY`（`Retry-After: 1`）；其他读失败 500 `TRACE_READ_FAILED` |
 | `GET /v1/tasks/{id}/events/ws` | 单任务事件流 |
 | `GET /v1/telemetry` | 本地遥测。`adapter` 查询指定运行时（不传则 `hasLatest:false`，因为 hub 按 adapter 归档）。**`unfiled`** 在收到过**没有标明 adapter** 的观测时出现：`{count,lastAt,reason}`。它区分"机器人什么都没说"与"机器人在说但我们归档不了"——只有 `hasLatest` 时这两种情况长得一模一样，而后者是接线故障 |
 | `GET /v1/telemetry/latency` | 步骤耗时遥测：`groupBy`（capability/safety/robot/outcome）、`windowMs`（0 表示全部保留样本）；按**排队/准入/执行/核验**四段给出 p50/p95/p99、结果分布与最慢步骤；未启用采集返回 `LATENCY_UNAVAILABLE`，非法分组/窗口返回 400 |
@@ -141,6 +142,12 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /` | 本地 Console |
 
 Local Brain 默认只监听 `127.0.0.1:8787`。若反向代理到局域网，必须自行增加 TLS、身份认证和访问控制。
+
+回溯接口的 `originalRequest` 来自不可变 revision 1，`steps` 按版本、机器人、步骤、命令与工具关联，`rpcCalls` 区分每次服务调用。`integrity.status` 是 `consistent / incomplete / inconsistent`，并附问题码和事件序号；它不授予恢复权限，不是物理成功证明。任务和版本经过双读比较，证据元数据按页尽力读取，`source.consistencyScope` 明示范围。最多导出 4000 条证据索引，达到上限且存在后续记录时返回 `evidenceTruncated/evidenceNextBefore`；原始图像另走 observations 接口。
+
+`children` 读取父声明关联的权威子聚合，最多 64 个，包含原始子任务、命令、RPC 及覆盖缺口；子目标不是用户原句。`findings.taskId` 区分父子事件序号。双读检查也涵盖这些子聚合；子传感器证据尚未自动展开。
+
+`source.snapshotSha256` 是服务端读取的完整 task、版本历史、证据元数据及 children 的 JSON 指纹，不是响应文件直接取哈希的值，也不是防篡改签名。长期实验应另存下载文件 SHA-256、软件版本和尚在保留期的原始证据。身份、状态检查、故障窗口及导出示例见[任务回溯架构](../architecture/task-traceability.md)。
 
 ## 4. WebSocket
 

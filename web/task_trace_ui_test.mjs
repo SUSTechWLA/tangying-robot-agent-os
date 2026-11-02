@@ -36,7 +36,7 @@ test("the trace module is loaded before the app that calls it", () => {
 });
 
 test("opening a task renders the replay", () => {
-  assert.match(app, /await Promise\.all\(\[loadLocalTaskExperience\(taskId\), loadLocalRecovery\(taskId\), loadLocalEvidence\(taskId\)\]\);\s*\n\s*renderLocalReplay\(\);/);
+  assert.match(app, /await Promise\.all\(\[loadLocalTaskExperience\(taskId\), loadLocalRecovery\(taskId\), loadLocalEvidence\(taskId\), loadLocalDurableTrace\(taskId\)\]\);\s*\n\s*renderLocalReplay\(\);/);
 });
 
 test("the replay reuses loaded state instead of refetching it", () => {
@@ -44,7 +44,7 @@ test("the replay reuses loaded state instead of refetching it", () => {
   assert.match(body, /localEvidenceRecords\.filter/);
   assert.match(body, /localExperiencePayload/);
   assert.match(body, /localRecovery/);
-  // No new endpoints: the four sources are all already loaded on task open.
+  // Rendering reuses the loaded durable snapshot as well as the rich evidence view.
   assert.doesNotMatch(body, /fetch\(/);
 });
 

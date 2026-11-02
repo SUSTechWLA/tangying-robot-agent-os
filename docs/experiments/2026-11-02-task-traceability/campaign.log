@@ -1,0 +1,40 @@
+=== RUN   TestTraceNaturalLanguageCampaign
+=== RUN   TestTraceNaturalLanguageCampaign/normal-1
+    trace_campaign_test.go:154: mode=normal state=SUCCEEDED events=27 commands=2 rpc=4 failed_rpc=0 integrity=consistent reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/read-retry-1
+    trace_campaign_test.go:154: mode=read-retry state=SUCCEEDED events=33 commands=2 rpc=5 failed_rpc=1 integrity=consistent reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/bad-verification-1
+    trace_campaign_test.go:154: mode=bad-verification state=RECOVERABLE_FAILURE events=26 commands=2 rpc=4 failed_rpc=0 integrity=incomplete reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/lost-write-reply-1
+    trace_campaign_test.go:154: mode=lost-write-reply state=RECOVERABLE_FAILURE events=20 commands=2 rpc=2 failed_rpc=1 integrity=incomplete reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/normal-2
+    trace_campaign_test.go:154: mode=normal state=SUCCEEDED events=27 commands=2 rpc=4 failed_rpc=0 integrity=consistent reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/read-retry-2
+    trace_campaign_test.go:154: mode=read-retry state=SUCCEEDED events=33 commands=2 rpc=5 failed_rpc=1 integrity=consistent reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/bad-verification-2
+    trace_campaign_test.go:154: mode=bad-verification state=RECOVERABLE_FAILURE events=26 commands=2 rpc=4 failed_rpc=0 integrity=incomplete reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/lost-write-reply-2
+    trace_campaign_test.go:154: mode=lost-write-reply state=RECOVERABLE_FAILURE events=20 commands=2 rpc=2 failed_rpc=1 integrity=incomplete reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/normal-3
+    trace_campaign_test.go:154: mode=normal state=SUCCEEDED events=27 commands=2 rpc=4 failed_rpc=0 integrity=consistent reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/read-retry-3
+    trace_campaign_test.go:154: mode=read-retry state=SUCCEEDED events=33 commands=2 rpc=5 failed_rpc=1 integrity=consistent reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/bad-verification-3
+    trace_campaign_test.go:154: mode=bad-verification state=RECOVERABLE_FAILURE events=26 commands=2 rpc=4 failed_rpc=0 integrity=incomplete reopen=identical
+=== RUN   TestTraceNaturalLanguageCampaign/lost-write-reply-3
+    trace_campaign_test.go:154: mode=lost-write-reply state=RECOVERABLE_FAILURE events=20 commands=2 rpc=2 failed_rpc=1 integrity=incomplete reopen=identical
+--- PASS: TestTraceNaturalLanguageCampaign (1.32s)
+    --- PASS: TestTraceNaturalLanguageCampaign/normal-1 (0.12s)
+    --- PASS: TestTraceNaturalLanguageCampaign/read-retry-1 (0.13s)
+    --- PASS: TestTraceNaturalLanguageCampaign/bad-verification-1 (0.10s)
+    --- PASS: TestTraceNaturalLanguageCampaign/lost-write-reply-1 (0.09s)
+    --- PASS: TestTraceNaturalLanguageCampaign/normal-2 (0.12s)
+    --- PASS: TestTraceNaturalLanguageCampaign/read-retry-2 (0.13s)
+    --- PASS: TestTraceNaturalLanguageCampaign/bad-verification-2 (0.10s)
+    --- PASS: TestTraceNaturalLanguageCampaign/lost-write-reply-2 (0.09s)
+    --- PASS: TestTraceNaturalLanguageCampaign/normal-3 (0.11s)
+    --- PASS: TestTraceNaturalLanguageCampaign/read-retry-3 (0.13s)
+    --- PASS: TestTraceNaturalLanguageCampaign/bad-verification-3 (0.10s)
+    --- PASS: TestTraceNaturalLanguageCampaign/lost-write-reply-3 (0.09s)
+PASS
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent	2.615s

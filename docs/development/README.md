@@ -1,5 +1,7 @@
 # 开发与升级导航
 
+最新回溯升级：[实现与故障修复](2026-11-02-task-traceability.md) → [原始指令到原子调用](../architecture/task-traceability.md) → [逐任务软件实验](../experiments/2026-11-02-task-traceability/README.md)。
+
 当前系统阅读入口（2026-11-02）：[从一句话到会话、任务和执行证据](../learning/current-system.md)，配套[教材 3.3.0](../../book/README.md)。自动会话由本机管理，操作方法见[会话手册](../operations/automatic-edge-sessions.md)。
 
 2026-11-01 自动会话：[设计、来源与数据流](2026-11-01-automatic-edge-sessions.md) → [测试与证据](../experiments/2026-11-01-automatic-edge-sessions.md)。Local 自动记录 session/turn/task，独立保留原句与参考历史；重启查账、上下文外置和独立执行授权分别核验。

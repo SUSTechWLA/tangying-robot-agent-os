@@ -2,6 +2,7 @@ package capabilityagent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -30,6 +31,10 @@ func (e *Executor) callRecoverableRead(ctx context.Context, task, step, robot, t
 		}
 	}
 	result, err := e.call(ctx, robot, tool, identity, args)
+	var traceErr *rpcEvidenceError
+	if errors.Is(err, errRPCNotDispatched) || errors.As(err, &traceErr) {
+		return nil, err
+	}
 	if err == nil || e.RecoverRead == nil || ctx.Err() != nil {
 		return result, err
 	}
@@ -38,18 +43,18 @@ func (e *Executor) callRecoverableRead(ctx context.Context, task, step, robot, t
 	}
 	record := middleware.StepRecord{TaskID: task, StepID: step, IdempotencyKey: identity, Capability: tool, SafetyLevel: "read_only"}
 	if markErr := e.Store.MarkStepFailed(ctx, record); markErr != nil {
-		return nil, markErr
+		return nil, errors.Join(err, fmt.Errorf("read failure persistence: %w", markErr))
 	}
 	if recordErr := e.record(ctx, task, step, "CAPABILITY_READ_RECOVERY_REQUESTED", map[string]any{"tool": tool, "commandId": identity, "maxRetries": 1}); recordErr != nil {
-		return nil, recordErr
+		return nil, errors.Join(err, fmt.Errorf("read recovery request persistence: %w", recordErr))
 	}
 	if recordErr := e.recordFailure(ctx, task, step, tool, identity, "dispatch", false, err); recordErr != nil {
-		return nil, recordErr
+		return nil, errors.Join(err, fmt.Errorf("read failure evidence persistence: %w", recordErr))
 	}
 	recoveryCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if recoverErr := e.RecoverRead(recoveryCtx, task, step, tool, err); recoverErr != nil {
-		return nil, fmt.Errorf("read recovery stopped: %v (original: %w)", recoverErr, err)
+		return nil, fmt.Errorf("read recovery stopped: %w (original: %w)", recoverErr, err)
 	}
 	// Re-check the robot and entire approved catalogue after the investigation.
 	currentRobot, entries, checkErr := Catalogue(recoveryCtx, e.Provider)

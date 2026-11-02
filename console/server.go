@@ -209,6 +209,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/objectives", s.createObjective)
 	s.mux.HandleFunc("GET /v1/tasks", s.listTasks)
 	s.mux.HandleFunc("GET /v1/tasks/{id}", s.getTask)
+	s.mux.HandleFunc("GET /v1/tasks/{id}/trace", s.taskTrace)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/approve", s.approveTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/cancel", s.cancelTask)
 	s.mux.HandleFunc("POST /v1/tasks/{id}/pause", s.pauseTask)

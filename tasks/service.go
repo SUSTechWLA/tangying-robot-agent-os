@@ -110,6 +110,9 @@ func (s *Service) notifyEvent(ctx context.Context, taskID string, event TaskEven
 	if current == nil {
 		return
 	}
+	// Observer annotations are advisory, never mutations of the committed fact
+	// or of the Task returned to the caller of AppendEvent.
+	event.Payload = cloneAnyMap(event.Payload)
 	current(ctx, taskID, event)
 }
 
@@ -700,7 +703,10 @@ func (s *Service) Approve(ctx context.Context, taskID, actor string) (*Task, err
 	task.ApprovedBy = strings.TrimSpace(actor)
 	task.ApprovedAt = s.now().UTC()
 	task.UpdatedAt = task.ApprovedAt
-	s.appendEvent(task, "TASK_APPROVED", "", "批准来源："+task.ApprovedBy)
+	s.appendEvent(task, "TASK_APPROVED", "", "批准来源："+task.ApprovedBy, map[string]any{
+		"actor": task.ApprovedBy, "approvedAt": task.ApprovedAt,
+		"revision": task.CurrentRevision, "aggregateVersion": task.AggregateVersion,
+	})
 	return task, s.store.Update(ctx, task)
 }
 
@@ -722,14 +728,16 @@ func (s *Service) Transition(ctx context.Context, taskID string, target taskgrap
 	previous := task.State
 	task.State = target
 	task.UpdatedAt = s.now().UTC()
-	event := s.appendEvent(task, "STATE_CHANGED", "", reason)
+	// Persist both sides together with the state mutation. Adding these fields
+	// only to the observer's copy makes live diagnostics disagree with replay
+	// after a restart, when the previous state can no longer be recovered.
+	event := s.appendEvent(task, "STATE_CHANGED", "", reason, map[string]any{
+		"previousState": string(previous), "state": string(target),
+		"revision": task.CurrentRevision, "aggregateVersion": task.AggregateVersion,
+	})
 	err = s.store.Update(ctx, task)
 	s.mu.Unlock()
 	if err == nil {
-		// The previous state is carried on the event so an observer can report
-		// both sides of the change. It is not reconstructable afterwards: by the
-		// time anyone reads the task, the old state is gone.
-		event.Payload = map[string]any{"previousState": string(previous), "state": string(target)}
 		s.notifyEvent(ctx, taskID, event)
 	}
 	return err
@@ -812,10 +820,10 @@ func AssignEventSequence(taskID string, event TaskEvent, sequence uint64) TaskEv
 // appendEvent records one event on the task and returns it, so a caller that
 // needs the assigned sequence number or the resolved timestamp does not have to
 // guess them. Callers must hold the service lock.
-func (s *Service) appendEvent(task *Task, eventType, stepID, message string) TaskEvent {
+func (s *Service) appendEvent(task *Task, eventType, stepID, message string, payload map[string]any) TaskEvent {
 	event := TaskEvent{
 		Sequence: uint64(len(task.Events) + 1), Type: eventType, StepID: stepID,
-		Message: message, OccurredAt: s.now().UTC(),
+		Message: message, Payload: payload, OccurredAt: s.now().UTC(),
 	}
 	task.Events = append(task.Events, event)
 	return event

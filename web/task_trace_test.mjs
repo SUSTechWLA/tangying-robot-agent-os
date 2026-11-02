@@ -477,3 +477,158 @@ test("replay labels a saved running explanation as a snapshot after task complet
   assert.match(textOf(dom), /正在执行/);
   assert.match(textOf(dom), /完成后会观测确认结果/);
 });
+
+
+function serverTrace(task, overrides = {}) {
+  return { schemaVersion: "task.trace.v1", taskId: task.id, state: task.state,
+    currentRevision: task.currentRevision, source: { stable: true, aggregateVersion: task.aggregateVersion,
+      eventCount: task.events.length, lastSequence: task.events.at(-1)?.sequence || 0 },
+    originalRequest: { text: "最初的巡检请求", revision: 1, source: "revision_1", sha256: "a".repeat(64) },
+    integrity: { status: "consistent", findings: [] }, steps: [], ...overrides };
+}
+
+test("the immutable original and current revised request are visibly distinct", () => {
+  const task = { ...healthyTask().task, request: "修改后只检查厨房", currentRevision: 2, aggregateVersion: 3 };
+  const report = serverTrace(task);
+  const trace = buildTaskTrace({ task, durableTrace: report, durableTraceStatus: "ready" });
+  assert.equal(trace.request, "最初的巡检请求");
+  assert.equal(trace.currentRequest, task.request);
+  assert.equal(trace.snapshotAligned, true);
+  const html = renderTaskTrace(trace);
+  assert.match(html, /原始指令/); assert.match(html, /当前版本指令/);
+  assert.match(html, /最初的巡检请求/); assert.match(html, /修改后只检查厨房/);
+  assert.match(html, /原始指令 SHA-256/); assert.match(html, /与当前界面水位一致/);
+});
+
+test("different command attempts remain separate in the durable command table", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const report = serverTrace(task, { steps: [
+    { key: "first", taskRevision: 1, stepId: "read", commandId: "command-first", tool: "observe_scene", status: "FAILED", eventSequences: [2, 3] },
+    { key: "second", taskRevision: 1, stepId: "read", commandId: "command-retry", tool: "observe_scene", status: "CONFIRMED", eventSequences: [4, 5] },
+  ] });
+  const html = renderTaskTrace(buildTaskTrace({ task, durableTrace: report }));
+  assert.match(html, /原子命令记录（2 条）/);
+  assert.match(html, /command-first/); assert.match(html, /command-retry/);
+  assert.match(html, /FAILED/); assert.match(html, /CONFIRMED/);
+  assert.match(html, /2、3/); assert.match(html, /4、5/);
+});
+
+test("missing, mismatched and different-watermark durable records never certify integrity", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  for (const status of ["loading", "unavailable"]) {
+    const trace = buildTaskTrace({ task, durableTraceStatus: status });
+    assert.ok(trace.findings.some(f => f.code === "DURABLE_TRACE_UNAVAILABLE"));
+    assert.match(trace.requestLabel, /待核对/);
+  }
+  const differentTask = buildTaskTrace({ task, durableTrace: serverTrace(task, { taskId: "other-task" }), durableTraceStatus: "ready" });
+  assert.equal(differentTask.durableTrace, null);
+  assert.notEqual(differentTask.request, "最初的巡检请求");
+  for (const source of [
+    { ...serverTrace(task).source, lastSequence: 999 },
+    { ...serverTrace(task).source, stable: false },
+    { ...serverTrace(task).source, aggregateVersion: 5 },
+  ]) {
+    const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { source }) });
+    assert.equal(trace.snapshotAligned, false);
+    assert.ok(trace.findings.some(f => f.code === "DURABLE_TRACE_DIFFERENT_WATERMARK"));
+  }
+});
+
+test("server contradictions are surfaced with event locators and escaped content", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { integrity: {
+    status: "inconsistent", findings: [{ code: "STATE_CONFLICT", severity: "error", message: "<img src=x> contradictory state", eventSequences: [7, 8] }],
+  } }) });
+  assert.ok(trace.findings.some(f => f.code === "STATE_CONFLICT" && f.severity === "error"));
+  const html = renderTaskTrace(trace);
+  assert.match(html, /账本存在矛盾/); assert.match(html, /事件 7、8/);
+  assert.match(html, /&lt;img src=x&gt;/); assert.doesNotMatch(html, /<img src=x>/);
+});
+
+test("both replay renderers preserve separate RPC attempts and incomplete outcomes", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { rpcCalls: [
+    { rpcId: "rpc-1", taskRevision: 1, stepId: "pick", commandId: "parent-command", service: "robot.pick", requestId: "request-1", status: "UNKNOWN", eventSequences: [7] },
+    { rpcId: "rpc-2", taskRevision: 1, stepId: "pick", commandId: "parent-command", service: "robot.status", requestId: "request-2", status: "SUCCEEDED", eventSequences: [8, 9] },
+  ] }) });
+  const html = renderTaskTrace(trace);
+  const textOf = node => [node.textContent, ...node.children.map(textOf)].join(" ");
+  const dom = textOf(renderTaskTraceNodes(trace));
+  for (const rendered of [html, dom]) {
+    assert.match(rendered, /底层服务调用记录（2 条）/);
+    assert.match(rendered, /rpc-1/); assert.match(rendered, /rpc-2/);
+    assert.match(rendered, /UNKNOWN/); assert.match(rendered, /request-2/);
+    assert.match(rendered, /原始指令/); assert.match(rendered, /最初的巡检请求/);
+  }
+});
+
+test("authoritative child ledgers keep root intent and distinct parent and child event scopes", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const child = { childId: "child-kitchen", aggregateVersion: 4, coverage: "found", bindingVerified: true,
+    parentEventSequences: [12], task: { request: "model-generated child text", events: [{ sequence: 1 }, { sequence: 2 }] },
+    steps: [{ taskRevision: 1, robotId: "agv-b", stepId: "inspect", commandId: "child-command", tool: "robot.inspect", status: "CONFIRMED", eventSequences: [1, 2] }],
+    rpcCalls: [{ taskRevision: 1, robotId: "agv-b", rpcId: "child-rpc", stepId: "inspect", commandId: "child-command", service: "robot.inspect", status: "SUCCEEDED", eventSequences: [3, 4] }], findings: [],
+  };
+  const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { children: [child] }) });
+  const textOf = node => [node.textContent, ...node.children.map(textOf)].join(" ");
+  for (const rendered of [renderTaskTrace(trace), textOf(renderTaskTraceNodes(trace))]) {
+    assert.match(rendered, /权威子计划账本/); assert.match(rendered, /child-kitchen/);
+    assert.match(rendered, /child-command/); assert.match(rendered, /child-rpc/);
+    assert.match(rendered, /父计划声明事件/); assert.match(rendered, /子事件序号只在该子计划内有效/);
+    assert.match(rendered, /最初的巡检请求/); assert.doesNotMatch(rendered, /model-generated child text/);
+    assert.match(rendered, /随回溯 JSON 导出/);
+  }
+});
+
+test("partial, invalid and unverified child traces are never presented as fully checked", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  for (const coverage of ["missing", "unsupported", "invalid", "undeclared", "found"]) {
+    const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { children: [
+      { childId: "unverified-child", coverage, bindingVerified: false, parentEventSequences: [4] },
+    ] }) });
+    assert.ok(trace.findings.some(f => f.code === "CHILD_TRACE_UNVERIFIED"));
+    assert.ok(trace.summary.warnings > 0);
+    const html = renderTaskTrace(trace);
+    assert.match(html, /子计划账本尚未完整核对/);
+    assert.doesNotMatch(html, /账本检查未发现不一致/);
+  }
+});
+
+test("child findings use child event coordinates and untrusted child names are escaped", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { children: [
+    { childId: "<img src=x>", coverage: "found", bindingVerified: true, parentEventSequences: [7],
+      steps: [{ stepId: "s", commandId: "child-cmd", eventSequences: [1] }],
+      findings: [{ code: "STATE_CHAIN_BROKEN", taskId: "<img src=x>", severity: "error", message: "state differs", eventSequences: [2] }],
+    },
+  ] }) });
+  assert.ok(trace.findings.some(f => f.code === "STATE_CHAIN_BROKEN" && f.message.includes("子任务 <img src=x> · 事件 2")));
+  const html = renderTaskTrace(trace);
+  assert.match(html, /&lt;img src=x&gt;/); assert.doesNotMatch(html, /<img src=x>/);
+  assert.match(html, /子计划账本尚未完整核对/);
+});
+
+
+test("child binding diagnostics point to parent declarations, not unrelated child events", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { children: [
+    { childId: "child", coverage: "invalid", bindingVerified: false, parentEventSequences: [12],
+      findings: [{ code: "CHILD_PLAN_DIGEST_MISMATCH", taskId: task.id, severity: "error", message: "plan digest differs", eventSequences: [12] }],
+    },
+  ] }) });
+  const finding = trace.findings.find(f => f.code === "CHILD_PLAN_DIGEST_MISMATCH");
+  assert.match(finding.message, /父任务 task-1 · 事件 12/); assert.doesNotMatch(finding.message, /子任务/);
+});
+
+
+test("diagnostic event sequences without an explicit task identity retain unknown scope", () => {
+  const task = { ...healthyTask().task, aggregateVersion: 1 };
+  const trace = buildTaskTrace({ task, durableTrace: serverTrace(task, { children: [
+    { childId: "child", coverage: "invalid", bindingVerified: false,
+      findings: [{ code: "CHILD_PLAN_DIGEST_MISMATCH", severity: "error", message: "legacy locator", eventSequences: [12] }],
+    },
+  ] }) });
+  const finding = trace.findings.find(f => f.code === "CHILD_PLAN_DIGEST_MISMATCH");
+  assert.match(finding.message, /账本未标识 · 事件 12/);
+  assert.doesNotMatch(finding.message, /父任务|子任务/);
+});

@@ -228,6 +228,8 @@ function createHarness(options = {}) {
     loadLocalTasks, openLocalTask, renderLocalProfessional, renderTelemetry,
     taskAction, drawScene2D, setSceneViewMode,
     loadLocalEvidence: (...args) => loadLocalEvidence(...args),
+    loadLocalDurableTrace, clearLocalReplay,
+    durableTraceState: () => ({ report: localDurableTrace, status: localDurableTraceStatus }),
     selectLocalEvidence: (...args) => selectLocalEvidence(...args),
     renderLocalMissionActivities,
     pointCloudViewData: (...args) => pointCloudViewData(...args),
@@ -3370,4 +3372,78 @@ test("opening a task from history keeps its search context and does not execute 
   assert.equal(harness.element("local-task-search").value, "task-review");
   assert.deepEqual(routes, ["tasks"]);
   assert.ok(urls.every(url => !/\/(approve|resume|cancel|pause)$/.test(url)));
+});
+
+
+function durableTraceFixture(taskId = "trace-task", overrides = {}) {
+  return { schemaVersion: "task.trace.v1", taskId, state: "READY", currentRevision: 1,
+    originalRequest: { text: "检查厨房", source: "revision_1", sha256: "a".repeat(64), revision: 1 },
+    source: { eventCount: 1, lastSequence: 1, aggregateVersion: 1, stable: true },
+    integrity: { status: "consistent", findings: [] }, events: [], steps: [], ...overrides };
+}
+
+test("durable trace reads are cached until the task watermark changes; failed reads clear old reports", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  const task = { id: "trace-task", currentRevision: 1, aggregateVersion: 1, state: "READY", events: [{ sequence: 1 }] };
+  h.hooks.selectLocalTask(task);
+  h.setFetch(async () => ({ ok: true, json: async () => durableTraceFixture() }));
+  assert.equal(await h.hooks.loadLocalDurableTrace(task.id), true);
+  assert.equal(h.hooks.durableTraceState().status, "ready");
+  assert.equal(h.element("download-local-trace").disabled, false);
+  const reads = h.fetches.length;
+  assert.equal(await h.hooks.loadLocalDurableTrace(task.id), false);
+  assert.equal(h.fetches.length, reads);
+  h.hooks.selectLocalTask({ ...task, events: [{ sequence: 1 }, { sequence: 2 }] });
+  h.setFetch(async () => ({ ok: false, status: 503 }));
+  assert.equal(await h.hooks.loadLocalDurableTrace(task.id), false);
+  assert.equal(h.hooks.durableTraceState().report, null);
+  assert.equal(h.hooks.durableTraceState().status, "unavailable");
+  assert.equal(h.element("download-local-trace").disabled, true);
+});
+
+test("late durable trace responses cannot cross an A to B to A task selection", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  const task = { id: "trace-task", state: "READY", events: [] };
+  const pending = deferred();
+  h.hooks.selectLocalTask(task);
+  h.setFetch(() => pending.promise);
+  const loading = h.hooks.loadLocalDurableTrace(task.id);
+  h.hooks.selectLocalTask({ ...task, id: "other-task" });
+  h.hooks.selectLocalTask(task);
+  pending.resolve({ ok: true, json: async () => durableTraceFixture() });
+  assert.equal(await loading, false);
+  assert.equal(h.hooks.durableTraceState().report, null);
+  assert.equal(h.element("download-local-trace").disabled, true);
+});
+
+test("a mismatched or missing durable report never becomes a successful integrity read", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  h.hooks.selectLocalTask({ id: "trace-task", state: "READY", events: [] });
+  for (const response of [
+    { ok: false, status: 404 },
+    { ok: true, json: async () => durableTraceFixture("other-task") },
+    { ok: true, json: async () => durableTraceFixture("trace-task", { schemaVersion: "other" }) },
+  ]) {
+    h.setFetch(async () => response);
+    assert.equal(await h.hooks.loadLocalDurableTrace("trace-task", { force: true }), false);
+    assert.equal(h.hooks.durableTraceState().status, "unavailable");
+    assert.equal(h.hooks.durableTraceState().report, null);
+  }
+});
+
+test("child-ledger updates are refreshed even when the parent event watermark is unchanged", async () => {
+  let now = 1000;
+  class TestDate extends Date { static now() { return now; } }
+  const h = createHarness({ Date: TestDate, setTimeout: () => 1 });
+  h.hooks.selectLocalTask({ id: "trace-task", currentRevision: 1, aggregateVersion: 1, state: "READY", events: [{ sequence: 1 }] });
+  let version = 1;
+  h.setFetch(async () => ({ ok: true, json: async () => durableTraceFixture("trace-task", {
+    children: [{ childId: "child", aggregateVersion: version, coverage: "found", bindingVerified: true }],
+  }) }));
+  assert.equal(await h.hooks.loadLocalDurableTrace("trace-task"), true);
+  version = 2;
+  assert.equal(await h.hooks.loadLocalDurableTrace("trace-task"), false);
+  now += 10001;
+  assert.equal(await h.hooks.loadLocalDurableTrace("trace-task"), true);
+  assert.equal(h.hooks.durableTraceState().report.children[0].aggregateVersion, 2);
 });

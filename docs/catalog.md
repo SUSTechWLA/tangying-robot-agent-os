@@ -4,7 +4,7 @@
 
 本页由 `python3 scripts/build_docs_catalog.py` 从原文件标题和路径生成。分类表示用途，不自动认证内容仍然有效；以文内版本、源码和对应证据判断。新增资料后重新生成，使用 `--check` 检查是否遗漏。
 
-覆盖 `docs/` 中除本页外的 **304 份 Markdown** 与 **1276 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
+覆盖 `docs/` 中除本页外的 **307 份 Markdown** 与 **1308 份配套文件**；书籍通过[书籍目录](../book/README.md)进入，未重复列出历史版次和生成合订本。
 
 ## 分类总览
 
@@ -12,14 +12,14 @@
 | --- | ---: | --- |
 | [导航与维护](#catalog-navigation) | 5 | 四条路线选择阅读顺序；本目录保留每份资料的原路径。 |
 | [使用指南](#catalog-guides) | 15 | 查操作与功能；旧仿真案例按页面注明的引擎和版本阅读。 |
-| [架构与协议](#catalog-architecture) | 30 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
-| [开发参考与演进记录](#catalog-development) | 119 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
+| [架构与协议](#catalog-architecture) | 31 | 查原理、组件边界和协议；设计设想及历史快照不等于当前交付。 |
+| [开发参考与演进记录](#catalog-development) | 120 | 先读开发导航；带日期记录回答当时如何设计、实现和修复。 |
 | [部署与运维流程](#catalog-operations) | 15 | 查角色、启动、故障、升级及放行条件。 |
 | [分角色安装](#catalog-install) | 9 | 按目标机器选择；旧 Cloud 控制面文档保留为历史安装资料。 |
 | [运行手册、接口与验收快照](#catalog-production) | 20 | 参考文档与历史审计并存；不能把旧状态页当作当前整仓认证。 |
 | [实体机器人接入](#catalog-sim2real) | 1 | 软件接口、离线前置检查和现场物理验收分别核对。 |
 | [工作台与交互](#catalog-frontend) | 1 | 查用户流程、开发诊断及界面资料。 |
-| [实验、预登记与复验](#catalog-experiments) | 65 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
+| [实验、预登记与复验](#catalog-experiments) | 66 | 区分研究对照、工程案例和工具说明；结论以原报告的环境、版本和限制为准。 |
 | [软件发布记录](#catalog-releases) | 6 | 记录指定版本的发布身份，不覆盖后续分支改动。 |
 | [原始设计档案](#catalog-superpowers) | 18 | 按原日期理解决策背景；计划项不作为已实现或已验收的证明。 |
 
@@ -97,6 +97,7 @@
 | [机器人配对：不需要 SSH 的一键接入](architecture/robot-pairing.md) | `architecture/robot-pairing.md` | 架构 / 协议 / 设计参考 |
 | [点云语义到长程任务的交互协议](architecture/semantic-execution-protocol.md) | `architecture/semantic-execution-protocol.md` | 架构 / 协议 / 设计参考 |
 | [监督 Agent：故障矩阵与可回溯验证](architecture/supervision-verification.md) | `architecture/supervision-verification.md` | 架构 / 协议 / 设计参考 |
+| [从原始自然语言到原子调用的任务回溯](architecture/task-traceability.md) | `architecture/task-traceability.md` | 架构 / 协议 / 设计参考 |
 | [TrainAgent 可行性评估：哪些"一切皆 Agent"成立，哪些不成立](architecture/train-agent-assessment.md) | `architecture/train-agent-assessment.md` | 架构 / 协议 / 设计参考 |
 | [为什么是分层的，以及"分布式"不是重点](architecture/why-distributed.md) | `architecture/why-distributed.md` | 架构 / 协议 / 设计参考 |
 
@@ -197,6 +198,7 @@
 | [探索操作身份与部分地图语义](development/2026-10-30-exploration-operation-integrity.md) | `development/2026-10-30-exploration-operation-integrity.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [自动边缘会话：从自然语言输入到可恢复的任务接收](development/2026-11-01-automatic-edge-sessions.md) | `development/2026-11-01-automatic-edge-sessions.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [2026-11-02 文档与教材 3.3.0 同步记录](development/2026-11-02-documentation-sync.md) | `development/2026-11-02-documentation-sync.md` | 实施 / 设计 / 复盘（按文内版本） |
+| [2026-11-02：从原始指令到原子调用的持久回溯](development/2026-11-02-task-traceability.md) | `development/2026-11-02-task-traceability.md` | 实施 / 设计 / 复盘（按文内版本） |
 | [开发与升级导航](development/README.md) | `development/README.md` | 导航 / 维护 |
 | [如何新增一个 Agent](development/adding-an-agent.md) | `development/adding-an-agent.md` | 开发参考 / 方案（核对文内状态） |
 | [MoveIt 2 机械臂适配契约](development/arm-moveit-adapter.md) | `development/arm-moveit-adapter.md` | 开发参考 / 方案（核对文内状态） |
@@ -381,6 +383,7 @@
 | [工作台交互、投影与执行收尾审计](experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md) | `experiments/2026-10-28-user-workbench-e2e/ui-audit/README.md` | 导航 / 维护 |
 | [2026-10-30 家庭巡检续测](experiments/2026-10-30-patrol-continuation.md) | `experiments/2026-10-30-patrol-continuation.md` | 实验 / 验收记录 |
 | [2026-11-01 自动边缘会话：软件验证记录](experiments/2026-11-01-automatic-edge-sessions.md) | `experiments/2026-11-01-automatic-edge-sessions.md` | 实验 / 验收记录 |
+| [2026-11-02：任务回溯与故障定位验收](experiments/2026-11-02-task-traceability/README.md) | `experiments/2026-11-02-task-traceability/README.md` | 导航 / 维护 |
 | [实验协议、报告与证据索引](experiments/README.md) | `experiments/README.md` | 导航 / 维护 |
 | [2026-10-15：单机器人真实 Gazebo 实验索引](experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md) | `experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md` | 导航 / 维护 |
 | [首次探索扫描：脱敏证据包](experiments/evidence/2026-10-17-exploration-first-scan/README.md) | `experiments/evidence/2026-10-17-exploration-first-scan/README.md` | 导航 / 维护 |
@@ -822,6 +825,38 @@ JSON/CSV 是指定实验或文档的摘要/附件，不能单独代替原报告�
 | [go-race-command.json](experiments/2026-11-01-automatic-edge-sessions/go-race-command.json) | JSON | `experiments/2026-11-01-automatic-edge-sessions` |
 | [go-race.jsonl.gz](experiments/2026-11-01-automatic-edge-sessions/go-race.jsonl.gz) | GZ | `experiments/2026-11-01-automatic-edge-sessions` |
 | [verification.json](experiments/2026-11-01-automatic-edge-sessions/verification.json) | JSON | `experiments/2026-11-01-automatic-edge-sessions` |
+| [campaign.log](experiments/2026-11-02-task-traceability/campaign.log) | LOG | `experiments/2026-11-02-task-traceability` |
+| [bad-verification-1.json](experiments/2026-11-02-task-traceability/evidence/bad-verification-1.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [bad-verification-2.json](experiments/2026-11-02-task-traceability/evidence/bad-verification-2.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [bad-verification-3.json](experiments/2026-11-02-task-traceability/evidence/bad-verification-3.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [lost-write-reply-1.json](experiments/2026-11-02-task-traceability/evidence/lost-write-reply-1.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [lost-write-reply-2.json](experiments/2026-11-02-task-traceability/evidence/lost-write-reply-2.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [lost-write-reply-3.json](experiments/2026-11-02-task-traceability/evidence/lost-write-reply-3.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [normal-1.json](experiments/2026-11-02-task-traceability/evidence/normal-1.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [normal-2.json](experiments/2026-11-02-task-traceability/evidence/normal-2.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [normal-3.json](experiments/2026-11-02-task-traceability/evidence/normal-3.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [read-retry-1.json](experiments/2026-11-02-task-traceability/evidence/read-retry-1.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [read-retry-2.json](experiments/2026-11-02-task-traceability/evidence/read-retry-2.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [read-retry-3.json](experiments/2026-11-02-task-traceability/evidence/read-retry-3.json) | JSON | `experiments/2026-11-02-task-traceability/evidence` |
+| [bad-verification-1.json](experiments/2026-11-02-task-traceability/final/evidence/bad-verification-1.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [bad-verification-2.json](experiments/2026-11-02-task-traceability/final/evidence/bad-verification-2.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [bad-verification-3.json](experiments/2026-11-02-task-traceability/final/evidence/bad-verification-3.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [host-three-stations.json](experiments/2026-11-02-task-traceability/final/evidence/host-three-stations.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [lost-write-reply-1.json](experiments/2026-11-02-task-traceability/final/evidence/lost-write-reply-1.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [lost-write-reply-2.json](experiments/2026-11-02-task-traceability/final/evidence/lost-write-reply-2.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [lost-write-reply-3.json](experiments/2026-11-02-task-traceability/final/evidence/lost-write-reply-3.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [normal-1.json](experiments/2026-11-02-task-traceability/final/evidence/normal-1.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [normal-2.json](experiments/2026-11-02-task-traceability/final/evidence/normal-2.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [normal-3.json](experiments/2026-11-02-task-traceability/final/evidence/normal-3.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [read-retry-1.json](experiments/2026-11-02-task-traceability/final/evidence/read-retry-1.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [read-retry-2.json](experiments/2026-11-02-task-traceability/final/evidence/read-retry-2.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [read-retry-3.json](experiments/2026-11-02-task-traceability/final/evidence/read-retry-3.json) | JSON | `experiments/2026-11-02-task-traceability/final/evidence` |
+| [manifest.json](experiments/2026-11-02-task-traceability/final/manifest.json) | JSON | `experiments/2026-11-02-task-traceability/final` |
+| [test-events.jsonl](experiments/2026-11-02-task-traceability/final/test-events.jsonl) | JSONL | `experiments/2026-11-02-task-traceability/final` |
+| [go-race.log](experiments/2026-11-02-task-traceability/final/validation/go-race.log) | LOG | `experiments/2026-11-02-task-traceability/final/validation` |
+| [python-docs.log](experiments/2026-11-02-task-traceability/final/validation/python-docs.log) | LOG | `experiments/2026-11-02-task-traceability/final/validation` |
+| [web-build.log](experiments/2026-11-02-task-traceability/final/validation/web-build.log) | LOG | `experiments/2026-11-02-task-traceability/final/validation` |
+| [web-tests.log](experiments/2026-11-02-task-traceability/final/validation/web-tests.log) | LOG | `experiments/2026-11-02-task-traceability/final/validation` |
 | [context-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/context-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [factorial-stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/factorial-stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |
 | [stage-comparison.png](experiments/assets/2026-09-21-agent-context-evaluation/stage-comparison.png) | PNG | `experiments/assets/2026-09-21-agent-context-evaluation` |

@@ -55,6 +55,11 @@ let localTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, c
 // Last accepted experience payload, reused by the replay so opening a task does
 // not fetch the same record twice.
 let localExperiencePayload = null;
+let localDurableTrace = null;
+let localDurableTraceStatus = "loading";
+let localTraceRequestGeneration = 0;
+let localTraceRequestKey = "";
+let localTraceReadAt = 0;
 // A task recorded before the experience feature existed answers 404 forever, so
 // remember that and stop re-asking on every poll. Cleared when another task is
 // selected or a developer asks for a fresh read.
@@ -770,6 +775,13 @@ function renderPlanSteps(plans, task) {
 }
 
 function clearLocalReplay() {
+  localTraceRequestGeneration += 1;
+  localDurableTrace = null;
+  localDurableTraceStatus = "loading";
+  localTraceRequestKey = "";
+  localTraceReadAt = 0;
+  const download = $("#download-local-trace");
+  if (download) download.disabled = true;
   if (localReplayTimer) { clearTimeout(localReplayTimer); localReplayTimer = null; }
   const body = $("#local-replay-body");
   if (body) { body.replaceChildren(); delete body.dataset.renderKey; }
@@ -1075,7 +1087,7 @@ async function openLocalTask(taskId, options = {}) {
     renderTask(task);
     connectEvents(taskId);
     if (options.navigate !== false) globalThis.TangyingConsoleUI?.navigate(pageVisible("tasks") ? "tasks" : "workspace");
-    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
+    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId), loadLocalDurableTrace(taskId)]);
     renderLocalReplay();
     return true;
   } catch (_) {
@@ -1094,7 +1106,7 @@ async function pollLocalTask() {
     if (pageVisible("workspace", "tasks", "diagnostics")) requests.push(loadLocalTaskExperience(taskId));
     // Replay is visible on both pages and needs the evidence index to advance
     // with task events, including when the scene itself is not visible.
-    if (pageVisible("workspace", "tasks")) requests.push(loadLocalEvidence(taskId));
+    if (pageVisible("workspace", "tasks")) requests.push(loadLocalEvidence(taskId), loadLocalDurableTrace(taskId));
     await Promise.all(requests);
     if (!socket && activeTask?.id === taskId) connectEvents(taskId);
   } catch (_) {
@@ -1949,6 +1961,8 @@ function renderLocalReplay() {
   // evidence thumbnail — on every cycle even when nothing changed.
   const renderKey = [
     task.id, task.state, task.currentRevision,
+    localDurableTraceStatus, localTraceRequestGeneration,
+    localDurableTrace?.source?.lastSequence, localDurableTrace?.source?.aggregateVersion,
     (task.events || []).length,
     Object.keys(task.intent || {}).length,
     observations.length,
@@ -1964,6 +1978,8 @@ function renderLocalReplay() {
   const trace = traceApi.buildTaskTrace({
     task,
     observations,
+    durableTrace: localDurableTrace,
+    durableTraceStatus: localDurableTraceStatus,
     experience: localExperiencePayload?.taskId === task.id ? localExperiencePayload : null,
     recovery: localRecovery?.taskId === task.id ? localRecovery : null,
   });
@@ -2011,8 +2027,71 @@ $("#refresh-local-replay")?.addEventListener("click", async () => {
   const taskId = activeTask?.id;
   if (!taskId) return;
   // An explicit refresh is allowed to re-ask for a record the poll gave up on.
-  await Promise.all([loadLocalTaskExperience(taskId, { force: true }), loadLocalEvidence(taskId)]);
+  await Promise.all([loadLocalTaskExperience(taskId, { force: true }), loadLocalRecovery(taskId), loadLocalEvidence(taskId), loadLocalDurableTrace(taskId, { force: true })]);
   if (activeTask?.id === taskId) renderLocalReplay();
+});
+
+// The server snapshot is a diagnostic artifact, never an execution authority.
+// Keep requests inside the selected robot workspace; a selection generation also
+// rejects late responses when task A -> B -> A happens during a slow fetch.
+async function loadLocalDurableTrace(taskId, { force = false } = {}) {
+  if (!taskId || activeTask?.id !== taskId || location.protocol === "file:") return false;
+  const path = `/v1/tasks/${encodeURIComponent(taskId)}/trace`;
+  const scope = edgeURL(path);
+  const task = activeTask;
+  const key = JSON.stringify([scope, task.currentRevision, task.aggregateVersion,
+    task.state, task.events?.length, task.events?.at(-1)?.sequence]);
+  // Child aggregates have their own event watermarks. A quiet parent ledger
+  // does not mean its children stopped changing; re-read them periodically.
+  if (!force && localTraceRequestKey === key &&
+      ((localDurableTraceStatus === "ready" && !localDurableTrace?.children?.length) || Date.now() - localTraceReadAt < 10000)) return false;
+  const generation = ++localTraceRequestGeneration;
+  const current = () => generation === localTraceRequestGeneration && activeTask?.id === taskId && edgeURL(path) === scope;
+  localTraceRequestKey = key;
+  localTraceReadAt = Date.now();
+  localDurableTraceStatus = "loading";
+  const download = $("#download-local-trace");
+  if (download) download.disabled = true;
+  try {
+    const response = await edgeFetch(path, { cache: "no-store" });
+    if (!current()) return false;
+    if (!response.ok) throw new Error("trace unavailable");
+    const report = await response.json();
+    if (!current()) return false;
+    if (report.schemaVersion !== "task.trace.v1" || report.taskId !== taskId ||
+        !report.source || !Array.isArray(report.events) || !Array.isArray(report.steps) ||
+        !Array.isArray(report.integrity?.findings) ||
+        !["consistent", "incomplete", "inconsistent"].includes(report.integrity?.status)) {
+      throw new Error("trace identity or schema mismatch");
+    }
+    localDurableTrace = report;
+    localDurableTraceStatus = "ready";
+    if (download) download.disabled = false;
+    scheduleLocalReplay();
+    return true;
+  } catch (_) {
+    if (!current()) return false;
+    // A failed read is not a clean bill of health, and must not offer an old
+    // snapshot as if it were the result of the current request.
+    localDurableTrace = null;
+    localDurableTraceStatus = "unavailable";
+    scheduleLocalReplay();
+    return false;
+  }
+}
+
+$("#download-local-trace")?.addEventListener("click", () => {
+  const report = localDurableTrace;
+  if (localDurableTraceStatus !== "ready" || report?.taskId !== activeTask?.id) return;
+  const blob = new Blob([JSON.stringify(report, null, 2) + "\n"], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `task-trace-${String(report.taskId).replace(/[^a-zA-Z0-9_-]/g, "_")}-${report.source.lastSequence}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 async function loadLocalEvidence(taskId, options = {}) {

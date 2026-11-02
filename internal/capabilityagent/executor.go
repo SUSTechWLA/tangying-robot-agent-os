@@ -67,6 +67,20 @@ type executionEventBinding struct {
 	mutatesWorld                  *bool
 }
 
+func (e *Executor) appendEvidence(ctx context.Context, taskID string, event tasks.TaskEvent) error {
+	// SQLite's append-only event path avoids loading and rewriting the complete
+	// task for every status poll. Legacy/child adapters keep their own atomic
+	// AppendEvent contract when they do not implement this optimization.
+	if recorder, ok := e.Tasks.(interface {
+		RecordEvent(context.Context, string, tasks.TaskEvent) (tasks.TaskEvent, error)
+	}); ok {
+		_, err := recorder.RecordEvent(ctx, taskID, event)
+		return err
+	}
+	_, err := e.Tasks.AppendEvent(ctx, taskID, event)
+	return err
+}
+
 func (e *Executor) record(ctx context.Context, id, step, kind string, data map[string]any) error {
 	payload := project(data)
 	// Capture the approved Run input, not a later mutable task snapshot. The
@@ -81,7 +95,7 @@ func (e *Executor) record(ctx context.Context, id, step, kind string, data map[s
 			payload["mutatesWorld"] = *binding.mutatesWorld
 		}
 	}
-	_, err := e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: kind, StepID: step, Payload: payload})
+	err := e.appendEvidence(ctx, id, tasks.TaskEvent{Type: kind, StepID: step, Payload: payload})
 	if err == nil {
 		status := ""
 		switch kind {
@@ -97,7 +111,7 @@ func (e *Executor) record(ctx context.Context, id, step, kind string, data map[s
 		if status != "" {
 			activity := project(payload)
 			activity["toolName"], activity["stepId"], activity["activityStatus"] = payload["tool"], step, status
-			_, err = e.Tasks.AppendEvent(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: activity})
+			err = e.appendEvidence(ctx, id, tasks.TaskEvent{Type: "TOOL_ACTIVITY", StepID: step, Payload: activity})
 		}
 	}
 	return err
@@ -118,7 +132,8 @@ func (e *Executor) recordFailure(ctx context.Context, taskID, stepID, tool, comm
 	// A refusal of a later status/verification read says nothing about whether
 	// the original write ran. Non-admission only applies at initial dispatch.
 	rejected := phase == "dispatch" && errors.Is(cause, ErrRejected)
-	unknown := errors.Is(cause, ErrOutcomeUnknown) || (mutatesWorld && phase != "preflight" && !rejected)
+	notDispatched := phase == "dispatch" && errors.Is(cause, errRPCNotDispatched)
+	unknown := errors.Is(cause, ErrOutcomeUnknown) || (mutatesWorld && phase != "preflight" && !rejected && !notDispatched)
 	class := string(closedloop.Classify(code))
 	if unknown {
 		class = string(closedloop.UnknownOutcome)
@@ -136,7 +151,7 @@ func (e *Executor) recordFailure(ctx context.Context, taskID, stepID, tool, comm
 		"tool": tool, "commandId": commandID, "phase": phase,
 		"code": code, "error": message, "message": message,
 		"mutatesWorld": mutatesWorld, "failureClass": class,
-		"rejected":       rejected,
+		"rejected": rejected, "requestNotDispatched": notDispatched,
 		"outcomeUnknown": unknown, "automaticRetryForbidden": unknown,
 	})
 }
@@ -175,17 +190,7 @@ func (e *Executor) callLeased(ctx context.Context, robot, name, id string, args 
 			return nil, errors.New("request exceeds owned operation stop scope")
 		}
 	}
-	response, err := e.Provider.CallService(callCtx, request)
-	if err != nil {
-		return nil, err
-	}
-	if response == nil {
-		return nil, fmt.Errorf("empty service response")
-	}
-	if !response.Ok {
-		return nil, &ServiceError{Code: response.Code, Message: response.Message, Rejected: response.Result.AsMap()["outcome"] == "REJECTED"}
-	}
-	return response.Result.AsMap(), nil
+	return e.callTraced(callCtx, request)
 }
 func stepID(task *tasks.Task, index int) string {
 	return fmt.Sprintf("rev-%d-cap-%02d", task.CurrentRevision, index+1)
@@ -301,18 +306,20 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 				return completed, err
 			}
 			phase = "dispatch"
-			result, err = e.callRecoverableRead(ctx, task.ID, id, robot, call.Tool, identity, call.Arguments, manifest.MutatesWorld)
+			result, err = e.callRecoverableRead(withRPCPhase(ctx, "dispatch"), task.ID, id, robot, call.Tool, identity, call.Arguments, manifest.MutatesWorld)
 			if err != nil {
-				if manifest.MutatesWorld && !errors.Is(err, ErrRejected) {
+				if manifest.MutatesWorld && !errors.Is(err, ErrRejected) && !errors.Is(err, errRPCNotDispatched) {
 					return completed, fmt.Errorf("%w: %w", ErrOutcomeUnknown, err)
 				}
-				_ = e.Store.MarkStepFailed(ctx, record)
+				if markErr := e.Store.MarkStepFailed(ctx, record); markErr != nil {
+					return completed, errors.Join(err, fmt.Errorf("step failure persistence: %w", markErr))
+				}
 				return completed, err
 			}
 			receipt = map[string]any{"tool": call.Tool, "binding": capability.Fingerprint(call), "result": result, "deadline": time.Now().UTC().Add(e.timeout()).Format(time.RFC3339Nano)}
 			phase = "persistence"
 			if err := e.record(ctx, task.ID, id, "CAPABILITY_RECEIPT", receipt); err != nil {
-				return completed, fmt.Errorf("%w: receipt persistence failed", ErrOutcomeUnknown)
+				return completed, fmt.Errorf("%w: receipt persistence failed: %w", ErrOutcomeUnknown, err)
 			}
 		}
 		phase = "verification"
@@ -326,14 +333,14 @@ func (e *Executor) Run(ctx context.Context, task *tasks.Task, before func(contex
 		}
 		if op := manifest.Contract.Operation; op != nil && result["decision"] != "reuse" {
 			phase = "status"
-			observed, err := e.wait(ctx, task.ID, id, robot, identity, result, op, receipt)
+			observed, err := e.wait(withRPCPhase(ctx, "status"), task.ID, id, robot, identity, result, op, receipt)
 			if err != nil {
 				return completed, err
 			}
 			result = observed
 		}
 		phase = "verification"
-		evidence, err := e.verify(ctx, robot, call, result, manifest.Contract.Verification)
+		evidence, err := e.verify(withRPCPhase(ctx, "verification"), robot, call, result, manifest.Contract.Verification)
 		if err != nil {
 			return completed, fmt.Errorf("completion verification failed: %w", err)
 		}
@@ -429,7 +436,7 @@ func (e *Executor) wait(ctx context.Context, task, step, robot, id string, resul
 					if ctx.Err() != nil {
 						err = ctx.Err()
 					}
-					return nil, e.stop(task, step, robot, id, identity, op, err)
+					return nil, e.stop(ctx, task, step, robot, id, identity, op, err)
 				}
 			}
 		}
@@ -437,56 +444,81 @@ func (e *Executor) wait(ctx context.Context, task, step, robot, id string, resul
 			return nil, fmt.Errorf("%w: operation ownership changed", ErrOutcomeUnknown)
 		}
 		if err != nil && strings.Contains(err.Error(), "OPERATION_LEASE_EXPIRED") {
-			return nil, e.stop(task, step, robot, id, identity, op, fmt.Errorf("%w: operation lease expired", ErrOutcomeUnknown))
+			return nil, e.stop(ctx, task, step, robot, id, identity, op, fmt.Errorf("%w: operation lease expired", ErrOutcomeUnknown))
+		}
+		var traceErr *rpcEvidenceError
+		if errors.Is(err, errRPCNotDispatched) || errors.As(err, &traceErr) {
+			// Losing durable poll evidence is not a transient network glitch.
+			return nil, e.stop(ctx, task, step, robot, id, identity, op, err)
 		}
 		if errors.Is(err, ErrNeedsInput) {
 			// A durable budget/input refusal cannot heal by polling. Supervise
 			// only this owned operation's stop now, preserving the original cause
 			// if confirmed; stop() keeps an unconfirmed outcome unknown.
-			return nil, e.stop(task, step, robot, id, identity, op, err)
+			return nil, e.stop(ctx, task, step, robot, id, identity, op, err)
 		}
 		select {
 		case <-ctx.Done():
-			return nil, e.stop(task, step, robot, id, identity, op, ctx.Err())
+			return nil, e.stop(ctx, task, step, robot, id, identity, op, ctx.Err())
 		case <-deadline.C:
-			return nil, e.stop(task, step, robot, id, identity, op, fmt.Errorf("operation exceeded configured timeout"))
+			return nil, e.stop(ctx, task, step, robot, id, identity, op, fmt.Errorf("operation exceeded configured timeout"))
 		case <-ticker.C:
 		}
 	}
 }
-func (e *Executor) stop(task, step, robot, id, identity string, op *capability.Operation, cause error) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+func (e *Executor) stop(parent context.Context, task, step, robot, id, identity string, op *capability.Operation, cause error) error {
+	// Detach cancellation, not the approved execution identity. Stop evidence
+	// belongs to the same robot/revision/command as the interrupted action.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 15*time.Second)
 	defer cancel()
 	ctx, err := capability.WithOwnedStop(ctx, capability.OwnedStop{RobotID: robot, OperationID: identity, OwnerID: id, StatusService: op.StatusService, CancelService: op.CancelService})
 	if err != nil {
 		return fmt.Errorf("%w: invalid cancellation scope: %v", ErrOutcomeUnknown, err)
 	}
-	status, err := e.callLeased(ctx, robot, op.StatusService, "", map[string]any{}, identity, id)
-	if err != nil || at(status, op.StatusIdentityPath) != identity {
-		return fmt.Errorf("%w: cannot establish cancellation ownership", ErrOutcomeUnknown)
+	var evidenceErr error
+	stopCall := func(service, requestID, phase string) (map[string]any, error) {
+		result, callErr := e.callLeased(withRPCPhase(ctx, phase), robot, service, requestID, map[string]any{}, identity, id)
+		var traceErr *rpcEvidenceError
+		if errors.As(callErr, &traceErr) && traceErr.provider == nil {
+			// Continue only from a successful provider response. Keep the trace
+			// outage visible, but never let it block the owned safety stop.
+			evidenceErr = errors.Join(evidenceErr, callErr)
+			callErr = nil
+		}
+		return result, callErr
 	}
-	if contains(op.Success, at(status, op.StatePath)) || contains(op.Failure, at(status, op.StatePath)) {
-		if err := e.record(ctx, task, step, "CAPABILITY_STOP_CONFIRMED", map[string]any{"operationId": identity, "state": at(status, op.StatePath)}); err != nil {
-			return fmt.Errorf("%w: stop evidence not persisted", ErrOutcomeUnknown)
+	stopResult := func() error {
+		if evidenceErr != nil {
+			return errors.Join(cause, fmt.Errorf("%w: incomplete stop RPC evidence: %w", ErrOutcomeUnknown, evidenceErr))
 		}
 		return cause
 	}
-	if _, err := e.callLeased(ctx, robot, op.CancelService, id+"/cancel", map[string]any{}, identity, id); err != nil {
-		return fmt.Errorf("%w: cancel reply unavailable", ErrOutcomeUnknown)
+	status, err := stopCall(op.StatusService, "", "stop_status")
+	if err != nil || at(status, op.StatusIdentityPath) != identity {
+		return errors.Join(cause, fmt.Errorf("%w: cannot establish cancellation ownership", ErrOutcomeUnknown), err, evidenceErr)
+	}
+	if contains(op.Success, at(status, op.StatePath)) || contains(op.Failure, at(status, op.StatePath)) {
+		if err := e.record(ctx, task, step, "CAPABILITY_STOP_CONFIRMED", map[string]any{"operationId": identity, "state": at(status, op.StatePath)}); err != nil {
+			return errors.Join(cause, fmt.Errorf("%w: stop evidence not persisted: %w", ErrOutcomeUnknown, err), evidenceErr)
+		}
+		return stopResult()
+	}
+	if _, err := stopCall(op.CancelService, id+"/cancel", "stop_cancel"); err != nil {
+		return errors.Join(cause, fmt.Errorf("%w: cancel reply unavailable", ErrOutcomeUnknown), err, evidenceErr)
 	}
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		status, err = e.callLeased(ctx, robot, op.StatusService, "", map[string]any{}, identity, id)
+		status, err = stopCall(op.StatusService, "", "stop_status")
 		if err == nil && at(status, op.StatusIdentityPath) == identity && (contains(op.Success, at(status, op.StatePath)) || contains(op.Failure, at(status, op.StatePath))) {
 			if err := e.record(ctx, task, step, "CAPABILITY_STOP_CONFIRMED", map[string]any{"operationId": identity, "state": at(status, op.StatePath)}); err != nil {
-				return fmt.Errorf("%w: stop evidence not persisted", ErrOutcomeUnknown)
+				return errors.Join(cause, fmt.Errorf("%w: stop evidence not persisted: %w", ErrOutcomeUnknown, err), evidenceErr)
 			}
-			return cause
+			return stopResult()
 		}
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("%w: stop not confirmed", ErrOutcomeUnknown)
+			return errors.Join(cause, fmt.Errorf("%w: stop not confirmed", ErrOutcomeUnknown), err, evidenceErr)
 		case <-ticker.C:
 		}
 	}

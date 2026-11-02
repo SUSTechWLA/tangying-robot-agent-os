@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 增强从原始自然语言、版本、父子计划到命令/RPC/观测的持久回溯，新增只读 trace API、完整性诊断和工作台 JSON 导出；修复状态前后值未落盘、内存证据共享引用、停止身份及部分持久化错误丢失。13 次软件验收保留正常、恢复与安全失败结果；见[变更记录](docs/development/2026-11-02-task-traceability.md)和[实验数据](docs/experiments/2026-11-02-task-traceability/README.md)。
+
 - 将当前指南、README、学习/研究导航与教材同步到自动边缘会话实现 `27cbbbaf9`。教材 3.3.0 纳入接收/任务/命令生命周期、历史预算与回查、token/recipe/KV 成本及家庭巡检案例，新增两幅离线 SVG；保存 3.2.0 恢复清单。此次仅更新文档和出版工具，测试与出版记录见[同步说明](docs/development/2026-11-02-documentation-sync.md)。
 
 - 新增默认启用的本地自动接收会话：按 robot/adapter 隔离、原始输入事件、预分配任务身份、近期历史预算与原文回查、重启查账和数据目录排它锁。用户无需管理 session，任务与批准保持独立；含会话参考的 recipe 降为提示，纯续跑请求要求显式任务恢复。实现与边界见[变更记录](docs/development/2026-11-01-automatic-edge-sessions.md)，不包含多用户隔离、HTTP 重发去重或新的物理验收。
