@@ -1,6 +1,6 @@
 # 模型成本与任务规划经验
 
-本页对应 2026-10-28 的边缘升级。先读[模型输入与调用留痕](edge-brain-model-context.md)，再用这里的配置管理重复规划与成本。GOAL 规划和 RECOVERY 决策复用 action-loop；旧 INTENT/PLANNING 和外部独立模型客户端的覆盖范围需要分别检查，不能把局部记录当作整个云账户账单。
+本页覆盖 2026-10-28 成本升级及截至 `27cbbbaf9` 的自动会话接入（核对日期 2026-11-02）。先读[模型输入与调用留痕](edge-brain-model-context.md)，再用这里的配置管理重复规划与成本。GOAL 规划和 RECOVERY 决策复用 action-loop；旧 INTENT/PLANNING 和外部独立模型客户端的覆盖范围需要分别检查，不能把局部记录当作整个云账户账单。
 
 ## 1. 分开管理输入、输出与后端缓存
 
@@ -9,14 +9,14 @@
 | 语义字段、受保护状态与冷归档 | 减少不必要的模型输入；保留约束和未决动作 | 请求字节不是所有模型通用的精确 token 数 |
 | GOAL / RECOVERY 输出上限 | 限制单次响应的请求预算 | 不能限制所有进程的总账单；后端是否接受字段要实测 |
 | `CACHE_MODE=openai/vllm` | 向支持的后端提供作用域/工具/模型隔离的缓存提示 | 提示不保证命中，也不是共享机器人上下文 |
-| 规划经验 `hint/validated` | 为相似任务提供候选；精确复用可减少模型调用 | 不复用过去的动作、物理完成或运动权限 |
+| 规划经验 `hint/validated` | 为相似任务提供候选；无会话参考且满足重验证条件时可精确复用 | 含自动会话的 Local 降为提示；不复用过去动作、完成或权限 |
 | usage 留痕与汇总 | 记录实际返回的用量、结果、耗时和缺失情况 | 未返回 usage 不能记作 0；没有价格表就不计算金额 |
 
 输出预算应先按任务复杂度设置，再对照 `invalid_decision`、重试轮次、完成率和真实 usage 调整。把输出上限调得过低可能截断工具参数，反而触发额外决策；不能只比较一次调用的 token。必要上下文装不下时应缩小任务阶段或工具目录，不能删掉批准范围或未决动作。
 
 ## 2. 规划经验的生命周期
 
-2026-11-01 自动会话增量：当规划上下文带有 session 参考时，精确 recipe 也只作为提示，必须重新进入模型判断。默认 Local 任务入口已启用自动会话，因此当前 `validated` 不会在该路径直接跳过 GOAL 模型。未接入会话的 Worker 等路径仍按下列规则重验证。此取舍防止相同目标文本忽略不同历史；应结合真实 usage 比较成本，不能假定本轮升级必然降低 token。见[会话实现](../development/2026-11-01-automatic-edge-sessions.md)。
+当规划上下文带有 session 参考时，精确 recipe 也只作为提示，必须重新进入模型判断。默认 Local 任务入口已启用自动会话，第一轮也有非空会话投影，因此 `validated` 不会在该路径直接跳过 GOAL 模型。未接入会话的 Worker 等路径仍按下列规则重验证。此取舍防止相同目标文本忽略不同历史；应结合真实 usage 比较成本，不能假定接入会话必然降低 token。[会话手册](../operations/automatic-edge-sessions.md)说明使用范围，[实现记录](../development/2026-11-01-automatic-edge-sessions.md)解释设计。
 
 第一版保留的是**通过 `freezeCalls` 校验的规划草案**。它不是“已成功执行的技能库”：保存计划时机器人可能尚未被批准。经验中只保留目标、作用域摘要、候选调用和规划阶段语义查询，来源和本轮使用方式进入 `PlanningTrace`。完整任务和实际执行证据继续由原任务库管理。
 
@@ -24,7 +24,7 @@
 flowchart TD
     Goal[新自然语言目标] --> Catalog[读取当前机器人能力目录]
     Catalog --> Lookup[按机器人、模型、目录、grants、进度查询经验]
-    Lookup --> Exact{目标精确相同且存在重验证读?}
+    Lookup --> Exact{无会话参考且目标精确相同<br/>存在重验证读?}
     Exact -->|validated 模式| Reads[重新执行原规划只读查询]
     Reads --> Equal{当前语义字段与原记录相同?}
     Equal -->|是| Freeze[用当前规则重新 freeze 候选]
@@ -59,7 +59,7 @@ AGENT_RECOVERY_OUTPUT_TOKENS=1024
 AGENT_MODEL_USAGE_FILE=/var/lib/tangying-agent/model-usage.jsonl
 ```
 
-Worker 的 GOAL 使用同名环境变量；当前 Worker 没有模型 RECOVERY 接线，RECOVERY 额度用于 Local。显式设置阶段输出上限前，先将对应模型路由配置为 `openai`（兼容服务），确定性路由会拒绝该额度配置。先用 `hint` 对照测试，再为已知重复目标启用 `validated`；`off` 或不设置维持原规划行为。Local 和 Worker 均保存到自己的原 SQLite 数据库，无额外网络服务。配置检查拒绝未知模式；变更模型路由后使用新的经验命名空间。无 GOAL 模型的确定性解析不启用经验流程。
+Worker 的 GOAL 使用同名环境变量；当前 Worker 没有模型 RECOVERY 接线，RECOVERY 额度用于 Local。显式设置阶段输出上限前，先将对应模型路由配置为 `openai`（兼容服务），确定性路由会拒绝该额度配置。先用 `hint` 对照测试，再在未接入会话且适合重验证的路径评估 `validated`；Local 自动会话中的两种模式均只给提示。`off` 或不设置停止使用规划经验，不关闭自动会话。Local 和 Worker 均保存到自己的原 SQLite 数据库，无额外网络服务。配置检查拒绝未知模式；变更模型路由后使用新的经验命名空间。无 GOAL 模型的确定性解析不启用经验流程。
 
 Local 启动和工作台模型设置重载都会读取私有配置中的 recipe 模式；重载先验证全部替代对象，失败保留原运行设置并回滚本次设置文件。单独编辑文件不会自动触发监听，需通过现有模型设置保存流程重载或重启。模式变更影响新规划；已经开始的调用仍完成其原本的配置快照。Worker 的环境变量变更需要重启进程。
 
@@ -102,6 +102,8 @@ python3 scripts/model_usage_report.py /var/lib/tangying-agent/model-usage.jsonl 
 ## 4. 如何比较效果
 
 用相同目标、机器人目录、初始语义条件和配置分别执行 `off`、`hint`、`validated`；再加入状态变化、不同目标、重启、超期、权限拒绝和取消负例。至少记录：模型调用数、Provider 查询数、请求字节、返回的 prompt/completion/cached tokens、usage 缺失率、规划耗时、计划有效率、任务最终结果以及 unknown/拒绝次数。
+
+同时记录是否接入自动 session、历史轮次、历史内联/外置字节与回查次数。Local 自动会话下 `hint/validated` 都不会得到精确跳过模型路径，不能把它们当作“有无模型”的对照；会话没有公开开关，测试旧路径应明确使用未装配会话的服务夹具或相应 Worker 场景，保留代码与入口身份。
 
 对实际返回 prompt 与 cached 两字段的样本集合 \(S\)，可以计算 \(\sum_{i\in S}cached_i / \sum_{i\in S}prompt_i\)；分母为零时指标未定义。不能把只返回 completion 的样本加入 prompt 分母，也不能把重复归档的同一个调用计费两次。相似提示是否省 token 需测量：它本身增加少量输入，只有减少重复查询或修正轮次时才可能降低总成本。
 

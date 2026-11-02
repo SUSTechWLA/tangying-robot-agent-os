@@ -4,6 +4,12 @@
 
 共享记录元数据：`id/kind/scope/step_id/attempt_id/source/source_version/observed_ms/valid_until_ms/clock_domain/payload/evidence_ids/supersedes`。时间窗采用 observed_ms ≤ as_of_ms < valid_until_ms；单调时钟只在同一 boot ID 中比较；所有作用域与源认证均需独立校验。
 
+## 当前 Local 会话接线与本字典的关系
+
+`27cbbbaf9` 的自动接收会话没有扩展本页通用生产者 schema。实际 GOAL 路径使用 `agentcontext.Document` 的独立 reference：`planning:session` 保存 `sessionId/turnId/candidateTaskId/sequence/contextSHA256/history/authority=reference_only`；最多八条 `planning:session-input:<turnId>` 保存原始历史及其 SHA。当前用户原句仍是独立 Goal。预审批 scope 为实际 robot，尚无获批 task/revision，不能用候选 ID 回填执行身份。
+
+历史来自 manager 校验过的接收事件，不是新的 observation 或 guard；当前任务状态从任务库读取也不等于实时传感器。长 reference 按既有 `ProjectManaged` 外置，并仅在本轮捕获的归档中回查。离线 legacy parser 不消费这份跨轮参考。字段、事件与预算的实际定义见[会话契约](../../core/agentsession/README.md)，跨域执行仍使用[执行 Basis](../../core/contextcontract/README.md)。
+
 ## goal
 
 用户目标解析器；原始用户要求是权威，模型提取须保留来源。

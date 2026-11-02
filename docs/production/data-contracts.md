@@ -50,6 +50,28 @@ World 的逐实体 Envelope 使用原始 source/sequence/capture/entity 身份�
 
 ## 2. Task 与 TaskRevision
 
+### 自动接收会话与任务绑定
+
+新版 `cmd/local-agent` 给本地 `tasks.Service.Create` 默认装配 `internal/agentsession.Manager`，客户端仍提交原 `request/adapter`。`core/agentsession.Binding` 随 `TASK_CREATED.payload.session` 和任务创建事务一起持久化，字段如下：
+
+| 字段 | 当前含义 |
+| --- | --- |
+| `sessionId`、`turnId` | robot/adapter 分区中的自动会话与单次接收身份；不由用户文本指定 |
+| `taskId` | 开始规划前已分配的候选任务 ID；创建成功后必须与 Task.id 相同 |
+| `robotId`、`adapter` | 已核验本机身份与规范化 adapter；能力计划及 legacy 显式机器人（含 Sequence 子项）必须匹配 |
+| `sequence` | 当前 session 的接收轮次；不是 Task revision 或命令执行序号 |
+| `context`、`contextSHA256` | 接收时捕获的历史参考投影及其 SHA256；不是可继承授权、当前观测或任务完成证明 |
+
+绑定的身份均非空且有效 UTF-8，身份字段最多 256 字节；摘要投影最多 6000 UTF-8 字节，SHA256 用于检测内容不匹配，不提供数字签名或身份认证。任务入口对原始 request 的限制为非空有效 UTF-8、最多 8000 字节，adapter 规范化后最多 128 字节；非法输入返回澄清而不预留接收轮次。当前绑定不是新的顶层 HTTP 请求字段。
+
+接收状态复用 `core/eventstore` 的 aggregate/event 表：聚合为 `intake_session`，键由 `intake-session/` 加 robotId、分隔符及 adapter 的哈希组成。`SESSION_TURN_RECEIVED` 先保存完整原句、原文摘要、候选 task ID、绑定及轮换原因；`SESSION_TURN_ENDED` 记录接收结论；`SESSION_TURN_RECOVERED` 表示下次接收核对了旧 pending。状态与对应事件在自己的版本 CAS 事务中一起提交，任务创建是另外一次事务，不能声称 session 与 task 跨聚合原子提交。
+
+两个事务之间的中断由预分配 task ID 解决：已有 task 且 `TASK_CREATED` 绑定匹配，恢复 `task_created` 关联；没有 task，记 `interrupted` 并禁止自动重放。`intake_failed` 表示接收/规划/创建过程未形成 task；这些 disposition 均不是物理任务状态。即使接收结论已经结束，task 也可能未批准、正在执行或最终失败。
+
+原文事件是来源，近期最多 8 轮、单条预览最多 512 字节，摘要超出 6000 字节会移除最旧投影；原文回取校验确切源事件版本及摘要，再作为独立 reference 进入 managed 上下文。默认满 32 轮或空闲 30 分钟时在下次接收轮换，不删除审计事件或取消 Task。原文归档、接收状态与模型 KV cache 各有生命周期。
+
+当前仅本地单操作员范围，不含用户/租户隔离、公开 session 管理 API 或外部 POST 创建幂等。Worker 和 `/v1/objectives` 继续使用独立的父目标合同与检查点。操作和取证见[自动会话手册](../operations/automatic-edge-sessions.md)。
+
 ### 单机器人相机证据
 
 严格 RGB-D 观测使用同一个采集返回 RGB、深度预览和 `reconstruction`。protobuf `Observation.compressed_depth_image`（10）与 `depth_image_media_type`（11）是新增可选字段；预览 PNG 不是原始米制深度，测量与算法使用 RGB-D provider 内部浮点数组。Local 实时接口校验图像格式、采集时间与 profile 新鲜度，缺失/过期不会返回伪造图像。`ObserveRequest.streams` 支持 `entities/rgb/depth/reconstruction/robot_state`；空列表保留兼容行为。
@@ -81,7 +103,7 @@ TaskRevision 内容不可变；生命周期放在外层 RevisionRecord 的 `stat
 
 ### 意图中的实体与起点
 
-`skills/manipulation.Intent` 的 `object`、`source`、`destination` 是独立 `EntitySelector`，各自可含 category、attributes、relation；不能从整句中取一个颜色或方位填到所有角色。同句后续“它”绑定前一步物体，未明确起点时以前一步目的地作为 source。新请求不继承上一任务的指代。
+`skills/manipulation.Intent` 的 `object`、`source`、`destination` 是独立 `EntitySelector`，各自可含 category、attributes、relation；不能从整句中取一个颜色或方位填到所有角色。同句后续“它”绑定前一步物体，未明确起点时以前一步目的地作为 source。新请求的 legacy Intent 不继承上一任务的指代；GOAL 可读会话参考，但执行绑定仍依据本轮原句、冻结提案和新鲜观测。
 
 `edge/robotclient.Ground` 对物体与目的地做唯一匹配；source.category 非空时还要求唯一匹配起点，且物体在本次 Runtime 观测中的 `relation` 为 `inside:<source-id>` 或 `on:<source-id>`。关系缺失、持物、位置不符或多义都会失败。这里的 Runtime 单字符串 relation 与 World 实体的 `relations` 映射属于不同边界，provider 应按各自类型输出。
 

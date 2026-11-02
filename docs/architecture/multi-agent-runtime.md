@@ -2,6 +2,8 @@
 
 2026-10-16 按 `821659df` 核对。本页说明 Local 的 `agentruntime` 事件运行时；Local 与 Worker 的新增目标通道同时复用[Edge Host](hierarchical-edge-objectives.md)中的 Task 规划、Ops 诊断与 Recovery 建议。两套机制共享任务事实与执行器，但 Worker 没有复制 Local 的整个事件总线拓扑。通讯、上下文一致性及多机器人协作见[长程协作实现导读](long-horizon-collaboration.md)。
 
+2026-11-02 按 `27cbbbaf9` 补齐接收边界：自动 session manager 是 Local 入口的持久接收组件，不是新注册的 `agentruntime.Agent`，不订阅 `ops.*` 代替执行恢复，也不拥有 Runtime 端口。它管理原句与 Task 关联；Task/Ops/Recovery 仍按下表处理执行和诊断。多个角色不会因此共享无范围的聊天历史；详情见[自动会话数据流](edge-agent-communication-and-context.md#83-用户不管理-session系统怎样接收下一句话)。
+
 Local 的事件运行时默认启用三个 Agent：
 
 | 配置名 | 实现 | 职责 | 权限 |

@@ -2,6 +2,8 @@
 
 状态：2026-10-16 以实现提交 `821659df` 核对；起点 `b1223a08`，实施与验证见[可回溯记录](../development/2026-10-15-hierarchical-edge-objectives.md)与[实验报告](../experiments/2026-10-15-hierarchical-edge-objectives.md)。本文描述新增目标通道，原 `/v1/tasks` 的已规划任务通道继续兼容。
 
+2026-11-02 按 `27cbbbaf9` 核对入口差异：Local 的 `/v1/tasks` 已有自动 intake session，`/v1/objectives` 仍按本页的显式目标合同与 `idempotencyKey` 管理。会话历史不自动并入已批准的 objective；Worker 也不共享本地聊天 session。需要修改获批目标应生成相应新合同/版本，不能通过新的会话输入改变父授权。详见[自动会话手册](../operations/automatic-edge-sessions.md)。
+
 ## 职责与部署
 
 ```mermaid

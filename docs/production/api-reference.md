@@ -80,7 +80,9 @@ curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions/2/confirm" \
 
 ## 3. Local Brain HTTP API
 
-2026-11-01：`cmd/local-agent` 默认给 `POST /v1/tasks` 接入自动 intake session。请求仍为原 `request/adapter`，客户端不管理 session ID；`TASK_CREATED.payload.session` 留存 session、turn、预分配 task、robot、adapter、轮次与上下文摘要绑定。控制台访问 token 与该会话不同。纯“继续／重试”等请求返回 422 澄清，已有任务走下表的 resume/reconcile。接收轮次结束不表示任务完成；外部重发 POST 仍无通用幂等保证。数据流与恢复见[实现说明](../development/2026-11-01-automatic-edge-sessions.md)。
+`cmd/local-agent` 默认给 `POST /v1/tasks` 接入自动 intake session（核对 `27cbbbaf9`，2026-11-02）。请求仍为原 `request/adapter`，客户端不管理 session ID；`TASK_CREATED.payload.session` 留存 session、turn、预分配 task、robot、adapter、轮次及上下文摘要绑定。控制台访问 token 与该会话不同。纯“继续／重试”等请求返回 422 `UNSUPPORTED_INTENT` 澄清，已有任务走下表的 resume/reconcile。接收轮次结束不表示任务完成；外部重发 POST 仍无通用幂等保证。使用和中断处理见[会话手册](../operations/automatic-edge-sessions.md)，精确字段见[数据契约](data-contracts.md#自动接收会话与任务绑定)。
+
+自动接收入口限制原始 `request` 非空、有效 UTF-8 且最多 8000 字节，规范化 adapter 最多 128 字节；非法输入在 Begin 前返回澄清，存储或来源校验错误仍是内部故障。根/组合 Intent 中显式机器人必须匹配本机绑定，否则要求切换设备。当前没有 `/v1/sessions` 创建、选择、清空或跨会话搜索 API，也没有用户账户隔离；`POST /v1/objectives` 和云端目标合同保持其独立幂等、批准和检查点语义。
 
 Local Brain 路由由 `console/server.go` 注册：
 

@@ -1,6 +1,6 @@
 # 当前系统架构
 
-> 本页保留架构演进背景，2026-10-16 更新目标入口。当前交付的模块边界、数据流和一致性模型见[完整系统架构](../production/architecture.md)；新接入按[分层目标委托](hierarchical-edge-objectives.md)选择目标包络或旧冻结计划路径。
+> 2026-11-02 按 `27cbbbaf9` 同步入口与会话边界。本页保留架构演进背景；当前交付的模块边界、数据流和一致性模型见[完整系统架构](../production/architecture.md)。新接入按[分层目标委托](hierarchical-edge-objectives.md)选择目标包络或冻结计划路径。
 
 当前单机器人移动主线已提供 [双 RGB-D / RTAB-Map / Nav2 接入](../development/rtabmap-navigation.md)。地图、导航、动作策略与 Agent 分层；页面的观测点云是局部相机测量，独立“导航地图”展示 SLAM 结果，二者不能混称全知环境。
 
@@ -24,11 +24,13 @@ World/Harness 的设计依据保留在[分布式设计](../superpowers/specs/202
                  -> Safety Supervisor -> 驱动、执行器、传感器
 
 独立单机：Local Console/API -> Local Agent + SQLite -> 同一 Edge Host/执行器 -> Robot Runtime
+  /v1/tasks：自动 intake session -> 原句与历史引用 -> 规划草案 -> 独立批准
+  /v1/objectives：显式目标合同与幂等键 -> 批准包络 -> Host 持续细化
 ```
 
 云端是联网机器人的父任务、批准、分配与共享世界权威；边缘拥有授权范围内的子计划和实际执行检查点。模型服务在本机或云端并不改变这一生命周期归属。独立 Local 可使用本机模型离线运行；Fleet 目标不会因断网自动取得离线继续权。任何跨机器人推进都要求新鲜、稳定、可追溯的 `WorldSnapshot` 证据，并使用资源 fencing token 阻止旧协调器或迟到命令。Local Brain 不参与云端一致性域，但复用同一快照与 Runtime 契约。
 
-仿真部署保持同一边界，只替换 Robot Runtime 的后端：
+当前默认 Gazebo 家庭部署保持同一边界，由 `make home-furnished` 启动 ROS 2 / RTAB-Map / Nav2 与 Runtime。地图存在、依赖服务新鲜 ACTIVE 和当前定位有效分别核对，保存地图本身不能证明可导航。具体步骤见[Gazebo 指南](../guides/gazebo-default.md)。以下保留历史 MuJoCo 固定工位拓扑，只用于该后端的回归：
 
 ```text
 ./bin/robot-agent start sim
@@ -51,6 +53,8 @@ Agent 不根据“仿真/实机”分支编排业务逻辑。切换环境只改�
 | Hardware | 控制板、执行器、实体急停和传感器 | 软件层策略 |
 
 Middleware 是应用与 Runtime 的横向基础设施能力，不位于每条机器人调用的串行路径中。Local Brain 使用 SQLite 与内存实现；Fleet 则使用 `fleet/mysql`、`fleet/redis`、事件/Outbox 和可选单主世界快照。不能把 Local 的无数据库服务依赖理解成 Fleet 不需要 MySQL/Redis。
+
+自动接收会话也复用本地 SQLite 的 `core/eventstore.Store`，没有添加独立会话服务。它按本机 robot/adapter 留存输入和任务关系；单写者由数据目录锁与本机 gate 约束，状态更新使用事件版本 CAS。多用户隔离、HTTP 创建重发去重和跨主机 session 协调尚未实现。完整原句与模型投影、Task 批准和 Runtime 执行事实各自保存，见[通信与上下文](edge-agent-communication-and-context.md#8-上下文管理六种状态各有事实来源)。
 
 ## 代码依赖方向
 

@@ -8,13 +8,16 @@ Middleware 为 Local Agent 提供可替换的基础设施能力。核心规则�
 | --- | --- | --- |
 | `tasks.Repository` | 任务、审批、状态和审计事件 | `middleware/sqlite` |
 | `middleware.ExecutionStore` | 物理步骤开始/完成与重启恢复 | `middleware/sqlite` |
+| `core/eventstore.Store` | 会话接收、目标/子账本等聚合的状态与事件 CAS 原子提交 | 已有 `middleware/sqlite`；自动 session 不另加数据库 |
 | `middleware.Queue[T]` | 有界任务交付与背压 | `middleware/memory` |
 | `Publisher[T]` / `Subscription[T]` | 进程内瞬时事件分发 | `middleware/memory` |
 | `Cache` | 可选性能优化 | 暂无，正确性不得依赖缓存命中 |
 | `Locker` / `Lease` | 可选协调与 fencing token | 暂无，单机默认不需要 |
 | `TraceStore` | 结构化 Trace 追加与查询 | 暂无独立适配器 |
 
-独立 Local Brain 安装不需要 PostgreSQL、Redis、Kafka、Docker 或消息代理；Fleet 在 `fleet/mysql`、`fleet/redis` 有另一套部署适配器与运行依赖。接口存在是为了控制依赖方向，不代表必须部署对应产品。
+独立 Local Brain 进程不需要 PostgreSQL、Redis、Kafka 或消息代理；默认 Gazebo/ROS 2 仿真部署另外需要 Docker，不能把 Go 进程的基础设施依赖与仿真环境依赖混为一谈。Fleet 在 `fleet/mysql`、`fleet/redis` 有另一套部署适配器。接口存在是为了控制依赖方向，不代表必须部署对应产品。
+
+上表 `Cache` 指通用 Middleware 端口；当前专用规划经验已通过 `internal/capabilityagent.RecipeMemory` 在 SQLite 聚合中实现。它保存可重验证的候选，不保存运动权限。自动 Local 会话存在时只用作 hint，不走跳过 GOAL 模型的精确复用。模型供应商 KV 缓存、原始会话事件和任务经验分别管理，见[成本指南](../production/model-cost-and-recipes.md)。Local 启动的数据目录及 Runtime 排它锁由 `internal/controllease` 装配，不能将表中尚无通用 Locker 适配器理解成当前没有任何锁。
 
 ## 适配器映射
 

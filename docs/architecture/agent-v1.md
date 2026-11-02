@@ -1,8 +1,8 @@
 # V1 Agent 与 Sim2Real 契约
 
-阅读范围（2026-10-16）：本页保留早期 Agent V1 的意图/执行图契约。当前还有[分层目标通道](hierarchical-edge-objectives.md)，由 Local/Worker 共用 Host 在批准包络内编排；总览与入口选择见[完整架构](../production/architecture.md)。
+阅读范围：本页保留早期 Agent V1 的意图/执行图契约。当前还有[分层目标通道](hierarchical-edge-objectives.md)，由 Local/Worker 共用 Host 在批准包络内编排；2026-11-02 按 `27cbbbaf9` 补齐本地自动会话的区别。总览与入口选择见[完整架构](../production/architecture.md)。
 
-V1 的硬约束是：Agent 能力必须先通过 MuJoCo 闭环，再允许连接 XLeRobot。联网主形态是 Fleet + Edge + Runtime；Local Brain 是独立离线形态。默认 XLeRobot 路径为 ROS2-free direct backend，ROS 2 为可选兼容路径。
+早期 V1 先用 MuJoCo/XLeRobot direct backend 建立闭环。当前入门默认为 Gazebo + ROS 2，AGV、足式与无人机通过 Profile 与设备控制器接入；具体型号仍需现场验收。联网形态是 Fleet + Worker + Runtime，Local 是独立本地入口；模型若使用远端 API，Local 仍依赖该模型服务的可用性。
 
 ## Agent
 
@@ -11,7 +11,9 @@ V1 的硬约束是：Agent 能力必须先通过 MuJoCo 闭环，再允许连接
 1. `deterministic`（默认）：处理中英文 `pick_and_place`、`fetch` 和有序复合请求。
 2. `openai`：完整、已支持的表达仍优先使用确定性解析，保留用户指定的机器人、物体、起点和终点；其余表达才调用 OpenAI 兼容 `chat/completions` 函数工具接口。模型失败则返回原解析错误。
 
-已识别的否定、条件、停止要求，以及部分理解但存在歧义的请求，会要求用户澄清，不交给模型忽略这些约束后继续执行。同一句请求支持“一号机器人”“红色积木”“移到交接点”等表达；后续步骤中的“它”绑定前一步物体，并以前一步终点作为起点。独立请求中的“它”没有跨轮记忆，需要补全物体名称。
+已识别的否定、条件、停止要求，以及部分理解但存在歧义的请求，会要求用户澄清，不交给模型忽略这些约束后继续执行。同一句请求支持“一号机器人”“红色积木”“移到交接点”等表达；后续步骤中的“它”绑定前一步物体，并以前一步终点作为起点。旧 parser 的独立请求中，“它”仍需要补全物体名称。Local 新增的自动 session 会把近期历史作为独立 reference 提供给 GOAL 模型，不改变该离线语法，也不保证任意跨轮指代正确。
+
+自动接收入口保存原句、session/turn 与候选 task ID，创建的 Task 独立审批。显式机器人及 Sequence 子项必须匹配本机绑定；纯“继续／重试”等输入不会自动建立新动作任务。控制台访问 token、接收 session 与任务批准是三个对象，操作见[自动会话手册](../operations/automatic-edge-sessions.md)。后文“多 Agent 迁移默认行为不变”仅描述原事件运行时那次改造，不能用来否定此后的接收流程变化。
 
 修改已有任务时，“最后放到右侧蓝色垫子上”只更新最后一步目的地，并经过版本预览、确认和安全点流程；否定、额外未知动作、多个不明确物体不能被上下文回退丢弃。当前语法不支持任意条件工作流、多物体批量搬运或冰箱开关。支持范围和可复现实测见[自然语言评测](../development/natural-language-evaluation.md)。
 

@@ -2,6 +2,8 @@
 
 本文说明 Fleet 模式下单个边缘 Worker 的可靠性实现、部署配置和故障测试。适用代码为 `cmd/edge-worker`、`edge/worker`、`edge/tasksource` 与 `edge/cloudclient`。Local Agent 使用另一部署入口；两者通过共享 `internal/edgeagent.Host` 处理粗目标，不能同时控制同一个 Runtime。目标合同与操作见[分层架构](../architecture/hierarchical-edge-objectives.md)和[目标运维](../operations/delegated-goal-operations.md)。本文记录的软件验证不等于无人机、无人车或足式机器人已经完成实机验收。
 
+2026-11-02 边界核对：Local 的自动 intake session 管理用户输入和候选任务关联，不替代本页 Worker 的通知、claim、执行 Basis 或完成 outbox。Worker 未接入该会话 manager，不能假定收到 session ID 就拥有执行上下文；其无会话规划经验仍按当前模型配置与重验证规则处理。详见[会话契约](../../core/agentsession/README.md)和[模型成本指南](../production/model-cost-and-recipes.md)。
+
 ## 1. 任务通知与执行授权分开持久化
 
 通知只携带 task ID，表示需要向云端查询。它不能直接授权运动。Worker 使用同一个 SQLite 日志中的独立聚合：

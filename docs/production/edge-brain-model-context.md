@@ -1,12 +1,16 @@
 # 边缘模型请求、缓存提示与失败记录
 
-更新：2026-10-28。适用：`local-agent` / `edge-worker` 的统一目标规划，以及 Local Agent 的受限恢复。它们共用 `internal/actionloop.LLMDecider`；模型返回候选，Host / 执行器 / Runtime 保留动作准入与证据责任。
+更新：2026-11-02，按 `27cbbbaf9` 核对自动会话接入；模型路由与计量实现来自 2026-10-28 增量。适用：`local-agent` / `edge-worker` 的统一目标规划，以及 Local Agent 的受限恢复。它们共用 `internal/actionloop.LLMDecider`；模型返回候选，Host / 执行器 / Runtime 保留动作准入与证据责任。
 
 同日后续增量增加阶段输出预算、可选调用计量账本、离线汇总及持久规划经验，详见[成本与经验运行指南](model-cost-and-recipes.md)。规划经验和后端 KV 前缀缓存是两个机制；前者重新校验候选，后者仅向推理服务发送提示。
 
 ## 1. 实际发送什么
 
 每轮先从持久任务、当前观察与历史形成 managed projection，再发送两条文本消息：固定角色规则的 system，及内容严格等于 `Projection.Text` 的 user。目标在 user 的结构化上下文内。另带当轮工具 schema、`tool_choice=auto`、`parallel_tool_calls=false` 与输出 token 上限。返回必须恰好选择一个当轮工具；内部含点的名字在模型侧使用可逆别名，未提供的工具被拒绝。固定前缀不是绕过审批的理由。
+
+Local 新任务的 GOAL 规划现在额外包含自动接收会话参考：当前原句仍独立作为 goal，sessionId/turnId/候选 taskId、近期请求摘要和账本状态放入 `planning:session`，经来源校验的历史原文放入各自 `planning:session-input:<turnId>` reference。它们经同一 managed 预算外置与回查，不递归拼接上一轮完整模型请求。规划尚无已创建任务，scope 保留真实 robotId；候选 task ID 是参考，不能当作已批准执行身份。
+
+会话摘要至多 6000 字节，最多回取 8 条各不超过 8000 字节的原文；此源载荷上限不代表全部内容都会内联到一次请求，更不等于 token 数。`context_read` 只能读取本次已捕获归档，当前条件仍由 Provider 重新查询。Worker 与目标合同路径没有自动继承这份 Local 接收历史，详见[会话范围与运维](../operations/automatic-edge-sessions.md)。
 
 `ModelRequestJSON` 保留实际 HTTP JSON 正文，`ModelRequestSHA256` 对其取 SHA-256。API Key 在 HTTP header，不写入该正文。源码见 `internal/actionloop/llmdecider.go`、`internal/actionloop/context.go`。这些归档仍可能包含任务、语义观测和参数，应按业务敏感数据管理，不向无关机器人公开。
 

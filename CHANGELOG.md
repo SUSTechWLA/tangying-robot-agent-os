@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 将当前指南、README、学习/研究导航与教材同步到自动边缘会话实现 `27cbbbaf9`。教材 3.3.0 纳入接收/任务/命令生命周期、历史预算与回查、token/recipe/KV 成本及家庭巡检案例，新增两幅离线 SVG；保存 3.2.0 恢复清单。此次仅更新文档和出版工具，测试与出版记录见[同步说明](docs/development/2026-11-02-documentation-sync.md)。
+
 - 新增默认启用的本地自动接收会话：按 robot/adapter 隔离、原始输入事件、预分配任务身份、近期历史预算与原文回查、重启查账和数据目录排它锁。用户无需管理 session，任务与批准保持独立；含会话参考的 recipe 降为提示，纯续跑请求要求显式任务恢复。实现与边界见[变更记录](docs/development/2026-11-01-automatic-edge-sessions.md)，不包含多用户隔离、HTTP 重发去重或新的物理验收。
 
 - 改善家庭巡检的建图准备：操作身份检查防止取消错误会话，租约在建图线程运行前生效，运动故障保留可验证的部分地图与原故障；登记家庭路线从附近起点沿已登记边接入，并保持实时保护圈。Gazebo 点云拒绝证据、来源时间与短暂视觉等待处理，以及隔离试验与失败记录一并增强。代码边界见[实现说明](docs/development/2026-10-30-exploration-operation-integrity.md)，各次仿真和巡检结论以[续测记录](docs/experiments/2026-10-30-patrol-continuation.md)为准；不代表未知环境覆盖或实机认证。

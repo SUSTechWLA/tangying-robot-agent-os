@@ -1,5 +1,7 @@
 # 躺营 · Tangying Robot AgentOS 部署与运维手册
 
+当前自动接收入口（`27cbbbaf9`，2026-11-02）见[会话操作与恢复](../operations/automatic-edge-sessions.md)、[绑定数据契约](data-contracts.md#自动接收会话与任务绑定)和[模型请求](edge-brain-model-context.md)。Local 自动维护输入与任务关联，Worker/云端目标合同保持独立；控制台 token、接收 session 和执行权限分别管理。
+
 2026-10-28 新增[模型成本与规划经验](model-cost-and-recipes.md)：GOAL/RECOVERY 输出预算、调用用量留痕、重复目标重验证和相似目标提示。系统现状及本轮验证见[升级记录](../development/2026-10-28-edge-scalability.md)。
 
 按实际操作顺序查阅[部署与运维导航](../operations/README.md)，按文件查阅[全量分类目录](../catalog.md)。本目录同时包含接口手册和带版本的验收快照。

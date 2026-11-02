@@ -2,6 +2,8 @@
 
 Orin NX 有两种部署方式，**同一台 Robot Runtime 同一时刻只启用一种任务权威**。`local-agent` 管理该机器人的本机 SQLite 任务账本、量化模型和执行闭环；`edge-worker` 领取云端 Fleet 的获批目标或兼容旧计划，并与 Local 共享 `internal/edgeagent.Host` 在授权内编排、执行和核验。两种进程都在确认 Runtime 身份后按 Runtime 地址取得同机控制锁；连接同一地址的第二个进程启动会失败。两个生产配置必须使用相同规范地址（模板为 `127.0.0.1:50051`）。跨主机部署及同一 Runtime 的不同地址别名仍必须由运维保证控制权唯一，不能把同机文件锁当作分布式 fencing。
 
+新版 Local 另在打开状态和 Runtime 客户端前持有数据目录 `.agent-owner.lock`，为自动输入会话及任务恢复限定单写者；Worker 的云端父目标、claim 和检查点保持原合同。升级 profile 前先停旧进程并保留共享卷，不能删除锁文件解除占用。Local 自动 session 不需要单独中间件或迁移，也没有多用户隔离；[会话运维](../operations/automatic-edge-sessions.md)说明默认预算、原句关联、重启查账及 recipe 降为提示的行为。
+
 | 运行方式 | Orin NX 进程 | 任务权威 | 模型调用 |
 | --- | --- | --- | --- |
 | 单机器人自治 | `local-agent` + Robot Runtime + 可选本地量化推理服务 | Orin NX 的 SQLite | 意图、规划、恢复可分别用本地模型、确定性逻辑或 Fleet 大模型工具 |

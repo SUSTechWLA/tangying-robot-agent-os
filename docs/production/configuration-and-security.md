@@ -39,6 +39,10 @@ Local 新增 `--robot-safety-profile` / `ROBOT_SAFETY_PROFILE` 显式配置，�
 
 ### 存储与 Agent
 
+当前 Local 默认在原 SQLite 中保存自动接收会话，不需要独立服务或新环境变量；30 分钟空闲、32 轮轮换及 8 轮近期历史等参数当前固定在代码中。`AGENT_GOAL_RECIPE_MODE=off` 只停止规划经验，不关闭会话记录。data-dir 的 `.agent-owner.lock` 限制本机单写者；升级先停旧进程，不通过删除锁或任务库解冲突。完整范围见[会话使用与部署](../operations/automatic-edge-sessions.md)。
+
+控制台 token 只提供现有访问守卫，不是用户或租户身份。自动会话按 robot/adapter 分区，多人共用同一 Agent 会共享近期输入。原始目标、会话预览与模型请求归档可能含敏感业务内容，必须与任务数据库一起限制访问、备份及脱敏；不能把单操作员入口直接暴露为多人聊天服务，也不能把 sessionId 当作访问凭据。
+
 | 变量 | 说明 |
 | --- | --- |
 | `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` | Task/Event/Outbox；两个密码均为秘密 |

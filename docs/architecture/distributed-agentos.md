@@ -2,6 +2,8 @@
 
 2026-10-16 按实现提交 `821659df` 核对。联网形态为 Fleet + Worker，独立单机形态为 Local Agent；两种边缘入口共享 `internal/edgeagent.Host`、能力执行器与 Runtime 契约。新增目标通道由云端提交粗目标和授权包络，批准后边缘自主编排、诊断并受控重规划；原 `/v1/tasks` 冻结计划通道保留。详见[分层目标架构](hierarchical-edge-objectives.md)和[目标接入](../guides/delegated-edge-goals.md)。代码入口和依赖方向见[开发代码地图](../development/principles.md)，完整数据流见[系统架构](../production/architecture.md)。
 
+2026-11-02 按 `27cbbbaf9` 同步：Local 任务入口已自动维护接收 session/turn，不要求用户创建模型会话。接收原句、近期 reference 与 Task 关联进入既有 SQLite；Worker 仍以批准合同、claim 和执行 Basis 接收工作。两者的上下文不可用同一个 session ID 互换。当前会话是单操作员本机范围，不是跨机共享聊天或租户系统，详见[会话与跨域数据流](edge-agent-communication-and-context.md#83-用户不管理-session系统怎样接收下一句话)。
+
 v0.7.0 新增 Agent 注册发布权限、精确故障因果链、长历史预算与归档、云边执行 Basis 和 v2 完成收尾。新增功能与各证据层的完整说明见[长程任务、多 Agent 通讯与异构协作](long-horizon-collaboration.md)。异构 Profile 接入、按序双机交接及单机器人长程实测分别成立，不等于异构机群自动分工已经完成。
 
 当前扩展性评价、各模块权威来源、通信边界和后续验收顺序见[模块化与扩展性](modular-extensibility.md)。本轮将云边共享值/存储端口下沉到 core，执行摘要校验放入 orchestration，SLAM 工作流改用明确的 Provider 合同。
@@ -29,6 +31,8 @@ Tool Catalog 描述可用能力，Observation Registry 描述验证来源，两�
 ## 持久化与单写范围
 
 Local 使用 SQLite；Worker 也在边缘 SQLite 保存执行阶段、`edge-goal/<task>/<revision>` 检查点和独立的 `edge-child/<childId>` 追加式账本。Fleet 使用 MySQL Task/Revision/Event/Outbox、Redis 队列/租约等适配器。父授权不随子计划变化，模型只接收有预算的进度视图；完整历史参与重复写额度检查，不能靠压缩抹去未决动作。WorldHub 的 `FLEET_WORLD_SNAPSHOT_PATH` 可保存同机单主 checkpoint；Compose 默认使用持久卷。恢复保留世界与源序列身份，旧观测不会因此变成新证据，delta 历史需要客户端重同步。
+
+Local 的 `intake-session/<robot+adapter digest>` 聚合先记录输入与候选 taskId，再规划和提交任务。进程重启后只按该 ID 核对是否已创建，不自动重放动作；这项恢复与 Worker `ACCEPTED/EXECUTED/COMPLETED` 检查点承担不同职责。Local 启动在打开 journal 前取得 `.agent-owner.lock`，旧版进程须由部署先停止。本机文件锁和 SQLite CAS 不提供跨主机主从选举。
 
 本版另外用不可变完成回执、pending gate 和 finalize outbox 恢复成功事务之后的部分收尾。生产中心领导权使用共享 Redis 租约和唯一进程 incarnation；旧 coordinator 混跑仍须由部署排除。这解决单主进程重启的一部分状态恢复，不提供跨主机共识或跨存储事务。文件锁/损坏/保存失败应失败关闭；不能多开 writer、删除快照或降低 token 来“恢复服务”。详细行为见[部署与容量](../production/deployment-and-capacity.md)。
 

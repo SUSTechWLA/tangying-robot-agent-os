@@ -9,27 +9,15 @@
 
 ### 面向长程任务的机器人边缘大脑：目标编排、受控执行、持久通信与任务回溯。
 
-一套以单机器人自治为基础的**分布式 Robot AgentOS**。云端给目标和授权范围，边缘 Agent 根据本机能力编排细步骤；Robot Runtime 连接 ROS 2 控制器、传感器与仿真。任务、动作和观测分别留存，遇到未知结果先对账。家庭 Gazebo 是参考场景，ROS 2 Profile 为 AGV、足式和无人机提供共用接入合同。
+一套以单机器人自治为基础的**分布式 Robot AgentOS**。云端给目标和授权范围，边缘 Agent 根据本机能力编排细步骤；Robot Runtime 连接 ROS 2 控制器、传感器与仿真。任务、动作和观测分别留存，遇到未知结果先对账。默认参考场景为 Gazebo 家庭场景，ROS 2 Profile 为 AGV、足式和无人机提供共用接入合同。
 
-**当前定位：受控集成与实机测试候选。** 具体大疆飞控、宇树控制器和 AGV 底盘仍需按型号完成驱动、定位、停止及现场验收。版本徽章指最近的软件发布 `v0.7.0`；主分支后续增量列在 [Unreleased](CHANGELOG.md#unreleased)，教材单独使用 3.2.0 版次。
+**当前定位：受控集成与实机测试候选。** 具体大疆飞控、宇树控制器和 AGV 底盘仍需按型号完成驱动、定位、停止及现场验收。版本徽章指最近的软件发布 `v0.7.0`；主分支后续增量列在 [Unreleased](CHANGELOG.md#unreleased)，教材单独使用 3.3.0 版次。
 
 **第一次来：**先看[项目框架](#项目框架)和[目录说明](#目录说明)，再按[你的工作选择入口](#新人从哪里开始)。想直接体验，跳到[跑起来](#跑起来)。
 
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
 **边缘与云端开发共同入口：**[消息传递、上下文管理与核心 Harness](docs/architecture/edge-agent-communication-and-context.md)，说明本机、机器人间、云边和 ROS 2 通道的字段与权威边界；[本次系统评估](docs/development/2026-10-28-system-upgrade-assessment.md)与[升级记录](docs/development/2026-10-28-edge-scalability.md)说明当前优先级、改动和验证范围。
-
-2026-10-28 增量聚焦持续运行：当前协作视图与历史 feed 分离，长任务审计增量写入，模型用量可统计，重复目标保留可校验的规划经验。缓存命中不代表任务已完成；完整机制及配置见[模型成本与任务经验](docs/production/model-cost-and-recipes.md)。前一轮的授权竞态、预算停止、缓存提示和失败回溯修复见[可靠性记录](docs/development/2026-10-28-edge-brain-reliability.md)。
-
-同日[任务复测](docs/experiments/2026-10-28-edge-task-validation/README.md)完成 Gazebo 三机器人完整路线（30 次导航与 30 次独立到达确认）及独立场景 6 项停止测试，并[修复](docs/development/2026-10-28-task-validation-fixes.md)取消后的无效规划重试、模型计量写入失败继续请求、小批次通信饥饿、异常 ACK 接受和停止就绪误判。模型/通信补丁另经软件回归；UAV 接触通道覆盖仍未证实，严格安全指标保持未通过，完整失败记录与源码版本一并留存。
-
-上一轮工作台真实用户流程检查见[浏览器到任务收尾验收](docs/experiments/2026-10-28-user-workbench-e2e/README.md)与[实现说明](docs/development/2026-10-28-workbench-e2e-hardening.md)：区分保存地图与实时导航依赖，改进批准后入队重试、执行收尾、物理结果回放、建图相机和 GOAL 统计。只读任务完整收尾与未批准草案取消已验证；本轮家庭完整巡检仍因地图覆盖和桌边安全包络阻塞而未完成。实际失败与重测分别留存，不能把“接口可访问”当成物理任务成功。
-
-后续续测在独立 Gazebo 家庭场景完成卧室→卫生间→客厅巡检，保留两轮扫描失败和一次成功的分开记录。路线接入、传感器时效、故障部分地图和操作身份改进见[实现说明](docs/development/2026-10-30-exploration-operation-integrity.md)，逐次实测和最新结论见[巡检续测记录](docs/experiments/2026-10-30-patrol-continuation.md)。登记路线和保存部分地图均不等于未知环境全覆盖，也不代替实际到位证据。
-
-单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
-
-空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
 
 ```text
 从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
@@ -121,6 +109,8 @@ Local Agent 和 Fleet Worker 是两种边缘部署入口，共用目标核心；
 
 ## 通信、上下文与模型成本
 
+学习当前完整流程，先读[系统速读与对象关系](docs/learning/current-system.md)；自动会话的日常使用与升级排障见[操作手册](docs/operations/automatic-edge-sessions.md)。
+
 **本地任务会话由系统自动管理。** 用户继续在工作台输入自然语言，无需创建或选择 session；Local Agent 按本机机器人与 adapter 保存输入轮次、任务关联和近期历史，重启后按预分配 task ID 查账。原始输入独立保存，长历史沿既有上下文预算外置并可回查。会话提供参考，任务批准和物理结果仍由任务与 Runtime 账本决定。当前面向本地单操作员，云端目标合同保持独立；纯“继续／重试”须进入确切任务的恢复入口。实现、数据流和边界见[自动边缘会话](docs/development/2026-11-01-automatic-edge-sessions.md)，学习说明见[教材自动会话补充](book/updates/2026-11-01-automatic-edge-sessions.md)。
 
 | 边界 | 传递什么 | 谁维护真实状态 |
@@ -136,6 +126,22 @@ Local Agent 和 Fleet Worker 是两种边缘部署入口，共用目标核心；
 **降耗分三层。** 控制模型输入和输出预算；可选后端前缀缓存提示；再利用本机持久规划经验。精确重复需重新查询规划条件并校验目录、授权和进度，相似任务只给一个有界参考。真实 API usage、缺失统计、输入字节和调用耗时分别记录，不把节省的调用次数换算成未经测量的费用。配置与导出方法见[模型成本与任务经验](docs/production/model-cost-and-recipes.md)。
 
 自动会话接入后，Local 的规划经验保守降为提示，避免相同句子在不同历史下直接跳过模型；会话持久化与供应商 KV 缓存是两套机制。当前 API 尚无任务创建重发去重，响应丢失时先查任务记录；自动会话不会重放未决机器人动作。
+
+## 当前能力与验证
+
+以下记录各有源码、场景与测试边界。当前源码已包含自动会话，正在运行的进程是否具备该功能仍取决于其部署版本。
+
+2026-10-28 增量聚焦持续运行：当前协作视图与历史 feed 分离，长任务审计增量写入，模型用量可统计，重复目标保留可校验的规划经验。缓存命中不代表任务已完成；完整机制及配置见[模型成本与任务经验](docs/production/model-cost-and-recipes.md)。前一轮的授权竞态、预算停止、缓存提示和失败回溯修复见[可靠性记录](docs/development/2026-10-28-edge-brain-reliability.md)。
+
+同日[任务复测](docs/experiments/2026-10-28-edge-task-validation/README.md)完成 Gazebo 三机器人完整路线（30 次导航与 30 次独立到达确认）及独立场景 6 项停止测试，并[修复](docs/development/2026-10-28-task-validation-fixes.md)取消后的无效规划重试、模型计量写入失败继续请求、小批次通信饥饿、异常 ACK 接受和停止就绪误判。模型/通信补丁另经软件回归；UAV 接触通道覆盖仍未证实，严格安全指标保持未通过，完整失败记录与源码版本一并留存。
+
+上一轮工作台真实用户流程检查见[浏览器到任务收尾验收](docs/experiments/2026-10-28-user-workbench-e2e/README.md)与[实现说明](docs/development/2026-10-28-workbench-e2e-hardening.md)：区分保存地图与实时导航依赖，改进批准后入队重试、执行收尾、物理结果回放、建图相机和 GOAL 统计。只读任务完整收尾与未批准草案取消已验证；本轮家庭完整巡检仍因地图覆盖和桌边安全包络阻塞而未完成。实际失败与重测分别留存，不能把“接口可访问”当成物理任务成功。
+
+后续续测在独立 Gazebo 家庭场景完成卧室→卫生间→客厅巡检，保留两轮扫描失败和一次成功的分开记录。路线接入、传感器时效、故障部分地图和操作身份改进见[实现说明](docs/development/2026-10-30-exploration-operation-integrity.md)，逐次实测和最新结论见[巡检续测记录](docs/experiments/2026-10-30-patrol-continuation.md)。登记路线和保存部分地图均不等于未知环境全覆盖，也不代替实际到位证据。
+
+单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
+
+空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
 
 ## 目录说明
 
@@ -462,7 +468,7 @@ robot-agent demo
 
 云边和算法扩展的当前能力、模块职责与后续门槛见[模块化与扩展性评价](docs/architecture/modular-extensibility.md)；新的建图实现按[SLAM Provider 指南](docs/development/slam-providers.md)接入。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.2.0：19 章、25 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖执行权威、Harness、失败恢复、跨域消息、模型输入、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.3.0：19 章、27 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖自动会话、执行权威、Harness、失败恢复、跨域消息、真实 token 计量、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
 
 ## 十、这个仓库故意不做什么
 
