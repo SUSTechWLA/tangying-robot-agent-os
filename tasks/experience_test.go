@@ -198,11 +198,23 @@ func TestExperienceFallsBackWithoutEchoingUnknownToolNameInDefaultView(t *testin
 		Revision:   tasks.RevisionRecord{Status: tasks.RevisionActive, Revision: tasks.TaskRevision{TaskID: "task-1", Revision: 1}},
 		Activities: []tasks.ToolActivityInput{{ToolName: "vendor.secret_raw_tool", Status: "RUNNING"}},
 	})
-	if view.Activities[0].DisplayName != "机器人能力" || view.Activities[0].Purpose != "机器人正在执行当前步骤" {
+	if view.Activities[0].DisplayName != "机器人能力" || view.Activities[0].Purpose != "调用任务所需的机器人能力；结果以执行记录为准" {
 		t.Fatalf("fallback=%#v", view.Activities[0])
 	}
 	if bytes.Contains([]byte(view.Activities[0].DisplayName+view.Activities[0].Purpose), []byte("vendor.secret_raw_tool")) {
 		t.Fatal("default view echoed an unknown raw tool name")
+	}
+}
+
+func TestCapabilityContractPostconditionIsNotPresentedAsTransport(t *testing.T) {
+	view := tasks.ProjectExperience(tasks.ExperienceInput{Revision: tasks.RevisionRecord{Revision: tasks.TaskRevision{
+		Steps: []tasks.RevisionStep{{Action: "vendor.inspect", RobotID: "robot-1", ResourceID: "robot-1", RequiredPostcondition: "effect verified by contract", Status: tasks.StepReady}},
+	}}})
+	if len(view.Steps) != 1 || strings.Contains(view.Steps[0].Explanation, "contract") || strings.Contains(view.Steps[0].Explanation, "到") {
+		t.Fatalf("capability contract was turned into a destination: %+v", view.Steps)
+	}
+	if view.Steps[0].Status != tasks.StepReady {
+		t.Fatal("presentation changed execution status")
 	}
 }
 

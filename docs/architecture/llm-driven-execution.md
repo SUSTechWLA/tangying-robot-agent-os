@@ -1,26 +1,27 @@
 # LLM 驱动的执行：让模型在执行过程中选工具与编排
 
-阅读范围（2026-10-16）：本页聚焦旧意图/执行图与动作策略。新目标模式由 Local/Worker 的共享 Host 在批准包络内持续编排；其职责、预算和恢复边界见[分层目标](hierarchical-edge-objectives.md)，不能把下述流程理解成所有任务都由云端预列工具。
+当前阅读范围（2026-11-02，`27cbbbaf9`）：本页先说明今天的决策位置，后半保留把旧 Runner 改为逐步模型决策的设计讨论。Local/Worker 已通过共享 Host 在批准目标包络内持续编排；这与“把每个低层 Runner 步骤都换成一次 LLM 调用”是不同改造，见[分层目标](hierarchical-edge-objectives.md)。
 
-本文回答两件事：**今天每一步是谁在决定**，以及**要改成"执行过程中由 LLM 根据 harness 选择工具调用与编排"需要动什么、不能动什么**。
+本文回答两件事：**当前每一步由谁决定**，以及**若继续改造旧执行图为逐步模型决策，需要保留哪些契约**。
 
 配套阅读：[多 Agent 运行时](multi-agent-runtime.md)、[恢复 Agent](recovery-agent.md)、[生命周期对象](lifecycle-objects.md)。
 
 ---
 
-## 一、今天每一步的决策者（file:line）
+## 一、当前每一步的决策者
 
 | 层 | 谁决定 | 时机 | 硬编码？ |
 | --- | --- | --- | --- |
-| 句子 → 意图 | LLM（`agent/agent.go:91` `llmPlanner.Plan`） | 创建任务时，一次 | 否 |
-| 意图 → 步骤列表（**工具选择 + 编排**） | LLM（`orchestration/llm.go:73` `LLMPlanner.Plan`）：整份 Bundle、按技能清单校验、可采样共识 | **计划期，一次** | 否 |
-| 步骤 → 动作 chunk（关节序列） | Policy Provider（VLA / 模仿学习 / RL），`docs/production/architecture.md:124` 明写"不在 Agent 内硬编码关节序列" | 执行每一步时 | 否 |
-| **执行中出现意外** | **没有人**：`executePlan` 按 `graph.Order` 走完，失败即中止（`edge/agent/runner.go:342`） | — | — |
+| 用户输入 → 接收关联 | `internal/agentsession` 保存原句、session/turn 与候选 task ID | Local 创建任务前 | 确定性，不执行动作 |
+| 原句 → legacy 意图/执行图 | `agent/intent` 规则优先、可选兼容模型；`orchestration.Planner` 形成旧图 | 创建任务时 | 规则与模型均有，按配置选择 |
+| 自然语言 → 能力计划 | `capabilityagent.Planner` 读取受限语义字段，由 GOAL 模型提出候选并确定性 freeze | `/v1/tasks` 审批前；Host 获批目标每代子计划时 | 模型提出，代码校验 |
+| 获批目标 → 剩余工作 | `internal/edgeagent.Host` 检查批准、目录、预算和持久回执，再决定是否生成下一代 | 目标执行与验证之间 | Host 决定准入，模型可规划 |
+| 步骤 → 设备动作 | Runtime 与所配置控制器/Policy Provider | 每次已准入调用 | 具体机器人适配器负责；不要求强化学习 |
+| 意外 → 调查/恢复 | Ops、Recovery、读复验与 Host 监督；未知物理效果停下对账 | 执行失败及恢复时 | 规则及可选模型，受预算与证据约束 |
 
-**所以"硬编码工具调用"这个说法要修正一下**：选工具和编排**已经是 LLM 做的**，而且低层动作也不是硬编码的。
-真正的缺口是**时机**——这个选择在计划期做一次就被冻结成步骤列表，执行期拿到新观测后**没有任何一层会重新决定**。世界和计划不一致时，系统只能中止任务。
+Local 自动会话的历史以独立 reference 进入 GOAL，当前原句和任务批准仍独立；它不会让 legacy parser 自动理解跨轮“它”，也不会让模型续做 UNKNOWN 动作。含会话参考的 recipe 只能提供提示。各路径默认值、缓存与用量见[模型成本指南](../production/model-cost-and-recipes.md)。
 
-这正是要补的：**把"一次性计划"换成"每步之后重新决策"的循环**。
+旧 Runner 仍可以按冻结执行图运行；目标 Host 已提供另一层有界持续细化。因此不能再把“执行中没有人重新决定”当作整个系统的现状。以下第 2–10 节主要保留旧 Runner 改造的设计动机与当时恢复测试；其中默认 `PlanDecider`、接线进度和测试数量不是当前全部目标入口的统一配置或本轮新测试结果。
 
 ## 二、目标
 
@@ -137,7 +138,7 @@ LLM 执行期决策 ──┘
 | 决策循环 `internal/actionloop`：有界、逐轮过门禁、结构化决策账 | ✅ |
 | 批准范围（`Scope`）：范围内才可执行，越界停下等重新批准 | ✅ 34 个测试（含 `-race`），并验证过"去掉该检查测试即失败" |
 | 模型决策器 `LLMDecider`：OpenAI 兼容的 tool-calling，`finish` / `cannot_proceed` 作为结构化控制工具 | ✅ 含假模型服务器的端到端测试 |
-| **接进 runner**（把"走固定列表"换成"每轮问一次"） | ❌ **未做**。执行路径仍是 `graph.Order`。**这是现在最大的一块空缺**，而它的前置件已经齐了：循环、门禁、两种决策器、账本记录都在生产里跑着 |
+| **用模型逐步替换旧 Runner 的 graph.Order** | 这张旧设计表描述的改造尚未整体应用；当前应通过已实现的 Host 目标通道使用有界持续编排，不能将该行解释成全系统尚无模型执行闭环 |
 | **恢复计划的执行通道（①）** | ✅ 已接通：`POST /v1/recovery/execute` + `internal/recoveryexec` + 真实工具注册表 |
 | **恢复计划的自动通道** | ✅ 已接通：`internal/autorecovery` 只跑 `read_only` 步骤，跳过也记账 |
 | **单工具决策器**（没有模型时"看"照常、"改"照停） | ✅ `actionloop.SingleToolDecider`；要参数的工具拒绝调用，且只调用一次 |
@@ -145,7 +146,7 @@ LLM 执行期决策 ──┘
 **恢复通道的实测**（端口 8897，**未配模型**）：`estop.release` → `409` 拒绝；`robot.take_over` → `404` 未知；
 `observe.re-read` → 执行成功但 `verified=false`；`map.activate` → 轨迹含 `approval.operator`，执行体报
 "没有配置决策器"。最后一条正是设计要的样子：**没有模型时它不编造调用**，而把缺决策器如实记进轨迹。
-但复验端口在生产组合根里仍是空的，所以今天每次执行都报"未确认"——见 [恢复 Agent](recovery-agent.md) §9.1。
+当次实测的复验端口未配置，因此该次结果为“未确认”；这不覆盖后来接入的能力只读复验和 Host 子步骤验证，见[长程协作](long-horizon-collaboration.md)。
 
 **端到端实测**（新鲜任务）：自然语言 → 意图 → 分解 1 步 → 批准 → 下发 → 失败
 → `ANOMALY_ABNORMAL_TASK` → `ops.recovery_plan` → `ops.recovery_executed`，全程无人工介入。
@@ -155,7 +156,7 @@ LLM 执行期决策 ──┘
 恢复通道走的是它自己的循环，不是 runner 的那条执行路径。
 
 **现在可以确定的事**：这个机制是可用的——一个模型能驱动循环、它的选择会被 harness 照常门禁、未知结果会立刻终止、每一步都留下可复核的记录。
-**现在还不能说的事**：机器人的实际执行已经变成 LLM 驱动。**还没有**——循环建好了，但没有人用它跑真实任务。
+**该次旧通道测试不能说明的事**：它没有把旧 Runner 全部改成逐轮 LLM 调用。后来的 GOAL/Host 与 Gazebo 自然语言任务应按各自[实验报告](../experiments/README.md)判断，不能反过来把后来结果计入这次旧测试。
 
 接进 runner 是下一步，也是风险最高的一步（物理执行路径）。它需要：
 - `PlanDecider`（现有行为，默认）与 `LLMDecider` 共存，默认不变，可对比；

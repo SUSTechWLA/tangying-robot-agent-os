@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+	"reflect"
 	"sort"
 	"sync"
 
@@ -200,6 +201,9 @@ func (s *MemoryStore) revisionLocked(taskID string, revision uint64) (RevisionRe
 func cloneTask(task *Task) *Task {
 	clone := *task
 	clone.Events = append([]TaskEvent(nil), task.Events...)
+	for index := range clone.Events {
+		clone.Events[index].Payload = cloneAnyMap(clone.Events[index].Payload)
+	}
 	clone.Intent = cloneIntent(task.Intent)
 	if task.Plan != nil {
 		plan := cloneBundle(*task.Plan)
@@ -271,14 +275,56 @@ func cloneAnyMap(input map[string]any) map[string]any {
 	}
 	output := make(map[string]any, len(input))
 	for key, value := range input {
-		switch typed := value.(type) {
-		case map[string]any:
-			output[key] = cloneAnyMap(typed)
-		default:
-			output[key] = typed
+		if value == nil {
+			output[key] = nil
+			continue
 		}
+		output[key] = clonePayloadContainer(reflect.ValueOf(value)).Interface()
 	}
 	return output
+}
+
+// Audit payloads use JSON-shaped containers, sometimes with concrete Go slice
+// or map types before serialization. Preserve those types and nil values while
+// isolating nested containers. Other values (for example time.Time or a typed
+// session binding) stay intact; JSON round-tripping would silently change their
+// types, number precision, or fail on an unrelated non-JSON diagnostic value.
+func clonePayloadContainer(value reflect.Value) reflect.Value {
+	switch value.Kind() {
+	case reflect.Interface:
+		if value.IsNil() {
+			return value
+		}
+		clone := reflect.New(value.Type()).Elem()
+		clone.Set(clonePayloadContainer(value.Elem()))
+		return clone
+	case reflect.Map:
+		if value.IsNil() {
+			return value
+		}
+		clone := reflect.MakeMapWithSize(value.Type(), value.Len())
+		iterator := value.MapRange()
+		for iterator.Next() {
+			clone.SetMapIndex(iterator.Key(), clonePayloadContainer(iterator.Value()))
+		}
+		return clone
+	case reflect.Slice, reflect.Array:
+		var clone reflect.Value
+		if value.Kind() == reflect.Slice {
+			if value.IsNil() {
+				return value
+			}
+			clone = reflect.MakeSlice(value.Type(), value.Len(), value.Len())
+		} else {
+			clone = reflect.New(value.Type()).Elem()
+		}
+		for index := 0; index < value.Len(); index++ {
+			clone.Index(index).Set(clonePayloadContainer(value.Index(index)))
+		}
+		return clone
+	default:
+		return value
+	}
 }
 
 func cloneIntent(intent manipulation.Intent) manipulation.Intent {

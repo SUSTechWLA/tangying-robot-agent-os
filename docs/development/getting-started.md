@@ -2,7 +2,7 @@
 
 目标是先在无硬件条件下理解并运行一条完整任务链，再修改自己负责的层。核对日期：2026-10-16。当前入门使用 **Gazebo 家庭场景**；本页后半保留的 `v0.3.0` 固定工位与离桌导航命令只供历史回归。按模块找代码和测试请从[开发与升级导航](README.md)开始，购机用户另读[实机接入指南](../guides/hardware-agent-integration.md)。
 
-正式软件版本见 [v0.7.0 发布记录](../releases/v0.7.0.md)，后续功能以当前检出的提交、[变更日志](../../CHANGELOG.md)和相应实验报告为准。书籍数字版 `2.2.0` 是独立出版版本，实现复核固定到 `821659df`；阅读书籍不意味着本地工作分支已经包含或发布其后的全部改动。开始前记录 `git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`，不要为跟随本文切换或覆盖正在工作的分支。
+正式软件版本见 [v0.7.0 发布记录](../releases/v0.7.0.md)，后续功能以当前检出的提交、[变更日志](../../CHANGELOG.md)和相应实验报告为准。[书籍数字版 3.3.0](../../book/README.md)是独立出版版本，实现复核为 `27cbbbaf9`；阅读书籍不意味着某个历史检出已经包含其后的全部改动。开始前记录 `git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`，不要为跟随本文切换或覆盖正在工作的分支。本页当前入口说明于 2026-11-02 同步，下面历史回归保留原身份。
 
 ## 环境与第一次运行
 
@@ -78,12 +78,14 @@ make navigation-status
 先读[开发原则与代码地图](principles.md)，再沿以下路径阅读：
 
 1. `web/console_ui.js` 管展示与导航；`web/app.js` 调 API。Local API 在 `console/server.go`，Fleet 在 `fleet/server.go`。
-2. 先识别入口：`POST /v1/objectives` 保存并等待批准粗目标合同；原 `/v1/tasks` 与现有 UI 表单仍先规划、再冻结批准。两条路径不能混用预算与审批假设。
+2. 先识别入口：`POST /v1/objectives` 保存并等待批准粗目标合同；`/v1/tasks` 与现有 UI 表单先自动持久接收原句及 session/turn/候选 task ID，再规划、冻结并等待批准。用户无需选择会话；历史仅是 GOAL 参考，纯“继续”要进入确切任务的恢复入口。两条路径不能混用会话、预算与审批假设。
 3. Local 的 `internal/localapp` 或 Fleet 的 `edge/worker` 装配共享 `internal/edgeagent.Host`。Host 调用 `internal/capabilityagent` 规划、验证子计划，使用持久 Task/Ops/Recovery 逻辑推进；`edge/agent` 继续承担复合机器人闭环，`tasks/` 管批准与不可变版本。
 4. `edge/runtime` 定义语义命令，`edge/robotclient` 映射到 `proto/robot/v1/robot.proto`。
 5. Python `service.py → SafetySupervisor → RobotBackend` 校验并执行；仿真世界返回观测，Fleet 的 `core/harness` 复核后置条件。
 
 推荐先阅读[目标委托接入](../guides/delegated-edge-goals.md)，沿 `core/objective/contract.go → tasks/objective.go → internal/edgeagent/host.go` 追踪权限包络、子计划、检查点和完成核验，再比较 `internal/localapp` 与 `edge/worker` 的入口装配。模型调用在本机或云端不改变边缘的生命周期职责；Local 的事件式 `agentruntime` 与 Host 的监督逻辑也不是同一开关。
+
+理解本地跨次输入，再沿 `tasks/creation_session.go → internal/agentsession/manager.go → internal/capabilityagent/planner.go` 阅读。前者预留并记录输入，中间提供有界近期历史，后者让 GOAL 模型按 reference 阅读；离线 parser 不获得任意跨轮指代理解。首次使用、数据目录锁、响应丢失后查任务和重启处理见[自动会话手册](../operations/automatic-edge-sessions.md)。
 
 任务成功、Runtime 终态、世界观测和 UI 展示各有不同权威，排障用 task/revision/step/command/observation ID 对齐，不改事件来修补显示。
 

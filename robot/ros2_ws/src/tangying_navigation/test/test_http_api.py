@@ -6,10 +6,18 @@ import urllib.error
 import urllib.request
 
 import pytest
-from tangying_navigation.http_api import GoalRegistry, create_http_server
+from tangying_navigation.http_api import GoalRegistry, create_http_server, failure_observation
 
 TOKEN = "test-navigation-token-do-not-print"
 GOAL = {"commandId": "command-1", "goalPose": [0, 0.05, 0, 1, 0, 0, 0], "frameId": "odom"}
+
+
+def test_nav2_diagnostic_is_bounded_and_rejects_invalid_fields():
+    result = failure_observation({"nav2Action": {
+        "status": 6, "errorCode": 208, "errorMessage": "x" * 4096, "arbitrary": "no"}})
+    assert result == {"nav2Action": {"status": 6, "errorCode": 208, "errorMessage": "x" * 2048}}
+    assert failure_observation({"nav2Action": {
+        "status": True, "errorCode": -1, "errorMessage": []}}) == {}
 
 
 class Driver:
@@ -329,7 +337,12 @@ def test_previous_goal_late_callback_cannot_reactivate_or_change_current_goal(bo
     assert registry.active_id == second and len(driver.started) == 2
 
 
-def test_opted_in_driver_stops_for_transient_loss_and_resumes_same_goal(tmp_path, monkeypatch):
+@pytest.mark.parametrize("blockers", [
+    ["HEAD_RGBD_STALE"],
+    ["RTABMAP_MODE_UNAVAILABLE", "LOCALIZATION_UNAVAILABLE", "NAV2_CONTROLLER_SERVER_STATE_STALE",
+     "NAV2_PLANNER_SERVER_STATE_STALE", "NAV2_BT_NAVIGATOR_STATE_STALE"],
+])
+def test_opted_in_driver_stops_for_transient_loss_and_resumes_same_goal(tmp_path, monkeypatch, blockers):
     from tangying_navigation import http_api
     clock = [100.]
     monkeypatch.setattr(http_api.time, 'monotonic', lambda: clock[0])
@@ -338,7 +351,7 @@ def test_opted_in_driver_stops_for_transient_loss_and_resumes_same_goal(tmp_path
     holds = []
     driver.set_observation_hold = holds.append
     original = driver.map_status
-    driver.map_status = lambda: {**original(), 'readinessBlockers': [] if driver.ready else ['HEAD_RGBD_STALE']}
+    driver.map_status = lambda: {**original(), 'readinessBlockers': [] if driver.ready else blockers}
     registry = GoalRegistry(driver, tmp_path/'goals.sqlite')
     goal_id = registry.submit(GOAL)['goalId']
     registry.update(goal_id, 'RUNNING')
@@ -363,12 +376,14 @@ def test_opted_in_driver_stops_for_transient_loss_and_resumes_same_goal(tmp_path
     registry.close()
 
 
-def test_perception_fault_never_uses_transient_hold(tmp_path):
+@pytest.mark.parametrize("blocker", ["VISUAL_QUALITY_LOW", "NAV2_PLANNER_SERVER_INACTIVE",
+                                    "NAV2_CONTROLLER_SERVER_INACTIVE", "NAV2_BT_NAVIGATOR_INACTIVE"])
+def test_perception_fault_never_uses_transient_hold(tmp_path, blocker):
     driver = Driver()
     driver.supports_observation_hold = True
     driver.set_observation_hold = lambda _: pytest.fail('must fail immediately')
     original = driver.map_status
-    driver.map_status = lambda: {**original(), 'readinessBlockers': ['VISUAL_QUALITY_LOW']}
+    driver.map_status = lambda: {**original(), 'readinessBlockers': [blocker]}
     registry = GoalRegistry(driver, tmp_path/'goals.sqlite')
     goal_id = registry.submit(GOAL)['goalId']
     driver.ready = False

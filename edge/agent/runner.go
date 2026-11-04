@@ -627,7 +627,18 @@ func (r *Runner) publishFailedResult(ctx context.Context, task *tasks.Task, comm
 			evidence = []string{id}
 		}
 	}
-	r.publishToolActivity(persistContext, task, command, "FAILED", evidence, reason, result.ObservationID)
+	var diagnostics map[string]any
+	// Diagnostic payloads explain a failure; they never change the failed
+	// outcome or authorize replay. Enforce the bound even for non-gRPC adapters.
+	if len(result.FailureDiagnosticsJSON) <= 16*1024 {
+		if err := json.Unmarshal([]byte(result.FailureDiagnosticsJSON), &diagnostics); err != nil {
+			diagnostics = nil
+		}
+	}
+	if diagnostics["commandId"] != command.CommandID {
+		diagnostics = nil
+	}
+	r.publishToolActivityWithDiagnostics(persistContext, task, command, "FAILED", evidence, reason, result.ObservationID, diagnostics)
 }
 
 func (r *Runner) publishToolActivity(
@@ -639,14 +650,18 @@ func (r *Runner) publishToolActivity(
 	errorText string,
 	receiptObservationIDs ...string,
 ) {
-	// The event bus is an added observer of the same facts the durable task
-	// event stream records. It is published first and independently so that an
-	// absent or slow subscriber changes neither path.
 	receiptID := ""
 	if len(receiptObservationIDs) > 0 {
 		receiptID = receiptObservationIDs[0]
 	}
-	eventID := r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID)
+	r.publishToolActivityWithDiagnostics(ctx, task, command, status, evidenceIDs, errorText, receiptID, nil)
+}
+
+func (r *Runner) publishToolActivityWithDiagnostics(ctx context.Context, task *tasks.Task, command runtime.Command, status string, evidenceIDs []string, errorText, receiptID string, diagnostics map[string]any) {
+	// The event bus is an added observer of the same facts the durable task
+	// event stream records. It is published first and independently so that an
+	// absent or slow subscriber changes neither path.
+	eventID := r.publishAction(ctx, task, command, status, evidenceIDs, errorText, receiptID, diagnostics)
 	if r.TaskEvents == nil {
 		return
 	}
@@ -655,6 +670,10 @@ func (r *Runner) publishToolActivity(
 		"taskRevision": command.TaskRevision, "aggregateVersion": command.AggregateVersion,
 		"stepId": command.StepID, "commandId": command.CommandID, "fencingToken": command.FencingToken,
 		"arguments": command.Parameters,
+	}
+	declareActionEffects(payload, command.Capability)
+	if len(diagnostics) > 0 {
+		payload["diagnostics"] = diagnostics
 	}
 	if eventID != "" {
 		payload["eventId"] = eventID
@@ -665,12 +684,12 @@ func (r *Runner) publishToolActivity(
 	if errorText != "" {
 		payload["error"] = errorText
 	}
-	if len(receiptObservationIDs) > 0 && receiptObservationIDs[0] != "" {
-		payload["receiptObservationId"] = receiptObservationIDs[0]
+	if receiptID != "" {
+		payload["receiptObservationId"] = receiptID
 	}
 	if len(evidenceIDs) > 0 {
 		payload["evidenceSource"] = "post_tool_observation"
-		if len(receiptObservationIDs) > 0 && evidenceIDs[0] == receiptObservationIDs[0] {
+		if receiptID != "" && evidenceIDs[0] == receiptID {
 			payload["evidenceSource"] = "command_observation"
 		}
 	}

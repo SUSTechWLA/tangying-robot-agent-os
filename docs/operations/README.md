@@ -1,5 +1,9 @@
 # 部署、运维与现场交付导航
 
+当前接收入口（`27cbbbaf9`，2026-11-02）：[自动边缘会话使用、部署与排障](automatic-edge-sessions.md)。用户直接输入，系统维护 session/turn、原始指令和任务关联；文档说明创建响应不确定、重启查账、数据目录锁，以及与控制台凭据和云端目标合同的区别。
+
+2026-10-28 成本配置及后续会话接入：[模型成本与规划经验](../production/model-cost-and-recipes.md)。按阶段限制输出、保存调用用量；默认 Local 自动会话中精确经验也降为提示，未接入会话的路径再对照 validated。升级数据库保留原任务、命令与未决事实，详见[兼容和回退](../development/2026-10-28-edge-scalability.md)。
+
 2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。
 
 

@@ -11,25 +11,33 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	Intent   = "INTENT"
-	Planning = "PLANNING"
-	Recovery = "RECOVERY"
-	System   = "SYSTEM"
-	Goal     = "GOAL"
+	Intent               = "INTENT"
+	Planning             = "PLANNING"
+	Recovery             = "RECOVERY"
+	System               = "SYSTEM"
+	Goal                 = "GOAL"
+	MinStageOutputTokens = 128
+	MaxStageOutputTokens = 16384
 )
 
 type Endpoint struct {
-	Provider   string
-	BaseURL    string
-	APIKey     string
-	Model      string
-	Cache      CachePolicy
-	cacheStage string
+	Provider string
+	BaseURL  string
+	APIKey   string
+	Model    string
+	Cache    CachePolicy
+	// OutputTokens overrides the global action-loop output reserve; zero inherits it.
+	OutputTokens int
+	UsageFile    string
+	outputRaw    string
+	cacheStage   string
 }
 
 // Resolve applies per-stage overrides to the legacy AGENT_* defaults. An
@@ -60,7 +68,10 @@ func Resolve(values map[string]string, stage string) Endpoint {
 			apiKey = ""
 		}
 	}
+	outputRaw := strings.TrimSpace(values["AGENT_"+stage+"_OUTPUT_TOKENS"])
+	outputTokens, _ := strconv.Atoi(outputRaw)
 	return Endpoint{Provider: provider, BaseURL: baseURL, APIKey: apiKey, Model: model,
+		OutputTokens: outputTokens, outputRaw: outputRaw, UsageFile: strings.TrimSpace(values["AGENT_MODEL_USAGE_FILE"]),
 		Cache: CachePolicy{Mode: strings.ToLower(strings.TrimSpace(values["AGENT_"+stage+"_CACHE_MODE"])), Namespace: strings.TrimSpace(values["AGENT_"+stage+"_CACHE_NAMESPACE"])}, cacheStage: stage}
 }
 
@@ -75,14 +86,29 @@ func Environment(stage string) Endpoint {
 		}
 	}
 	// Cache hints deliberately have no global fallback across stages/origins.
-	for _, field := range []string{"CACHE_MODE", "CACHE_NAMESPACE"} {
+	for _, field := range []string{"CACHE_MODE", "CACHE_NAMESPACE", "OUTPUT_TOKENS"} {
 		key := "AGENT_" + stage + "_" + field
 		values[key] = os.Getenv(key)
 	}
+	values["AGENT_MODEL_USAGE_FILE"] = os.Getenv("AGENT_MODEL_USAGE_FILE")
 	return Resolve(values, stage)
 }
 
 func (e Endpoint) Validate() error {
+	if e.outputRaw != "" {
+		if value, err := strconv.Atoi(e.outputRaw); err != nil || value <= 0 {
+			return errors.New("stage OUTPUT_TOKENS must be a positive integer")
+		}
+	}
+	if e.OutputTokens != 0 && (e.OutputTokens < MinStageOutputTokens || e.OutputTokens > MaxStageOutputTokens) {
+		return fmt.Errorf("stage OUTPUT_TOKENS must be between %d and %d", MinStageOutputTokens, MaxStageOutputTokens)
+	}
+	if e.OutputTokens != 0 && (!strings.EqualFold(e.Provider, "openai") || e.cacheStage != "" && e.cacheStage != Goal && e.cacheStage != Recovery) {
+		return errors.New("stage OUTPUT_TOKENS is supported only by GOAL and RECOVERY openai-compatible action loops")
+	}
+	if e.UsageFile != "" && !filepath.IsAbs(e.UsageFile) {
+		return errors.New("AGENT_MODEL_USAGE_FILE must be an absolute path")
+	}
 	if err := e.Cache.Validate(); err != nil {
 		return err
 	}

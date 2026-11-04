@@ -1,0 +1,32 @@
+{
+  "image": "docker.io/library/tangying-navigation:user-sim-20261104-001",
+  "base_image": "docker.io/library/tangying-navigation:patrol-trial-20261030",
+  "base_image_id": "sha256:3b59b68b68ae50a8db7e73bcbada35f407bc0dc9c2ff1694cba12c654e15d954",
+  "base_source_sha256": "b4c4315f4c309e86264298d3add49d666dbfbc17dc3477e40fac313ef2aeb1cd",
+  "source_sha256_before": "f60f51236ca0494b3ee03ac70782fb48e8d17115301cf6f70a6e548d5591e9fa",
+  "started_at": "2026-11-04T05:00:41.781092+00:00",
+  "dependency_installation": "inherited from local base, no apt/pip installation",
+  "git_head": "a5dcfc49d3fcf2912bf6948f40a6c5fbd96029d8",
+  "docker_short_name_inspect": "Short image name returned No such image; fully qualified docker.io/library reference resolves.",
+  "command": [
+    "docker",
+    "build",
+    "--pull=false",
+    "--progress=plain",
+    "-t",
+    "docker.io/library/tangying-navigation:user-sim-20261104-001",
+    "--label",
+    "org.tangying.source.sha256=f60f51236ca0494b3ee03ac70782fb48e8d17115301cf6f70a6e548d5591e9fa",
+    "--label",
+    "org.tangying.base.image.id=sha256:3b59b68b68ae50a8db7e73bcbada35f407bc0dc9c2ff1694cba12c654e15d954",
+    "-f",
+    "/Users/wanglian/Projects/tangying-robot-agent-os/artifacts/acceptance/user-sim-20261104-001/image-build/Dockerfile",
+    "/Users/wanglian/Projects/tangying-robot-agent-os"
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-11-04T05:00:48.149976+00:00",
+  "source_sha256_after": "f60f51236ca0494b3ee03ac70782fb48e8d17115301cf6f70a6e548d5591e9fa",
+  "image_id": "sha256:6a62e334f99a90a9057c51423e72110c3d54ae65595efc4309b876b06c745440",
+  "image_source_sha256": "f60f51236ca0494b3ee03ac70782fb48e8d17115301cf6f70a6e548d5591e9fa",
+  "source_stable_during_build": true
+}

@@ -31,8 +31,9 @@ def evidence(tmp_path, *, state="SUCCEEDED", success=True):
         command = f"task-1/command-{sequence}"
         at = 1 + (sequence - 1) * .1
         own = {"position": [1., 0., .15], "quaternionWXYZ": [1., 0., 0., 0.],
-               "linearVelocity": [.01, 0., 0.], "simulationTime": at, "radius": .33}
-        peer = {**own, "position": [3., 1., .15], "linearVelocity": [0., 0., 0.]}
+               "linearVelocity": [.01, 0., 0.], "simulationTime": at, "radius": .33,
+               "robotId": "ground-a", "clockDomain": "simulation", "frameId": "world", "worldId": "field-validation"}
+        peer = {**own, "robotId": "ground-b", "position": [3., 1., .15], "linearVelocity": [0., 0., 0.]}
         rows.append({"sequence": sequence, "capturedAtUnixMs": 900 + sequence * 100,
                      "simulationTime": at, "states": {"ground-a": own, "ground-b": peer},
                      "commands": {"ground-a": {"commandId": command, "reason": "goal_stop", "diagnostics": {}},
@@ -208,3 +209,110 @@ def test_world_geometry_corrects_undersized_declared_spheres_without_changing_ra
     assert result["minimumWorldGeometryGapM"] == result["minimumMeasuredBoundingSphereGapM"]
     assert result["safetyMetricsPassed"] is (separation == 2.)
     assert str(world) in json.loads((tmp_path / "metrics/input-manifest.json").read_text())
+
+
+@pytest.mark.parametrize("mutation", ["robot", "world", "frame", "clock_domain", "nan_clock",
+                                      "clock_regression", "state_clock_regression", "missing_robot",
+                                      "nan_admission", "outside_campaign"])
+def test_foreign_nonfinite_or_missing_measurements_fail_closed(tmp_path, mutation):
+    campaign, hub, summary, events = evidence(tmp_path)
+    rows = [json.loads(line) for line in (hub / "physics.jsonl").read_text().splitlines()]
+    fields = {"robot": "robotId", "world": "worldId", "frame": "frameId", "clock_domain": "clockDomain"}
+    if mutation in fields:
+        rows[1]["states"]["ground-a"][fields[mutation]] = "foreign"
+    elif mutation == "nan_clock":
+        rows[-1]["simulationTime"] = float("nan")
+    elif mutation == "clock_regression":
+        rows[-1]["simulationTime"] = .5
+    elif mutation == "state_clock_regression":
+        rows[-1]["states"]["ground-b"]["simulationTime"] = .5
+    elif mutation == "missing_robot":
+        del rows[0]["states"]["ground-a"]
+    elif mutation == "nan_admission":
+        events[0]["admittedAtUnixMs"] = float("nan")
+    else:
+        summary["endedAtUnixMs"] = 1050
+    (campaign / "summary.json").write_text(json.dumps(summary))
+    (hub / "physics.jsonl").write_text("".join(json.dumps(r)+"\n" for r in rows))
+    (campaign / "ground-a/controller.jsonl").write_text("".join(json.dumps(e)+"\n" for e in events))
+    with pytest.raises(ValueError):
+        analyze(campaign, hub, tmp_path / "metrics")
+    assert not (tmp_path / "metrics/metrics.json").exists()
+
+
+def test_legacy_missing_world_metadata_is_unverified_not_invented(tmp_path):
+    campaign, hub, _, _ = evidence(tmp_path)
+    rows = [json.loads(line) for line in (hub / "physics.jsonl").read_text().splitlines()]
+    for row in rows:
+        del row["states"]["ground-a"]["worldId"]
+    (hub / "physics.jsonl").write_text("".join(json.dumps(r)+"\n" for r in rows))
+    result = analyze(campaign, hub, tmp_path / "metrics")
+    assert result["successCount"] == 1  # Historical task state remains available.
+    assert not result["physicsSourceIdentity"]["verified"]
+    assert result["physicsSourceIdentity"]["missingFields"] == ["ground-a:worldId"]
+    assert not result["endToEndClosureVerified"] and not result["safetyMetricsPassed"]
+
+
+def test_declared_unfinished_trials_remain_in_success_denominator(tmp_path):
+    campaign, hub, summary, _ = evidence(tmp_path)
+    summary.update(success=False, seeds=[3, 7])
+    (campaign / "summary.json").write_text(json.dumps(summary))
+    result = analyze(campaign, hub, tmp_path / "metrics")
+    assert result["plannedTaskCount"] == 2 and result["observedTerminalTaskCount"] == 1
+    assert result["successCount"] == 1 and result["unobservedTaskCount"] == 1
+    assert result["successRateOverPlannedTasks"] == .5 and result["missingDeclaredTrials"] == [7]
+    assert not result["taskCampaignSuccess"] and not result["endToEndClosureVerified"]
+
+
+def test_nonterminal_task_cannot_be_reported_as_final(tmp_path):
+    campaign, hub, _, _ = evidence(tmp_path, state="EXECUTING", success=False)
+    with pytest.raises(ValueError, match="not terminal"):
+        analyze(campaign, hub, tmp_path / "metrics")
+
+
+@pytest.mark.parametrize("journal_state,terminal_events", [("FAILED", True), ("SUCCEEDED", False), ("SUCCEEDED", True)])
+def test_checkpointed_sqlite_proves_closure_beyond_early_api_poll(tmp_path, journal_state, terminal_events):
+    import sqlite3
+
+    campaign, hub, _, _ = evidence(tmp_path)
+    path = campaign / "ground-a/local-agent/agent.db"
+    path.parent.mkdir()
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE tasks(id TEXT,state TEXT)")
+        db.execute("CREATE TABLE task_events(task_id TEXT,sequence INTEGER,type TEXT,payload_json TEXT)")
+        db.execute("INSERT INTO tasks VALUES('task-1',?)", (journal_state,))
+        if terminal_events:
+            db.executemany("INSERT INTO task_events VALUES('task-1',?,?,?)", [
+                (1, "state.transition", json.dumps({"state": journal_state})),
+                (2, "LOCAL_RUN_SUCCEEDED", "{}")])
+    if journal_state == "FAILED":
+        with pytest.raises(ValueError, match="journal terminal state contradicts"):
+            analyze(campaign, hub, tmp_path / "metrics")
+    else:
+        result = analyze(campaign, hub, tmp_path / "metrics")
+        assert result["taskJournalsVerified"] is terminal_events
+        assert result["endToEndClosureVerified"] is terminal_events
+        assert str(path) in json.loads((tmp_path / "metrics/input-manifest.json").read_text())
+
+
+def test_approval_only_final_snapshot_cannot_prove_durable_closure(tmp_path):
+    campaign, hub, _, _ = evidence(tmp_path)
+    result = analyze(campaign, hub, tmp_path / "metrics")
+    assert result["taskCampaignSuccess"] and result["successCount"] == 1
+    assert not result["taskJournalsVerified"] and not result["endToEndClosureVerified"]
+    assert result["tasks"][0]["journalTerminalVerification"]["status"] == "journal_not_retained"
+
+
+def test_sensor_counter_presence_does_not_invent_full_coverage(tmp_path):
+    campaign, hub, _, _ = evidence(tmp_path)
+    rows = [json.loads(line) for line in (hub / "physics.jsonl").read_text().splitlines()]
+    for i, row in enumerate(rows):
+        row["imuCounts"] = {"ground-a": i}
+        row["scanCounts"] = {"ground-a": 10}  # A stalled channel is not coverage.
+    del rows[1]["contactCounts"]["ground-a"]
+    (hub / "physics.jsonl").write_text("".join(json.dumps(r)+"\n" for r in rows))
+    result = analyze(campaign, hub, tmp_path / "metrics")
+    assert result["sensorChannelCoverage"]["imu"]["ground-a"]["status"] == "observed"
+    assert result["sensorChannelCoverage"]["scan"]["ground-a"]["status"] == "unverified"
+    assert result["contactChannelCoverage"]["ground-a"]["status"] == "unverified"
+    assert result["contactChannelCoverage"]["ground-a"]["snapshotCountWithCounter"] == 2

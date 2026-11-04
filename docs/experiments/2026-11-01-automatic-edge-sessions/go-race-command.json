@@ -1,0 +1,22 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "-json",
+    "./core/agentsession",
+    "./internal/agentsession",
+    "./tasks",
+    "./internal/capabilityagent",
+    "./internal/controllease",
+    "./cmd/local-agent",
+    "./console",
+    "./middleware/sqlite",
+    "./internal/edgeagent",
+    "./edge/worker",
+    "-count=1"
+  ],
+  "startedAt": "2026-11-01T14:55:46.238586+00:00",
+  "endedAt": "2026-11-01T15:01:10.933390+00:00",
+  "exitCode": 0
+}

@@ -1,0 +1,9 @@
+.................                                                        [100%]
+--- generated xml file: /tmp/scan002-bootstrap-fix/bootstrap-final-tests.xml ---
+============================= slowest 20 durations =============================
+0.02s call     robot/gateway/tests/test_survey_continuation_bootstrap.py::test_same_sensor_exposure_under_new_id_is_not_another_depth_rejection
+0.02s call     robot/gateway/tests/test_survey_continuation_bootstrap.py::test_continuation_waits_for_real_frame_after_one_insufficient_depth
+0.01s setup    robot/gateway/tests/test_survey_continuation_bootstrap.py::test_continuation_waits_for_real_frame_after_one_insufficient_depth
+
+(17 durations < 0.005s hidden.  Use -vv to show these durations.)
+17 passed in 0.71s

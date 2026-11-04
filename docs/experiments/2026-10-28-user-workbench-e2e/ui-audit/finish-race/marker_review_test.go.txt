@@ -1,0 +1,36 @@
+package localapp
+import (
+ "context"
+ "path/filepath"
+ "sync/atomic"
+ "testing"
+ "time"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/core/capability"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/middleware/memory"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/orchestration"
+ "github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
+)
+type markerReviewRepository struct {tasks.Repository;armed atomic.Bool;entered,release chan struct{}}
+func(r *markerReviewRepository)Get(ctx context.Context,id string)(*tasks.Task,error){task,err:=r.Repository.Get(ctx,id);if _,bounded:=ctx.Deadline();bounded&&r.armed.CompareAndSwap(true,false){close(r.entered);<-r.release};return task,err}
+func TestReviewCancelDuringFinishRead(t *testing.T){for _,capabilityTask:=range []bool{false,true}{name:="legacy";if capabilityTask{name="capability"};t.Run(name,func(t *testing.T){
+ store,err:=sqlite.Open(filepath.Join(t.TempDir(),"tasks.db"));if err!=nil{t.Fatal(err)};defer store.Close()
+ repository:=&markerReviewRepository{Repository:store,entered:make(chan struct{}),release:make(chan struct{})}
+ service:=tasks.NewService(repository,intent.NewDeterministicParser())
+ task,err:=service.Create(context.Background(),"把红色杯子放进右侧收纳盒","mujoco");if err!=nil{t.Fatal(err)}
+ if capabilityTask {task.Plan=&orchestration.Bundle{Capabilities:&capability.Plan{RobotID:"fixture",Calls:[]capability.Call{{Tool:"robot.task"}}}};if err:=store.Update(context.Background(),task);err!=nil{t.Fatal(err)}}
+ robot:=&testRobot{};runner:=agent.NewRunner(store,&failedGroundRobot{},robot)
+ if capabilityTask {runner.CapabilityRun=func(context.Context,*tasks.Task,agent.RunControl)(agent.RunResult,error){return agent.RunResult{},agent.ErrPauseRequested}}
+ app:=New(service,runner,memory.NewQueue[string](1));if _,err:=service.Approve(context.Background(),task.ID,"fixture");err!=nil{t.Fatal(err)}
+ repository.armed.Store(true);done:=make(chan struct{});go func(){defer close(done);app.run(context.Background(),task.ID)}()
+ select{case <-repository.entered:case <-time.After(3*time.Second):t.Fatal("finish Get not reached")}
+ if err:=app.Cancel(task.ID);err!=nil{t.Fatal(err)};close(repository.release)
+ select{case <-done:case <-time.After(3*time.Second):t.Fatal("worker did not finish")}
+ current,err:=service.Get(context.Background(),task.ID);if err!=nil{t.Fatal(err)}
+ last:=current.Events[len(current.Events)-1];requests:=0;for _,e:=range current.Events{if e.Type=="LOCAL_CANCEL_REQUESTED"{requests++}}
+ t.Logf("state=%s marker=%s marker.state=%v cancelRequests=%d active=%v calls=%d",current.State,last.Type,last.Payload["state"],requests,app.ExecutionActive(task.ID),robot.calls())
+ if capabilityTask {if current.State!=taskgraph.StatePaused||requests!=1{t.Fatalf("unexpected reproduction: %+v",current)}} else {if current.State!=taskgraph.StateCancelled||last.Payload["state"]!=string(taskgraph.StateRecoverableFailure){t.Fatalf("expected stale marker reproduction: %+v",current)}}
+})}}

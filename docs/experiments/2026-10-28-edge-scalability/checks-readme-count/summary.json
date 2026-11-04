@@ -1,0 +1,81 @@
+{
+  "runs": [
+    {
+      "name": "catalog-build",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.088,
+      "output": "catalog-build.txt",
+      "sha256": "76a679fa9206708440c253d816a739686394e3939ae764e86109f6435f49481b"
+    },
+    {
+      "name": "catalog-check",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py",
+        "--check"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.059,
+      "output": "catalog-check.txt",
+      "sha256": "b67a8797620d3632f485f8f80ddc50a35307850ac3c65e4d2709f947626dff69"
+    },
+    {
+      "name": "usage-report",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_model_usage_report.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.067,
+      "output": "usage-report.txt",
+      "sha256": "810a042d0ace10048cc3739e709084726a7e38ab187290fe24762111e2243d70"
+    },
+    {
+      "name": "python-docs",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "addopts=",
+        "tests/docs"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.289,
+      "output": "python-docs.txt",
+      "sha256": "33eb7230ce6171b6c07c53f55a87ccc197e2666aba21dad21c203e0ab6f95281"
+    },
+    {
+      "name": "go-docs",
+      "command": [
+        "go",
+        "test",
+        "./tests/docs",
+        "-count=1",
+        "-timeout=60s"
+      ],
+      "exit_code": 1,
+      "passed": false,
+      "seconds": 1.806,
+      "output": "go-docs.txt",
+      "sha256": "ee996591aa4b36d7193669d01bce1672c87334e794926ff5feb12fbe7fef2587"
+    }
+  ],
+  "passed": false
+}

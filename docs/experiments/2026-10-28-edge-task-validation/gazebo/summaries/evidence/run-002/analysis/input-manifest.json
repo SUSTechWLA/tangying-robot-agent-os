@@ -1,0 +1,20 @@
+{
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/summary.json": "e488c5a2fe921c1be5197aa2864ada237dceb6f26d79fd2dd558d23a29f6ec3b",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/hub/physics.jsonl": "316a99b2a2c4f9446aa7f573590caed568d8ad3ac254b845071362be2e0cd7fa",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/uav-a/controller.jsonl": "5dafdb6f6599a2cb6d3714beb937453c130535e48b96afcb76863373e21db8fb",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-a/controller.jsonl": "795f7a24b39184590f9bd700fbcfdafcdc23707adb3609898972a2b6dda99edf",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-b/controller.jsonl": "c4f51c25cb20e5268b28c977c58bc74d4a86a7c344f56128bdb2d9e4cd6c3091",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/uav-a/profile.json": "58544127f975bb0bc0e2883c38e05fc44cb780fe7c80e5d684260e81572b2c73",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-a/profile.json": "8d6dfdd06a451b0a0faad75c0aef7c4a945d37498a3caa8619d4641ce10a0fbb",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-b/profile.json": "f706b3c80723d060eeec43b30de66c835b73cdd640df7b101e154eaecd2314e2",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/uav-a/goals.json": "29db5e7798681e8d81d48f08ed186a94d475177f8ffb8870785e6e4678591b3e",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-a/goals.json": "639ddf03c2c682b06390bbace06686033f8864d89e0c1c9b384602eec53de821",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-b/goals.json": "d2069b0e24dd05e226f0b0725612b1c15dec166550f257786d6277cfdf9fd5c7",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/uav-a/created-3.json": "2e4d013837f807d66274c397136f7afdb26b1fcd236a3a9ca28d5b63cfd928a8",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-a/created-3.json": "ccf3296d1e35742fb8432e47678331f6f9aa892da49a8c46119fe91debd9dd5d",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-b/created-3.json": "8e70e28fe466c88ae0025221876b338feaa4997255570c9f16c7e36c90095c79",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/uav-a/final-3.json": "b74779e7c52d45d2c119d9e1ec55654292b79a688ed89c937d2d1f6d827ea796",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-a/final-3.json": "c0943da7f8af2f4e0580bb5a30e804fb24e976553d63f14e13ba4bfb44bea477",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/campaign-001/ground-b/final-3.json": "9ce82e2ad54ec1e69479f8b7e9d2d62e4770b07152cab1be088328cd36963d7a",
+  "/tmp/tangying-gazebo-field-20261028-001/evidence/run-002/world.sdf": "845ef8fcde16072ac5ac2897bd744efbf76674ae5688a5f16cf7ba391ad0c64c"
+}

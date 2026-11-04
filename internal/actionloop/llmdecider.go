@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontext"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/contextcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
@@ -66,6 +68,12 @@ type LLMDecider struct {
 	// Client, when set, replaces the default HTTP client. Tests use it.
 	Client *http.Client
 	Cache  modelroute.CachePolicy
+	// Stage identifies the configured route; Role still identifies the harness role.
+	Stage string
+	// OutputTokens is the per-route cap. Zero keeps the global context budget.
+	OutputTokens int
+	// UsageFile optionally records durable start/result accounting without prompts.
+	UsageFile string
 }
 
 // DefaultDecisionTimeout bounds one round's model call.
@@ -76,7 +84,7 @@ type LLMDecider struct {
 const DefaultDecisionTimeout = 20 * time.Second
 
 // Decide asks the model for one round.
-func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, error) {
+func (d *LLMDecider) Decide(ctx context.Context, request Request) (resultDecision Decision, resultErr error) {
 	// Even a configuration failure must not leave a preceding call in this trace.
 	if request.ContextSnapshot != nil {
 		request.ContextSnapshot.Model = ""
@@ -124,6 +132,17 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	if err != nil {
 		return Decision{}, err
 	}
+	if d.OutputTokens != 0 && (d.OutputTokens < modelroute.MinStageOutputTokens || d.OutputTokens > modelroute.MaxStageOutputTokens) {
+		return Decision{}, fmt.Errorf("stage model output token cap must be between %d and %d", modelroute.MinStageOutputTokens, modelroute.MaxStageOutputTokens)
+	}
+	if d.OutputTokens > 0 {
+		budget.OutputTokens = d.OutputTokens
+	}
+	if request.ContextSnapshot.Compaction != nil {
+		// Projection uses byte limits; changing the output reserve does not
+		// alter its text, but the audit must show the cap actually sent.
+		request.ContextSnapshot.Compaction.Budget.OutputTokens = budget.OutputTokens
+	}
 	cacheID, toolsHash, err := d.cacheIdentity(request, wireTools)
 	if err != nil {
 		return Decision{}, err
@@ -160,11 +179,38 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	request.ContextSnapshot.ModelRequestSHA256 = agentcontext.Hash(string(body))
 
 	started := time.Now()
-	call := &agentcontext.ModelCall{SchemaVersion: "agent.model-call.v1", PromptTemplateVersion: PromptTemplateVersion,
-		ToolsSHA256: toolsHash, CacheMode: d.Cache.EffectiveMode(), CacheIdentitySHA256: cacheID,
+	callID, err := uuid.NewRandom()
+	if err != nil {
+		return Decision{}, fmt.Errorf("model call identity: %w", err)
+	}
+	call := &agentcontext.ModelCall{SchemaVersion: "agent.model-call.v1", CallID: callID.String(), Stage: d.Stage,
+		Model: d.Model, EndpointSHA256: agentcontext.Hash(strings.TrimRight(d.BaseURL, "/")), OutputTokens: budget.OutputTokens,
+		PromptTemplateVersion: PromptTemplateVersion,
+		ToolsSHA256:           toolsHash, CacheMode: d.Cache.EffectiveMode(), CacheIdentitySHA256: cacheID,
 		StartedAt: started.UTC().Format(time.RFC3339Nano), RequestBytes: len(body), Outcome: "request_error", UsageStatus: "missing"}
 	request.ContextSnapshot.ModelCall = call
-	defer func() { call.DurationMS = time.Since(started).Milliseconds() }()
+	usageStarted := false
+	defer func() {
+		call.DurationMS = time.Since(started).Milliseconds()
+		if usageStarted {
+			call.UsageLogStatus = "recorded"
+			if err := appendModelUsage(d.UsageFile, "result", *call, request.ContextSnapshot.Scope); err != nil {
+				// The HTTP attempt and any returned usage remain in the trace. A
+				// failed ledger write must never turn them into an unbilled call.
+				call.UsageLogStatus = "write_error"
+				resultDecision = Decision{}
+				resultErr = errors.Join(resultErr, fmt.Errorf("%w: persist model usage result: %w", ErrModelUsageLog, err))
+			}
+		}
+	}()
+	if d.UsageFile != "" {
+		call.UsageLogStatus = "started"
+		if err := appendModelUsage(d.UsageFile, "start", *call, request.ContextSnapshot.Scope); err != nil {
+			call.UsageLogStatus = "write_error"
+			return Decision{}, fmt.Errorf("%w: persist model usage start before HTTP: %w", ErrModelUsageLog, err)
+		}
+		usageStarted = true
+	}
 
 	timeout := d.Timeout
 	if timeout <= 0 {
@@ -209,8 +255,12 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		call.Outcome = "http_error"
-		detail, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		detail, _ := io.ReadAll(io.LimitReader(response.Body, 4097))
 		call.ResponseBytes = len(detail)
+		call.ResponseTruncated = len(detail) > 4096
+		if len(detail) > 4096 {
+			detail = detail[:4096]
+		}
 		return Decision{}, fmt.Errorf("model returned %d: %s", response.StatusCode, strings.TrimSpace(string(detail)))
 	}
 	const maxModelResponse = 1 << 20
@@ -221,6 +271,7 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 		return Decision{}, err
 	}
 	if len(result) > maxModelResponse {
+		call.ResponseTruncated = true
 		return Decision{}, errors.New("model response exceeds 1 MiB")
 	}
 	call.ResponseSHA256 = agentcontext.Hash(string(result))
@@ -232,6 +283,12 @@ func (d *LLMDecider) Decide(ctx context.Context, request Request) (Decision, err
 	call.Outcome = "invalid_decision"
 	if len(completion.Choices) == 0 {
 		return Decision{}, errors.New("the model returned no choices")
+	}
+	call.FinishReason = completion.Choices[0].FinishReason
+	if call.FinishReason == "length" {
+		call.Outcome = "output_limit"
+		call.ResponseTruncated = true
+		return Decision{}, errors.New("model reached its output token limit; incomplete decision is not executable")
 	}
 	message := completion.Choices[0].Message
 	for i := range message.ToolCalls {
@@ -487,6 +544,7 @@ type toolFunction struct {
 type chatResponse struct {
 	Usage   json.RawMessage `json:"usage,omitempty"`
 	Choices []struct {
-		Message chatMessage `json:"message"`
+		Message      chatMessage `json:"message"`
+		FinishReason string      `json:"finish_reason"`
 	} `json:"choices"`
 }

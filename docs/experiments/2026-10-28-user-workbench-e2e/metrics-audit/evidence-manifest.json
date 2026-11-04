@@ -1,0 +1,800 @@
+{
+  "schemaVersion": "metrics.audit-evidence.v1",
+  "createdAtUTC": "2026-10-28T16:10:39.026932+00:00",
+  "archive": {
+    "path": "raw-evidence.tar.gz",
+    "sha256": "af701dea68bb0dc20f85fbdec5fc58963b436cd6e92a7952713f86148a2e9234",
+    "sizeBytes": 1152686,
+    "memberCount": 127
+  },
+  "members": [
+    {
+      "path": "audit/README.md",
+      "sizeBytes": 6865,
+      "sha256": "d94b27c6fedebb4e2b70f96ccf05d065ac65adad1b663983092503f6f530f33e",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/README.md"
+    },
+    {
+      "path": "audit/archive-verification.json",
+      "sizeBytes": 204,
+      "sha256": "738e879cec5d978c061e06b47d59efdff994bbcc9d6057a57bb0e6f501e3da4b",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/archive-verification.json"
+    },
+    {
+      "path": "audit/collector-source-at-task001-audit.py",
+      "sizeBytes": 20755,
+      "sha256": "d8ce2005e6f0db57163f186e7bbcc712269c57a474f2d91e9bc6d888e0b8acfb",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/collector-source-at-task001-audit.py"
+    },
+    {
+      "path": "audit/independent-raw-recomputation.json",
+      "sizeBytes": 5655,
+      "sha256": "0649ab22aa3c747ac061e01020bb63787cf36c06fde4a109b1dbbf0d29a76266",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/independent-raw-recomputation.json"
+    },
+    {
+      "path": "audit/metrics-fixes.patch",
+      "sizeBytes": 38127,
+      "sha256": "6a7afd6425479f4c1847e9a94dbd90bc9d13d0c52b2b14008b54479cc8df92b6",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/metrics-fixes.patch"
+    },
+    {
+      "path": "audit/metrics-tests-verified.txt",
+      "sizeBytes": 329,
+      "sha256": "38ed4029d8d406ed2b039aaddac5a8a9bbc91bd473aea45100e66a40eb4428e1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/metrics-tests-verified.txt"
+    },
+    {
+      "path": "audit/metrics-tests-verified.xml",
+      "sizeBytes": 11479,
+      "sha256": "fd25bd58c5b07a9a9e86c0cbf7baa6ec2a3ae3812e1ac6de6e132b6e781d898d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/metrics-tests-verified.xml"
+    },
+    {
+      "path": "audit/negative-after-results.json",
+      "sizeBytes": 3104,
+      "sha256": "5903491d94e22fe18273bfadc890ac8a06563d64e441a89ae0596f54b1a16013",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after-results.json"
+    },
+    {
+      "path": "audit/negative-after/missing_final_execution_events/input-manifest.json",
+      "sizeBytes": 1420,
+      "sha256": "6aef70b8054e6a9efe3f9dde768ac86f97546e0306273ef90707f256b7e7c136",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after/missing_final_execution_events/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-after/missing_final_execution_events/metrics.json",
+      "sizeBytes": 4065,
+      "sha256": "18c446367df3eae812bc310d7be5153eba7b6a9a935ec239dba207ed944a3c3b",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after/missing_final_execution_events/metrics.json"
+    },
+    {
+      "path": "audit/negative-after/missing_final_execution_events/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after/missing_final_execution_events/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-after/unfinished_declared_trial/input-manifest.json",
+      "sizeBytes": 1380,
+      "sha256": "48bccf3b48f0afbcf214dfbb02c0fa2b12ca3d1acbfbb3c86493da230f9e4211",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after/unfinished_declared_trial/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-after/unfinished_declared_trial/metrics.json",
+      "sizeBytes": 4075,
+      "sha256": "61b86717f8f977ec8cadf559adef45445ab1415a2a9f14f2c7266423edccb2d3",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after/unfinished_declared_trial/metrics.json"
+    },
+    {
+      "path": "audit/negative-after/unfinished_declared_trial/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-after/unfinished_declared_trial/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/campaign/summary.json",
+      "sizeBytes": 241,
+      "sha256": "07c3a71d9ee336087a236be990ff0d1e74422fae49974929056501bedcc8a457",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/hub/physics.jsonl",
+      "sizeBytes": 1868,
+      "sha256": "00c8c88971062d4f9f5cff51e9a8be88bf3f487f1b3a6b00747d2e93be2a5cac",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/metrics/input-manifest.json",
+      "sizeBytes": 1412,
+      "sha256": "76f11b663004e07c9b490e18276589acdc2785fe5d935ce71b87bb1baba4bf66",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/metrics/metrics.json",
+      "sizeBytes": 2607,
+      "sha256": "2cc122b880e7678c449a1d3a1b8c17c3449806e3cb9dbb405c63f8d11fba70c7",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/metrics/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/contradictory_sqlite_terminal/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/contradictory_sqlite_terminal/world.sdf"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/campaign/summary.json",
+      "sizeBytes": 241,
+      "sha256": "07c3a71d9ee336087a236be990ff0d1e74422fae49974929056501bedcc8a457",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/hub/physics.jsonl",
+      "sizeBytes": 1868,
+      "sha256": "00c8c88971062d4f9f5cff51e9a8be88bf3f487f1b3a6b00747d2e93be2a5cac",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/metrics/input-manifest.json",
+      "sizeBytes": 1420,
+      "sha256": "6aef70b8054e6a9efe3f9dde768ac86f97546e0306273ef90707f256b7e7c136",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/metrics/metrics.json",
+      "sizeBytes": 2607,
+      "sha256": "2cc122b880e7678c449a1d3a1b8c17c3449806e3cb9dbb405c63f8d11fba70c7",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/metrics/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/missing_final_execution_events/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_final_execution_events/world.sdf"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/campaign/summary.json",
+      "sizeBytes": 241,
+      "sha256": "07c3a71d9ee336087a236be990ff0d1e74422fae49974929056501bedcc8a457",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/hub/physics.jsonl",
+      "sizeBytes": 2332,
+      "sha256": "184953be215daf4fa490497ce6cd85a025bb5ba084e74316153db1d3f256ed07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/metrics/input-manifest.json",
+      "sizeBytes": 1340,
+      "sha256": "31cfc60e610ea49bdfcee050063278531abc972535781ee8e3074f7f3e6405c2",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/metrics/metrics.json",
+      "sizeBytes": 2607,
+      "sha256": "7700c8855c4f14d3cebeca41926e5a6152918a5169a5cc26cd830ead089631f8",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/metrics/trajectory.csv",
+      "sizeBytes": 571,
+      "sha256": "ff96328c9b1392f12099a595edc587c0211912fe9b426a02587a3f385246d62f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/missing_roster_state/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/missing_roster_state/world.sdf"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/campaign/summary.json",
+      "sizeBytes": 241,
+      "sha256": "07c3a71d9ee336087a236be990ff0d1e74422fae49974929056501bedcc8a457",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/hub/physics.jsonl",
+      "sizeBytes": 1868,
+      "sha256": "491de35caa8c6305ea0e676f11968ca9ceb55bf7778d35205ca5ac2b5fdf29b0",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/metrics/input-manifest.json",
+      "sizeBytes": 1356,
+      "sha256": "0ff02c6a922788a00c601ae4a9881991106447b60c611fb2275253686450d5d2",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/metrics/metrics.json",
+      "sizeBytes": 2591,
+      "sha256": "8a4fbe624ad6c0c1622a975ea92e8699c3f90b56e7028c4803b458e2b1f2f9c6",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/metrics/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/nonfinite_global_clock/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonfinite_global_clock/world.sdf"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "777aefd26aeefd0e55e1c0ceb9c0219d297edc6afb76b40447e5fd9221531fed",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/campaign/summary.json",
+      "sizeBytes": 242,
+      "sha256": "6b76c665f6573b959e44e96ad7c0944b9ae58fb5a201649e3f19703fc5ad88c3",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/hub/physics.jsonl",
+      "sizeBytes": 1868,
+      "sha256": "00c8c88971062d4f9f5cff51e9a8be88bf3f487f1b3a6b00747d2e93be2a5cac",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/metrics/input-manifest.json",
+      "sizeBytes": 1324,
+      "sha256": "4af49e4981f9f94679c6dc998576fd72e1625f7edf4fb97b62350b187ee960e0",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/metrics/metrics.json",
+      "sizeBytes": 2608,
+      "sha256": "7c1b643638494a9fb8035ab1536b2a76eef3e46178b1c090809c5e51c374b03f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/metrics/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/nonterminal_result/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/nonterminal_result/world.sdf"
+    },
+    {
+      "path": "audit/negative-before/results.json",
+      "sizeBytes": 3469,
+      "sha256": "26300bc147ed4ad5a4cffea36a9c0fb9db7b81837d371673f78bc2d3134feb41",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/results.json"
+    },
+    {
+      "path": "audit/negative-before/source.json",
+      "sizeBytes": 530,
+      "sha256": "f2277df3403513432d0c7f85b7b5a7f01340ae490ccb30e35638580c4b830f99",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/source.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/campaign/summary.json",
+      "sizeBytes": 259,
+      "sha256": "75c518a402276f48282d8b19adff330bbe38f94e06ca3368fcc41cf382e3a634",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/hub/physics.jsonl",
+      "sizeBytes": 1868,
+      "sha256": "00c8c88971062d4f9f5cff51e9a8be88bf3f487f1b3a6b00747d2e93be2a5cac",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/metrics/input-manifest.json",
+      "sizeBytes": 1380,
+      "sha256": "48bccf3b48f0afbcf214dfbb02c0fa2b12ca3d1acbfbb3c86493da230f9e4211",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/metrics/metrics.json",
+      "sizeBytes": 2608,
+      "sha256": "cd92b3f9228443c6ab5828dbacdbb35715e185485b147f3abea126ba6880056c",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/metrics/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/unfinished_declared_trial/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/unfinished_declared_trial/world.sdf"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/campaign/ground-a/controller.jsonl",
+      "sizeBytes": 900,
+      "sha256": "0c3fdd43a39063cb46ef67afe892fafbc7dd26e7d7a7c076f4b324395bdc888f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/campaign/ground-a/controller.jsonl"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/campaign/ground-a/created-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/campaign/ground-a/created-3.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/campaign/ground-a/final-3.json",
+      "sizeBytes": 329,
+      "sha256": "5808d322c11e9cd612169224576c586b5df5e963c8ac2779a67c6cb8c0d74137",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/campaign/ground-a/final-3.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/campaign/ground-a/goals.json",
+      "sizeBytes": 87,
+      "sha256": "89a964f67cd7e76cf18b431454a808ecb22f4b1d9da3b2ce60fc2e1c871cca07",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/campaign/ground-a/goals.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/campaign/ground-a/profile.json",
+      "sizeBytes": 47,
+      "sha256": "20c56e0dca8c3c459439aff23cbef952dbf5d93115b77297c5263d05bc5ad69d",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/campaign/ground-a/profile.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/campaign/summary.json",
+      "sizeBytes": 241,
+      "sha256": "07c3a71d9ee336087a236be990ff0d1e74422fae49974929056501bedcc8a457",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/campaign/summary.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/hub/physics.jsonl",
+      "sizeBytes": 2510,
+      "sha256": "6ac3bf85dff19dd5a9aa25634631daee5a381fb7f97436413ae4d82e8eecd881",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/hub/physics.jsonl"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/metrics/input-manifest.json",
+      "sizeBytes": 1364,
+      "sha256": "e0d591e42db0018b298745c2f2ce679d6f4dad589269b67310faffb746482e25",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/metrics/input-manifest.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/metrics/metrics.json",
+      "sizeBytes": 2607,
+      "sha256": "2cc122b880e7678c449a1d3a1b8c17c3449806e3cb9dbb405c63f8d11fba70c7",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/metrics/metrics.json"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/metrics/trajectory.csv",
+      "sizeBytes": 517,
+      "sha256": "fefff6186b33c6d1a8145f46174d872e2394683d77b9af8282183bb81eff3fb9",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/metrics/trajectory.csv"
+    },
+    {
+      "path": "audit/negative-before/wrong_robot_clock_world/world.sdf",
+      "sizeBytes": 351,
+      "sha256": "c5c86990063b9c24eecc30caca8149b2ea172b96cf33d1aebd88248eb040e3b1",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/negative-before/wrong_robot_clock_world/world.sdf"
+    },
+    {
+      "path": "audit/probe_negative.py",
+      "sizeBytes": 4005,
+      "sha256": "eb15b307051095566e84c1a202ba2554fcebffcff4bb361f7b2e45eccc2ca1b2",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/probe_negative.py"
+    },
+    {
+      "path": "audit/ruff-verified.txt",
+      "sizeBytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/ruff-verified.txt"
+    },
+    {
+      "path": "audit/source-before/scripts/analyze_gazebo_field_campaign.py",
+      "sizeBytes": 20001,
+      "sha256": "6acd927fdee25697550344a1dca80bc95a0ca12dc0f45dfade17bd39da0f0c68",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/source-before/scripts/analyze_gazebo_field_campaign.py"
+    },
+    {
+      "path": "audit/source-before/scripts/run_gazebo_stop_checks.py",
+      "sizeBytes": 15895,
+      "sha256": "34befcbbb18a3a3cdf60a47cc233495019dc25880af9342499eaee5b2f553016",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/source-before/scripts/run_gazebo_stop_checks.py"
+    },
+    {
+      "path": "audit/source-before/tests/scripts/test_analyze_gazebo_field_campaign.py",
+      "sizeBytes": 11732,
+      "sha256": "8a61787da64b9ff75fddde09dc6fd657315e1c82991e529c13f3d5b18e6272af",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/source-before/tests/scripts/test_analyze_gazebo_field_campaign.py"
+    },
+    {
+      "path": "audit/source-before/tests/scripts/test_gazebo_stop_checks.py",
+      "sizeBytes": 5749,
+      "sha256": "445c433e3e3020859fbb663e4b759cff69fae450932c3c620c3c2c347ae717de",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/source-before/tests/scripts/test_gazebo_stop_checks.py"
+    },
+    {
+      "path": "audit/source-final.json",
+      "sizeBytes": 585,
+      "sha256": "f7a99c16523fa14a27d803595f01199a6554a8903071bb2f9794a558f672892e",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/source-final.json"
+    },
+    {
+      "path": "audit/task-collector-ruff-fixed.txt",
+      "sizeBytes": 39,
+      "sha256": "18a1870e43654de125f6cf52d247a1e8da43d31a58999f7c8f4b52783084d1be",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task-collector-ruff-fixed.txt"
+    },
+    {
+      "path": "audit/task-collector-tests.txt",
+      "sizeBytes": 180,
+      "sha256": "2978231ec246e08c8f2780f3295e199c74856be56fb4d0c93e78983856a5da22",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task-collector-tests.txt"
+    },
+    {
+      "path": "audit/task-collector-tests.xml",
+      "sizeBytes": 1949,
+      "sha256": "6b3e24ac4a1cfd0140f10fcf5cb6a9d5d8edb84d35ab9f1ad30047ae94a702bd",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task-collector-tests.xml"
+    },
+    {
+      "path": "audit/test_task_collector.py",
+      "sizeBytes": 4050,
+      "sha256": "87c3f8445fc526a28aee8094179d44687a320de69538c0d1311ac06c69a7cdc3",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/test_task_collector.py"
+    },
+    {
+      "path": "audit/verification-final/campaign/input-manifest.json",
+      "sizeBytes": 3414,
+      "sha256": "fefe8e49c1a1b02199550c69a4d9924bc5b2c0b939f150da7326d6dd00f22978",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/verification-final/campaign/input-manifest.json"
+    },
+    {
+      "path": "audit/verification-final/campaign/metrics.json",
+      "sizeBytes": 16789,
+      "sha256": "4df26a141412c69e16bdd7d275db6087eae402ac97a4b6d03e1de86d49d8e37a",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/verification-final/campaign/metrics.json"
+    },
+    {
+      "path": "audit/verification-final/report.json",
+      "sizeBytes": 6065,
+      "sha256": "3febf55c1f792f8e639b42aea7783c9c30ad9b63abe303488a52b48ad232f1be",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/verification-final/report.json"
+    },
+    {
+      "path": "audit/verify_retained.py",
+      "sizeBytes": 3632,
+      "sha256": "3eb600a827a8e3829c6f39b9c31cd1a0ff5bd8054ef9e50a51344412ec363268",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/verify_retained.py"
+    },
+    {
+      "path": "task001-45-events/README.md",
+      "sizeBytes": 7060,
+      "sha256": "99357e1530f9db2d92ca020008a5f90b5e8025771f875707f67839499b1d8b35",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/README.md"
+    },
+    {
+      "path": "task001-45-events/api-final-after-backup.json",
+      "sizeBytes": 2204061,
+      "sha256": "3b022ae8091ba956ab270954b6683c1cf3d7cdae7a1f12c4fa5b2155a9d856e3",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/api-final-after-backup.json"
+    },
+    {
+      "path": "task001-45-events/api-final-before-backup.json",
+      "sizeBytes": 2204061,
+      "sha256": "3b022ae8091ba956ab270954b6683c1cf3d7cdae7a1f12c4fa5b2155a9d856e3",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/api-final-before-backup.json"
+    },
+    {
+      "path": "task001-45-events/http-get-log.json",
+      "sizeBytes": 661,
+      "sha256": "ebb20175a4279205a39d6a673adc24b851377c96863d42246c5700d4ccb42e0f",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/http-get-log.json"
+    },
+    {
+      "path": "task001-45-events/independent-metrics.json",
+      "sizeBytes": 2643,
+      "sha256": "24ec363dd36e492c6602da23d72b4ddf33df09bd69d3e7fca0b665a9e108258c",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/independent-metrics.json"
+    },
+    {
+      "path": "task001-45-events/manifest-final.json",
+      "sizeBytes": 1736,
+      "sha256": "af42019a2d5d288c3908526792d033fc743080853f21baa8ad5d665391ce2980",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/manifest-final.json"
+    },
+    {
+      "path": "task001-45-events/manifest.json",
+      "sizeBytes": 1058,
+      "sha256": "dea30e49b83707deddd6ac5dc66585dcd8f572d651026b7f5c374dd1638d49d5",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/manifest.json"
+    },
+    {
+      "path": "task001-45-events/observations.json",
+      "sizeBytes": 2402,
+      "sha256": "fff59f730d3958cb43cd086a8bebbed608a8bece0d375f2b74af9e7770184710",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/observations.json"
+    },
+    {
+      "path": "task001-45-events/polls.json",
+      "sizeBytes": 344,
+      "sha256": "8a4bef2987cd006400338aa6c9dfeeb5b4d50988e00cd3f0bb169ab07accaaae",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/polls.json"
+    },
+    {
+      "path": "task001-45-events/recovery.json",
+      "sizeBytes": 504,
+      "sha256": "206895998f381af86ddbe09d8a54ab63264e5342fc0f8b6f8bf3fa219b68bb46",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/recovery.json"
+    },
+    {
+      "path": "task001-45-events/report.json",
+      "sizeBytes": 11440,
+      "sha256": "2184bcc4185b3884fe834af680e456b2a2b6a4f77c5c07322f5e58a5300e3eca",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-audit-final/report.json"
+    },
+    {
+      "path": "task001-65-events/api-final-after-backup.json",
+      "sizeBytes": 2722470,
+      "sha256": "4465683e33d938e16cb765e5687952d0caa26166343b234eb45fcd9276f83ffc",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/api-final-after-backup.json"
+    },
+    {
+      "path": "task001-65-events/api-final-before-backup.json",
+      "sizeBytes": 2722470,
+      "sha256": "4465683e33d938e16cb765e5687952d0caa26166343b234eb45fcd9276f83ffc",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/api-final-before-backup.json"
+    },
+    {
+      "path": "task001-65-events/http-get-log.json",
+      "sizeBytes": 661,
+      "sha256": "0c27e0a155ceb94127d074917c92a57988160092a72a82768f38d5688cc32022",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/http-get-log.json"
+    },
+    {
+      "path": "task001-65-events/manifest.json",
+      "sizeBytes": 1058,
+      "sha256": "ebcba427c50b535457313fad35196d781a84226bc8213f27024fcd0e8f1d536a",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/manifest.json"
+    },
+    {
+      "path": "task001-65-events/observations.json",
+      "sizeBytes": 2402,
+      "sha256": "fff59f730d3958cb43cd086a8bebbed608a8bece0d375f2b74af9e7770184710",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/observations.json"
+    },
+    {
+      "path": "task001-65-events/polls.json",
+      "sizeBytes": 344,
+      "sha256": "2c517eb728530330bb041c415e073b25408799cfb311ad0f8f927fd062498d88",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/polls.json"
+    },
+    {
+      "path": "task001-65-events/recovery.json",
+      "sizeBytes": 504,
+      "sha256": "206895998f381af86ddbe09d8a54ab63264e5342fc0f8b6f8bf3fa219b68bb46",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/recovery.json"
+    },
+    {
+      "path": "task001-65-events/report.json",
+      "sizeBytes": 11664,
+      "sha256": "65ccc9f83bbd819a5a1f549a333e6d76fe4fd1a7559bf508b76626a3606f49eb",
+      "originalPath": "/tmp/user-e2e-metrics-20261028/task001-later-audit/report.json"
+    }
+  ],
+  "memberVerification": "Every regular member read; exact member set, size and SHA256 match",
+  "sensitiveDataBoundary": "Only explicit audit/report/source/API task allowlist copied; no credential/environment files or databases. Known private/provider/AWS/bearer/secret-assignment scans had zero matches. Not a universal unknown-secret detector. API task records retain user goal, task IDs, approval-session identity hash, timestamps, prompts and model telemetry; these are not fully anonymized.",
+  "excluded": [
+    "/tmp/user-e2e-metrics-20261028/archive/** (old full evidence extraction)",
+    "**/*.db",
+    "**/*.sqlite",
+    "**/*-wal",
+    "**/*-shm",
+    "full original sensor blobs and regenerated full campaign trajectory",
+    "console-session, model.env, any credential/config/environment values"
+  ],
+  "priorPublicArchive": {
+    "path": "docs/experiments/2026-10-28-edge-task-validation/gazebo/public/evidence.tar.gz",
+    "sha256": "a1c5348001d70e0319e0dc2d574d1a404f720300953061fae813077a1ef764d3",
+    "verifyCommand": "python3 docs/experiments/2026-10-28-edge-task-validation/gazebo/public/verify.py"
+  },
+  "pointInTimeSnapshots": {
+    "earlierEvents": 45,
+    "laterEvents": 65,
+    "bothState": "RECOVERABLE_FAILURE",
+    "interpretation": "Snapshots are collected views, not permanent final history. Ops can append after terminal state; neither legacy snapshot has an explicit LOCAL_RUN_FINISHED marker."
+  },
+  "projectedFixtures": {
+    "sourceTaskSHA256": "3b022ae8091ba956ab270954b6683c1cf3d7cdae7a1f12c4fa5b2155a9d856e3",
+    "projection": "Only task identity, frozen tool names, per-call model telemetry, selected event binding fields; original 45-event API bytes retained inside archive."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "liveSource": "ros-observations-002.jsonl",
+  "sourcePrefixBytes": 6283506,
+  "sourcePrefixSHA256": "ca8db912c96aaa4d4da460411a78170ab43928dcd46523d8455f17077f9b650e",
+  "selectedWindowFile": "odom-window-003.jsonl",
+  "selectedWindowSHA256": "a8ccd8689818a3bbf5afc8870270793b86297f54d0bbb15bb1dcb5bfb1543f9c",
+  "selection": "sample timestamp between task approval minus 1 second and LOCAL_RUN_FINISHED plus 1 second; exact JSONL source bytes"
+}

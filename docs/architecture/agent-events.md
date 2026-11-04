@@ -196,3 +196,20 @@ OpsAgent 第一版是确定性规则集，输入全部来自既有契约：
 Agent 事件与执行事件在同一份账本里，`tasks.AgentEventsFromEvents` 只投影**带 `agent` 归属**的条目，输出在 `task.experience.v1` 的 `agentEvents` 字段（`omitempty`，既有字段与消费者不受影响），控制台"系统观察与诊断"一节渲染它。
 
 只投影带归属的条目是刻意的：工具活动是执行，不是某个 Agent 对执行的陈述；混在一起会让回放把观察者的诊断说成机器人干的。
+
+### 持久账本与完整诊断
+
+`GET /v1/tasks/{id}/trace` 返回 `task.trace.v1`，直接关联不可变版本、全部任务事件、原子命令、能力执行器 RPC 和观测索引。它与 `experience` 的用户说明互补：原始自然语言取自首版，不从当前 `Task.Request` 或摘要猜测；执行关联使用机器人、版本、步骤和命令身份。协议、数据流和定位例子见[任务回溯架构](task-traceability.md)。
+
+下表是**任务账本事件**，不是新增的进程内 topic；不能直接拿这些名称订阅 EventBus。
+
+| 账本事件 | 本轮新增或明确的持久字段 | 使用规则 |
+| --- | --- | --- |
+| `STATE_CHANGED` | `previousState / state / revision / aggregateVersion`，以及事件原因 | 与状态更新一起提交，成功后才通知 observer；旧记录缺字段仍显示缺口 |
+| `TASK_APPROVED` | `actor / approvedAt / revision / aggregateVersion` | 标识批准入口和版本；入队重试不覆盖原审批 |
+| `CAPABILITY_RPC_STARTED` | `rpcId / service / requestId / phase`、命令 binding、操作身份、参数摘要 | 调用前登记；有开始记录不证明网络请求一定已到设备 |
+| `CAPABILITY_RPC_FINISHED` | 相同 RPC 身份、`status`、provider 错误/结果摘要、调用耗时 | 服务返回与父命令完成分别判断；没有结果不能按成功或未执行处理 |
+
+状态、批准及 RPC 事实均可从 SQLite 重开后的账本读取。observer 仍是 advisory，接收隔离副本；实时总线不会取代持久化。普通 RPC 的开始证据写入失败会阻止该调用，已持有操作所有权的停止保留例外，避免审计磁盘故障阻止停止本身。
+
+trace 的 `integrity` 使用 `consistent / incomplete / inconsistent`，报告序号缺口、同 ID 内容冲突、状态断链、未决命令及证据错配。`consistent` 是记录检查结论，不是物理完成或跨主机全局一致性的认证。原始传感器受保留预算限制；索引中的 `expired` 和导出截断必须保留，不能为得到干净报告而隐藏缺口。

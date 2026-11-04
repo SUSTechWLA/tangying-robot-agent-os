@@ -1,0 +1,10 @@
+{
+  "note": "Final precision-only fix applied after successful full-campaign run: writer cold-load uses UseNumber; public Get unchanged. Full campaign summary sources remain the original measured hashes. Final integration campaign is owned by parent.",
+  "command": "go test -race ./internal/edgeagent -skip Campaign -count=1 -timeout=45s",
+  "sources": {
+    "internal/edgeagent/host.go": "4223de401f27e9f998dcd6d274a400b55f920c9c9c84f146de935668e8edb0ec",
+    "internal/edgeagent/journal.go": "370068ca506c3e7ba25a18c49786e266ec5950248484a51d47e5eeaffc65c52f",
+    "internal/edgeagent/child_writer_test.go": "e69c17fa96b03ed609b0039316be2ed27e6997b919ce404fdf1610bba209b0b9"
+  },
+  "result": "ok  \tgithub.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent\t9.665s\n"
+}

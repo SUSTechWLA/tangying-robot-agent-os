@@ -1,9 +1,12 @@
 package console
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -117,6 +120,33 @@ func projectLocalTaskExperience(task *tasks.Task, record tasks.RevisionRecord, a
 				evidence[index] = "这一步未通过确认，请查看执行记录"
 			}
 		}
+		// Navigation has no placement verifier. Only a successful task plus the
+		// latest matching arrival proof for every declared destination completes
+		// its route; a receipt or an unrelated confirmed read cannot do so.
+		if task != nil && task.State == taskgraph.StateSucceeded && step.Action == manipulation.ActionHomeRoute {
+			route := record.Revision.Intent.Tasks()[step.IntentIndex]
+			latest := map[string]tasks.ToolActivityInput{}
+			for _, activity := range current {
+				logical, _, _ := strings.Cut(activity.StepID, "/resume-read/")
+				if step.RobotID != "" && activity.RobotID != step.RobotID {
+					continue
+				}
+				latest[logical] = activity
+			}
+			verified := len(route.RouteRooms) > 0
+			for destination := range route.RouteRooms {
+				arrival := latest[fmt.Sprintf("%sverify_arrival_%02d", prefix, destination)]
+				hasEvidence := false
+				for _, id := range arrival.EvidenceIDs {
+					hasEvidence = hasEvidence || strings.TrimSpace(id) != ""
+				}
+				verified = verified && arrival.ToolName == "verify_arrival" && arrival.Status == "CONFIRMED" && hasEvidence
+			}
+			if verified {
+				step.Status = tasks.StepSatisfied
+				labels[index], evidence[index] = "确认路线到位", "每个路线目标均已通过到位观测确认"
+			}
+		}
 	}
 	view := tasks.ProjectExperience(tasks.ExperienceInput{
 		Task: task, Revision: record, Activities: activities, Events: events,
@@ -124,6 +154,20 @@ func projectLocalTaskExperience(task *tasks.Task, record tasks.RevisionRecord, a
 	})
 	for index, label := range labels {
 		view.Steps[index].CapabilityLabel, view.Steps[index].EvidenceText = label, evidence[index]
+	}
+	if plan := record.Revision.Plan; plan != nil && plan.Capabilities != nil {
+		for index, call := range plan.Capabilities.Calls {
+			if index >= len(view.Steps) || call.Tool != "robot.task" {
+				continue
+			}
+			var frozen manipulation.Intent
+			if json.Unmarshal(call.LegacyIntent, &frozen) == nil && len(frozen.RouteRooms) > 0 {
+				view.Steps[index].Explanation = "执行已批准子任务，路线：" + strings.Join(frozen.RouteRooms, " → ")
+				if request, ok := call.Arguments["request"].(string); ok && request != "" {
+					view.Steps[index].Explanation += "；任务：" + request
+				}
+			}
+		}
 	}
 	return view
 }

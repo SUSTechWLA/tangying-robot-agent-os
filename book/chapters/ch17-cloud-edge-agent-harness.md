@@ -105,7 +105,7 @@ func main() {
 
 UAV 报告目标 shelf-top-2 已观察，任务为 M/revision 3，geometry=G7，map=M2/revision 8，transform=R4。AGV 当前任务相同但使用 transform=R5。即使 payload 中坐标数值一样，也不能合并：变换版本变化可能改变实际区域。
 
-当前 [edge/exchange/coverage.go](../../edge/exchange/coverage.go) 对 peer 身份、最新流序号、TTL、空间 Basis、mission revision、geometry、采集年龄与目标集合逐项检查。输出携带 rejected 原因，且 `advisoryOnly=true`、`grantsExecution=false`、`physicalCompletion=false`。如果持久快照被限额截断，返回空建议而不是假装读完全部数据。
+当前 [edge/exchange/coverage.go](../../edge/exchange/coverage.go) 对 peer 身份、最新流序号、TTL、空间 Basis、mission revision、geometry、采集年龄与目标集合逐项检查。输出携带 rejected 原因，且 `advisoryOnly=true`、`grantsExecution=false`、`physicalCompletion=false`。当前读取通过永久序号 cursor 定位每个流的最新已接收正文，再检查其业务有效性；历史 feed 另用于审计。如果当前流快照被限额截断，返回空建议而不是假装读完全部数据。最新正文过期、失效或被清理时，也不能回退历史找一个旧“有效值”，否则会复活已经撤销的覆盖事实。
 
 代价是保守拒绝可能造成重复巡视。收益是不会为了节省路程把不兼容地图的数据当作完成依据。未来可增加经验证的坐标重映射，但必须保留变换来源和误差范围，不能简单改 revision 字符串。
 
@@ -143,6 +143,8 @@ UAV 报告目标 shelf-top-2 已观察，任务为 M/revision 3，geometry=G7，
 | 角色→角色 | 原失败、causation/correlation、诊断、恢复建议及绑定 | 确定性恢复准入后才能行动 | Ops 的文字建议直接驱动设备 |
 | 边→模型服务 | 角色规则、目标/约束、有界语义事实、当轮工具 schema | 返回候选计划/调用 | 原始密钥、无限制数据库读取权 |
 | Agent→本机 Runtime | command、设备与能力参数、当前执行依据、期限 | journal/设备准入、派发与反馈 | HTTP 成功即视为物理完成 |
+
+Local 的 intake session 只属于本地接收边界。sessionId/turnId 帮助关联输入，不是 Worker 的 claim、云端批准合同或 peer 的授权凭证；本轮没有把完整会话或供应商 KV 跨域复制。跨域双方各从自己的权威事实生成视图，可以共享有权读取的摘要和证据引用，不要求拥有相同聊天全文。
 
 这是语义核对表，不是把所有路径统一成一个 JSON 协议。现有云边目标、角色事件、peer 信封与模型 HTTP 请求各有自己的类型和入口；“统一通信层”应复用身份/追踪/重试设施，同时保留业务差异。
 

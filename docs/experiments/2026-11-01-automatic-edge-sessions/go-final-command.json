@@ -1,0 +1,16 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "-json",
+    "./tasks",
+    "./internal/agentsession",
+    "./cmd/local-agent",
+    "./console",
+    "-count=1"
+  ],
+  "startedAt": "2026-11-01T15:11:17.431262+00:00",
+  "endedAt": "2026-11-01T15:11:26.721692+00:00",
+  "exitCode": 0
+}

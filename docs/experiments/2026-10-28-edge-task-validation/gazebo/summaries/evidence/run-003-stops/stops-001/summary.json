@@ -1,0 +1,556 @@
+{
+  "schemaVersion": "gazebo.physical_stop_checks.v1",
+  "setup": {
+    "ready": true,
+    "attempts": 2,
+    "elapsedWallSeconds": 0.10749920900002508,
+    "initialSimulationTimes": {
+      "ground-a": 0.298,
+      "ground-b": 0.298,
+      "uav-a": 0.298
+    },
+    "readySimulationTimes": {
+      "ground-a": 0.38,
+      "ground-b": 0.38,
+      "uav-a": 0.38
+    },
+    "motionCommandsSent": false
+  },
+  "trials": [
+    {
+      "robotId": "ground-a",
+      "mode": "watchdog",
+      "passed": true,
+      "landingVerified": false,
+      "commandId": "stop-check-ground-a-watchdog-ca7fbaa18b844707980a4697ef8572c6",
+      "goal": {
+        "robotId": "ground-a",
+        "commandId": "stop-check-ground-a-watchdog-ca7fbaa18b844707980a4697ef8572c6",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793199410697,
+        "goalPose": [
+          -0.5,
+          -1.0,
+          0.14950367656810445,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "triggerState": {
+        "angularVelocity": [
+          3.995745441696633e-18,
+          3.017225429361592e-10,
+          1.777284662485014e-18
+        ],
+        "clockDomain": "simulation",
+        "commandAge": 0.08999999999999997,
+        "force": [
+          5.444017752102637,
+          2.7472329931062958e-17,
+          0.0
+        ],
+        "frameId": "world",
+        "leaseSeconds": 0.4,
+        "linearVelocity": [
+          0.42500173092886884,
+          -1.1543851081318432e-18,
+          0.00034521254198342853
+        ],
+        "modelKind": "generic_force_ground_body",
+        "physicalStopVerified": false,
+        "position": [
+          -1.8922094459397218,
+          -1.0,
+          0.14993160402478242
+        ],
+        "quaternionWXYZ": [
+          1.0,
+          3.0695270411550855e-19,
+          7.600830767779553e-10,
+          2.6535714859323287e-19
+        ],
+        "radius": 0.36,
+        "robotId": "ground-a",
+        "simulationTime": 0.89,
+        "speed": 0.4250018711302737,
+        "stopMode": "brake",
+        "stopReason": "active_command",
+        "stopRequested": false,
+        "torque": [
+          0.0,
+          0.0,
+          -8.673921000080663e-18
+        ],
+        "worldId": "field-validation",
+        "yaw": 5.307142976530849e-19
+      },
+      "measuredStopped": true,
+      "sampleCount": 12,
+      "settledSinceSimulationTime": 1.698,
+      "elapsedSimulationSeconds": 1.21,
+      "maximumDisplacementMeters": 0.25607620576209034,
+      "travelDistanceMeters": 0.25607625834513853,
+      "lastSpeedMetersPerSecond": 2.1570465469878745e-06,
+      "positionSource": "Gazebo rigid-body measured state",
+      "expectedControllerReason": "command_watchdog_expired",
+      "controllerReasonObserved": true,
+      "criterion": {
+        "speedAtTriggerAtLeast": 0.18,
+        "settledSpeedAtMost": 0.03,
+        "settledAngularSpeedAtMost": 0.05,
+        "dwellSimulationSeconds": 0.4,
+        "maxDisplacementMeters": 0.65,
+        "maxElapsedSimulationSeconds": 4.0
+      }
+    },
+    {
+      "robotId": "ground-a",
+      "mode": "explicit_stop",
+      "passed": true,
+      "landingVerified": false,
+      "commandId": "stop-check-ground-a-explicit_stop-a86db276ae6245b0afa447914656936e",
+      "goal": {
+        "robotId": "ground-a",
+        "commandId": "stop-check-ground-a-explicit_stop-a86db276ae6245b0afa447914656936e",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793199413405,
+        "goalPose": [
+          -0.1361332491862839,
+          -1.0,
+          0.14999952900510613,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "triggerState": {
+        "angularVelocity": [
+          2.2446852659661295e-18,
+          1.0034375797185348e-09,
+          1.844027923365139e-18
+        ],
+        "clockDomain": "simulation",
+        "commandAge": 0.08400000000000007,
+        "force": [
+          5.580049054037185,
+          -8.809536886015145e-17,
+          0.0
+        ],
+        "frameId": "world",
+        "leaseSeconds": 0.4,
+        "linearVelocity": [
+          0.4231350268801055,
+          -8.860074588378255e-19,
+          6.935791198666927e-08
+        ],
+        "modelKind": "generic_force_ground_body",
+        "physicalStopVerified": false,
+        "position": [
+          -1.530889796623103,
+          -1.0,
+          0.1499999423674805
+        ],
+        "quaternionWXYZ": [
+          1.0,
+          2.938510529250235e-19,
+          6.910675780853939e-10,
+          8.204006556694755e-19
+        ],
+        "radius": 0.36,
+        "robotId": "ground-a",
+        "simulationTime": 2.584,
+        "speed": 0.4231350268801112,
+        "stopMode": "brake",
+        "stopReason": "active_command",
+        "stopRequested": false,
+        "torque": [
+          0.0,
+          0.0,
+          5.540748270325168e-19
+        ],
+        "worldId": "field-validation",
+        "yaw": 1.6408013117450929e-18
+      },
+      "measuredStopped": true,
+      "sampleCount": 9,
+      "settledSinceSimulationTime": 3.088,
+      "elapsedSimulationSeconds": 0.9060000000000001,
+      "maximumDisplacementMeters": 0.11587238024285125,
+      "travelDistanceMeters": 0.11587238024285144,
+      "lastSpeedMetersPerSecond": 3.3115203770256283e-09,
+      "positionSource": "Gazebo rigid-body measured state",
+      "expectedControllerReason": "requested_stop",
+      "controllerReasonObserved": true,
+      "criterion": {
+        "speedAtTriggerAtLeast": 0.18,
+        "settledSpeedAtMost": 0.03,
+        "settledAngularSpeedAtMost": 0.05,
+        "dwellSimulationSeconds": 0.4,
+        "maxDisplacementMeters": 0.65,
+        "maxElapsedSimulationSeconds": 4.0
+      }
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "watchdog",
+      "passed": true,
+      "landingVerified": false,
+      "commandId": "stop-check-ground-b-watchdog-e29ecba50e45409bad8e76fa633925a3",
+      "goal": {
+        "robotId": "ground-b",
+        "commandId": "stop-check-ground-b-watchdog-e29ecba50e45409bad8e76fa633925a3",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793199415550,
+        "goalPose": [
+          0.5,
+          1.0,
+          0.14999984722951595,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "triggerState": {
+        "angularVelocity": [
+          -3.7246258123481705e-18,
+          -1.1034822763731822e-09,
+          2.866779603397697e-19
+        ],
+        "clockDomain": "simulation",
+        "commandAge": 0.0940000000000003,
+        "force": [
+          -5.356621233088544,
+          -2.21323573431502e-16,
+          0.0
+        ],
+        "frameId": "world",
+        "leaseSeconds": 0.4,
+        "linearVelocity": [
+          -0.426200953079302,
+          2.946654573736849e-19,
+          5.781849830476455e-11
+        ],
+        "modelKind": "generic_force_ground_body",
+        "physicalStopVerified": false,
+        "position": [
+          1.8905066542727123,
+          1.0,
+          0.149999956088835
+        ],
+        "quaternionWXYZ": [
+          1.0,
+          3.550257967304652e-18,
+          -6.810873093122222e-10,
+          8.683891947382122e-19
+        ],
+        "radius": 0.36,
+        "robotId": "ground-b",
+        "simulationTime": 3.994,
+        "speed": 0.426200953079302,
+        "stopMode": "brake",
+        "stopReason": "active_command",
+        "stopRequested": false,
+        "torque": [
+          0.0,
+          0.0,
+          -1.9313895897659944e-18
+        ],
+        "worldId": "field-validation",
+        "yaw": 1.736778384640353e-18
+      },
+      "measuredStopped": true,
+      "sampleCount": 12,
+      "settledSinceSimulationTime": 4.696,
+      "elapsedSimulationSeconds": 1.19,
+      "maximumDisplacementMeters": 0.2075910135493797,
+      "travelDistanceMeters": 0.2075910135493797,
+      "lastSpeedMetersPerSecond": 8.233543215452854e-10,
+      "positionSource": "Gazebo rigid-body measured state",
+      "expectedControllerReason": "command_watchdog_expired",
+      "controllerReasonObserved": true,
+      "criterion": {
+        "speedAtTriggerAtLeast": 0.18,
+        "settledSpeedAtMost": 0.03,
+        "settledAngularSpeedAtMost": 0.05,
+        "dwellSimulationSeconds": 0.4,
+        "maxDisplacementMeters": 0.65,
+        "maxElapsedSimulationSeconds": 4.0
+      }
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "explicit_stop",
+      "passed": true,
+      "landingVerified": false,
+      "commandId": "stop-check-ground-b-explicit_stop-f653320dc7734aad9b03bccd56ba9d37",
+      "goal": {
+        "robotId": "ground-b",
+        "commandId": "stop-check-ground-b-explicit_stop-f653320dc7734aad9b03bccd56ba9d37",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793199418278,
+        "goalPose": [
+          0.18291564072333255,
+          1.0,
+          0.14999995610021785,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "triggerState": {
+        "angularVelocity": [
+          -1.46855305199801e-17,
+          -1.7219387201563508e-09,
+          -8.612459415168818e-19
+        ],
+        "clockDomain": "simulation",
+        "commandAge": 0.08800000000000008,
+        "force": [
+          -8.574680648391336,
+          1.526409821980256e-16,
+          0.0
+        ],
+        "frameId": "world",
+        "leaseSeconds": 0.4,
+        "linearVelocity": [
+          -0.38204202665818554,
+          1.0115104661184796e-18,
+          -1.6181000326171012e-13
+        ],
+        "modelKind": "generic_force_ground_body",
+        "physicalStopVerified": false,
+        "position": [
+          1.616551141930643,
+          1.0,
+          0.14999995610026032
+        ],
+        "quaternionWXYZ": [
+          1.0,
+          3.102903531597314e-18,
+          -6.19609406986926e-10,
+          1.2987372655949232e-18
+        ],
+        "radius": 0.36,
+        "robotId": "ground-b",
+        "simulationTime": 5.588,
+        "speed": 0.38204202665818554,
+        "stopMode": "brake",
+        "stopReason": "active_command",
+        "stopRequested": false,
+        "torque": [
+          0.0,
+          0.0,
+          -5.999860051336772e-18
+        ],
+        "worldId": "field-validation",
+        "yaw": 2.59747452734467e-18
+      },
+      "measuredStopped": true,
+      "sampleCount": 8,
+      "settledSinceSimulationTime": 5.994,
+      "elapsedSimulationSeconds": 0.8099999999999996,
+      "maximumDisplacementMeters": 0.0578601668083738,
+      "travelDistanceMeters": 0.0578601668083738,
+      "lastSpeedMetersPerSecond": 1.0775882711492454e-09,
+      "positionSource": "Gazebo rigid-body measured state",
+      "expectedControllerReason": "requested_stop",
+      "controllerReasonObserved": true,
+      "criterion": {
+        "speedAtTriggerAtLeast": 0.18,
+        "settledSpeedAtMost": 0.03,
+        "settledAngularSpeedAtMost": 0.05,
+        "dwellSimulationSeconds": 0.4,
+        "maxDisplacementMeters": 0.65,
+        "maxElapsedSimulationSeconds": 4.0
+      }
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "watchdog",
+      "passed": true,
+      "landingVerified": false,
+      "commandId": "stop-check-uav-a-watchdog-76e813ef92ca40d58fab3aac3c70d236",
+      "goal": {
+        "robotId": "uav-a",
+        "commandId": "stop-check-uav-a-watchdog-76e813ef92ca40d58fab3aac3c70d236",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793199420157,
+        "goalPose": [
+          1.5,
+          -3.0,
+          1.2,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "triggerState": {
+        "angularVelocity": [
+          0.0,
+          -0.22957886731329927,
+          0.0
+        ],
+        "clockDomain": "simulation",
+        "commandAge": 0.09999999999999964,
+        "force": [
+          0.7235198729937407,
+          0.0,
+          11.757716983677748
+        ],
+        "frameId": "world",
+        "leaseSeconds": 0.4,
+        "linearVelocity": [
+          0.4147203931409551,
+          0.0,
+          -0.005050886494791254
+        ],
+        "modelKind": "generic_thrust_rigid_body",
+        "physicalStopVerified": false,
+        "position": [
+          0.10342372239284489,
+          -3.0,
+          1.200336091010113
+        ],
+        "quaternionWXYZ": [
+          0.9995349249043384,
+          0.0,
+          0.030494817534764053,
+          0.0
+        ],
+        "radius": 0.34,
+        "robotId": "uav-a",
+        "simulationTime": 7.1,
+        "speed": 0.4147511494153713,
+        "stopMode": "hover",
+        "stopReason": "active_command",
+        "stopRequested": false,
+        "torque": [
+          0.0,
+          0.0015188257160150542,
+          0.0
+        ],
+        "worldId": "field-validation",
+        "yaw": 0.0
+      },
+      "measuredStopped": true,
+      "sampleCount": 18,
+      "settledSinceSimulationTime": 8.486,
+      "elapsedSimulationSeconds": 1.790000000000001,
+      "maximumDisplacementMeters": 0.3506921141452535,
+      "travelDistanceMeters": 0.35670892864632775,
+      "lastSpeedMetersPerSecond": 0.0016651701498381672,
+      "positionSource": "Gazebo rigid-body measured state",
+      "expectedControllerReason": "command_watchdog_expired",
+      "controllerReasonObserved": true,
+      "criterion": {
+        "speedAtTriggerAtLeast": 0.18,
+        "settledSpeedAtMost": 0.03,
+        "settledAngularSpeedAtMost": 0.05,
+        "dwellSimulationSeconds": 0.4,
+        "maxDisplacementMeters": 0.9,
+        "maxElapsedSimulationSeconds": 4.0
+      }
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "explicit_stop",
+      "passed": true,
+      "landingVerified": false,
+      "commandId": "stop-check-uav-a-explicit_stop-a6017908b0f34b628b8acf2373e624e3",
+      "goal": {
+        "robotId": "uav-a",
+        "commandId": "stop-check-uav-a-explicit_stop-a6017908b0f34b628b8acf2373e624e3",
+        "leaseMs": 450,
+        "deadlineUnixMs": 1793199424154,
+        "goalPose": [
+          -1.051127926060707,
+          -3.0,
+          1.1944042893731488,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "triggerState": {
+        "angularVelocity": [
+          0.0,
+          0.23038681026340782,
+          0.0
+        ],
+        "clockDomain": "simulation",
+        "commandAge": 0.09200000000000053,
+        "force": [
+          -0.7466304808399088,
+          0.0,
+          11.756792031461103
+        ],
+        "frameId": "world",
+        "leaseSeconds": 0.4,
+        "linearVelocity": [
+          -0.40967348877907817,
+          0.0,
+          -0.005104752741878333
+        ],
+        "modelKind": "generic_thrust_rigid_body",
+        "physicalStopVerified": false,
+        "position": [
+          0.3489987031922924,
+          -3.0,
+          1.1944225516025326
+        ],
+        "quaternionWXYZ": [
+          0.9995045399304455,
+          0.0,
+          -0.031474984645406504,
+          0.0
+        ],
+        "radius": 0.34,
+        "robotId": "uav-a",
+        "simulationTime": 9.592,
+        "speed": 0.40970529153158025,
+        "stopMode": "hover",
+        "stopReason": "active_command",
+        "stopRequested": false,
+        "torque": [
+          0.0,
+          -0.0004320364809397431,
+          0.0
+        ],
+        "worldId": "field-validation",
+        "yaw": 0.0
+      },
+      "measuredStopped": true,
+      "sampleCount": 16,
+      "settledSinceSimulationTime": 10.7,
+      "elapsedSimulationSeconds": 1.596,
+      "maximumDisplacementMeters": 0.20506664810855457,
+      "travelDistanceMeters": 0.21111602202395718,
+      "lastSpeedMetersPerSecond": 0.0009968174382098836,
+      "positionSource": "Gazebo rigid-body measured state",
+      "expectedControllerReason": "requested_stop",
+      "controllerReasonObserved": true,
+      "criterion": {
+        "speedAtTriggerAtLeast": 0.18,
+        "settledSpeedAtMost": 0.03,
+        "settledAngularSpeedAtMost": 0.05,
+        "dwellSimulationSeconds": 0.4,
+        "maxDisplacementMeters": 0.9,
+        "maxElapsedSimulationSeconds": 4.0
+      }
+    }
+  ],
+  "passed": true,
+  "outcome": "passed",
+  "uavStopMode": "hover",
+  "landingVerified": false,
+  "hardwareValidation": false,
+  "poseResetUsed": false,
+  "physicalStateSource": "Gazebo force-driven rigid-body physics"
+}

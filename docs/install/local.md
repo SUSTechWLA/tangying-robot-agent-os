@@ -2,6 +2,8 @@
 
 当前目标通道参考 `821659df`：云端批准粗目标，Local 或 Worker 共享 Edge Host 在工具/参数包络内细化，Runtime 负责动作准入、控制与证据。原工作台表单仍用冻结计划；接入见[目标指南](../guides/delegated-edge-goals.md)，状态保留、续跑和升级见[目标运维](../operations/delegated-goal-operations.md)。Local 与 Worker 不同时控制同一 Runtime。
 
+当前 Local 接收入口（核对 `27cbbbaf9`，2026-11-02）已默认管理 session/turn，用户只需输入任务、核对草案并批准，无需选择会话。接收历史与任务保存在同一私有数据目录，控制台 token 是另一种访问凭据。每台机器人独立运行一个进程/目录；本地单操作员范围、历史预算、重启查账与响应丢失后的处理见[自动会话手册](../operations/automatic-edge-sessions.md)。
+
 ## 支持范围
 
 - macOS 13+（Intel/Apple Silicon）
@@ -20,11 +22,13 @@ robot-agent configure local
 robot-agent doctor local
 ```
 
-Local Agent 默认只监听 `127.0.0.1:8787`。启动后打开该地址，进入左下角“开发模式 → 开发诊断”填写 LLM API Base URL、模型与密钥；保存配置后按页面提示重启服务。确定性模式无需 API Key。
+Local Agent 默认只监听 `127.0.0.1:8787`。启动后打开该地址，进入左下角“开发模式 → 开发诊断”填写 LLM API Base URL、模型与密钥；保存后核对各阶段实际路由，只有页面返回 `restartRequired` 才按提示重启。确定性模式无需 API Key，其支持范围仍是有限语法。
 
 多台机器人分别使用独立进程、数据目录和 Runtime 身份，再按[边缘工作空间指南](../operations/edge-robot-workspaces.md)配置 `LOCAL_WORKSPACES_FILE`，即可在同一工作台切换设备及任务历史。切换不暂停另一台机器人的任务。
 
 配置、证书和 SQLite 状态在升级时保留；敏感后备配置权限为 `0600`。
+
+升级时先正常停止旧版，再用原数据目录启动新版。新目录所有权由 `.agent-owner.lock` 持有；文件保留但进程退出后锁释放。出现目录已占用时检查仍运行的进程，不删除锁文件、agent.db 或 Runtime journal。旧版不检查该新锁，不能与新版并行运行验证。已有任务不自动导入会话，新输入开始建立关联。
 
 ## 配对树莓派
 

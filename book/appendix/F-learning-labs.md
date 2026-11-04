@@ -1,6 +1,6 @@
 # 附录 F · 分级学习路线与可检查实验
 
-本附录让读者从“看懂图”走到“能解释测试和证据”。命令从仓库根目录运行，章节对应数字版3.0.0，代码核对9e6a58f6。出版构建的测试与机器人运行测试是不同依赖集合；只阅读不需要模型key或机器人。
+本附录让读者从“看懂图”走到“能解释测试和证据”。命令从仓库根目录运行，章节对应数字版3.3.0，代码核对27cbbbaf9。出版构建的测试与机器人运行测试是不同依赖集合；只阅读不需要模型key或机器人。
 
 ## F.1 选择路线与验收产物
 
@@ -24,7 +24,7 @@
 | 多机仿真 | Fleet/MySQL/Redis、双Edge/Runtime、共享世界 | 按规定交接流程验证资源和证据 |
 | 受监护实机 | 型号驱动/停止/标定、负责人批准与现场条件 | 本书不自动启用硬件或提供通用实机动作命令 |
 
-从当前书稿检出开始学习，确认book/edition.json为3.0.0；其source_snapshot冻结的是代码复核身份。不要通过checkout代码快照后发现旧书，就认为新版没有生成；书籍编辑与代码快照是两个对象。
+从当前书稿检出开始学习，确认book/edition.json为3.3.0；其source_snapshot冻结的是代码复核身份。不要通过checkout代码快照后发现旧书，就认为新版没有生成；书籍编辑与代码快照是两个对象。
 
 ### 先做两个无硬件小实验
 
@@ -74,6 +74,15 @@ go test ./tasks ./core/agentcontext ./internal/actionloop
 **检查产物**：说明一个已完成历史记录为何可归档，一个未知命令为何不可删；列出同一中文/emoji页的offset/next_offset和完整标记。不要把归档率当正确率。
 
 **答案**：必要状态超过预算应拒绝，作用域切换应结束旧循环；不能靠提高预算、截早期约束或将旧成功归到新命令“修复”。
+
+### 实验 3 扩展：两轮输入跨 SQLite 重开
+
+```bash
+go test -race ./core/agentsession ./internal/agentsession ./tasks \
+  ./internal/capabilityagent ./cmd/local-agent -run 'Session|Reopen' -count=1
+```
+
+这是软件测试，不联系公网模型或机器人。阅读 `TestAutomaticSessionHTTPModelAndJournalRestart`，标出两次 request、session/turn/task 身份与模型 HTTP 请求中的历史 reference。再阅读 pending 无任务、已有任务、绑定冲突三种恢复测试，提交“不执行任何设备动作”的恢复表。长原文测试要求区分 6000 字节小投影、原始输入事件和 context_read 分页，不将它们当作同一个 token 限额。
 
 ## F.6 实验4：模拟完成响应丢失
 

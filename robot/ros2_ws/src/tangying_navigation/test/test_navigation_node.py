@@ -1,6 +1,8 @@
 """Run in ROS CI/container: real node, messages and SQLite, no external actuation."""
 
 import math
+import threading
+import time
 from concurrent.futures import Future
 from types import SimpleNamespace
 
@@ -9,7 +11,11 @@ import pytest
 rclpy = pytest.importorskip("rclpy")
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import TransformStamped
+from rcl_interfaces.msg import ParameterType, ParameterValue
+from rcl_interfaces.srv import GetParameters
+from rclpy.executors import MultiThreadedExecutor
 from tangying_navigation import navigation_node as module
+from tangying_navigation.http_api import ApiError
 
 
 class IsolatedAction:
@@ -60,6 +66,8 @@ def node(monkeypatch, tmp_path):
     value.info_ms = value.odom_ms = stamp
     value.info_ref = 1
     value.visual_quality = {"ready": True, "currentFrameWords": 30, "dictionaryWords": 50}
+    value.nav2_states = {name: (3, "active", time.monotonic()) for name in value.nav2_clients}
+    value.slam_mode_sample = ("mapping", time.monotonic())
     yield value
     value.destroy_node()
     rclpy.shutdown()
@@ -67,6 +75,111 @@ def node(monkeypatch, tmp_path):
 
 def goal():
     return {"commandId": "repeat-approach", "goalPose": [.05, 0, 0, 1, 0, 0, 0], "frameId": "odom"}
+
+
+@pytest.mark.parametrize("state,age", [(2, 0.), (3, 4.), (0, 0.)])
+def test_discovered_action_does_not_hide_inactive_or_stale_nav2(node, state, age):
+    node.nav2_states["planner_server"] = (state, "test-state", time.monotonic() - age)
+    result = node.map_status()
+    assert result["ready"] is False
+    reason = "NAV2_PLANNER_SERVER_STATE_STALE" if age > 3 else "NAV2_PLANNER_SERVER_INACTIVE"
+    assert reason in result["readinessBlockers"]
+    assert node.action.server_is_ready()
+    with pytest.raises(ApiError) as error:
+        node.registry.submit(goal())
+    assert error.value.code == "NAVIGATION_NOT_READY"
+    assert node.action.sent == []
+
+
+def test_lifecycle_poll_receipt_and_loss_are_reflected_in_admission(node):
+    pending = Future()
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True, call_async=lambda _request: pending)
+    node.poll_nav2_states()
+    pending.set_result(SimpleNamespace(current_state=SimpleNamespace(id=2, label="inactive")))
+    node.poll_nav2_states()
+    assert node.nav2_states["planner_server"][:2] == (2, "inactive")
+    assert not node.map_status()["ready"]
+    node.nav2_clients["planner_server"].service_is_ready = lambda: False
+    node.poll_nav2_states()
+    assert "planner_server" not in node.nav2_states
+
+
+def test_delayed_lifecycle_reply_does_not_refresh_an_old_active_state(node):
+    late = Future()
+    late.set_result(SimpleNamespace(current_state=SimpleNamespace(id=3, label="active")))
+    node.nav2_pending["planner_server"] = (late, time.monotonic() - 4.)
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True, call_async=lambda _request: Future())
+    node.poll_nav2_states()
+    assert "planner_server" not in node.nav2_states
+    assert not node.map_status()["ready"]
+
+
+def test_lifecycle_freshness_budget_includes_request_latency(node, monkeypatch):
+    clock = [100.]
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: clock[0], time=time.time))
+    late = Future()
+    late.set_result(SimpleNamespace(current_state=SimpleNamespace(id=3, label="active")))
+    node.nav2_pending["planner_server"] = (late, 97.1)
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True, call_async=lambda _request: Future())
+    node.poll_nav2_states()
+    assert node.nav2_states["planner_server"][2] == 97.1
+    assert "NAV2_PLANNER_SERVER_INACTIVE" not in node.map_status()["readinessBlockers"]
+    clock[0] += .2
+    assert "NAV2_PLANNER_SERVER_STATE_STALE" in node.map_status()["readinessBlockers"]
+
+
+def test_mode_query_completes_while_default_map_action_group_is_blocked(node):
+    server = rclpy.create_node("isolated_mode_service")
+    def reply(_request, response):
+        response.values = [ParameterValue(type=ParameterType.PARAMETER_STRING, string_value="false")]
+        return response
+    server.create_service(GetParameters, "/rtabmap/rtabmap/get_parameters", reply)
+    entered, release = threading.Event(), threading.Event()
+    def block_default_group():
+        timer.cancel()
+        entered.set()
+        release.wait(5)
+    timer = node.create_timer(.01, block_default_group)
+    executor = MultiThreadedExecutor(num_threads=4)
+    executor.add_node(node)
+    executor.add_node(server)
+    worker = threading.Thread(target=executor.spin)
+    worker.start()
+    try:
+        assert entered.wait(2)
+        deadline = time.monotonic()+3
+        while time.monotonic() < deadline:
+            if node.slam_mode_sample and node.slam_mode_sample[0] == "localization":
+                break
+            time.sleep(.02)
+        assert not release.is_set()
+        assert node.slam_mode_sample and node.slam_mode_sample[0] == "localization"
+    finally:
+        release.set()
+        executor.shutdown()
+        worker.join(timeout=3)
+        server.destroy_node()
+
+
+@pytest.mark.parametrize("failure", ["discovery", "request"])
+def test_lifecycle_client_exception_clears_authority_and_continues_other_nodes(node, failure):
+    def broken(*_args):
+        raise RuntimeError("ROS client destroyed")
+    calls = []
+    node.nav2_clients["controller_server"] = SimpleNamespace(
+        service_is_ready=broken if failure == "discovery" else lambda: True,
+        call_async=broken)
+    node.nav2_clients["planner_server"] = SimpleNamespace(
+        service_is_ready=lambda: True,
+        call_async=lambda _request: calls.append("planner") or Future())
+    node.poll_nav2_states()
+    assert "controller_server" not in node.nav2_states
+    assert "controller_server" not in node.nav2_pending
+    assert calls == ["planner"]
+    assert not node.map_status()["ready"]
 
 
 def test_actual_node_confirms_existing_pose_after_tf_binding_without_action_or_velocity(node):
@@ -133,14 +246,46 @@ def test_aborted_nav2_callback_freezes_actual_diagnostics_before_recovery(node):
     original = node.map_status()
     assert original["ready"]
     aborted = Future()
-    aborted.set_result(SimpleNamespace(status=GoalStatus.STATUS_ABORTED))
+    aborted.set_result(SimpleNamespace(status=GoalStatus.STATUS_ABORTED,
+        result=SimpleNamespace(error_code=208, error_msg="No path to the requested goal")))
     node.goal_result(result["goalId"], aborted)
     failed = node.registry.status(result["goalId"])
     assert failed["state"] == "FAILED" and failed["message"] == "NAV2_ACTION_ENDED"
     frozen = failed["failureObservation"]
     assert frozen["ready"] and frozen["inputAgeMs"]["base"] >= 700
+    assert frozen["nav2Action"] == {"status": GoalStatus.STATUS_ABORTED,
+        "errorCode": 208, "errorMessage": "No path to the requested goal"}
     node.sensor_ms = {"base": module.now_ms(), "head": module.now_ms()}
     assert node.registry.status(result["goalId"])["failureObservation"] == frozen
+
+
+def test_measured_slam_mode_overrides_launch_and_requires_localization(node):
+    completed = Future()
+    completed.set_result(SimpleNamespace(values=[ParameterValue(
+        type=ParameterType.PARAMETER_STRING, string_value="false")]))
+    node.slam_mode_pending = (completed, time.monotonic())
+    node.slam_mode_client = SimpleNamespace(service_is_ready=lambda: True,
+        call_async=lambda request: Future())
+    node.poll_slam_mode()
+    state = node.map_status()
+    assert state["configuredMode"] == "mapping" and state["mode"] == "localization"
+    assert not state["ready"] and "LOCALIZATION_UNAVAILABLE" in state["readinessBlockers"]
+    node.localization_ms, node.localization_covariance_ok = module.now_ms(), True
+    assert node.map_status()["localizationState"] == "LOCALIZED"
+
+
+def test_stale_or_invalid_remote_slam_mode_never_falls_back_to_launch(node):
+    node.slam_mode_sample = ("mapping", time.monotonic()-4)
+    state = node.map_status()
+    assert state["mode"] == "unknown" and "RTABMAP_MODE_UNAVAILABLE" in state["readinessBlockers"]
+    completed = Future()
+    completed.set_result(SimpleNamespace(values=[ParameterValue(
+        type=ParameterType.PARAMETER_STRING, string_value="maybe")]))
+    node.slam_mode_pending = (completed, time.monotonic())
+    node.slam_mode_client = SimpleNamespace(service_is_ready=lambda: True,
+        call_async=lambda request: Future())
+    node.poll_slam_mode()
+    assert node.map_status()["mode"] == "unknown" and node.slam_mode_sample is None
 
 
 def test_gazebo_odom_goal_tracks_map_corrections_and_stops_updating_after_cancel(node):

@@ -1,0 +1,8 @@
+--- FAIL: TestHTTPApprovalQueueFullRetryPreservesConsentAndRunsOnce (0.42s)
+    admission_retry_test.go:80: terminal task audit changed
+FAIL
+FAIL	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp	6.422s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	5.208s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	3.920s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/orchestration	2.374s
+FAIL

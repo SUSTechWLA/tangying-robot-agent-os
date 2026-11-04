@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "bounded-evidence-archive.v1",
+  "archive": {
+    "path": "raw-evidence.tar.gz",
+    "sizeBytes": 154027,
+    "sha256": "91399995d824e1311ed1785e4d2cc52efdb5a0baf9965b3697691f027ff7b476"
+  },
+  "members": [
+    {
+      "path": "original/README.md",
+      "originalPath": "/tmp/scan002-bootstrap-fix/README.md",
+      "sizeBytes": 4548,
+      "sha256": "48dee2dba51c0fec736e616a89076800629dfefd617c1b38571e56f4234a24e4"
+    },
+    {
+      "path": "original/before-after.json",
+      "originalPath": "/tmp/scan002-bootstrap-fix/before-after.json",
+      "sizeBytes": 905,
+      "sha256": "133cbfa811b90650c0c64d7e15e55543bdeb59aa38b39b9c45aed01555eb7e9a"
+    },
+    {
+      "path": "original/bootstrap-final-tests.txt",
+      "originalPath": "/tmp/scan002-bootstrap-fix/bootstrap-final-tests.txt",
+      "sizeBytes": 756,
+      "sha256": "b4e4375e48dad670c18ce00e09a8628eafd35f65597c43d3a979a1f339a398e1"
+    },
+    {
+      "path": "original/bootstrap-final-tests.xml",
+      "originalPath": "/tmp/scan002-bootstrap-fix/bootstrap-final-tests.xml",
+      "sizeBytes": 3119,
+      "sha256": "8e778480958316c40402fe330d5c4c18c203b8b751c8bc89c510c41a86d925c8"
+    },
+    {
+      "path": "original/bootstrap-tests.txt",
+      "originalPath": "/tmp/scan002-bootstrap-fix/bootstrap-tests.txt",
+      "sizeBytes": 15940,
+      "sha256": "9765160bd2cc780e7631a036cacf81507bea51b47e826fdaacd63a2aa9443188"
+    },
+    {
+      "path": "original/bootstrap-tests.xml",
+      "originalPath": "/tmp/scan002-bootstrap-fix/bootstrap-tests.xml",
+      "sizeBytes": 17751,
+      "sha256": "3b3a23c6874a4cec95c8ca62650ce24ca444c3e891d17cec7104f0b53d23ddb5"
+    },
+    {
+      "path": "original/changes.patch",
+      "originalPath": "/tmp/scan002-bootstrap-fix/changes.patch",
+      "sizeBytes": 19505,
+      "sha256": "90e3f3b51c46817bf2410a611c4561b4841877dd1bcf967e34669b50154e3e6a"
+    },
+    {
+      "path": "original/commands.json",
+      "originalPath": "/tmp/scan002-bootstrap-fix/commands.json",
+      "sizeBytes": 1113,
+      "sha256": "3aa751037ddac02b78e167502a6712d34d73e1df4581e3b6d16411e6890baac4"
+    },
+    {
+      "path": "original/manifest.json",
+      "originalPath": "/tmp/scan002-bootstrap-fix/manifest.json",
+      "sizeBytes": 2352,
+      "sha256": "99f31fdc7539c4b61ae39ed827ddc53bdb3b28e187e943811395af79331c6e60"
+    },
+    {
+      "path": "original/regressions-01.txt",
+      "originalPath": "/tmp/scan002-bootstrap-fix/regressions-01.txt",
+      "sizeBytes": 3004,
+      "sha256": "76e9b30318b56b9d8a7b23946539912640a913c8083c8b88ca385f6416e3d6bf"
+    },
+    {
+      "path": "original/regressions-01.xml",
+      "originalPath": "/tmp/scan002-bootstrap-fix/regressions-01.xml",
+      "sizeBytes": 29067,
+      "sha256": "f9227bd8543402e3a2f1b62cff225e5423a66c6aff60d433dd5228454b5d67c9"
+    },
+    {
+      "path": "original/report.json",
+      "originalPath": "/tmp/scan002-bootstrap-fix/report.json",
+      "sizeBytes": 2049,
+      "sha256": "8e7fd52029417d7a61b7e74c3aa8708598b9a5f6e19c6b8187adb110c2b94ee8"
+    },
+    {
+      "path": "original/reproduce.py",
+      "originalPath": "/tmp/scan002-bootstrap-fix/reproduce.py",
+      "sizeBytes": 3207,
+      "sha256": "04dd9df30c2fae36d2114e945e0acc67d8417cca7273a733b601a7ae30d84fbe"
+    },
+    {
+      "path": "original/ruff.txt",
+      "originalPath": "/tmp/scan002-bootstrap-fix/ruff.txt",
+      "sizeBytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "original/source-before/robot/gateway/tangying_robot_gateway/robot_workflow.py",
+      "originalPath": "/tmp/scan002-bootstrap-fix/source-before/robot/gateway/tangying_robot_gateway/robot_workflow.py",
+      "sizeBytes": 106231,
+      "sha256": "5a37881667f397a2061f404388c779518257b1fc9517f38bf118c7ba1fac5d8d"
+    },
+    {
+      "path": "original/source-before/robot/gateway/tangying_robot_gateway/survey.py",
+      "originalPath": "/tmp/scan002-bootstrap-fix/source-before/robot/gateway/tangying_robot_gateway/survey.py",
+      "sizeBytes": 26858,
+      "sha256": "8c7303b3a45438201cfbeb34b0e40567a8dc88a66e29de56ad0169ed1a206e32"
+    },
+    {
+      "path": "original/source-before/robot/gateway/tests/test_robot_services.py",
+      "originalPath": "/tmp/scan002-bootstrap-fix/source-before/robot/gateway/tests/test_robot_services.py",
+      "sizeBytes": 91149,
+      "sha256": "397a6eba50df01db962fa6650daa8916a94300c03055c628f9ca39026eae7d15"
+    },
+    {
+      "path": "original/source-before/robot/gateway/tests/test_survey.py",
+      "originalPath": "/tmp/scan002-bootstrap-fix/source-before/robot/gateway/tests/test_survey.py",
+      "sizeBytes": 32962,
+      "sha256": "bc5fe4145cc6130ea3c59f2a5ee961ea646ef292d06c56f3587f27f6041c7e18"
+    },
+    {
+      "path": "original/source-before.json",
+      "originalPath": "/tmp/scan002-bootstrap-fix/source-before.json",
+      "sizeBytes": 919,
+      "sha256": "01ebe9d9420ffcfa686d1832c557df5d3e37bbada47644ecd6edbeaff364bb01"
+    },
+    {
+      "path": "original/source-final.json",
+      "originalPath": "/tmp/scan002-bootstrap-fix/source-final.json",
+      "sizeBytes": 498,
+      "sha256": "962aced79be90cf3ff682d8e26504b860b55e3c91b57e770d98f9d4ed10b7c2b"
+    },
+    {
+      "path": "source-after/robot/gateway/tangying_robot_gateway/robot_workflow.py",
+      "originalPath": "/Users/wanglian/Projects/tangying-robot-agent-os/robot/gateway/tangying_robot_gateway/robot_workflow.py",
+      "sizeBytes": 109762,
+      "sha256": "d2f8f0417567934005c1e1c246b46a744a9945dd887f8ea7c0f467164ae0ee90"
+    },
+    {
+      "path": "source-after/robot/gateway/tangying_robot_gateway/survey.py",
+      "originalPath": "/Users/wanglian/Projects/tangying-robot-agent-os/robot/gateway/tangying_robot_gateway/survey.py",
+      "sizeBytes": 28519,
+      "sha256": "306a591b2141ef43bc059621e2a9eae8e42334739e45b7dc6143b9b54c7c6330"
+    },
+    {
+      "path": "source-after/robot/gateway/tests/test_robot_services.py",
+      "originalPath": "/Users/wanglian/Projects/tangying-robot-agent-os/robot/gateway/tests/test_robot_services.py",
+      "sizeBytes": 91187,
+      "sha256": "b929325abc1c72c26d94ae17e619a10ec9b918ae2a3c77965ef03df8ae8f4c60"
+    },
+    {
+      "path": "source-after/robot/gateway/tests/test_survey_continuation_bootstrap.py",
+      "originalPath": "/Users/wanglian/Projects/tangying-robot-agent-os/robot/gateway/tests/test_survey_continuation_bootstrap.py",
+      "sizeBytes": 8812,
+      "sha256": "31660182772ac9ec2497426b64b1fc9009a67aeafe22775b6578f415b5df1859"
+    }
+  ],
+  "credentialScan": {
+    "scope": "explicit source/test/log allowlist, no environment/config/credential/database files",
+    "knownPatternMatches": 0,
+    "notUniversalSecretDetection": true
+  }
+}

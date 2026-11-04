@@ -117,9 +117,9 @@ function safetyItem(input) {
 function calibrationItem(input) {
   const calibration = input.calibration || null;
   if (!calibration || !calibration.revision) {
-    return item("calibration", "整机标定", ACTION,
-      "尚未取得可用的标定版本，确认参数前不要让它抓东西。",
-      "打开标定向导，跟着提示一步步做，大约十几分钟。", "calibration");
+    return item("calibration", "整机标定", UNKNOWN,
+      "尚未确认机器人当前的标定参数。",
+      "先刷新使用准备或打开标定页读取已有结果；信息缺失不代表需要重新标定。", "calibration");
   }
   const revision = String(calibration.revision).slice(0, 8);
   if (calibration.ready !== false) {
@@ -153,6 +153,16 @@ function cameraItem(input) {
 
 function mapItem(input) {
   const map = input.map || null;
+  const navigation = Array.isArray(input.server?.checks)
+    ? input.server.checks.find(check => check?.id === "navigation") : null;
+  const driver = map?.navigationDriver;
+  if ((navigation && navigation.state !== READY) || (driver && driver.ready !== true)) {
+    const unknown = navigation?.state === UNKNOWN || (!navigation && typeof driver?.ready !== "boolean");
+    return item("map", "场景地图", unknown ? UNKNOWN : ACTION,
+      unknown ? "当前地图的导航可用性尚未确认。" : "当前地图导航不可用，需先检查导航运行依赖。",
+      "按导航运行依赖的故障信息检查并刷新状态，恢复后再判断地图是否需要补充。", "",
+      { detail: navigation?.detail || "" });
+  }
   if (!map || map.ready == null) {
     return item("map", "场景地图", UNKNOWN,
       "还没有读到地图状态。",

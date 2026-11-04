@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/docs"
+  ],
+  "exitCode": 1,
+  "passed": 22,
+  "failed": 1,
+  "failure": "Navigation referenced 2026-11-01-automatic-edge-sessions.md before this report was created.",
+  "recordSource": "Captured terminal result, summarized; full traceback was displayed in the work session."
+}

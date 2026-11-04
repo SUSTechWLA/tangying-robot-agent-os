@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "independent.user-tasks-audit.v1",
+  "capturedAtUTC": "2026-10-28T17:05:49.858304+00:00",
+  "scope": "offline independent recomputation of retained API/online-backup and ledger; no physical actions or new model calls",
+  "task005": {
+    "taskId": "task-472131e5530f56e8b6ddd152",
+    "state": "SUCCEEDED",
+    "revision": 1,
+    "apiAndDatabaseEvents": 41,
+    "apiSnapshotBeforeAfterEqual": true,
+    "allEventsContiguousAndEqualToDatabase": true,
+    "terminalSequence": 39,
+    "successSequence": 40,
+    "finishSequence": 41,
+    "closureVerified": true,
+    "completedStepRuns": [
+      {
+        "step_id": "rev-1-cap-01",
+        "status": "COMPLETED",
+        "reconcile_outcome": ""
+      },
+      {
+        "step_id": "rev-1-cap-02",
+        "status": "COMPLETED",
+        "reconcile_outcome": ""
+      },
+      {
+        "step_id": "rev-1-cap-03",
+        "status": "COMPLETED",
+        "reconcile_outcome": ""
+      }
+    ],
+    "readOnlyTools": [
+      "navigation.status",
+      "mapping.inventory",
+      "mapping.status"
+    ],
+    "readOnlyVerifiedCalls": 3,
+    "mutatingCapabilityCalls": 0,
+    "newObservationEvidence": 0,
+    "approvedToTerminalMs": 309.779,
+    "approvedToFinishMs": 321.503,
+    "usage": {
+      "planningTraceRows": 1,
+      "uniqueModelCalls": 1,
+      "matchingLedgerStartRecords": 1,
+      "matchingLedgerResultRecords": 1,
+      "ledgerScopeTaskIdEmpty": true,
+      "taskBinding": "exact call_id and metadata joined to task planningTrace; planning precedes task allocation",
+      "http200": 1,
+      "invalidDecision": 0,
+      "validProviderUsageCalls": 1,
+      "providerReportedTokens": {
+        "prompt_tokens": 9956,
+        "completion_tokens": 322,
+        "total_tokens": 10278,
+        "cached_tokens": 6656
+      },
+      "recordedModelDurationSumMs": 2226,
+      "callIds": [
+        "9b778f64-2e78-431b-a140-8dd03bd6d419"
+      ],
+      "estimatedTokenTotal": null
+    },
+    "interpretation": "status-query task succeeded; does not demonstrate route/motion/coverage success",
+    "reportedMappingState": "failed",
+    "reportedMappingStopReason": "no_frames"
+  },
+  "task004": {
+    "taskId": "task-fd9e3d68478a5be33f728a8e",
+    "state": "CANCELLED",
+    "approved": false,
+    "events": 3,
+    "stepRuns": 0,
+    "capabilityDispatchEvents": 0,
+    "draftPlanUnchanged": true,
+    "previousState": "READY",
+    "closureClassification": "cancelled_before_run; LOCAL_RUN_FINISHED not applicable because no local run began",
+    "usage": {
+      "planningTraceRows": 3,
+      "uniqueModelCalls": 3,
+      "matchingLedgerStartRecords": 3,
+      "matchingLedgerResultRecords": 3,
+      "ledgerScopeTaskIdEmpty": true,
+      "taskBinding": "exact call_id and metadata joined to task planningTrace; planning precedes task allocation",
+      "http200": 3,
+      "invalidDecision": 1,
+      "validProviderUsageCalls": 3,
+      "providerReportedTokens": {
+        "prompt_tokens": 31978,
+        "completion_tokens": 1663,
+        "total_tokens": 33641,
+        "cached_tokens": 20224
+      },
+      "recordedModelDurationSumMs": 10937,
+      "callIds": [
+        "ce8de8d9-aef3-441b-b6e6-6a948b46abc4",
+        "10e06a77-795b-432d-a014-b2ae9b551362",
+        "0922b936-967c-4dd8-9e02-157b2c3b008f"
+      ],
+      "estimatedTokenTotal": null
+    },
+    "interpretation": "cancel/admission test passed; not an executed robot task and not execution failure"
+  },
+  "metrics": {
+    "retainedTask004Metrics": {
+      "available": true,
+      "population": "persisted_tasks_only",
+      "totalTasks": 2,
+      "sequenceTasks": 2,
+      "deterministicTasks": 0,
+      "llmGeneratedTasks": 2,
+      "consensusTasks": 0,
+      "llmFallbackTasks": 0,
+      "llmPlanRate": 1,
+      "llmCandidateRate": 0,
+      "llmRejectionCount": 0,
+      "succeededTasks": 0,
+      "failedTasks": 2,
+      "safetyStoppedTasks": 0,
+      "endToEndSuccessRate": 0,
+      "successByPlanSource": {},
+      "orchestrationScore": 15,
+      "legacyCandidateAttempts": 0,
+      "legacyAcceptedCandidates": 0,
+      "goalModelCallAttempts": 7,
+      "goalProposalAttempts": 2,
+      "goalAcceptedProposals": 2,
+      "goalRecipeHits": 0,
+      "goalDecisionRejected": 2,
+      "goalProposalAcceptanceRate": 1
+    },
+    "retainedMetricsClassification": "older metric conflated cancelled states with failedTasks; retained without rewrite",
+    "backupCurrentStatePopulation": 3,
+    "backupCurrentStateCounts": {
+      "SUCCEEDED": 1,
+      "CANCELLED": 2
+    },
+    "backupEventCountsAtSnapshot": {
+      "task-472131e5530f56e8b6ddd152": 41,
+      "task-e133310fd2f0b570d65e4dce": 91,
+      "task-fd9e3d68478a5be33f728a8e": 3
+    },
+    "recomputedNewCurrentStateMetrics": {
+      "totalTasks": 3,
+      "succeededTasks": 1,
+      "failedTasks": 0,
+      "cancelledTasks": 2,
+      "safetyStoppedTasks": 0,
+      "endToEndSuccessRate": 0.3333333333333333
+    },
+    "historicalFailureTransitions": [
+      {
+        "taskId": "task-e133310fd2f0b570d65e4dce",
+        "sequence": 29,
+        "state": "RECOVERABLE_FAILURE"
+      }
+    ],
+    "sourceSHA256": "2b436d352922ad55f2a6e773586d31f5d7b7b479df61db9f07e29f809c99916b",
+    "boundary": "Current cancelledTasks is a snapshot category. Task001 historical execution failure persists despite later cancellation. All-created success share mixes drafts/read-only/physical tasks and is not physical-route success rate."
+  },
+  "ledger": {
+    "lines": 8,
+    "startRecords": 4,
+    "resultRecords": 4,
+    "uniqueRequestAttempts": 4,
+    "unfinishedAttempts": 0,
+    "providerReportedTotals": {
+      "prompt_tokens": 41934,
+      "completion_tokens": 1985,
+      "total_tokens": 43919,
+      "cached_tokens": 26880
+    },
+    "allResultRecordsMatchedToTaskTraces": true,
+    "scope": "This ledger snapshot covers task004 and task005 only, not earlier task001; start placeholder request_error is not a completed failure. Tokens counted on result once. Cached tokens are included in prompt tokens; output_tokens is a cap. Provider telemetry is not invoice/packet attestation."
+  },
+  "inputHashes": {
+    "task-004-draft/cancelled.json": {
+      "bytes": 465431,
+      "sha256": "e14aa5a551955a28519c5091f7644946737b7cdb89ae820667ad4290ca120fae"
+    },
+    "task-004-draft/draft.json": {
+      "bytes": 464882,
+      "sha256": "a35ccbe9e588119e1199b1a46fa09861b96609f50065b53278fcd7790253ac68"
+    },
+    "task-005-closure/api-final-after-backup.json": {
+      "bytes": 215387,
+      "sha256": "fa968d0fdc620af7c5db3e6916356a8c2f3ef7d601ca8febdc9cda09c9ef16ad"
+    },
+    "task-005-closure/api-final-before-backup.json": {
+      "bytes": 215387,
+      "sha256": "fa968d0fdc620af7c5db3e6916356a8c2f3ef7d601ca8febdc9cda09c9ef16ad"
+    },
+    "task-005-closure/report.json": {
+      "bytes": 4930,
+      "sha256": "2362905260a75f90ef606156d1488a9f9ade155bc562bb8989c8242d92f69926"
+    },
+    "task-005-closure/manifest.json": {
+      "bytes": 1053,
+      "sha256": "3db7cce673cdee9f4846c560968b7cb3ca931a66497f0dd3ef06c50dce072383"
+    },
+    "task-005-closure/journal-backup.sqlite": {
+      "sha256": "6007c7597428d7140f03208388d44aedfd3efcc65fcfe4fab29465e6261bbf81",
+      "bytes": 5394432
+    },
+    "model-usage.jsonl": {
+      "bytes": 6603,
+      "sha256": "e57c2faedc9f82af6d2e3874dfd58ed4b118fd1bc6048dfb9d37af124d66a175"
+    },
+    "task-004-draft/metrics.json": {
+      "bytes": 673,
+      "sha256": "1805c016a11a6bf8348bf5125c75cc7767b1b9bf15a742c680f82b32220ba3a2"
+    }
+  }
+}

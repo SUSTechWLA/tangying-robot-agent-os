@@ -43,6 +43,7 @@ def assembler(module):
     node._rgb_encoding = {}
     node._joint_history = deque([(1_000_000_000, {"joint": 0.}), (1_100_000_000, {"joint": 1.})])
     node._odom_history = deque([(1_000_000_000, np.eye(4)), (1_100_000_000, np.eye(4))])
+    node._odom_stamp_ns = 0
     node._sensor_clock_history = deque([(1_000_000_000, (1_700_000_000_000, 9_950_000_000)),
                                       (1_100_000_000, (1_700_000_000_100, 10_050_000_000))])
     node._suction_state = {"side": "left", "attached": False}

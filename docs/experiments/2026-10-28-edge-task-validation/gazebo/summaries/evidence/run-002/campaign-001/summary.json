@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "gazebo.field-campaign.v1",
+  "success": true,
+  "evidenceClass": "actual_gazebo_classical_physics_ros2_grpc_localagent",
+  "localization": "gazebo_ground_truth_link_proxy",
+  "reinforcementLearning": false,
+  "vendorDynamicsValidated": false,
+  "seeds": [
+    3
+  ],
+  "trials": [
+    {
+      "seed": 3,
+      "seedMeaning": "stale-peer fault injection timing; physics is deterministic",
+      "request": "从客厅出发，去厨房确认一下环境，然后去卧室，再回到厨房，再去卧室，再回到厨房，再回到客厅，再去厨房，再去卧室，最后回到客厅。",
+      "startedAtUnixMs": 1793198706852,
+      "tasks": {
+        "uav-a": {
+          "taskId": "task-4b01228de82110fd4894abc8",
+          "state": "SUCCEEDED"
+        },
+        "ground-b": {
+          "taskId": "task-9646b16ab42535b0e4aacb4d",
+          "state": "SUCCEEDED"
+        },
+        "ground-a": {
+          "taskId": "task-33cc0c3429e8cfc477541426",
+          "state": "SUCCEEDED"
+        }
+      },
+      "faults": [
+        {
+          "type": "stale_peer",
+          "atUnixMs": 1793198709875,
+          "clearedAtUnixMs": 1793198711945
+        }
+      ],
+      "elapsedWallSeconds": 180.65098762499997,
+      "success": true
+    }
+  ],
+  "binarySha256": "efae33716278d6385ed5961aeb095d3528893ea895e13a626c555a447eaf5186",
+  "startedAtUnixMs": 1793198703478,
+  "endedAtUnixMs": 1793198887517
+}

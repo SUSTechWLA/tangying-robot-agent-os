@@ -21,7 +21,11 @@ const MUTATING_TOOLS = new Set([
   "manipulation.pick",
   "manipulation.place",
   "navigation.navigate",
+  "navigation.pre_position",
   "recover_to_safe_pose",
+]);
+const READ_ONLY_TOOLS = new Set([
+  "observe_scene", "resolve_targets", "plan_grasp", "verify_grasp", "verify_placement", "verify_arrival",
 ]);
 
 // Historical capability plans freeze call identities, but not manifests. These
@@ -62,7 +66,7 @@ function effectText(step) {
 
 function capabilityEvidenceText(step) {
   if (!step.capability) return "";
-  if (step.capabilityVerified) {
+  if (step.capabilityVerified && step.status === "CONFIRMED") {
     return step.toolName === "robot.task"
       ? "父能力已按执行契约复验；各物理子步骤的观测证据分别列在下方。"
       : "已记录能力执行契约的独立复验结果；本级证据为结构化状态，不要求 RGB-D 图像。";
@@ -70,6 +74,16 @@ function capabilityEvidenceText(step) {
   return step.status === "CONFIRMED"
     ? "能力被记为完成，但缺少完整的调用、回执与契约复验记录。"
     : "能力执行记录尚未形成完整的契约复验链。";
+}
+
+/** Evidence wording shared by the task cards and the replay explanation.
+ * The immutable experience snapshot may predate the verification event. Keep
+ * its raw text intact, but explain the exact revision/step from the event chain.
+ */
+function capabilityStepEvidenceText(stepId, traceSteps, revision) {
+  const step = (traceSteps || []).find(item => item.capability && item.stepId === stepId
+    && item.taskRevision === Number(revision));
+  return step ? capabilityEvidenceText(step) : "";
 }
 
 function contractEvidenceSummary(step) {
@@ -85,9 +99,11 @@ function contractEvidenceSummary(step) {
 const TOOL_LABELS = {
   "mapping.build": "扫描并构建地图",
   "robot.task": "执行物理子任务",
+  "navigation.status": "读取导航与定位状态",
   observe_scene: "观察环境",
   resolve_targets: "确认任务目标",
   "navigation.navigate": "移动到操作位置",
+  "navigation.pre_position": "导航前安全摆位",
   "navigation.stop": "中止导航",
   "navigation.explore": "搜索目标",
   "navigation.get_pose": "读取当前位置",
@@ -212,7 +228,7 @@ function nodeFromEvent(event, capabilities) {
     contractEvidence: event.type === "CAPABILITY_VERIFIED" ? payload.evidence : null,
     mutatesWorld: capability
       ? CAPABILITY_WRITES.has(toolName) ? true : CAPABILITY_READS.has(toolName) ? false : null
-      : MUTATING_TOOLS.has(toolName),
+      : MUTATING_TOOLS.has(toolName) ? true : READ_ONLY_TOOLS.has(toolName) ? false : null,
     // The runner puts canonical tool arguments under payload.arguments; the
     // rest of the payload is activity metadata. Only the SENDING event carries
     // them, so whether arguments were present is recorded separately: a later
@@ -234,7 +250,7 @@ function nodeFromEvent(event, capabilities) {
  * its read-only steps under the same ids; without the revision the two runs
  * would merge and the replay would show commands out of order.
  */
-function buildTaskTrace({ task, observations = [], experience = null, recovery = null } = {}) {
+function buildTaskTrace({ task, observations = [], experience = null, recovery = null, durableTrace = null, durableTraceStatus = null } = {}) {
   const events = [...(task?.events || [])].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
   const captures = Array.isArray(observations) ? observations : [];
   const captureById = indexCaptures(captures);
@@ -284,6 +300,10 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
     if (node.hasArguments) step.arguments = node.arguments;
     if (node.status === "SENDING") {
       step.attempts += 1;
+      step.endMs = null;
+      step.evidence = [];
+      step.error = "";
+      step.errorCode = "";
       if (step.startMs == null) step.startMs = node.atMs;
       if (node.atMs != null) dispatchTimes.set(key, node.atMs);
       if (step.capability) {
@@ -291,7 +311,7 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
         step.hasReceipt = false;
       }
     }
-    if (step.capability && node.status) step.status = node.status;
+    if (node.status) step.status = node.status;
     if (node.type === "CAPABILITY_RECEIPT") step.hasReceipt = true;
     if (node.type === "CAPABILITY_VERIFIED") {
       step.contractEvidence = node.contractEvidence;
@@ -347,6 +367,39 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
 
   const steps = stepOrder.map(key => stepsByKey.get(key));
   const findings = analyseAlignment({ task, timeline, steps, captures, captureById, recovery });
+  const durable = durableTrace?.schemaVersion === "task.trace.v1" && durableTrace.taskId === task?.id
+    ? durableTrace : null;
+  const durableStatus = durableTraceStatus || (durable ? "ready" : null);
+  const snapshotAligned = Boolean(durable?.source?.stable &&
+    durable.currentRevision === Number(task?.currentRevision || 1) &&
+    durable.source.eventCount === events.length &&
+    durable.source.lastSequence === (events.at(-1)?.sequence || 0) &&
+    durable.source.aggregateVersion === task?.aggregateVersion && durable.state === task?.state);
+  if (durableStatus && (!durable || durableStatus !== "ready")) {
+    findings.push({ severity: "warn", code: "DURABLE_TRACE_UNAVAILABLE",
+      message: durableStatus === "loading" ? "正在读取持久回溯快照，完整性尚未核对。" : "持久回溯快照暂不可用，不能据此判断记录完整；可重新读取。" });
+  } else if (durable && !snapshotAligned) {
+    findings.push({ severity: "warn", code: "DURABLE_TRACE_DIFFERENT_WATERMARK",
+      message: "持久快照与当前界面不在同一事件水位，以下快照仅代表标注的版本；请重新读取后比较。" });
+  }
+  if (durable) {
+    for (const finding of durable.integrity?.findings || []) {
+      findings.push({ ...finding, severity: finding.severity === "error" ? "error" : finding.severity === "info" ? "info" : "warn",
+        message: `持久账本：${finding.message}${traceFindingLocator(finding, task?.id)}` });
+    }
+    for (const child of durable.children || []) {
+      if (child.coverage !== "found" || child.bindingVerified !== true || child.coverageTruncated) {
+        findings.push({ severity: "warn", code: "CHILD_TRACE_UNVERIFIED", message: `子计划 ${child.childId || "未知"} 的权威记录尚未完整核对（${child.coverage || "unknown"}）；不能把父级镜像当成完整执行证据。` });
+      }
+      for (const finding of child.findings || []) {
+        findings.push({ ...finding, severity: finding.severity === "error" ? "error" : finding.severity === "info" ? "info" : "warn",
+          message: `子计划 ${child.childId || "未知"}：${finding.message}${traceFindingLocator(finding, task?.id, child.childId)}` });
+      }
+    }
+    if (durable.integrity?.status !== "consistent" && !(durable.integrity?.findings || []).length) {
+      findings.push({ severity: "warn", code: "DURABLE_TRACE_INCOMPLETE", message: "持久账本尚未通过完整性检查。" });
+    }
+  }
   const counts = { SENDING: 0, RUNNING: 0, CONFIRMED: 0, FAILED: 0, CANCELLED: 0 };
   for (const node of timeline) {
     if (!node.mirrored && (node.type === "TOOL_ACTIVITY" || node.capability) && node.status in counts) counts[node.status] += 1;
@@ -355,7 +408,12 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
 
   return {
     taskId: task?.id || "",
-    request: task?.request || "",
+    request: durable?.originalRequest?.text || task?.request || "",
+    requestLabel: durable?.originalRequest?.text ? "原始指令" : "当前任务指令（原始指令待核对）",
+    currentRequest: task?.request || "",
+    durableTrace: durable,
+    durableTraceStatus: durableStatus,
+    snapshotAligned,
     state: task?.state || "",
     adapter: task?.adapter || "",
     approved: Boolean(task?.approved),
@@ -366,7 +424,9 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
     durationS: Math.max(0, secondsBetween(timeValue(task?.createdAt), endMs) ?? 0),
     understanding: experience?.understanding || "",
     headline: experience?.headline || "",
-    experienceSteps: experience?.steps || [],
+    experienceSteps: (experience?.steps || []).map(item => ({ ...item,
+      evidenceExplanation: capabilityStepEvidenceText(item.stepId, steps, experience?.revision || task?.currentRevision || 1),
+    })),
     // The declared decomposition, when the task stored one. The Local path
     // derives its decomposition during execution, so this is often empty; the
     // tool steps below are the authoritative record either way.
@@ -537,6 +597,14 @@ function executionStepId(step) {
  * rather than one.
  */
 function declaredIntentSteps(task) {
+  const calls = task?.plan?.capabilities?.calls;
+  if (Array.isArray(calls) && calls.length) {
+    return calls.map((call, index) => {
+      const rooms = call.legacyIntent?.routeRooms;
+      const route = Array.isArray(rooms) && rooms.length ? `路线 ${rooms.join(" → ")}` : "";
+      return `${index + 1}. ${toolLabel(call.tool)} @${task.plan.capabilities.robotId || "当前机器人"}：${[route, describeArguments(call.tool, call.arguments || {})].filter(Boolean).join("；")}`;
+    });
+  }
   const sequence = task?.intent?.sequence;
   const items = Array.isArray(sequence) && sequence.length ? sequence : task?.intent ? [task.intent] : [];
   return items.map((item, index) => {
@@ -546,6 +614,13 @@ function declaredIntentSteps(task) {
     const robot = item?.robotId ? ` @${item.robotId}` : "";
     return `${index + 1}. ${action}${robot}：${object || "（未指定物体）"} → ${destination || "（未指定终点）"}`;
   });
+}
+
+function alignmentStatus(trace) {
+  if (trace.recovery?.requiresReconciliation) return { label: "结果待核对", text: "存在物理结果未确认的动作，不能宣称全部证据通过；必须先核对现场并完成对账。", tone: "trace-warning" };
+  if (!trace.steps.length) return { label: "尚无证据", text: "尚无可检查的工具步骤，无法判断执行证据是否完整。", tone: "hint" };
+  if (trace.steps.some(step => step.status !== "CONFIRMED" || step.mutatesWorld == null)) return { label: "尚未全部验证", text: "已完成部分未发现记录矛盾；仍有未完成或效果未声明的步骤，不能据此确认整个任务完成。", tone: "hint" };
+  return { label: "已完成步骤未发现不一致", text: "已记录的完成证据通过一致性检查；这不代替任务终态或实机验收。", tone: "trace-ok" };
 }
 
 /** One line summarising the outcome, for the top of the replay. */
@@ -673,7 +748,7 @@ function stepSection(step, taskId, index) {
       ? `<p class="${step.status === "CONFIRMED" && !step.capabilityVerified ? "trace-warning" : "hint"}">${escapeHTML(capabilityEvidenceText(step))}</p>`
     : step.mutatesWorld && step.status === "CONFIRMED"
       ? `<p class="trace-warning">这一步改变了物理世界，但没有关联观测证据 —— 完成判定缺少依据。</p>`
-      : `<p class="hint">这一步没有采集记录（只读步骤不要求证据）。</p>`;
+      : `<p class="hint">${escapeHTML(pendingEvidenceText(step))}</p>`;
   return `<li class="trace-step ${status}">
     <header>
       <span class="trace-step-index">${index + 1}</span>
@@ -698,6 +773,12 @@ function stepSection(step, taskId, index) {
     </details>
     ${evidence}
   </li>`;
+}
+
+function pendingEvidenceText(step) {
+  if (step.mutatesWorld === false) return "这一步没有采集记录（只读步骤不要求证据）。";
+  if (step.mutatesWorld === true) return "物理步骤尚未确认完成，仍需等待动作回执与新的观测证据。";
+  return "能力效果未声明；没有采集记录，不能推断为只读或已经完成。";
 }
 
 function timelineRows(timeline) {
@@ -770,7 +851,8 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
   sections.push(`<section class="trace-block trace-summary">
     <h3>任务是什么</h3>
     <dl>
-      <dt>原始指令</dt><dd class="trace-request">${escapeHTML(trace.request || "—")}</dd>
+      <dt>${escapeHTML(trace.requestLabel)}</dt><dd class="trace-request">${escapeHTML(trace.request || "—")}</dd>
+      ${trace.currentRequest !== trace.request ? `<dt>当前版本指令</dt><dd>${escapeHTML(trace.currentRequest)}</dd>` : ""}
       <dt>系统理解为</dt><dd>${escapeHTML(understandingText(trace))}</dd>
       <dt>适配器</dt><dd><code>${escapeHTML(trace.adapter || "—")}</code></dd>
       <dt>任务版本</dt><dd>${trace.currentRevision}</dd>
@@ -783,13 +865,15 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       `<div class="trace-plain-step ${statusClass(item.status)}">
          <strong>${escapeHTML(item.statusText || item.status)}</strong>
          <span>${escapeHTML(item.explanation || "")}</span>
-         <em>${escapeHTML(item.evidenceText || "")}</em>
+         <em>${escapeHTML(item.evidenceExplanation || item.evidenceText || "")}</em>
        </div>`).join("")}</div>` : ""}
     ${trace.declaredSteps.length ? `<div class="trace-declared">
       <p class="hint">系统拆解出的步骤</p>
       <ol>${trace.declaredSteps.map(item => `<li>${escapeHTML(item)}</li>`).join("")}</ol>
     </div>` : ""}
   </section>`);
+
+  sections.push(renderDurableTrace(trace));
 
   sections.push(`<section class="trace-block">
     <h3>执行链路 <span class="hint">${trace.summary.steps} 个工具步骤，按发生顺序</span></h3>
@@ -799,9 +883,9 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
   </section>`);
 
   sections.push(`<section class="trace-block">
-    <h3>一致性检查 <span class="hint">${severe.length === 0 ? "未发现问题" : `${severe.length} 个发现`}</span></h3>
+    <h3>一致性检查 <span class="hint">${severe.length === 0 ? alignmentStatus(trace).label : `${severe.length} 个发现`}</span></h3>
     ${severe.length === 0
-      ? `<p class="trace-ok">${trace.steps.length ? "已记录步骤的完成证据通过一致性检查。" : "尚无可检查的工具步骤，无法判断执行证据是否完整。"}</p>`
+      ? `<p class="${alignmentStatus(trace).tone}">${alignmentStatus(trace).text}</p>`
       : `<ul class="trace-findings">${severe.map(finding =>
           `<li class="trace-finding ${finding.severity}">
              <strong>${escapeHTML(finding.message)}</strong>
@@ -993,7 +1077,7 @@ function stepNode(step, taskId, index) {
   } else if (step.mutatesWorld && step.status === "CONFIRMED") {
     item.append(element("p", "trace-warning", "这一步改变了物理世界，但没有关联观测证据 —— 完成判定缺少依据。"));
   } else {
-    item.append(element("p", "hint", "这一步没有采集记录（只读步骤不要求证据）。"));
+    item.append(element("p", "hint", pendingEvidenceText(step)));
   }
   return item;
 }
@@ -1027,6 +1111,121 @@ function timelineNode(timeline) {
   return wrap;
 }
 
+// Atomic command records are separate from the legacy rich step summary. A
+// retry must remain visible here even when the step eventually succeeds.
+function durableTracePresentation(trace) {
+  if (!trace.durableTraceStatus) return null;
+  const report = trace.durableTrace;
+  if (!report) return { label: "持久账本待核对", tone: "trace-warning", text: "尚未取得当前任务的持久诊断快照，原始指令和记录完整性待核对。", facts: [], commands: [] };
+  const source = report.source || {};
+  const labels = { consistent: "账本检查未发现不一致", incomplete: "账本存在缺口", inconsistent: "账本存在矛盾" };
+  const children = report.children || [];
+  const childrenIncomplete = children.some(child => child.coverage !== "found" || child.bindingVerified !== true || child.coverageTruncated || (child.findings || []).some(finding => finding.severity !== "info"));
+  return {
+    label: childrenIncomplete && report.integrity?.status === "consistent" ? "子计划账本尚未完整核对" : labels[report.integrity?.status] || "账本待核对",
+    tone: report.integrity?.status === "consistent" && trace.snapshotAligned && !childrenIncomplete ? "hint" : "trace-warning",
+    text: "这是已持久化记录的诊断，不代表物理任务验收，也不会重放动作。下方传感器视图按步骤汇总；这里保留不同命令及其事件序号。",
+    facts: [
+      ["快照范围", `版本 ${report.currentRevision} · ${source.eventCount} 条事件 · 截至序号 ${source.lastSequence}`],
+      ["聚合版本", String(source.aggregateVersion ?? "未知")],
+      ["读取一致性", source.stable ? (trace.snapshotAligned ? "与当前界面水位一致" : "快照与当前界面水位不同") : "读取期间记录有变化，请重新读取"],
+      ["原始指令来源", report.originalRequest?.source || "未知"],
+      ["原始指令 SHA-256", report.originalRequest?.sha256 || "未记录"],
+      ["快照 SHA-256", source.snapshotSha256 || "未记录"],
+      ["传感器索引范围", source.evidenceAvailable === false ? "未配置历史观测存储" : source.evidenceTruncated ? `索引已截断；后续游标 ${source.evidenceNextBefore || "未知"}` : source.evidenceScope || "以快照记录为准"],
+    ],
+    commands: diagnosticCommandRows(report.steps),
+    rpcCalls: diagnosticRPCRows(report.rpcCalls),
+    children,
+  };
+}
+
+function diagnosticCommandRows(steps = []) {
+  return (steps || []).map(step => [
+    String(step.taskRevision || "未知"), step.robotId || "未知机器人", step.stepId || "未标注", step.commandId || "未知命令",
+    step.tool || "未知工具", `${step.status || "UNKNOWN"}${step.outcomeUnknown ? "（结果未知）" : ""}`, (step.eventSequences || []).join("、"),
+  ]);
+}
+
+function diagnosticRPCRows(calls = []) {
+  return (calls || []).map(call => [
+    String(call.taskRevision || "未知"), call.robotId || "未知机器人", call.stepId || "未标注", call.rpcId || "未知 RPC",
+    call.service || "未知服务", call.requestId || "未记录", call.commandId || "未知命令",
+    call.status || "UNKNOWN", (call.eventSequences || []).join("、"),
+  ]);
+}
+
+function diagnosticTables(view) {
+  const commandHeaders = ["任务版本", "机器人", "步骤", "命令", "工具", "记录状态", "事件序号"];
+  const rpcHeaders = ["任务版本", "机器人", "步骤", "RPC 编号", "服务", "请求编号", "关联命令", "记录状态", "事件序号"];
+  const tables = [
+    { title: "原子命令记录", headers: commandHeaders, rows: view.commands },
+    { title: "底层服务调用记录", headers: rpcHeaders, rows: view.rpcCalls || [] },
+  ];
+  const children = view.children || [];
+  if (children.length) {
+    tables.push({ title: "权威子计划账本", headers: ["子计划", "父任务版本", "聚合版本", "记录覆盖", "身份核验", "子事件数", "RPC 数", "父计划声明事件"],
+      rows: children.map(child => [child.childId || "未知", String(child.parentRevision || "未知"), String(child.aggregateVersion ?? "未知"), `${child.coverage || "unknown"}${child.coverageTruncated ? `（另有 ${child.omittedReferences ?? "未知"} 项引用未展开）` : ""}`,
+        child.bindingVerified === true ? "已核对" : "未核对", String(child.task?.events?.length ?? "未知"), String(child.rpcCalls?.length ?? "未知"),
+        (child.parentEventSequences || []).join("、") || "未记录"]),
+    });
+    for (const child of children) {
+      tables.push({ title: `子计划 ${child.childId || "未知"} · 原子命令`, headers: commandHeaders, rows: diagnosticCommandRows(child.steps) });
+      tables.push({ title: `子计划 ${child.childId || "未知"} · 底层服务调用`, headers: rpcHeaders, rows: diagnosticRPCRows(child.rpcCalls) });
+    }
+  }
+  return tables.filter(table => table.rows.length);
+}
+
+// A finding carries its ledger identity explicitly: parent declarations and
+// child execution records can reuse the same sequence numbers. Never infer the
+// ledger from a diagnostic code or substitute the currently selected task.
+function traceFindingLocator(finding, parentTaskId, childTaskId = "") {
+  const id = finding.taskId;
+  const scope = !id ? "账本未标识" : id === parentTaskId ? `父任务 ${id}` : id === childTaskId ? `子任务 ${id}` : `任务 ${id}`;
+  return `（${scope}${finding.eventSequences?.length ? ` · 事件 ${finding.eventSequences.join("、")}` : ""}）`;
+}
+
+const CHILD_TRACE_NOTE = "子计划来自各自的权威账本，父事件序号指向计划声明，子事件序号只在该子计划内有效。原始用户指令以根任务为准；完整子事件、绑定与发现随回溯 JSON 导出。";
+
+function renderDurableTrace(trace) {
+  const view = durableTracePresentation(trace);
+  if (!view) return "";
+  return `<section class="trace-block trace-durable"><h3>持久回溯快照</h3>
+    <p class="${view.tone}">${escapeHTML(view.label)}</p><p class="hint">${escapeHTML(view.text)}</p>
+    <dl>${view.facts.map(([key, value]) => `<dt>${escapeHTML(key)}</dt><dd>${escapeHTML(value)}</dd>`).join("")}</dl>
+    ${view.children?.length ? `<p class="hint">${CHILD_TRACE_NOTE}</p>` : ""}
+    ${diagnosticTables(view).map(table => `<details class="trace-detail"><summary>${escapeHTML(table.title)}（${table.rows.length} 条）</summary>
+    <div class="trace-table-wrap"><table class="trace-table"><thead><tr>${table.headers.map(value => `<th>${value}</th>`).join("")}</tr></thead>
+    <tbody>${table.rows.map(row => `<tr>${row.map(value => `<td>${escapeHTML(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>`).join("")}</section>`;
+}
+
+function durableTraceNode(trace) {
+  const view = durableTracePresentation(trace);
+  if (!view) return null;
+  const section = element("section", "trace-block trace-durable");
+  section.append(element("h3", "", "持久回溯快照"), element("p", view.tone, view.label), element("p", "hint", view.text), definitionList(view.facts));
+  if (view.children?.length) section.append(element("p", "hint", CHILD_TRACE_NOTE));
+  for (const spec of diagnosticTables(view)) {
+    const detail = element("details", "trace-detail");
+    detail.append(element("summary", "", `${spec.title}（${spec.rows.length} 条）`));
+    const wrap = element("div", "trace-table-wrap");
+    const table = element("table", "trace-table");
+    const head = element("thead");
+    const header = element("tr");
+    for (const value of spec.headers) header.append(element("th", "", value));
+    head.append(header);
+    const body = element("tbody");
+    for (const row of spec.rows) {
+      const tr = element("tr");
+      for (const value of row) tr.append(element("td", "", value));
+      body.append(tr);
+    }
+    table.append(head, body); wrap.append(table); detail.append(wrap); section.append(detail);
+  }
+  return section;
+}
+
 /**
  * Build the replay as a DOM subtree.
  *
@@ -1044,7 +1243,8 @@ function renderTaskTraceNodes(trace) {
   const summary = element("section", "trace-block trace-summary");
   summary.append(element("h3", "", "任务是什么"));
   summary.append(definitionList([
-    ["原始指令", trace.request || "—"],
+    [trace.requestLabel, trace.request || "—"],
+    ...(trace.currentRequest !== trace.request ? [["当前版本指令", trace.currentRequest]] : []),
     ["系统理解为", understandingText(trace)],
     ["适配器", trace.adapter || "—"],
     ["任务版本", String(trace.currentRevision)],
@@ -1070,13 +1270,15 @@ function renderTaskTraceNodes(trace) {
       row.append(
         element("strong", "", item.statusText || item.status || ""),
         element("span", "", item.explanation || ""),
-        element("em", "", item.evidenceText || ""),
+        element("em", "", item.evidenceExplanation || item.evidenceText || ""),
       );
       plain.append(row);
     }
     summary.append(plain);
   }
   root.append(summary);
+  const durableSection = durableTraceNode(trace);
+  if (durableSection) root.append(durableSection);
 
   const chain = element("section", "trace-block");
   const chainTitle = element("h3");
@@ -1097,10 +1299,10 @@ function renderTaskTraceNodes(trace) {
   const info = trace.findings.filter(finding => finding.severity === "info");
   const checksTitle = element("h3");
   checksTitle.append(element("span", "", "一致性检查"),
-    element("span", "hint", severe.length ? `${severe.length} 个发现` : "未发现问题"));
+    element("span", "hint", severe.length ? `${severe.length} 个发现` : alignmentStatus(trace).label));
   checks.append(checksTitle);
   if (severe.length === 0) {
-    checks.append(element("p", "trace-ok", trace.steps.length ? "已记录步骤的完成证据通过一致性检查。" : "尚无可检查的工具步骤，无法判断执行证据是否完整。"));
+    checks.append(element("p", alignmentStatus(trace).tone, alignmentStatus(trace).text));
   } else {
     checks.append(findingList(severe));
   }
@@ -1144,6 +1346,7 @@ globalThis.TangyingTaskTrace = {
   toolLabel,
   describeArguments,
   buildTaskTrace,
+  capabilityStepEvidenceText,
   analyseAlignment,
   declaredIntentSteps,
   traceVerdict,

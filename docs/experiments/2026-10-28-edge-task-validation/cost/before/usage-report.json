@@ -1,0 +1,264 @@
+{
+  "calls_seen": 16,
+  "conflicting_call_ids": [],
+  "duplicate_records": 0,
+  "groups": [
+    {
+      "group": {
+        "cache_mode": "off",
+        "endpoint_sha256": "73d9b08c026bc3b2d3193233dcd2270893764f11dfd530b78a2b7541eb0a68db",
+        "model": "scripted-cost-fixture",
+        "outcome": "accepted",
+        "robot_id": "recipe-robot",
+        "stage": "GOAL"
+      },
+      "metrics": {
+        "attempts": 12,
+        "duration_ms": {
+          "known_field_samples": 12,
+          "sum": 68
+        },
+        "finished": 12,
+        "paired_cache": {
+          "cached_tokens": 0,
+          "known_pair_samples": 6,
+          "prompt_tokens": 600,
+          "ratio": 0.0
+        },
+        "request_bytes": {
+          "known_field_samples": 12,
+          "sum": 149632
+        },
+        "response_bytes": {
+          "known_field_samples": 12,
+          "sum": 3123
+        },
+        "response_truncated_calls": 0,
+        "tokens": {
+          "cache_write_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "cached_tokens": {
+            "known_field_samples": 6,
+            "sum": 0
+          },
+          "completion_tokens": {
+            "known_field_samples": 6,
+            "sum": 120
+          },
+          "prompt_tokens": {
+            "known_field_samples": 6,
+            "sum": 600
+          },
+          "total_tokens": {
+            "known_field_samples": 6,
+            "sum": 720
+          }
+        },
+        "unfinished": 0,
+        "usage_status": {
+          "invalid": 0,
+          "missing": 6,
+          "unfinished": 0,
+          "valid": 6
+        }
+      }
+    },
+    {
+      "group": {
+        "cache_mode": "off",
+        "endpoint_sha256": "73d9b08c026bc3b2d3193233dcd2270893764f11dfd530b78a2b7541eb0a68db",
+        "model": "scripted-cost-fixture",
+        "outcome": "canceled",
+        "robot_id": "recipe-robot",
+        "stage": "GOAL"
+      },
+      "metrics": {
+        "attempts": 3,
+        "duration_ms": {
+          "known_field_samples": 3,
+          "sum": 9
+        },
+        "finished": 3,
+        "paired_cache": {
+          "cached_tokens": 0,
+          "known_pair_samples": 0,
+          "prompt_tokens": 0,
+          "ratio": null
+        },
+        "request_bytes": {
+          "known_field_samples": 3,
+          "sum": 40682
+        },
+        "response_bytes": {
+          "known_field_samples": 3,
+          "sum": 0
+        },
+        "response_truncated_calls": 0,
+        "tokens": {
+          "cache_write_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "cached_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "completion_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "prompt_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "total_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          }
+        },
+        "unfinished": 0,
+        "usage_status": {
+          "invalid": 0,
+          "missing": 3,
+          "unfinished": 0,
+          "valid": 0
+        }
+      }
+    },
+    {
+      "group": {
+        "cache_mode": "off",
+        "endpoint_sha256": "73d9b08c026bc3b2d3193233dcd2270893764f11dfd530b78a2b7541eb0a68db",
+        "model": "scripted-cost-fixture",
+        "outcome": "unfinished",
+        "robot_id": "recipe-robot",
+        "stage": "GOAL"
+      },
+      "metrics": {
+        "attempts": 1,
+        "duration_ms": {
+          "known_field_samples": 0,
+          "sum": null
+        },
+        "finished": 0,
+        "paired_cache": {
+          "cached_tokens": 0,
+          "known_pair_samples": 0,
+          "prompt_tokens": 0,
+          "ratio": null
+        },
+        "request_bytes": {
+          "known_field_samples": 1,
+          "sum": 11870
+        },
+        "response_bytes": {
+          "known_field_samples": 0,
+          "sum": null
+        },
+        "response_truncated_calls": 0,
+        "tokens": {
+          "cache_write_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "cached_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "completion_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "prompt_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          },
+          "total_tokens": {
+            "known_field_samples": 0,
+            "sum": null
+          }
+        },
+        "unfinished": 1,
+        "usage_status": {
+          "invalid": 0,
+          "missing": 0,
+          "unfinished": 1,
+          "valid": 0
+        }
+      }
+    }
+  ],
+  "interpretation": [
+    "Only observed provider fields are summed; missing does not mean zero.",
+    "Unfinished calls may have reached the provider and incurred usage; sending and cost are unknown.",
+    "Conflicting call identities are excluded from all sums; exact duplicate events are counted once.",
+    "Orphan results retain observed usage but indicate missing lifecycle evidence.",
+    "Cache ratio uses only paired prompt/cached fields; it is not measured GPU speedup.",
+    "Duration includes start-accounting persistence and the non-streaming call; it is not TTFT."
+  ],
+  "invalid_records": [],
+  "lifecycle_complete": false,
+  "orphan_result_call_ids": [],
+  "records": 31,
+  "schema_version": "agent.model-usage-report.v1",
+  "source_files": [
+    "/tmp/edge-task-validation-cost-20261028/campaign-3843067824/model-usage.jsonl"
+  ],
+  "totals": {
+    "attempts": 16,
+    "duration_ms": {
+      "known_field_samples": 15,
+      "sum": 77
+    },
+    "finished": 15,
+    "paired_cache": {
+      "cached_tokens": 0,
+      "known_pair_samples": 6,
+      "prompt_tokens": 600,
+      "ratio": 0.0
+    },
+    "request_bytes": {
+      "known_field_samples": 16,
+      "sum": 202184
+    },
+    "response_bytes": {
+      "known_field_samples": 15,
+      "sum": 3123
+    },
+    "response_truncated_calls": 0,
+    "tokens": {
+      "cache_write_tokens": {
+        "known_field_samples": 0,
+        "sum": null
+      },
+      "cached_tokens": {
+        "known_field_samples": 6,
+        "sum": 0
+      },
+      "completion_tokens": {
+        "known_field_samples": 6,
+        "sum": 120
+      },
+      "prompt_tokens": {
+        "known_field_samples": 6,
+        "sum": 600
+      },
+      "total_tokens": {
+        "known_field_samples": 6,
+        "sum": 720
+      }
+    },
+    "unfinished": 1,
+    "usage_status": {
+      "invalid": 0,
+      "missing": 9,
+      "unfinished": 1,
+      "valid": 6
+    }
+  },
+  "unfinished_call_ids": [
+    "a46f5b43-b760-4712-b226-b259a628927a"
+  ]
+}

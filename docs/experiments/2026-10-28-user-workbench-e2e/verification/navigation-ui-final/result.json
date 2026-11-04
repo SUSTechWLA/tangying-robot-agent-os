@@ -1,0 +1,18 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 5.65499437507242,
+  "sourceStable": true,
+  "sourceDigest": "c5647f73a7d9bce02ac3ee90a7bea7365d77ab64761c40e69bd1e71bfe439cf6",
+  "topLevelGoTests": {
+    "pass": 127
+  },
+  "packages": [
+    {
+      "Package": "github.com/SUSTechWLA/tangying-robot-agent-os/console",
+      "Action": "pass",
+      "Elapsed": 3.569
+    }
+  ],
+  "failures": [],
+  "outputSHA256": "3fa98f6656393b9e26cf57eaabe6fbc1c0c4b47a227667bce04ed3cee67b389a"
+}

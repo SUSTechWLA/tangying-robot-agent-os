@@ -1,0 +1,15 @@
+{
+  "commit": "a98c0681d524a6db7036a7a5bbe121df6f8e239d",
+  "captured_at": "2026-10-28T14:46:04.568823+00:00",
+  "files": {
+    "internal/actionloop/llmdecider.go": "3208f0eaee1bdb364f332c5506b745052b90e9a914b6e758d42e59b2efbd1bff",
+    "internal/actionloop/usage_log.go": "b9101638ace977fddbcf89d8e67165ab2b8f1ca1309acd65438366ca95a8fbcd",
+    "internal/actionloop/loop.go": "b0d029dd2ebda77ea156f8b61fd4d0a663ba5b102136dab4b1f5720dc9305b72",
+    "internal/actionloop/usage_log_test.go": "262d15c84977e4177b9d9f05ac569226f8b983be6088b69378942abfbd49524f",
+    "internal/capabilityagent/planner.go": "a63800d2a95c1da64b8a7b2ae878943203eec59d98b573ddba989cb0308238b1",
+    "internal/capabilityagent/recipe_memory.go": "2398c42e6d98d6e417540e4425f7908c78328aec292a6209c29059558a109bfa",
+    "internal/capabilityagent/cost_campaign_test.go": "aeb934f97b0c2a9c090ecba859065e8afb01e9d7a0085442a6aeb880256dc5f0",
+    "scripts/model_usage_report.py": "1592a0aaf222afe9f3bebe5230a5d84cff7a9e8c8b47edbd88c72520982f36af"
+  },
+  "scope": "loopback HTTP fixture, scripted usage and SQLite; planning only, no execution or external model"
+}

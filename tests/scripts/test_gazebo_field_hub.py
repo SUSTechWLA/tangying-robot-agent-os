@@ -96,6 +96,19 @@ def test_latched_stop_blocks_new_motion_goal(hub):
         hub.request("/goal", goal(commandId="new-command"))
 
 
+def test_public_snapshot_exposes_latch_without_clearing_it(hub):
+    assert hub.public_snapshot()["stoppedRobots"] == []
+    hub.request("/goal", goal())
+    hub.request("/stop", {"robotId": "ground-a", "commandId": "command-1"})
+    public = hub.public_snapshot()
+    assert public["stoppedRobots"] == ["ground-a"]
+    assert "stoppedRobots" not in hub.snapshot  # No stale copy in physics capture.
+    public["stoppedRobots"].clear()
+    assert hub.public_snapshot()["stoppedRobots"] == ["ground-a"]
+    with pytest.raises(ValueError, match="latched"):
+        hub.request("/goal", goal(commandId="new-command"))
+
+
 def test_unknown_robot_and_out_of_scene_goal_rejected(hub):
     with pytest.raises(ValueError, match="unknown robot"):
         hub.request("/goal", goal(robotId="other"))

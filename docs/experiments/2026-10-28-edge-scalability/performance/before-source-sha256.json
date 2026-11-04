@@ -1,0 +1,8 @@
+{
+  "tasks/store.go": "8fa1f0507d107d7357b61025fd40a91f6fe44176e2b894f1db60c0d7556a78a0",
+  "tasks/service.go": "300de6359a59b1669b612af161090a4ff9a13e7c2f4b472e6848eec7da0b7ee0",
+  "middleware/sqlite/tasks.go": "46c53590cc6427d53a4df3299e07f8980811c78046a5cd1781f2ea9b6cf800ba",
+  "internal/edgeagent/host.go": "754ba40d2b028a6aec3106ac662a7edb8bc14c0cdde28c104c2e076bd184d68a",
+  "internal/edgeagent/journal.go": "85423240686b999a579227125db3587f00abaef332cc35059fbff37524c5ddd4",
+  "internal/edgeagent/campaign_test.go": "becae2897a32ade8632f7c15731c00397419efe4e777805062e9dbb21e70f64f"
+}

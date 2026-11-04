@@ -1,0 +1,607 @@
+{
+  "id": "task-e133310fd2f0b570d65e4dce",
+  "state": "RECOVERABLE_FAILURE",
+  "currentRevision": 1,
+  "plan": {
+    "capabilities": {
+      "robotId": "gazebo-home_furnished",
+      "calls": [
+        {
+          "tool": "robot.task"
+        },
+        {
+          "tool": "navigation.status"
+        }
+      ],
+      "planningTrace": [
+        {
+          "round": 1,
+          "tool": "",
+          "verdict": "MODEL_DECISION_REJECTED",
+          "context": {
+            "model_call": {
+              "schema_version": "agent.model-call.v1",
+              "call_id": "34fb620b-2325-4d54-8df6-048d9c2e2efc",
+              "stage": "GOAL",
+              "model": "deepseek-v4-flash",
+              "endpoint_sha256": "a34e2a4708ed1c61008a151688838dcf1c44d4e7f08054633e72ba7c0b16cfc1",
+              "output_tokens": 4096,
+              "prompt_template_version": "actionloop-rules.v2",
+              "tools_sha256": "741744ae3e57b3b676294c215601a6c408ff671b7ecbf7f1df207dc9202c0119",
+              "cache_mode": "off",
+              "started_at": "2026-10-28T15:31:35.364899Z",
+              "duration_ms": 1560,
+              "request_bytes": 36798,
+              "response_bytes": 1712,
+              "http_status": 200,
+              "outcome": "invalid_decision",
+              "finish_reason": "tool_calls",
+              "response_sha256": "545749bed0f86e1de32f24c6b7aaeb28d28640188181c0a9af2af0d6df62be6c",
+              "usage_status": "valid",
+              "usage": {
+                "prompt_tokens": 9961,
+                "completion_tokens": 205,
+                "total_tokens": 10166,
+                "cached_tokens": 0
+              }
+            }
+          }
+        },
+        {
+          "round": 2,
+          "tool": "semantic.locations",
+          "verdict": "READ_OK",
+          "context": {
+            "model_call": {
+              "schema_version": "agent.model-call.v1",
+              "call_id": "20016d11-2a2b-4678-a511-d21c6805a243",
+              "stage": "GOAL",
+              "model": "deepseek-v4-flash",
+              "endpoint_sha256": "a34e2a4708ed1c61008a151688838dcf1c44d4e7f08054633e72ba7c0b16cfc1",
+              "output_tokens": 4096,
+              "prompt_template_version": "actionloop-rules.v2",
+              "tools_sha256": "741744ae3e57b3b676294c215601a6c408ff671b7ecbf7f1df207dc9202c0119",
+              "cache_mode": "off",
+              "started_at": "2026-10-28T15:31:36.925941Z",
+              "duration_ms": 3040,
+              "request_bytes": 37550,
+              "response_bytes": 2322,
+              "http_status": 200,
+              "outcome": "accepted",
+              "finish_reason": "tool_calls",
+              "response_sha256": "5695ac1156f12c5ac533ab37c40fb4e182936804cad7f7f47dc5f4c652b5cd04",
+              "usage_status": "valid",
+              "usage": {
+                "prompt_tokens": 10168,
+                "completion_tokens": 360,
+                "total_tokens": 10528,
+                "cached_tokens": 6784
+              }
+            }
+          }
+        },
+        {
+          "round": 3,
+          "tool": "navigation.status",
+          "verdict": "READ_OK",
+          "context": {
+            "model_call": {
+              "schema_version": "agent.model-call.v1",
+              "call_id": "559203a0-a2f0-4dbf-b2af-009789b18677",
+              "stage": "GOAL",
+              "model": "deepseek-v4-flash",
+              "endpoint_sha256": "a34e2a4708ed1c61008a151688838dcf1c44d4e7f08054633e72ba7c0b16cfc1",
+              "output_tokens": 4096,
+              "prompt_template_version": "actionloop-rules.v2",
+              "tools_sha256": "741744ae3e57b3b676294c215601a6c408ff671b7ecbf7f1df207dc9202c0119",
+              "cache_mode": "off",
+              "started_at": "2026-10-28T15:31:39.969912Z",
+              "duration_ms": 2632,
+              "request_bytes": 46001,
+              "response_bytes": 2008,
+              "http_status": 200,
+              "outcome": "accepted",
+              "finish_reason": "tool_calls",
+              "response_sha256": "ced537b7284d1c4614dcbed1fb91db5cae67b235c02cef9d3642e3dc0eb4f935",
+              "usage_status": "valid",
+              "usage": {
+                "prompt_tokens": 12808,
+                "completion_tokens": 284,
+                "total_tokens": 13092,
+                "cached_tokens": 6784
+              }
+            }
+          }
+        },
+        {
+          "round": 4,
+          "tool": "propose_capability_plan",
+          "verdict": "FROZEN_FOR_APPROVAL",
+          "context": {
+            "model_call": {
+              "schema_version": "agent.model-call.v1",
+              "call_id": "adfc62bb-7e3d-4670-a300-55013a22d6b8",
+              "stage": "GOAL",
+              "model": "deepseek-v4-flash",
+              "endpoint_sha256": "a34e2a4708ed1c61008a151688838dcf1c44d4e7f08054633e72ba7c0b16cfc1",
+              "output_tokens": 4096,
+              "prompt_template_version": "actionloop-rules.v2",
+              "tools_sha256": "741744ae3e57b3b676294c215601a6c408ff671b7ecbf7f1df207dc9202c0119",
+              "cache_mode": "off",
+              "started_at": "2026-10-28T15:31:42.635682Z",
+              "duration_ms": 4415,
+              "request_bytes": 47339,
+              "response_bytes": 3565,
+              "http_status": 200,
+              "outcome": "accepted",
+              "finish_reason": "tool_calls",
+              "response_sha256": "4e1bd0c9f8349dc288237b58b1e19ef3bb59dbad4afb299c688effc1e04fa29c",
+              "usage_status": "valid",
+              "usage": {
+                "prompt_tokens": 13198,
+                "completion_tokens": 654,
+                "total_tokens": 13852,
+                "cached_tokens": 6784
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "type": "TASK_CREATED",
+      "occurredAt": "2026-10-28T15:31:48.940419Z",
+      "payload": {}
+    },
+    {
+      "sequence": 2,
+      "type": "TASK_APPROVED",
+      "occurredAt": "2026-10-28T15:33:46.010372Z",
+      "payload": {}
+    },
+    {
+      "sequence": 3,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-10-28T15:33:46.02419Z",
+      "payload": {}
+    },
+    {
+      "sequence": 4,
+      "type": "state.transition",
+      "occurredAt": "2026-10-28T15:33:46.02419Z",
+      "payload": {
+        "state": "OBSERVING"
+      }
+    },
+    {
+      "sequence": 5,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-10-28T15:33:46.037686Z",
+      "payload": {}
+    },
+    {
+      "sequence": 6,
+      "type": "state.transition",
+      "occurredAt": "2026-10-28T15:33:46.037686Z",
+      "payload": {
+        "state": "PLANNING"
+      }
+    },
+    {
+      "sequence": 7,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-10-28T15:33:46.049556Z",
+      "payload": {}
+    },
+    {
+      "sequence": 8,
+      "type": "state.transition",
+      "occurredAt": "2026-10-28T15:33:46.049556Z",
+      "payload": {
+        "state": "EXECUTING"
+      }
+    },
+    {
+      "sequence": 9,
+      "type": "CAPABILITY_CALL",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:33:46.076502Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1,
+        "tool": "robot.task"
+      }
+    },
+    {
+      "sequence": 10,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:33:46.082017Z",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1,
+        "tool": "robot.task"
+      }
+    },
+    {
+      "sequence": 11,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:33:46.082017Z",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1,
+        "tool": "robot.task"
+      }
+    },
+    {
+      "sequence": 12,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:46.731556Z",
+      "payload": {
+        "activityStatus": "SENDING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-observe",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 13,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:46.739911Z",
+      "payload": {
+        "activityStatus": "SENDING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-observe",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 14,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:46.741989Z",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-observe",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 15,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:46.750445Z",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-observe",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 16,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:47.38282Z",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-observe",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 17,
+      "type": "evidence.collected",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:47.387884Z",
+      "payload": {
+        "receiptObservationId": "gazebo-home_furnished/head-rgbd-769000000000-1793201627050",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 18,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01-observe",
+      "occurredAt": "2026-10-28T15:33:47.39886Z",
+      "payload": {
+        "activityStatus": "CONFIRMED",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-observe",
+        "receiptObservationId": "gazebo-home_furnished/head-rgbd-769000000000-1793201627050",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 19,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:33:47.401686Z",
+      "payload": {
+        "activityStatus": "SENDING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 20,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:33:47.409472Z",
+      "payload": {
+        "activityStatus": "SENDING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 21,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:33:47.411661Z",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 22,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:33:47.418753Z",
+      "payload": {
+        "activityStatus": "RUNNING",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 23,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:47.581658Z",
+      "payload": {
+        "activityStatus": "FAILED",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 24,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:47.591069Z",
+      "payload": {
+        "activityStatus": "FAILED",
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 25,
+      "type": "CAPABILITY_FAILED",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:47.595293Z",
+      "payload": {
+        "automaticRetryForbidden": true,
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "outcomeUnknown": true,
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1,
+        "tool": "robot.task"
+      }
+    },
+    {
+      "sequence": 26,
+      "type": "TOOL_ACTIVITY",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:47.599148Z",
+      "payload": {
+        "activityStatus": "FAILED",
+        "automaticRetryForbidden": true,
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "outcomeUnknown": true,
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1,
+        "tool": "robot.task"
+      }
+    },
+    {
+      "sequence": 27,
+      "type": "action.executed",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:47.599148Z",
+      "payload": {
+        "activityStatus": "FAILED",
+        "automaticRetryForbidden": true,
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "outcomeUnknown": true,
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1,
+        "tool": "robot.task"
+      }
+    },
+    {
+      "sequence": 28,
+      "type": "STATE_CHANGED",
+      "occurredAt": "2026-10-28T15:36:47.609444Z",
+      "payload": {}
+    },
+    {
+      "sequence": 29,
+      "type": "state.transition",
+      "occurredAt": "2026-10-28T15:36:47.609444Z",
+      "payload": {
+        "state": "RECOVERABLE_FAILURE"
+      }
+    },
+    {
+      "sequence": 30,
+      "type": "ops.anomaly_detected",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:49.65059Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 31,
+      "type": "ops.root_cause_hypothesis",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:49.65059Z",
+      "payload": {
+        "automaticRetryForbidden": true,
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 32,
+      "type": "ops.anomaly_detected",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:49.661073Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 33,
+      "type": "ops.root_cause_hypothesis",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:49.661073Z",
+      "payload": {
+        "automaticRetryForbidden": true,
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 34,
+      "type": "ops.anomaly_detected",
+      "occurredAt": "2026-10-28T15:36:49.670874Z",
+      "payload": {}
+    },
+    {
+      "sequence": 35,
+      "type": "ops.anomaly_detected",
+      "occurredAt": "2026-10-28T15:36:49.675441Z",
+      "payload": {}
+    },
+    {
+      "sequence": 36,
+      "type": "ops.recovery_plan",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:49.776967Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 37,
+      "type": "ops.recovery_executed",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:49.846156Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 38,
+      "type": "ops.recovery_plan",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:50.029674Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 39,
+      "type": "ops.recovery_executed",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:50.109027Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 40,
+      "type": "ops.recovery_plan",
+      "occurredAt": "2026-10-28T15:36:50.28216Z",
+      "payload": {}
+    },
+    {
+      "sequence": 41,
+      "type": "ops.recovery_executed",
+      "occurredAt": "2026-10-28T15:36:50.638721Z",
+      "payload": {}
+    },
+    {
+      "sequence": 42,
+      "type": "ops.recovery_plan",
+      "occurredAt": "2026-10-28T15:36:50.83231Z",
+      "payload": {}
+    },
+    {
+      "sequence": 43,
+      "type": "ops.recovery_executed",
+      "occurredAt": "2026-10-28T15:36:50.896423Z",
+      "payload": {}
+    },
+    {
+      "sequence": 44,
+      "type": "ops.anomaly_cleared",
+      "stepId": "rev-1-cap-01-pre_position",
+      "occurredAt": "2026-10-28T15:36:54.733912Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/revision/1/step/rev-1-cap-01-pre_position",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    },
+    {
+      "sequence": 45,
+      "type": "ops.anomaly_cleared",
+      "stepId": "rev-1-cap-01",
+      "occurredAt": "2026-10-28T15:36:54.733912Z",
+      "payload": {
+        "commandId": "task-e133310fd2f0b570d65e4dce/rev-1-cap-01",
+        "robotId": "gazebo-home_furnished",
+        "taskRevision": 1
+      }
+    }
+  ]
+}

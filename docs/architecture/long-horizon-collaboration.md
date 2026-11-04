@@ -1,5 +1,7 @@
 # 长程任务、多 Agent 通讯与异构机器人协作
 
+2026-11-02 阅读更新：当前代码 `27cbbbaf9` 已补充 Local 自动接收 session、有界历史原文回查和重启任务关联；规划经验/用量账本见[成本指南](../production/model-cost-and-recipes.md)，家庭巡检续测见[10-30 报告](../experiments/2026-10-30-patrol-continuation.md)。本页下面的 10-16 及更早实验继续保留原版本。当前完整接收/执行/云边关系统一读[消息与上下文专题](edge-agent-communication-and-context.md)。
+
 2026-10-18 至 19 的当前专题与核验见[消息传递、上下文和 Harness 实现说明](edge-agent-communication-and-context.md)及[就绪审计](../development/2026-10-18-edge-communication-readiness.md)，包含新增 peer 持久消费、最新源码核对与实际复测。下文保留原 10-16 基线和对应历史证据身份。
 
 核对日期：2026-10-16，实现基线 `821659df`；软件发布版本仍为 v0.7.0，书籍版次与软件版本独立。本文整合[分层目标委托](hierarchical-edge-objectives.md)与[单机鲁棒性升级](../development/2026-10-15-single-robot-robustness.md)。2026-10-10 的长程样本、v0.7.0 发布证据与最新 2026-10-15 实验分别保留，不把旧结果重新解释成新代码验收。
@@ -10,6 +12,7 @@
 
 | 功能 | 实现方式 | 主要入口 |
 | --- | --- | --- |
+| 多次用户输入的关联 | Local 接收事件和 session/turn→task binding；系统自动组织近期参考，历史不授权重试 | [会话契约](../../core/agentsession/README.md)、[运维手册](../operations/automatic-edge-sessions.md) |
 | 粗目标在边缘持续编排 | 批准固定目标/授权/预算，Local 与 Worker 共享 Host 在包络内生成、验证和持久化子计划；旧任务入口仍在审批前冻结整份计划 | [目标宿主](../../internal/edgeagent/host.go)、[目标指南](../guides/delegated-edge-goals.md) |
 | Agent 消息有完整身份 | v1 信封、注册身份绑定的发布口、topic 权限、UUID、同 ID 内容冲突检测 | [事件契约](../../core/agentcontract/event.go)、[发布门禁](../../agentruntime/publisher_policy.go) |
 | 只读故障自动诊断并续跑 | 原失败、Ops 异常、Recovery 计划、执行器独立复验组成持久因果链；满足条件后原命令最多重读一次 | [读取恢复](../../internal/capabilityagent/read_recovery.go)、[交互协议](../development/2026-10-10-agent-interaction-protocol.md) |
@@ -131,6 +134,8 @@ sequenceDiagram
 热层保存目标、硬约束、当前阶段、精确参数和 verdict，以及按 `(revision, robot, step, command, tool)` 归约的未决/冲突 guard。完整历史和冗长工具结果保存在冷归档中，以源记录 ID、SHA-256 和回查索引引用。新投影从完整账本重新生成，不对上一轮摘要反复总结。缺少身份的状态不会与另一条“看起来相同”的记录合并。
 
 `context_read` 只能访问当前循环捕获的同 task/robot/revision 归档，按 SHA、可选 item_id 和 UTF-8 偏移分页。它是内部只读工具，不会进入待审批的物理调用序列；任务版本或机器人作用域变化时结束旧循环。任务创建前的 GOAL 规划尚无 taskId，其 trace 保留当时真实 robot scope，不用后来创建的任务身份倒填。
+
+本地自动会话现会预分配候选 taskId，供接收和任务写入发生中断时查账；它仍只是规划前的 reference，不把该候选身份当作已批准 Task。近期最多八轮原文按事件版本和摘要核对，再送入相同 managed 投影；摘要最多 6000 字节，单条源输入最多 8000 字节。云端目标与 Host 进度不自动引用这段本机会话。详见[接收会话边界](edge-agent-communication-and-context.md#83-用户不管理-session系统怎样接收下一句话)。
 
 | 默认预算 | 数值 | 实际含义 |
 | --- | ---: | --- |

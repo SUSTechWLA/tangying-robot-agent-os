@@ -1,0 +1,8 @@
+{
+  "liveSource": "artifacts/acceptance/user-sim-20261104-001/ros-observations-001.jsonl",
+  "sourcePrefixBytes": 11868215,
+  "sourcePrefixSHA256": "cc1fa4e7de222c307253b93672df1dd3413aaefdb5cdceb46680945cd8cf819a",
+  "selectedWindowFile": "odom-window-002.jsonl",
+  "selectedWindowSHA256": "38961d8a3dd05860cbf6a10f3c8d6e85dd5eb51c985aafa00c5b9e7f515a0360",
+  "selection": "sample timestamp between task approval minus 1 second and LOCAL_RUN_FINISHED plus 1 second; exact JSONL source bytes"
+}

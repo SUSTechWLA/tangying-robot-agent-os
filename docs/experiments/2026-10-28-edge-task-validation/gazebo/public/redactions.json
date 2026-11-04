@@ -1,0 +1,40 @@
+{
+  "audit": {
+    "generalSecretDetection": false,
+    "knownCredentialCount": 3,
+    "policy": "literal_bytes_and_member_names",
+    "sourceFilesModified": false,
+    "sources": [
+      "console-session",
+      "simple dotenv credential assignments"
+    ]
+  },
+  "files": [
+    {
+      "path": "evidence/run-002/campaign-001/ground-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/run-002/campaign-001/ground-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/run-002/campaign-001/ground-b/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/run-002/campaign-001/ground-b/model.env",
+      "reason": "dotenv_session_or_configuration"
+    },
+    {
+      "path": "evidence/run-002/campaign-001/uav-a/local-agent/console-session",
+      "reason": "console_session_credential"
+    },
+    {
+      "path": "evidence/run-002/campaign-001/uav-a/model.env",
+      "reason": "dotenv_session_or_configuration"
+    }
+  ],
+  "mode": "whole_file_exclusion",
+  "schemaVersion": "gazebo.field.redactions.v1"
+}

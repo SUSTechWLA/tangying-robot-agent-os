@@ -1,6 +1,10 @@
 # 学习路线：从系统全貌到可检查实践
 
-教材 3.2.0（2026-10-28）以取消竞态、身份重配、模型缓存提示与失败回溯讲解边缘实现，提供 25 幅图、误差/时钟/上下文/时间预算推导及可复核的软件实验。
+当前系统阅读入口（2026-11-02）：[从一句话到会话、任务和执行证据](../learning/current-system.md)，配套[教材 3.3.0](../../book/README.md)。自动会话由本机管理，操作方法见[会话手册](../operations/automatic-edge-sessions.md)。
+
+3.3.0 已将[长历史成本与规划经验补充](../../book/updates/2026-10-28-cost-and-long-horizon.md)纳入正文：用公式和反例理解当前状态读模型、事件增量写入、重复规划与真实 token 计量。旧版保留恢复身份，当前配置见[运行指南](../production/model-cost-and-recipes.md)。
+
+教材 3.3.0（2026-11-02）纳入自动接收会话、历史投影与原文回查、模型用量和规划经验，以及家庭巡检失败/续测案例；提供 27 幅图，并区分软件、模型、仿真与实机证据。
 
 理解“有地图之后怎样完整巡检”时，阅读[已知覆盖与多层移动补充](../../book/updates/2026-10-18-spatial-coverage-upgrade.md)、[当前接口](../development/2026-10-18-spatial-coverage-upgrade.md)及[计划/Runner/350 次探索实际实验](../experiments/2026-10-18-spatial-coverage-upgrade.md)，区分预测覆盖、新采集证据、分层支撑与设备可执行性。
 
@@ -8,7 +12,7 @@
 
 首次进入未知环境时，补读[探索学习补充](../../book/updates/2026-10-17-exploration-first-scan.md)与[当前操作指南](../guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索)：区分初始观察、前沿规划、局部控制、地图发布与全环境覆盖。
 
-当前教材为[数字版 3.2.0](../../book/README.md)，实现复核固定到 `63af9930`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
+当前教材为[数字版 3.3.0](../../book/README.md)，实现复核固定到 `27cbbbaf9`，已将“云端粗目标、边缘自主细化”纳入正文。先读第 2 章职责，再读第 6–9、17–19 章协作、恢复、云边和长任务；结合[当前架构](../architecture/hierarchical-edge-objectives.md)与[功能测试](../experiments/2026-10-15-hierarchical-edge-objectives.md)阅读。原 2.1.0 及[当时补充章](../../book/updates/2026-10-15-hierarchical-edge-objectives.md)保留历史身份。
 
 [返回文档导航](../README.md) · [开发升级](../development/README.md) · [部署运维](../operations/README.md) · [研究论文](../research/README.md)
 
@@ -55,7 +59,7 @@
 
 ## 书籍与系统增量如何一起读
 
-书籍数字版 3.2.0 的实现复核固定到 `63af9930`，正文与合订本纳入分层目标、共享 Host、目标检查点、有限上下文投影、点云语义和 ROS 2 空间通道。软件版本、书籍版号和实验二进制是不同身份；原实验按原提交/环境引用，正文更新不表示重新运行实验。
+书籍数字版 3.3.0 的实现复核固定到 `27cbbbaf9`，正文与合订本纳入分层目标、共享 Host、目标检查点、有限上下文投影、点云语义和 ROS 2 空间通道。软件版本、书籍版号和实验二进制是不同身份；原实验按原提交/环境引用，正文更新不表示重新运行实验。
 
 | 书中的概念 | 当前操作参考 | 复核范围 |
 | --- | --- | --- |

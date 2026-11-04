@@ -1,0 +1,7 @@
+{
+  "scope": "navigation_http only; Gazebo and gateway remain initial cohort",
+  "files": {
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/http_api.py": "ce8f8c6a077027ecf66436172841d7be4804ac33c31aefa20ba9eef803bb8675",
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/navigation_node.py": "671644e2049c307fa551ee54fd35daf40d3ec42a41939a7bfc72b623b513bcd2"
+  }
+}

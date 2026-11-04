@@ -1,0 +1,13 @@
+{
+  "originalEntrypointSha256": "c2711c239e25e9738b40d0c85668d9a25a308e22b89438c1d5494ada84a53466",
+  "restoredEntrypointSha256": "c2711c239e25e9738b40d0c85668d9a25a308e22b89438c1d5494ada84a53466",
+  "bytesMatch": true,
+  "originalMode": "0o755",
+  "restoredMode": "0o755",
+  "finalContainerStatus": "exited",
+  "finalRunning": false,
+  "onlyOwnedExperimentProcessesWereStopped": true,
+  "remainingExperimentProcessesBeforeContainerStop": 0,
+  "oldBindMountsUsedByExperiment": false,
+  "oldEvidenceModifiedByExperiment": false
+}

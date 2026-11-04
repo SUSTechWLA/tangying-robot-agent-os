@@ -1,17 +1,21 @@
 # 边缘 AgentOS：消息、上下文与 Harness 实现说明
 
-核对窗口：2026-10-18 至 2026-10-19，源码基线 `f930437ae7f8612cef41c0ca82be084cfa7d12af`。本文是边缘开发者和云端同事的共同阅读入口，描述本次核对到的实现；[本轮测试、证据和上线判断](../development/2026-10-18-edge-communication-readiness.md)单独留存。协议字段以链接中的 Go 类型、protobuf 和 ROS 2 定义为准。
+当前机制核对到 `27cbbbaf96e2d76e1a17a1ea1befc8a8d8db14ce`（2026-11-02 文档同步）。本文是边缘开发者和云端同事的共同阅读入口；2026-10-18 至 19 的原审计基线为 `f930437ae7f8612cef41c0ca82be084cfa7d12af`，其[测试、证据和上线判断](../development/2026-10-18-edge-communication-readiness.md)保留原身份。会话软件验证见[11-01 记录](../experiments/2026-11-01-automatic-edge-sessions.md)。协议字段以链接中的 Go 类型、protobuf 和 ROS 2 定义为准。
 
 
 增量核对（2026-10-28）：本轮新增模型调用取证、可选缓存提示，修复授权重查、预算停止、peer 重配与凭据分配。后续行为与迁移详见[实现记录](../development/2026-10-28-edge-brain-reliability.md)及[模型交互运行说明](../production/edge-brain-model-context.md)。下文历史性能观察保留原身份，不用本轮 32 步回归替代旧 96 步性能缺口。
 
+同日后续增量：按永久游标读取 peer 当前视图、父任务增量审计、child 私有写快照、独立模型用量账本和受校验的规划经验。配置和复用边界见[模型成本指南](../production/model-cost-and-recipes.md)，完整连续任务测试及首轮超时见[持续运行实验](../experiments/2026-10-28-edge-scalability/README.md)。经验复用和 writer 缓存不提供共享执行权，当前授权与物理观测仍各自核验。
+
 ## 1. 当前可以交付到哪一步
+
+2026-11-01 增量：Local 新增[自动接收会话](../development/2026-11-01-automatic-edge-sessions.md)，补上跨次用户输入的关联。session/turn 由本地系统管理，原句与历史参考分别进入规划，任务与执行权限继续独立；该入口不改变 Worker 的云端目标合同，也不构成多用户或跨机共享 session。完整接收事件保存在 SQLite，模型只使用有界投影与限域回查。
 
 当前具备**异构边缘 AgentOS 的受控集成候选基础**：单机长任务宿主、持久执行、机器人间建议数据交换、云边目标委托、上下文版本绑定和故障回溯均有实现与回归。适合先在隔离环境和受控场地逐设备集成，再扩大试运行范围。
 
 尚不能据此作为任意 DJI、Unitree、AGV 直接无人值守上线的正式验收版本。主要缺口是具体厂商驱动与物理停止、真实无线与规模负载、离线授权策略，以及跨机器人共同坐标和并发空间冲突的完整闭环。Gazebo 已有物理任务和停止实验，但使用集中式实验 hub、真值定位与通用模型；其证据不能扩展为厂家控制器或分区网络下的群体自治。详见[Gazebo 实验](../experiments/2026-10-18-gazebo-field-validation.md)。
 
-本轮还发现长历史处理的性能门禁未闭合：普通回归完成连续 32–128 步软件任务，但带 race 检测的完整 campaign 在 96 步场景触发默认 10 分钟超时。其余 Host 竞态复核单列通过，不覆盖该长程场景；具体时间、失败日志和范围见[本轮审计](../development/2026-10-18-edge-communication-readiness.md#长程-race-超时与性能观察)。
+2026-10-18 审计发现长历史性能缺口：普通回归完成连续 32–128 步软件任务，但带 race 检测的完整 campaign 在 96 步场景触发默认 10 分钟超时，见[历史审计](../development/2026-10-18-edge-communication-readiness.md#长程-race-超时与性能观察)。10-28 后续优化保留了新的整组 180 秒超时，并在修复后以相同任务规模和上限通过完整 campaign；各版本、命令和失败都在上面的持续运行实验中分别记录。历史增长仍影响授权读取和 child 序列化，软件回归通过不代表已满足目标硬件的实时性或长期资源上限。
 
 最重要的设计判断是：**共享消息、共享执行权和共享物理事实是三件分别校验的事。** 当前实现按这个原则划分，方向合理；“所有 Agent 自动拥有同一份全局上下文”尚不是系统提供的保证。
 
@@ -34,11 +38,11 @@ flowchart TB
   Data <--> Peer[其他机器人 / 云端数据 peer]
 ```
 
-- **Local Agent** 装配本地 API、任务库、工作台和本机 Agent 协作运行时。其进程可以在机器人计算单元或受控本地计算机，逻辑上服务一个明确绑定的机器人。
+- **Local Agent** 装配本地 API、自动接收会话、任务库、工作台和本机 Agent 协作运行时。其进程可以在机器人计算单元或受控本地计算机，逻辑上服务一个明确绑定的机器人。会话只接入 `tasks.Service.Create` 的本地任务入口；`POST /v1/objectives` 和 Worker 继续使用独立目标合同。
 - **Edge Worker** 装配云端任务源、设备身份、claim/租约、控制消息与回传。它也使用 `internal/edgeagent.Host`，粗目标的细化规划由边缘完成。
 - **Host** 是 Local/Worker 复用的目标执行内核，拥有子计划和检查点。Local 原有 Task/Ops/Recovery 事件运行时，与目标通道的确定性 Ops/Recovery 不是相同的装配；不能假设所有角色、事件和模型调用完全对等。
 - **Runtime** 执行已经准入的能力，驱动、传感器、实时控制和设备安全流程位于其下。模型输出不直接进入 ROS 2 控制话题。
-- 同一个 Runtime 的控制入口应唯一。进程 `controllease`、云端机器人 fence、动作 lease 分别约束不同边界；启动两个独立 Host 不会自动产生全局互斥。
+- 同一个 Runtime 的控制入口应唯一。Local 还在打开 journal 前独占数据目录的 `.agent-owner.lock`，防止不同 endpoint 的进程误共用恢复状态。数据目录锁、Runtime `controllease`、云端机器人 fence、动作 lease 分别约束不同边界；启动两个独立 Host 不会自动产生全局互斥。
 
 源码：[Host](../../internal/edgeagent/host.go)、[Worker](../../edge/worker/worker.go)、[本地装配](../../cmd/local-agent/agentruntime.go)、[角色 Harness](../../internal/agentharness/profile.go)。
 
@@ -100,7 +104,7 @@ Task 执行产生任务、步骤、命令和证据事件 → Task 持久事件�
 - 到期后再保留 24 小时的正文与 requestId 幂等窗口，然后 GC；stream 游标保留。不是无限期送达或无限期业务去重，长期业务结果应另存执行/应用账本。
 - 用稳定 stream 类别，把 taskId 放 payload，防止游标数量随每次请求增长。视频、完整点云和高频控制不走这个有界 JSON 通道；传有权限和内容校验的引用，数据存储/取回另行实现。
 
-可靠读取使用 admin `GET /v1/exchange/feed?after=...&limit=...`。feed 的本地收件 `revision/next/head/prunedThrough` 与发送者 sequence 不同，均为字符串。GC 缺口返回 409；不能直接跳到最新游标。覆盖消费重新取得有效快照，仅 `completeRead=true` 才能使用其完整性水位。快照最多 1000 条；截断时返回空建议并保留本机规划。
+可靠回溯使用 admin `GET /v1/exchange/feed?after=...&limit=...`。feed 的本地收件 `revision/next/head/prunedThrough` 与发送者 sequence 不同，均为字符串。GC 缺口返回 409；不能直接跳到最新游标。2026-10-28 起 SQLite 覆盖视图按永久 incoming cursor 选取每流最新正文，完整身份过滤后才计入最多 1,000 个当前流的上限。历史反复更新不再耗尽当前视图；最新无效/过期或已被 GC 删除也不回退旧值。真实当前流截断仍返回空建议；`completeRead=true` 是保留候选集合的完整性，不是全地图覆盖或所有 peer 在线证明。旧 Journal 无新读端口时继续使用全历史 Snapshot。详见[数据交换指南](../development/edge-data-exchange.md#历史记录与当前协作视图)。
 
 两个机器人都叫 `frameId=map` 不表示坐标一致；需要同 world/transform/map revision 或单独验证的变换。peer 覆盖并集是建议，不能写成本机实测 coverage、解除 unknown、签发授权或证明完成。详情和固定互通样例见[数据通道](../development/edge-data-exchange.md)、[有作用域的消费](../development/2026-10-18-scoped-peer-cooperation.md)。
 
@@ -169,10 +173,11 @@ sequenceDiagram
 
 云端失联时，受云 claim 约束的 Worker 停止继续并触发受控停止；当前没有委托离线继续授权。独立 Local 入口的本地任务不要求云端 claim，两种运行模式的断网行为不同。租约失效也不等于机器人已经物理停稳。
 
-## 8. 上下文管理：五种状态，不能混成聊天历史
+## 8. 上下文管理：六种状态，各有事实来源
 
 | 状态 | 权威来源 | 传递方式 |
 | --- | --- | --- |
+| 本地曾接收哪些输入 | `intake_session` 接收事件、session/turn 与预分配 task 绑定 | 同 robot/adapter 的近期参考与源引用；不传给 Worker 充当云端授权 |
 | 原目标、硬约束、批准版本 | Task / 不可变 Revision / objective 合同 | 下行固定合同，变更需新版本和相应审批 |
 | 执行过什么、哪些结果未知 | Runtime journal、执行库、子账本、Host checkpoint | 精确命令和回执；跨云边用 Basis 与完成证明关联 |
 | 当前世界 | 带来源、采集时间、序号、frame/transform/map 的观测和投影 | 规范观测 / 有界摘要或引用；必须重新判断时效 |
@@ -208,6 +213,41 @@ sequenceDiagram
 | 模型摘要与账本不同 | 确定性执行层按账本与现授权判定；重建模型投影 |
 | 消费游标遭 GC 缺口或快照不完整 | 显式 resync / 空建议；不能假装已消费全历史 |
 | 已验证动作而完成报告丢失 | 重发原证据与回执，不重发动作 |
+
+### 8.3 用户不管理 session，系统怎样接收下一句话
+
+用户仍向本地任务 API 提交原 `request/adapter`。`cmd/local-agent` 在验证 Runtime 的 robot 身份后装配一次 `internal/agentsession.Manager`，模型设置重载沿用同一 manager。分区键为 `intake-session/SHA256(robotId + NUL + normalizedAdapter)`；当前未含用户或租户身份，部署范围是可信本地单操作员。
+
+```mermaid
+sequenceDiagram
+    participant U as 用户 / 本地 API
+    participant S as Session Manager
+    participant J as SQLite
+    participant P as 任务创建 / Planner
+    U->>S: 当前原句与 adapter
+    S->>J: 接收事件 + pending + 候选 taskId（CAS）
+    J-->>S: 已持久化
+    S->>P: 原句独立传入；摘要与原文引用为 reference
+    P-->>J: TASK_CREATED + 同一 session 绑定
+    S->>J: 接收轮次收尾，不代表机器人任务完成
+    Note over S,J: 重启遇 pending：按候选 taskId 查账，不重新规划或发动作
+```
+
+| 记录 / 字段 | 实际传递什么 | 使用边界 |
+| --- | --- | --- |
+| `Binding` | `sessionId/turnId/taskId/robotId/adapter/sequence/context/contextSHA256` | `TASK_CREATED.payload.session` 保存不可变绑定；摘要检错不等于认证或批准 |
+| `SESSION_TURN_RECEIVED` | 原始 request、原文 SHA256、binding、轮换原因；轮换时还关联 previousSessionId | 规划前先提交；接收失败不启动模型 |
+| 近期投影 | 原句预览、接收结论、从任务库现读的 currentTask 状态与版本 | 读取时的账本事实，不是实时传感器或未来动作许可 |
+| `HistoryRecord` | 源事件精确版本核对后的 `turnId/taskId/request/requestSHA256` | 最多八条，以独立 reference 进入 GOAL；不拼进当前 goal |
+| `SESSION_TURN_ENDED/RECOVERED` | `task_created/intake_failed/interrupted` 等接收结论 | task_created 仅说明已存任务，仍可能未批准或未执行 |
+
+活动会话在空闲 30 分钟或达到 32 次接收后轮换；近期保留最多八轮、单条预览最多 512 UTF-8 字节、摘要投影最多 6000 字节。原文每条最多 8000 字节，独立于小投影读取，超预算后使用 8.1 节的外置和 `context_read`。这些限制不等于 token 数，也不限制全部审计事件的磁盘保留量；轮换不会终止正在执行的 Task。
+
+一个 manager 串行化接收与规划，gate 等待可取消；它不占用整段机器人物理任务时间。legacy 解析出的显式 RobotID（含组合子项）须匹配本机 binding；能力路径核对目录和计划 robotId，不保证识别所有原句中的设备指代；“继续／重试”等纯续跑输入在 Begin 前返回澄清，改走确切任务的 resume/reconcile。含会话参考时，旧 recipe 只给提示，GOAL 模型仍判断本轮；离线 legacy grammar 只解析当前原句。
+
+接收事件与任务创建是两个事务。若 task 已存而收尾失败，下一次 Begin 验证确切 taskId 的 `TASK_CREATED` binding 后补记关联；未找到任务则记 interrupted。完成记录丢失不能触发新的物理动作。此协议没有外部 HTTP request ID：客户端再次 POST 全文仍可能创建新 turn/task，不能把内部事件去重解释成 HTTP 重发幂等。
+
+以上是本地接收关系；跨域仍传目标合同、执行 Basis 和证据引用，不复制整段会话或供应商 KV。固定前缀缓存只是模型后端的计算优化，持久 session、recipe 和真实 usage 账本分别管理事实关联、候选经验和调用计量。运维步骤见[自动会话手册](../operations/automatic-edge-sessions.md)，源码见[契约说明](../../core/agentsession/README.md)。
 
 ## 9. 核心 Harness：把模型建议变成可约束、可复核的执行
 

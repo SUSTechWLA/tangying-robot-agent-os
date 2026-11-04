@@ -1,0 +1,23 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "robot/gateway/tests/test_gazebo_workflow.py",
+    "robot/gateway/tests/test_robot_services.py",
+    "tests/install/test_gazebo_runtime_freshness.py",
+    "tests/scripts/test_analyze_gazebo_field_campaign.py",
+    "tests/scripts/test_gazebo_stop_checks.py"
+  ],
+  "cwd": "/Users/wanglian/Projects/tangying-robot-agent-os",
+  "head": "79a8c35535064fe0889980d5f37b3127079660e7",
+  "startedAtUTC": "2026-10-28T16:03:55.390947+00:00",
+  "scope": "Software regression; no live LLM or robot. Physical evidence is a separate campaign.",
+  "environmentOverrides": {
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "cleared": "GOFLAGS,GORACE,AGENT_*,EDGE_*,TANGYING_*"
+  }
+}

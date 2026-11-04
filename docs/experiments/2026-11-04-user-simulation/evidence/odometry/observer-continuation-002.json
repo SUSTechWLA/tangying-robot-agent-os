@@ -1,0 +1,12 @@
+{
+  "atUTC": "2026-11-04T05:34:21.824722+00:00",
+  "oldFile": "ros-observations-001.jsonl",
+  "oldFileSHA256": "c9959bac0b0ddedc276420003c22318d4856670f667033945cc8da52381e3d14",
+  "oldEnded": true,
+  "oldLastSampleUnixMs": 1793770461056,
+  "newFile": "ros-observations-002.jsonl",
+  "newFirstOdomSampleUnixMs": 1793770434270,
+  "overlapSeconds": 26.786,
+  "newDurationLimitSeconds": 3600,
+  "method": "Start new read-only ROS subscriptions, verify new odometry receipt, then set only old observer stop-file. No robot command or simulator reset."
+}

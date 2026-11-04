@@ -47,6 +47,10 @@ type Result struct {
 	ObservationID          string
 	VerificationConfidence float64
 	StateReportJSON        string `json:",omitempty"`
+	// FailureDiagnosticsJSON is bounded adapter diagnostic data for failed
+	// commands only. It is not evidence of success, stop confirmation, or
+	// authorization to retry a physical action.
+	FailureDiagnosticsJSON string `json:",omitempty"`
 	// Evidence contains the command's original observation, when supplied by
 	// the adapter. A separately polled post-tool image is not interchangeable.
 	Evidence *telemetry.Snapshot `json:"-"`

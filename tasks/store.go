@@ -22,3 +22,11 @@ type Repository interface {
 	Revision(context.Context, string, uint64) (RevisionRecord, error)
 	ListRevisions(context.Context, string) ([]RevisionRecord, error)
 }
+
+// EventAppender is an optional append-only journal port. Implementations assign
+// the next sequence and persist the event plus UpdatedAt atomically, without
+// reading the entire event history or overwriting other task fields. Concurrent
+// appenders must not reuse a sequence. The returned event is the committed fact.
+type EventAppender interface {
+	AppendTaskEvent(context.Context, string, TaskEvent) (TaskEvent, error)
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "command": ".venv/bin/python -m pytest -q robot/gateway/tests/test_survey_continuation_bootstrap.py",
+    "result": "first development run: 5 failed, 12 passed; protobuf Struct.get and future-stamped fixture fixed, logs retained"
+  },
+  {
+    "command": ".venv/bin/python -m pytest -q robot/gateway/tests/test_survey_continuation_bootstrap.py robot/gateway/tests/test_survey.py robot/gateway/tests/test_robot_services.py robot/gateway/tests/test_slam_provider.py robot/gateway/tests/test_slam_provider_continuation.py --junitxml=/tmp/scan002-bootstrap-fix/regressions-01.xml",
+    "result": "189 passed in 1.65s"
+  },
+  {
+    "command": ".venv/bin/python /tmp/scan002-bootstrap-fix/reproduce.py",
+    "result": "saved-source negative reproduced; repaired source accepts second exposure without motion"
+  },
+  {
+    "command": ".venv/bin/python -m ruff check robot/gateway/tangying_robot_gateway/robot_workflow.py robot/gateway/tangying_robot_gateway/survey.py robot/gateway/tests/test_survey_continuation_bootstrap.py robot/gateway/tests/test_robot_services.py",
+    "result": "All checks passed"
+  }
+]

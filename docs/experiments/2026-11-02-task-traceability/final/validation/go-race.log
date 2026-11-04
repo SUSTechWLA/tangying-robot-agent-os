@@ -1,0 +1,8 @@
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tasks	4.986s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	4.260s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite	15.728s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentsession	4.412s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/core/agentsession	3.790s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent	10.069s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/docs	5.140s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/tests/architecture	5.841s

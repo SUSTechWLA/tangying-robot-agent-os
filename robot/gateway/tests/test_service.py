@@ -1,5 +1,6 @@
 import threading
 import time
+import json
 
 import pytest
 from tangying_robot_gateway.backend import BackendResult, RobotBackend
@@ -63,6 +64,34 @@ def test_gateway_executes_only_after_safety_approval():
     events = list(service.execute_for_test(valid_command()))
     assert backend.executed == ["manipulation.pick"]
     assert events[-1].type == robot_pb2.SKILL_EVENT_SUCCEEDED
+
+
+@pytest.mark.parametrize("success,raw,retained", [
+    (False, '{ "commandId":"cmd-1", "observation":{"nav2Action":{"errorCode":208}} }', True),
+    (True, '{"commandId":"cmd-1"}', False),
+    (False, '{broken', False),
+    (False, '{"commandId":"wrong"}', False),
+    (False, json.dumps({"commandId":"cmd-1","message":"x"*17000}), False),
+])
+def test_failure_diagnostics_are_bounded_and_replayed_without_execution(tmp_path, success, raw, retained):
+    class FailingBackend(RecordingBackend):
+        def execute(self, command):
+            self.executed.append(command.capability)
+            return BackendResult(success=success, code="NAV2_ACTION_ENDED",
+                                 payload={"navigationFailureJson":raw})
+    path = tmp_path / "journal.json"
+    backend = FailingBackend()
+    events = list(RobotRuntimeService(backend, journal=RuntimeJournal(path)).execute_for_test(valid_command()))
+    terminal = events[-1]
+    assert ("navigationFailureJson" in terminal.details.fields) is retained
+    if retained:
+        assert json.loads(terminal.details["navigationFailureJson"])["observation"]["nav2Action"]["errorCode"] == 208
+    replay_backend = FailingBackend()
+    repeated = list(RobotRuntimeService(replay_backend, journal=RuntimeJournal(path)).execute_for_test(valid_command()))
+    # Deadline is not an idempotency fingerprint component; retry returns the
+    # original journal payload instead of calling the physical backend again.
+    assert repeated[-1].SerializeToString(deterministic=True) == terminal.SerializeToString(deterministic=True)
+    assert replay_backend.executed == []
 
 
 def test_gateway_rejects_unknown_skill_without_backend_call():

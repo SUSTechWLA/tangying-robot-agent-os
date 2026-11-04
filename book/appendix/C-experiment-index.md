@@ -82,7 +82,7 @@ Gazebo 仅一个移动机器人和 episode 1016；世界/Runtime 未重置，Age
 
 [Gazebo 证据与冻结重验说明](../../docs/experiments/evidence/2026-10-15-single-robot-robustness/gazebo/README.md)列出原任务、二进制、模型、失败和原大制品位置。缺本地图像/数据库时只能检查分发范围。本版整理已有记录，没有新增仿真运动、抓放、无人机、足式或实机证据。软件 `sourceChangedDuringRun=true` 的旧尝试继续保留但不作最终代码证据；最终来源摘要以 final-campaign-04 原记录为准。
 
-## C.9 本版新增实现的原报告入口
+## C.9 空间与工作台的历史证据入口
 
 | 原记录 | 用于哪一项教学问题 | 范围 |
 | --- | --- | --- |
@@ -92,8 +92,37 @@ Gazebo 仅一个移动机器人和 episode 1016；世界/Runtime 未重置，Age
 
 本版两个 Python 小实验用于课堂解释，不加入上述历史任务分母。教材与出版系统的软件核验另见开发记录 `2026-10-21-book-teaching-redesign.md`；它不改变历史报告的原始结果。
 
-## C.10 本轮边缘可靠性软件实验，2026-10-28
+## C.10 边缘可靠性软件实验，2026-10-28
 
 [原报告](../../docs/experiments/2026-10-27-edge-brain-reliability/README.md)采用固定六个测试、每个重复十次，60/60 顶层、110/110 leaf 通过。实际任务记录是 10 个 32 步完成，及 10 个第 25 写未知的目标待核对（各确认 24 步）；两类结局分别保留，重启均 0 次重复写。每轮来源哈希一致，原始 Go JSON 与运行脚本均归档。目录 10-27 是计划日期，真实运行日为 10-28。
 
 这是确定性进程内 Provider、脚本决策器和临时 SQLite 的合同实验，无 Gazebo、ROS 2 运动或外部模型。不能用 60/60 测试断言推出机器人现场成功率 100%，也不能把 10 个 unknown 当成任务成功。模型 usage 的 HTTP fixture 测试只证明采集语义，不证明真实 GPU 缓存收益。受影响包 race 与入口构建见[本轮实现记录](../../docs/development/2026-10-28-edge-brain-reliability.md)。
+
+## C.11 持续运行、成本与任务复测，2026-10-28
+
+[持续运行实验](../../docs/experiments/2026-10-28-edge-scalability/README.md)记录协作当前视图、增量父审计、child 写快照、规划经验和模型用量。首轮完整 campaign 超时与后续修复结果都保留；当前读取与审计 feed 分开，不能把微基准提升直接换算为机器人任务加速。
+
+[任务复测](../../docs/experiments/2026-10-28-edge-task-validation/README.md)包含 Gazebo 三机器人各十目标路线及六项停止检查，并分别保存规划、ACK 和设备准入修复。它的确定性任务入口、模型配置、UAV 接触覆盖限制按原文引用，不是后来的本地自动 session 或自然语言家庭巡检证据。
+
+## C.12 家庭巡检续测，2026-10-30
+
+[原报告](../../docs/experiments/2026-10-30-patrol-continuation.md)与[证据包 manifest](../../docs/experiments/evidence/2026-10-30-patrol-continuation-final/manifest.json)记录失败、隔离试验、部署 cohort、扫描地图与最终任务。教学拆解见第 19.10 节。
+
+| 证据单位 | 结果 | 解释限制 |
+| --- | --- | --- |
+| 原失败现场 | 旧任务人工放弃并取消；桌边保护拒绝保留 | 后续新世界不是原任务自主脱困 |
+| 三轮隔离扫描 | 第一轮 MOTION_NOT_READY；第二轮 NAV_ENVELOPE 且保存 partial；第三轮登记路线完成 | 同一隔离世界续建，第三轮继承部分地图；不是三份独立地图或未知环境全覆盖 |
+| 自然语言 Task | task-af9ceed0bbb9debb2cc19d3e，revision 1，SUCCEEDED | 人工核对并批准；不是实机或多机合作 |
+| 审计 | API/SQLite 116 事件一致，15 观测一致，六次导航/到位确认 | 位置残差相对任务目标，不是 SLAM 真值 |
+| 计时/轨迹 | 批准至终态 260.165 s；2 Hz 窗口 501 样本、平面折线 17.845 m | 创建至终态另为 369.979 s；非接触流、非地面真值 |
+| 规划模型 | 4 请求、1 候选被拒；48,561 总 tokens，31,104 缓存输入已含在输入中 | 供应商 usage，非账单；应用 cache_mode=off 不能证明后端 cold |
+
+原始失败和各 cohort 的测试不能互相替代；375 项隔离检查与最终 246 项定向回归有重叠，不累加成独立样本。完整大数据库和部分图片仍仅在本机，公开包明确遗漏范围。
+
+## C.13 自动边缘会话，2026-11-01
+
+[软件报告](../../docs/experiments/2026-11-01-automatic-edge-sessions.md)和[逐包/源码验证清单](../../docs/experiments/2026-11-01-automatic-edge-sessions/verification.json)固定真实 handler、SQLite 与模型请求数据流，完整 Go JSON 压缩日志随仓库保存。首次 10 包 race 539 个顶层测试通过；输入校验与 legacy robot scope 修复后，4 包 race 340 个顶层测试通过。两组重叠，不相加；最长 128 步 campaign 是原 Host 软件兼容回归，本身未接入新的 intake session。
+
+会话专项覆盖两条明确输入跨 SQLite 重开、原句/独立批准、pending 查账、不重放、并发与取消、原文/摘要损坏、轮换与预算、外置分页及 recipe 降级。模型和机器人为 fixture；没有新增公网模型用量节省、Gazebo 运动、断电或强杀试验。首轮文档检查中的缺失报告链接也按实际失败保留。
+
+这些记录让读者区分三个结论：机制已实现、规定软件窗口已验证、物理现场已测量。任一层不足，都应在论文中按原范围报告。

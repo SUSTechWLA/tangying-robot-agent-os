@@ -17,13 +17,17 @@
 
 ## Local Agent 不健康
 
+新版启动出现 `agent data directory already has an owner` 时，先检查该 `--data-dir` 是否仍被另一 Local Agent 使用；正常停止冲突进程后再启动，不删除 `.agent-owner.lock` 或任务数据库。文件存在不代表锁仍被持有，进程退出会释放锁；旧版不识别新锁，升级必须先停旧版。
+
+若网页创建任务超时，先查看任务记录及 `TASK_CREATED.payload.session`，不要直接再次提交原句。自动接收会话能在下次输入时按候选 task ID 查账，但不提供外部 POST 幂等。纯“继续／重试”应使用确切任务的恢复入口；历史摘要或源事件不匹配要保留 SQLite 备份调查，不手工改哈希。[会话排障手册](../operations/automatic-edge-sessions.md)列出中断位置与处理方法。
+
 ```bash
 robot-agent doctor local
 robot-agent logs local --follow
 curl -v http://127.0.0.1:8787/healthz
 ```
 
-检查 loopback 端口冲突、本地状态目录权限和配置语法。LLM API 故障不会让 Console 下线；完整已知请求优先确定性解析，不依赖 LLM；其余表达的模型解析失败会返回解析错误。含未解决约束的请求需要澄清，不通过模型绕过。修改 LLM 配置后若状态显示 `restartRequired`，重启 Local Agent。
+检查 loopback 端口冲突、本地状态目录权限和配置语法。LLM API 故障本身不使 Console 下线，但配置 GOAL 模型后，能力目标的选择与顺序依赖该阶段推理；只有未配置 GOAL 时才使用有限离线语法。复合 `robot.task` 的旧意图解析仍可优先匹配完整已知表达，不能据此推断整个能力规划无需模型。含未解决约束的请求需要澄清，不通过模型绕过。修改 LLM 配置后查看实际路由；若页面返回 `restartRequired`，按正常服务流程重启 Local Agent。
 
 ## Robot Runtime 连接失败
 

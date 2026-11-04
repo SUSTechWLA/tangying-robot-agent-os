@@ -1,0 +1,30 @@
+{
+  "runs": [
+    {
+      "name": "catalog-build",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "seconds": 0.064,
+      "output": "catalog-build.txt",
+      "sha256": "76a679fa9206708440c253d816a739686394e3939ae764e86109f6435f49481b"
+    },
+    {
+      "name": "catalog-check",
+      "command": [
+        "python3",
+        "scripts/build_docs_catalog.py",
+        "--check"
+      ],
+      "exit_code": 1,
+      "passed": false,
+      "seconds": 0.054,
+      "output": "catalog-check.txt",
+      "sha256": "e5573f11001dc426f880329ddd91e1feb2623da02569b8327f1333060986796f"
+    }
+  ],
+  "passed": false
+}

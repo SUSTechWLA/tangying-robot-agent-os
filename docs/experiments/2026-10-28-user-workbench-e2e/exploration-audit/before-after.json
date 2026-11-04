@@ -1,0 +1,36 @@
+{
+  "scope": "in-process synthetic RGB-D regression; no robot/ROS/Gazebo/LLM",
+  "runs": [
+    {
+      "version": "before",
+      "captureCalls": 1,
+      "frameCount": 0,
+      "consecutiveInsufficientDepth": 1,
+      "depthRejectedFrames": 1,
+      "operationId": "test-owned-operation",
+      "noPhysicalCommands": true,
+      "stopReason": "no_frames",
+      "complete": false,
+      "looks": 0,
+      "steps": []
+    },
+    {
+      "version": "after",
+      "captureCalls": 2,
+      "frameCount": 1,
+      "consecutiveInsufficientDepth": 0,
+      "depthRejectedFrames": 1,
+      "operationId": "test-owned-operation",
+      "noPhysicalCommands": true,
+      "bootstrap": {
+        "leg": 2,
+        "status": "accepted",
+        "attempts": 2,
+        "duplicateCaptures": 0,
+        "acceptedFrameDelta": 1,
+        "lastSampleOutcome": "accepted",
+        "elapsedSeconds": 0.1
+      }
+    }
+  ]
+}

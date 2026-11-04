@@ -19,6 +19,8 @@
 
 HTTP `/healthz` 成功只说明 Web 进程可响应，不能证明 Robot Runtime 已监听或已获得可执行的场景。启动演示/集成测试时，应先等待 Runtime 身份与能力查询成功、新鲜观测及所需实体已投影，再创建和批准任务；“来源已登记”也不能替代来源 FRESH。
 
+Local 自动接收会话的故障应先按[会话运维手册](../operations/automatic-edge-sessions.md)区分：输入错误、接收事件失败、任务已存但收尾失败、历史来源不匹配、既有任务物理结果未知。控制台 token 是访问凭据，不是该会话；不要通过清 token、删除数据库或新建相同任务清除 pending。
+
 自然语言问题先区分三层：创建时 422 `UNSUPPORTED_INTENT`（修改时 400 `REVISION_FAILED`）是未完整理解或不支持；`grounding absent`（这一帧没有匹配物体/区域/起点）、`grounding ambiguous`（匹配到多个候选）与 `grounding source mismatch` 是观测不符；Runtime 拒绝则检查能力和资源授权。绑定失败的消息同时给出机器人、adapter、观测数量、可见实体和场景切换命令，先按它区分“场景不对”和“相机或识别不对”。保留原输入，按具体原因处理，不能删除约束后自动重试。固定正反例见[语言评测](../development/natural-language-evaluation.md)、现场排查步骤见[统一故障排查](../install/troubleshooting.md#任务一开始就失败找不到物体)。
 
 ## 2. 账号、网络与基础设施
@@ -37,8 +39,13 @@ HTTP `/healthz` 成功只说明 Web 进程可响应，不能证明 Robot Runtime
 | Redis 不可用/重复 | 队列积压或重复领取 | Redis、consumer group、pending entries、Outbox lag | 至少一次必须由幂等吸收 | 恢复 Redis；从 Outbox 重放；不要清空未审计 PEL | 持久化、lag 告警、幂等测试 |
 | Outbox 卡住 | Task approved=true 但无执行 | DB outbox 状态、publisher 心跳、Redis stream | 不直接把 Task 改 RUNNING | 重启 publisher；按 event ID 重放 | 指标和死信 runbook |
 | 磁盘/内存/CPU | 延迟、OOM、证据写失败 | 容量、GC、队列、帧存储、进程限制 | 证据不完整不能签名成功 | 限流/停止新任务；扩容；安全重启 | 配额、容量预测、日志轮转 |
+| Local 数据目录已占用 | `agent data directory already has an owner`，启动失败 | data-dir 的实际路径、进程及 `.agent-owner.lock` 所有权 | 同一数据目录只有一个 Local 写者 | 正常停止冲突进程再启动；不删除锁文件 | 每机独立目录，升级先停旧版 |
+| 创建响应不确定 | POST 超时或断连，但可能已保存 task | 任务列表、原始 request、TASK_CREATED 与 session/turn/task 绑定 | 接收恢复不提供外部创建幂等 | 先找原 task，再处理原任务；不直接重复 POST | 客户端持久记录返回 task ID；后续增加明确请求幂等协议 |
+| 会话历史来源冲突 | source event、digest 或 binding 不匹配，拒绝新规划 | 原始 SQLite 备份、robot/adapter、源事件版本与 SHA | 缺失或外域历史不进入模型 | 保留证据，调查目录是否误接机器人或数据损坏 | 固定 Runtime 身份、备份及容量监测 |
 
 ## 3. 协调、任务与队列
+
+会话的 `task_created` 只表示接收轮次形成了任务，不能显示为机器人完成。task 已存而接收未收尾时，下一次同 robot/adapter 输入会核对候选 ID 并恢复关联；无任务则记 interrupted，不重放动作。纯“继续／重试”在新任务入口返回澄清，已有任务继续走确切 task 的 resume/reconcile。接收事件和 task 是相邻的两个事务，应分别取证。
 
 | 场景 | 现象 | 检查 | 安全不变量 | 自动/人工恢复 | 防止复发 |
 | --- | --- | --- | --- | --- | --- |

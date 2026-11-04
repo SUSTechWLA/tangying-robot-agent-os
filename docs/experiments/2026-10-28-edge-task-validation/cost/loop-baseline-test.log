@@ -1,0 +1,7 @@
+=== RUN   TestLoopAccountingFailureStopsAfterOneRecordedHTTPAttempt
+    usage_log_test.go:42: LOOP_USAGE_FAULT httpRequests=1 rounds=2 toolCalls=0 ledgerError=false
+    usage_log_test.go:44: fatal accounting failure retried or consumed candidate: outcome={Completed:false Escalated:true Reason:模型连续两次没能给出可执行的决策，需要人工介入 Calls:0 Rounds:[{Context:0xd5a6af0e500 Round:1 Tool: Candidates:[observe_scene manipulation.pick] Reason: Arguments:map[] Verdict:REFUSED Detail:决策失败：model usage accounting failed: persist model usage result: model usage file must be an owned regular file with mode 0600 and no hard links ToolMessage: ResultDetail:map[] Code: Class: ObservedAt:2026-10-28 14:44:21.129639 +0000 UTC DispatchAt:0001-01-01 00:00:00 +0000 UTC Duration:0s} {Context:0xd5a6ac6e640 Round:2 Tool: Candidates:[observe_scene manipulation.pick] Reason: Arguments:map[] Verdict:REFUSED Detail:决策失败：model usage accounting failed: persist model usage start before HTTP: model usage file must be an owned regular file with mode 0600 and no hard links ToolMessage: ResultDetail:map[] Code: Class: ObservedAt:2026-10-28 14:44:21.130017 +0000 UTC DispatchAt:0001-01-01 00:00:00 +0000 UTC Duration:0s}]} err=<nil>
+--- FAIL: TestLoopAccountingFailureStopsAfterOneRecordedHTTPAttempt (0.01s)
+FAIL
+FAIL	github.com/SUSTechWLA/tangying-robot-agent-os/internal/actionloop	1.387s
+FAIL

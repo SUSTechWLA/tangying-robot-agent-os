@@ -1,0 +1,35 @@
+....................................................................     [100%]
+=============================== warnings summary ===============================
+../../.local/lib/python3.11/site-packages/_pytest/config/__init__.py:1434
+  /Users/wanglian/.local/lib/python3.11/site-packages/_pytest/config/__init__.py:1434: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+../../.local/lib/python3.11/site-packages/_pytest/config/__init__.py:1434
+  /Users/wanglian/.local/lib/python3.11/site-packages/_pytest/config/__init__.py:1434: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 20 durations =============================
+0.76s call     tests/book/test_publication.py::test_identical_publication_can_be_rebuilt_in_place
+0.75s call     tests/book/test_publication.py::test_exports_are_deterministic_and_all_epub_links_resolve
+0.57s call     tests/book/test_figures_and_labs.py::test_figures_are_embedded_and_identified_in_both_publications
+0.52s call     tests/book/test_publication.py::test_back_to_contents_cannot_target_a_non_spine_navigation_document
+0.43s call     tests/book/test_publication.py::test_html_and_epub_navigation_reach_every_section
+0.40s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[unknown]
+0.39s call     tests/book/test_figures_and_labs.py::test_changed_figure_cannot_overwrite_an_existing_edition
+0.39s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[symlink]
+0.39s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[edition]
+0.38s call     tests/book/test_publication.py::test_release_refuses_to_overwrite_a_different_or_unidentified_publication[source]
+0.28s call     tests/book/test_publication.py::test_textbook_sources_and_generator_are_exactly_recoverable[2.0.0]
+0.27s call     tests/book/test_publication.py::test_textbook_sources_and_generator_are_exactly_recoverable[2.1.0]
+0.27s call     tests/book/test_publication.py::test_textbook_sources_and_generator_are_exactly_recoverable[3.2.0]
+0.26s call     tests/book/test_publication.py::test_textbook_sources_and_generator_are_exactly_recoverable[2.2.0]
+0.24s call     tests/book/test_publication.py::test_previous_edition_can_be_recovered_without_overwriting_history
+0.24s call     tests/docs/test_production_docs.py::test_every_documentation_link_and_make_target_resolves
+0.24s call     tests/book/test_publication.py::test_1_2_0_content_and_original_generator_are_exactly_recoverable
+0.21s call     tests/book/test_publication.py::test_1_1_3_sources_are_exactly_recoverable
+0.16s call     tests/book/test_publication.py::test_every_chapter_and_appendix_is_in_the_publication
+0.07s call     tests/book/test_figures_and_labs.py::test_lost_reply_lab_records_effects_and_refuses_to_erase_a_run
+68 passed, 2 warnings in 7.56s

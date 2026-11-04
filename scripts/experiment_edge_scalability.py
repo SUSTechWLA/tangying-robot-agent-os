@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""Run the fixed software regression matrix; no robot or external model calls."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import platform
+import signal
+import subprocess
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGES = [
+    "./tasks", "./middleware/sqlite", "./core/exchangecontract", "./edge/exchange",
+    "./internal/edgeagent", "./edge/worker", "./internal/capabilityagent",
+    "./internal/actionloop", "./internal/modelroute", "./core/agentcontext",
+    "./internal/recoveryexec", "./internal/agentharness", "./cmd/local-agent",
+    "./cmd/edge-worker", "./cmd/fleet-control-plane", "./cmd/edge-exchange",
+]
+
+
+def sources() -> dict[str, str]:
+    names = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=ROOT
+    ).decode().split("\0")
+    return {
+        n: hashlib.sha256((ROOT / n).read_bytes()).hexdigest()
+        for n in sorted(set(names))
+        if n and (n.endswith(".go") or n in {
+            "go.mod", "go.sum", "scripts/model_usage_report.py",
+            "scripts/test_model_usage_report.py",
+            "scripts/experiment_edge_scalability.py",
+        }) and (ROOT / n).is_file()
+    }
+
+
+def test_counts(path: Path) -> dict[str, int]:
+    counts = {"passed": 0, "failed": 0, "skipped": 0, "top_level_passed": 0,
+              "package_failures": 0, "incomplete_test_events": 0}
+    running = set()
+    for line in path.read_text().splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        action = event.get("Action")
+        if not event.get("Test"):
+            if action == "fail":
+                counts["package_failures"] += 1
+            continue
+        identity = (event.get("Package"), event["Test"])
+        if action == "run":
+            running.add(identity)
+        if action in {"pass", "fail", "skip"}:
+            running.discard(identity)
+            counts[{"pass": "passed", "fail": "failed", "skip": "skipped"}[action]] += 1
+        if action == "pass" and "/" not in event["Test"]:
+            counts["top_level_passed"] += 1
+    counts["incomplete_test_events"] = len(running)
+    return counts
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True, help="new evidence directory")
+    args = parser.parse_args()
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    snapshot = sources()
+    (output / "source-sha256.json").write_text(json.dumps(snapshot, indent=2) + "\n")
+    summary = {
+        "schema_version": "edge-scalability-verification.v1",
+        "started_at": datetime.now(UTC).isoformat(),
+        "git_base": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip(),
+        "platform": platform.platform(),
+        "go_version": subprocess.check_output(["go", "version"], cwd=ROOT).decode().strip(),
+        "evidence_level": "in_process_software_fixtures",
+        "real_llm": False, "gazebo": False, "real_robot": False,
+        "source_files": len(snapshot), "runs": [],
+    }
+    commands = [
+        ("affected-packages", ["go", "test", "-race", "-json", *PACKAGES,
+         "-skip", "Campaign", "-count=1", "-timeout=180s"]),
+        ("long-campaign", ["go", "test", "-race", "-json", "./internal/edgeagent",
+         "-run", "TestSingleRobot.*Campaign", "-count=1", "-timeout=180s"]),
+    ]
+    failed = False
+    for name, command in commands:
+        path = output / f"{name}.jsonl"
+        before = sources() == snapshot
+        start = time.monotonic()
+        with path.open("w") as log:
+            process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                                       start_new_session=True)
+            try:
+                code = process.wait(timeout=240)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+                code = -1
+        stable = before and sources() == snapshot
+        run = {"name": name, "command": command, "exit_code": code,
+               "duration_seconds": round(time.monotonic() - start, 3),
+               "sources_stable": stable, "test_events": test_counts(path)}
+        summary["runs"].append(run)
+        (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+        print(json.dumps(run), flush=True)
+        if code != 0 or not stable:
+            failed = True
+            break
+    summary["finished_at"] = datetime.now(UTC).isoformat()
+    summary["passed"] = not failed
+    (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    (output / "runner-source.py.txt").write_text(Path(__file__).read_text())
+    manifest = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                for p in sorted(output.iterdir()) if p.is_file()}
+    (output / "sha256.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    return int(failed)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

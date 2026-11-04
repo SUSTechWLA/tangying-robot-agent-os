@@ -1,0 +1,4 @@
+........................................................................ [ 64%]
+.......................................                                  [100%]
+- generated xml file: /Users/wanglian/Projects/tangying-robot-agent-os/docs/experiments/2026-10-28-edge-task-validation/harness/results.xml -
+111 passed in 5.18s

@@ -1,0 +1,1100 @@
+{
+  "schemaVersion": "task.images.export.v1",
+  "captureCount": 46,
+  "imageCount": 72,
+  "imageBytes": 3327266,
+  "bundled": true,
+  "records": [
+    {
+      "audit": "audit-001",
+      "id": "e5ba8b2cc95c768c17b1253b4ae8b4d6bf72acc26316a875a04461a1fd69cf9b",
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-109700000000-1793768749351",
+      "snapshotSha256": "e4e1b2f3f23ba623ceae454a2d48843518c47abe92935f72413fb4692e6554a5",
+      "observedAtUnixMs": 1793768749351,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-3b03351306d5b7df4835f7be6e69d577/e5ba8b2cc95c768c17b1253b4ae8b4d6bf72acc26316a875a04461a1fd69cf9b-rgb.png",
+          "sha256": "45b39eaff114dc2918e9e6e2679fda34da1ede2af190d4b6b210f077aa014dbb",
+          "bytes": 72712
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-3b03351306d5b7df4835f7be6e69d577/e5ba8b2cc95c768c17b1253b4ae8b4d6bf72acc26316a875a04461a1fd69cf9b-depth.png",
+          "sha256": "d8047550adfe1adb64b56ed9cb194b269f63bec26b44af883eb6246d561a23f7",
+          "bytes": 12100
+        }
+      }
+    },
+    {
+      "audit": "audit-001",
+      "id": "4f607cae1e418ce4de12e16d783f0bd0b44a7fd09ca731e15b6390e8d84a263b",
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-106600000000-1793768745070",
+      "snapshotSha256": "e296692ca4ad8cefad445a94a48ad4d8c922017f77d73eb9f703c11fec282911",
+      "observedAtUnixMs": 1793768745070,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-3b03351306d5b7df4835f7be6e69d577/4f607cae1e418ce4de12e16d783f0bd0b44a7fd09ca731e15b6390e8d84a263b-rgb.png",
+          "sha256": "023fa1f9f6a1818c8f9e544e919564c7da08dea689e005cf27f43560d0a2aeb1",
+          "bytes": 70944
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-3b03351306d5b7df4835f7be6e69d577/4f607cae1e418ce4de12e16d783f0bd0b44a7fd09ca731e15b6390e8d84a263b-depth.png",
+          "sha256": "c3198cd280da4028c016080782dfb31ec8a51ba743dc8a08f4ee1139a86264fd",
+          "bytes": 7112
+        }
+      }
+    },
+    {
+      "audit": "audit-001",
+      "id": "b503d22486cdb876385cdc58c521e0e98f5efc80d99ff9b374a4188d54b8c209",
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-106100000000-1793768744232",
+      "snapshotSha256": "eb6265c1fdca3e1ee06bb83158c2dd541d3e674e7d2f58f4b4a460721d564492",
+      "observedAtUnixMs": 1793768744232,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-002",
+      "id": "03896d832bc1d63c7ceb5c3b67c5996420484d70b84a0659a6a386001a7028b2",
+      "taskId": "task-a0fc09863e3a4be4f14ef61945b72877",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1014500000000-1793770195432",
+      "snapshotSha256": "f587de28cfc04ad45e81f87425464e22cc335955d8abcdbf2f77a966fa7870b2",
+      "observedAtUnixMs": 1793770195432,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-a0fc09863e3a4be4f14ef61945b72877/03896d832bc1d63c7ceb5c3b67c5996420484d70b84a0659a6a386001a7028b2-rgb.png",
+          "sha256": "d6e0dc4bba58df9758a88a9c4c73d08741f8337f44df2110ddd1a21b69a0d2fb",
+          "bytes": 72720
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-a0fc09863e3a4be4f14ef61945b72877/03896d832bc1d63c7ceb5c3b67c5996420484d70b84a0659a6a386001a7028b2-depth.png",
+          "sha256": "c126045b49c1bf084ce05c51bf5d8b203318d0ae3be8d33ca687064adf06ea23",
+          "bytes": 12108
+        }
+      }
+    },
+    {
+      "audit": "audit-002",
+      "id": "cc21aa43f7f943d152725a891b78f453c3d4c2230ddd4b9031924c8652a231c8",
+      "taskId": "task-a0fc09863e3a4be4f14ef61945b72877",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1013900000000-1793770194310",
+      "snapshotSha256": "65185ab086731788669bed44d27eff5101104c619e52a2f51f9a90563245282e",
+      "observedAtUnixMs": 1793770194310,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-a0fc09863e3a4be4f14ef61945b72877/cc21aa43f7f943d152725a891b78f453c3d4c2230ddd4b9031924c8652a231c8-rgb.png",
+          "sha256": "d6e0dc4bba58df9758a88a9c4c73d08741f8337f44df2110ddd1a21b69a0d2fb",
+          "bytes": 72720
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-a0fc09863e3a4be4f14ef61945b72877/cc21aa43f7f943d152725a891b78f453c3d4c2230ddd4b9031924c8652a231c8-depth.png",
+          "sha256": "c126045b49c1bf084ce05c51bf5d8b203318d0ae3be8d33ca687064adf06ea23",
+          "bytes": 12108
+        }
+      }
+    },
+    {
+      "audit": "audit-002",
+      "id": "86167dd59dbe30b2407fe5b88226d57da8c4bd4f5b9e22b9d0dedb8f8c6d6e9f",
+      "taskId": "task-a0fc09863e3a4be4f14ef61945b72877",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1013300000000-1793770193119",
+      "snapshotSha256": "08424f68b21e41836f061b30722805b9c2d8daa9e72a921432657c736599345d",
+      "observedAtUnixMs": 1793770193119,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "4220924ac95a722d4ad5a2ff66220747a45b2219028102af86f91f8103f39238",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-05-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1644500000000-1793771075910",
+      "snapshotSha256": "a98bcf88bfb067d81f33f2da57f409b3e0783636ba5a176261ff6e3f254846b9",
+      "observedAtUnixMs": 1793771075910,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/4220924ac95a722d4ad5a2ff66220747a45b2219028102af86f91f8103f39238-rgb.png",
+          "sha256": "99f7249688babce3124a3a8e390cc0a1787274a5131b187a27dae8566d45fb14",
+          "bytes": 71145
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/4220924ac95a722d4ad5a2ff66220747a45b2219028102af86f91f8103f39238-depth.png",
+          "sha256": "0d3f24e626be59cc124d185af16433567d0fc11e8c90d813d036fba656a7a93c",
+          "bytes": 9928
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "e3b538928948bcaefebc68336a7257de3f8eee33f5556845b79fcbc3166418d5",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-05-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1644100000000-1793771075245",
+      "snapshotSha256": "6cac8b1951e532d900ee62522787101c44c3bf401e4be8d2f262bceee3723c15",
+      "observedAtUnixMs": 1793771075245,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/e3b538928948bcaefebc68336a7257de3f8eee33f5556845b79fcbc3166418d5-rgb.png",
+          "sha256": "7e09df2b66123daa95ee1e8d70577177bf8af29121ae0eafb1221678166ffe9f",
+          "bytes": 71147
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/e3b538928948bcaefebc68336a7257de3f8eee33f5556845b79fcbc3166418d5-depth.png",
+          "sha256": "a7b184224d4b3691349cbb47bfeb5ee0936efb7280527c5afe923f4524883757",
+          "bytes": 9922
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "8ba4d1f1228ae0b63d5441b820bbf9fffb49f018a0787363ed17f8f24c13b0ed",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-05-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1596400000000-1793771007383",
+      "snapshotSha256": "e82a1c02af8558acd9eb2fe57bbc0d30c28a144709e3c66b592e35ab4737551f",
+      "observedAtUnixMs": 1793771007383,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/8ba4d1f1228ae0b63d5441b820bbf9fffb49f018a0787363ed17f8f24c13b0ed-rgb.png",
+          "sha256": "795f727ef807ec62e30cb8f18e6c789fd880d7c08538794bb9fecd05b66a6e1a",
+          "bytes": 71700
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/8ba4d1f1228ae0b63d5441b820bbf9fffb49f018a0787363ed17f8f24c13b0ed-depth.png",
+          "sha256": "20ee1094d8685bd88bbb42d06360f9e3596a1f36ce80eb53b7aeefa87531d4cf",
+          "bytes": 9386
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "397e4476cd38d6ec409eaf0ca77d66f86657f15824d63c38ca13c1c41cd08190",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-05-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1595600000000-1793771006187",
+      "snapshotSha256": "c1176fde082d41f92a041806dee6a49dc11942d0b7cb6a82a1a598dc35394015",
+      "observedAtUnixMs": 1793771006187,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/397e4476cd38d6ec409eaf0ca77d66f86657f15824d63c38ca13c1c41cd08190-rgb.png",
+          "sha256": "795f727ef807ec62e30cb8f18e6c789fd880d7c08538794bb9fecd05b66a6e1a",
+          "bytes": 71700
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/397e4476cd38d6ec409eaf0ca77d66f86657f15824d63c38ca13c1c41cd08190-depth.png",
+          "sha256": "20ee1094d8685bd88bbb42d06360f9e3596a1f36ce80eb53b7aeefa87531d4cf",
+          "bytes": 9386
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "ac2c946c9b6d619ec6a0d009fb3d3e7dc251790ba23f7ab329490d6537f5f8e5",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1594700000000-1793771004776",
+      "snapshotSha256": "4d3c0f4379b32278af7de36d674240b115d10d51ab069c90c523608ae7a36436",
+      "observedAtUnixMs": 1793771004776,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "081539177c2454ab697c1d76719effce72ea58a5dddde953d81f7ead03cb10b3",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1594500000000-1793771004436",
+      "snapshotSha256": "181b95301a57b33e91c153961b1a2eb93e84e3ff9b7415c0bb8edfdd5070565a",
+      "observedAtUnixMs": 1793771004436,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/081539177c2454ab697c1d76719effce72ea58a5dddde953d81f7ead03cb10b3-rgb.png",
+          "sha256": "00984abd4839a0b079c1e49412e7257d7a3652f61e91bb90a56846e6e9976eb7",
+          "bytes": 71706
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/081539177c2454ab697c1d76719effce72ea58a5dddde953d81f7ead03cb10b3-depth.png",
+          "sha256": "20ee1094d8685bd88bbb42d06360f9e3596a1f36ce80eb53b7aeefa87531d4cf",
+          "bytes": 9386
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "bfbb46c25c509e1bfb1bacb8d36e4f3588ce3ef80689b8938954ff072dc055ab",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1594000000000-1793771003818",
+      "snapshotSha256": "25bb6735a6a932412fb90e67b77a32c494cb7a7fc9bccd3288ff2ed15ceb6e7e",
+      "observedAtUnixMs": 1793771003818,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/bfbb46c25c509e1bfb1bacb8d36e4f3588ce3ef80689b8938954ff072dc055ab-rgb.png",
+          "sha256": "7d133156ff0b7e0ec9a1e0c1b13a4b1e8af2425b70ae1c867bd184f743e02dfa",
+          "bytes": 71699
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/bfbb46c25c509e1bfb1bacb8d36e4f3588ce3ef80689b8938954ff072dc055ab-depth.png",
+          "sha256": "ab77b8e1fc60ddc5eae96cb5682757137797a43dadd9f4d0a84d4cf225557252",
+          "bytes": 9386
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "8269404183ed6a56b0ed348c023ab0a9a3f514ac1ca8e41151785520e19a8861",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1572800000000-1793770974616",
+      "snapshotSha256": "5458933881c88f72194def8986d28b66693baffaf5636e772f4c7305bfd90546",
+      "observedAtUnixMs": 1793770974616,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/8269404183ed6a56b0ed348c023ab0a9a3f514ac1ca8e41151785520e19a8861-rgb.png",
+          "sha256": "0afbd589d0e14055164bd81a4a4ea77e716a8de6a33c08002c631fbc13785a22",
+          "bytes": 85310
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/8269404183ed6a56b0ed348c023ab0a9a3f514ac1ca8e41151785520e19a8861-depth.png",
+          "sha256": "831141d723f49d0a47558c95f9accf2ad898334c026c98e3193ecceede43ab93",
+          "bytes": 9509
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "aa4d0935563f50fd5cc1a1115b9cd19ea3f841a0cac3a6d83fea59dffded7e96",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1571900000000-1793770973237",
+      "snapshotSha256": "c72d33aa5ce38cdfe5ca90b7df57f1789e04f05ad80f166a3a617dafbf269fb5",
+      "observedAtUnixMs": 1793770973237,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/aa4d0935563f50fd5cc1a1115b9cd19ea3f841a0cac3a6d83fea59dffded7e96-rgb.png",
+          "sha256": "ac5aac5eccf6433dd5bf386b7abfb30a5a6c472fa5ad5ce7093a69b31ef18715",
+          "bytes": 85308
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/aa4d0935563f50fd5cc1a1115b9cd19ea3f841a0cac3a6d83fea59dffded7e96-depth.png",
+          "sha256": "831141d723f49d0a47558c95f9accf2ad898334c026c98e3193ecceede43ab93",
+          "bytes": 9509
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "2e73f207eea73fd8e4485b88a3a27531c795a9fb2a762668c89c45c3dfc3a2b6",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1571400000000-1793770972526",
+      "snapshotSha256": "47cc29ae545619ddfc828658f3eba39dc2d583dac610f5880ef474697f3e3ee4",
+      "observedAtUnixMs": 1793770972526,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "5cddb82e1305a7b61f5be3e07b837633b4cac2ae02722a9dccc9f12b09cda846",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-03-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1571000000000-1793770972010",
+      "snapshotSha256": "6870e429811c29ca4340f5959a1287fb23b0138c39fddcf58e5780cddb8a1289",
+      "observedAtUnixMs": 1793770972010,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/5cddb82e1305a7b61f5be3e07b837633b4cac2ae02722a9dccc9f12b09cda846-rgb.png",
+          "sha256": "c5b31db140344445e5640ef661a2a903f770b7ded6dd9e72946715d33248183c",
+          "bytes": 85309
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/5cddb82e1305a7b61f5be3e07b837633b4cac2ae02722a9dccc9f12b09cda846-depth.png",
+          "sha256": "831141d723f49d0a47558c95f9accf2ad898334c026c98e3193ecceede43ab93",
+          "bytes": 9509
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "55cafb2e2e74ed2f9c47cbad7d7e2d49261f5d7ffebccade9f579e7c823cd786",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-03-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1570500000000-1793770971272",
+      "snapshotSha256": "4ef03cca91fcfcd561d9c23b9f856f7c7099f3d16216a074af7642121ea51b12",
+      "observedAtUnixMs": 1793770971272,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/55cafb2e2e74ed2f9c47cbad7d7e2d49261f5d7ffebccade9f579e7c823cd786-rgb.png",
+          "sha256": "f83b7689c1e759b95bbecc08ffbcdc8300589a9dbc6cb509e5944d6d948b732f",
+          "bytes": 85310
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/55cafb2e2e74ed2f9c47cbad7d7e2d49261f5d7ffebccade9f579e7c823cd786-depth.png",
+          "sha256": "831141d723f49d0a47558c95f9accf2ad898334c026c98e3193ecceede43ab93",
+          "bytes": 9509
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "32c1c6b323df3d825712deb38a4db90af284be9212581ce58ccc97896afee3a6",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-03-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1540200000000-1793770928269",
+      "snapshotSha256": "4565b8207cf61d272ac45bd87b6b86463f782617b81434c0ee8e3369c77cabc7",
+      "observedAtUnixMs": 1793770928269,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/32c1c6b323df3d825712deb38a4db90af284be9212581ce58ccc97896afee3a6-rgb.png",
+          "sha256": "b3eccb9bbe768349d736fd8b9fc594c00dbb3890340061f4b9525b50cfcb1b92",
+          "bytes": 100886
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/32c1c6b323df3d825712deb38a4db90af284be9212581ce58ccc97896afee3a6-depth.png",
+          "sha256": "059ad929eab09e821962fb92663ec6a60c22811eb355cab32b0636a83a7bc212",
+          "bytes": 10932
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "170de88a51fa6847ea2f56331ef3df63c9bc04c6db289fafe18f1b80d1311780",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-03-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1536500000000-1793770922164",
+      "snapshotSha256": "e2a5c2f4afd4bf91172a1db3038844f3d45581ebc901b49c2dcabdfb2044ffd8",
+      "observedAtUnixMs": 1793770922164,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/170de88a51fa6847ea2f56331ef3df63c9bc04c6db289fafe18f1b80d1311780-rgb.png",
+          "sha256": "18b935d7ea1d6cc7d80ff3416d1fa46abd6a18cf819a3fe8db7d4513fd92c256",
+          "bytes": 105309
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/170de88a51fa6847ea2f56331ef3df63c9bc04c6db289fafe18f1b80d1311780-depth.png",
+          "sha256": "f00887030530648c9deec117d7076c1712a3162011cb2fc644c4a0d15a6b43ec",
+          "bytes": 13153
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "2936bad21394b871413bd4a8e74899b02f2558f177afebafe5d241ebdcdb5cc4",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1535700000000-1793770920798",
+      "snapshotSha256": "a052798c2939048d911ca9bf2262ffbc5858a5d5506629565bce480e700861e7",
+      "observedAtUnixMs": 1793770920798,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "3ae1e66b58ba2e37e10149bef8da8ba68d724bf2f618c02cb4cb00fb4e55149d",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1535300000000-1793770920214",
+      "snapshotSha256": "d4c1115d202d4a2ef10d57f3ec31170f9ac7be32bef79bbfc536cbb1f1505013",
+      "observedAtUnixMs": 1793770920214,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/3ae1e66b58ba2e37e10149bef8da8ba68d724bf2f618c02cb4cb00fb4e55149d-rgb.png",
+          "sha256": "f88054582bae77e2161f58afda6ec3cc135c432809aed4993b7bce9926c78ed9",
+          "bytes": 105315
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/3ae1e66b58ba2e37e10149bef8da8ba68d724bf2f618c02cb4cb00fb4e55149d-depth.png",
+          "sha256": "f00887030530648c9deec117d7076c1712a3162011cb2fc644c4a0d15a6b43ec",
+          "bytes": 13153
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "aceff9b4ce78329297d140b592f1f6d626b7af11b3405a5aa96eeb436fb8e5fe",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1534300000000-1793770918455",
+      "snapshotSha256": "f5a20a01bdd473172e4aa65d5921870805b042834ac915b1847d0979e911c72d",
+      "observedAtUnixMs": 1793770918455,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/aceff9b4ce78329297d140b592f1f6d626b7af11b3405a5aa96eeb436fb8e5fe-rgb.png",
+          "sha256": "02a7b508e48e991325fe39cf802311cf785755576d8b2e915668fc8e88f430bb",
+          "bytes": 105327
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/aceff9b4ce78329297d140b592f1f6d626b7af11b3405a5aa96eeb436fb8e5fe-depth.png",
+          "sha256": "1187fbf5d68be60378566fa7c67421b87371742af354461d00380922fa732e6f",
+          "bytes": 13154
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "fed78bc87819091cd02494076b05051344754f0b0b9c19868ce401fae215fc82",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1515100000000-1793770888618",
+      "snapshotSha256": "c03ed1def305c643fbab63d70ddd33776a156d07a3ff53f87133556d09f18181",
+      "observedAtUnixMs": 1793770888618,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/fed78bc87819091cd02494076b05051344754f0b0b9c19868ce401fae215fc82-rgb.png",
+          "sha256": "35ad172ac0d603b96b6d3ca7d460e9f69f991d74ab1dcb5e8a4a55d5b2cd8c31",
+          "bytes": 69372
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/fed78bc87819091cd02494076b05051344754f0b0b9c19868ce401fae215fc82-depth.png",
+          "sha256": "9d64e5df1d9c7ebbc91e7ecc8e221b25b735e10cd894b515afff157ffcdce755",
+          "bytes": 12217
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "e6addcdd5a2faf2c2958820a00357898c7f011294ca0126d5b9ea198e594d7df",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1512000000000-1793770884133",
+      "snapshotSha256": "2b37ed61269f50227165f27d7643d275f2a97f22b5c2a373eb34ffd78d820e52",
+      "observedAtUnixMs": 1793770884133,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/e6addcdd5a2faf2c2958820a00357898c7f011294ca0126d5b9ea198e594d7df-rgb.png",
+          "sha256": "d521b27b1a40e56740cda318b8a5427c58392ac4ee479899a4186556965b5d0e",
+          "bytes": 72200
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-583c94bad756b62ba0b238c678605c39/e6addcdd5a2faf2c2958820a00357898c7f011294ca0126d5b9ea198e594d7df-depth.png",
+          "sha256": "cf25b4b766eab23914ced91904dca9d1535aa3360038390ea8bc639535ec5fdf",
+          "bytes": 9297
+        }
+      }
+    },
+    {
+      "audit": "audit-003",
+      "id": "96ce7baca1d00ace4cce6792de85326e4192cdfa558c19d3b194ecdde53f6c74",
+      "taskId": "task-583c94bad756b62ba0b238c678605c39",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1511400000000-1793770883047",
+      "snapshotSha256": "5f912742f7e0e640c8542cdb5fac8561e81cac4000d7f36d3d2569e5655783c8",
+      "observedAtUnixMs": 1793770883047,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "4e34805fd8123ac8abb90c985a6a0e54fd5bbad62ebf9dd2bf44ff2d102a6c39",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-08-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1907100000000-1793771498474",
+      "snapshotSha256": "02647a339fa8ed9b57fce49b0dd41d20842ab0d8a54b2e7fee1bae4d8b07d59c",
+      "observedAtUnixMs": 1793771498474,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/4e34805fd8123ac8abb90c985a6a0e54fd5bbad62ebf9dd2bf44ff2d102a6c39-rgb.png",
+          "sha256": "e08de3bfcbbcf7367554141bce9f510815f94f456fbeff661f7676bcdb523253",
+          "bytes": 70897
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/4e34805fd8123ac8abb90c985a6a0e54fd5bbad62ebf9dd2bf44ff2d102a6c39-depth.png",
+          "sha256": "96551bd04945cf98ed842e3366da0b01686d921fb7234611b148c363e17bde61",
+          "bytes": 10040
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "862f476a04f126c5298793911e9a83f535ebfd90995bbcfe743dab28222230d7",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-08-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1906700000000-1793771497755",
+      "snapshotSha256": "f7d40dafe55b9e6e3c312f1466989b5a2da600873abbba4b785fb31c0ebe38bc",
+      "observedAtUnixMs": 1793771497755,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/862f476a04f126c5298793911e9a83f535ebfd90995bbcfe743dab28222230d7-rgb.png",
+          "sha256": "9e2cbf88a7a1f16feef2085331b54e89da6be18ad200b3b9913a29f8da146661",
+          "bytes": 70876
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/862f476a04f126c5298793911e9a83f535ebfd90995bbcfe743dab28222230d7-depth.png",
+          "sha256": "ad23c0aeb1944198c16291f31d49dd1652f05f7c007d618bc2042c6911ed139e",
+          "bytes": 10042
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "e9e3db2a9132e59b16a7e69174eae552ad083253e8834bdcfc56ca35d563ab4f",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-08-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1859100000000-1793771424831",
+      "snapshotSha256": "dc4564d1301ddab99542254bdc788f7339bff4015b86225b235f82519b169a65",
+      "observedAtUnixMs": 1793771424831,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/e9e3db2a9132e59b16a7e69174eae552ad083253e8834bdcfc56ca35d563ab4f-rgb.png",
+          "sha256": "da04c7ae5c30b898ef491a761edca95018530baf67b12e69974aa12000e19100",
+          "bytes": 71625
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/e9e3db2a9132e59b16a7e69174eae552ad083253e8834bdcfc56ca35d563ab4f-depth.png",
+          "sha256": "bfa8e0d2434cf5445422071c3123692584b70ecf77015368e43bf47ee162ae39",
+          "bytes": 9382
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "a2665def84e514fa4e82f9922eaddd3d18bf05802f647b0273d1e372bab174ed",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-08-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1858400000000-1793771423902",
+      "snapshotSha256": "58d6ded2681e5c74724edc358916e2aaf4bd6a43f32788b21f3257a36b8c446b",
+      "observedAtUnixMs": 1793771423902,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/a2665def84e514fa4e82f9922eaddd3d18bf05802f647b0273d1e372bab174ed-rgb.png",
+          "sha256": "da04c7ae5c30b898ef491a761edca95018530baf67b12e69974aa12000e19100",
+          "bytes": 71625
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/a2665def84e514fa4e82f9922eaddd3d18bf05802f647b0273d1e372bab174ed-depth.png",
+          "sha256": "bfa8e0d2434cf5445422071c3123692584b70ecf77015368e43bf47ee162ae39",
+          "bytes": 9382
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "6a46c0689226191e7228af4549d47873725e131ddd943b0918503eb2dbcbe2ea",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1857800000000-1793771422908",
+      "snapshotSha256": "5aaf2bd6271c33212da11e55742d7aaae96df27405aa0f0f861d6510d88184a1",
+      "observedAtUnixMs": 1793771422908,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "357df715059e7fd3e3e0ab2c55ab1176061b736ccfbfa3f4ff1ea0ed25728103",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-06-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1857500000000-1793771422495",
+      "snapshotSha256": "8be5b87d4bbe2e7d87c97081c660fc215579a8188542e570e595e473ab579fbe",
+      "observedAtUnixMs": 1793771422495,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/357df715059e7fd3e3e0ab2c55ab1176061b736ccfbfa3f4ff1ea0ed25728103-rgb.png",
+          "sha256": "45af7afbd72a3996860be3c48c12f799422ac5bd66b05e4825e77c9d006d237c",
+          "bytes": 71624
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/357df715059e7fd3e3e0ab2c55ab1176061b736ccfbfa3f4ff1ea0ed25728103-depth.png",
+          "sha256": "bfa8e0d2434cf5445422071c3123692584b70ecf77015368e43bf47ee162ae39",
+          "bytes": 9382
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "d62eb5de6d3bb1ac1842c220842357c184fb8cca22818b2f753ff78fd828287d",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-06-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1856900000000-1793771421732",
+      "snapshotSha256": "5442bc2c02532f3380375fd08360cb8d9d3dc82d01ffe920ea9e968223e1bf39",
+      "observedAtUnixMs": 1793771421732,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/d62eb5de6d3bb1ac1842c220842357c184fb8cca22818b2f753ff78fd828287d-rgb.png",
+          "sha256": "1ac99909d9fb57a95909cf7eb1713254f7ea796dbc291ac8193a42c8c3850f5c",
+          "bytes": 71612
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/d62eb5de6d3bb1ac1842c220842357c184fb8cca22818b2f753ff78fd828287d-depth.png",
+          "sha256": "00d182ebf818a5f25596093351a72aab31309c6363db86ac82e2ab622048c0bf",
+          "bytes": 9376
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "4a076f84bdf101a3288505b1c2d007b7e6d066bb79b60111c2daa5c38a8d1336",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-06-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1834700000000-1793771389282",
+      "snapshotSha256": "7b36288292e0be5aaf6c4b92b04f94e0b7c22e18d52fd8519fe76241bc6f31c6",
+      "observedAtUnixMs": 1793771389282,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/4a076f84bdf101a3288505b1c2d007b7e6d066bb79b60111c2daa5c38a8d1336-rgb.png",
+          "sha256": "09349200c842e838a96896ec347c2307401129ff5899fe9746d577f0488250c4",
+          "bytes": 85448
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/4a076f84bdf101a3288505b1c2d007b7e6d066bb79b60111c2daa5c38a8d1336-depth.png",
+          "sha256": "68b19692c949a2f132cc666b2fbfe27bbc5f42a2a50e9dd1e8e6d7922d22a787",
+          "bytes": 9468
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "9c890216bf98e26a2d2ca401f40d5f5c3501a315bf2a2f1b447b8cdf0e7a138a",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-06-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1833800000000-1793771387965",
+      "snapshotSha256": "0867e717163c625bb67ae8225d1c484a04d5ac6aed90ca449cf71b1e515133aa",
+      "observedAtUnixMs": 1793771387965,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/9c890216bf98e26a2d2ca401f40d5f5c3501a315bf2a2f1b447b8cdf0e7a138a-rgb.png",
+          "sha256": "e23faa0bc0792ce034e94bf1e47fdf3ffe5137c5ce728309e0123e487e2f3fdb",
+          "bytes": 85446
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/9c890216bf98e26a2d2ca401f40d5f5c3501a315bf2a2f1b447b8cdf0e7a138a-depth.png",
+          "sha256": "68b19692c949a2f132cc666b2fbfe27bbc5f42a2a50e9dd1e8e6d7922d22a787",
+          "bytes": 9468
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "61884324bb3d78031aa3b67c87ba30666ecc46182e74d9c8ac5f48f9c1681e63",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1833200000000-1793771387040",
+      "snapshotSha256": "d92692bffd5b14ddf6e9d57ce41fc00cc9c961e8d07c612e032bb8aa3a4881ad",
+      "observedAtUnixMs": 1793771387040,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "23d7dc8af383eb1d8be2e1d2ab830e30b2a2f4fd0acb35d913ddaa4a883c3a49",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1832600000000-1793771386023",
+      "snapshotSha256": "ef1038ce927fdffc8251957dea0ffee2363c934561f971943a9254a8ad4ff870",
+      "observedAtUnixMs": 1793771386023,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/23d7dc8af383eb1d8be2e1d2ab830e30b2a2f4fd0acb35d913ddaa4a883c3a49-rgb.png",
+          "sha256": "c873e979d0e4d01aaab5fcf6cf1afd57d502035f5ead839ef8d35d71c138e50b",
+          "bytes": 85445
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/23d7dc8af383eb1d8be2e1d2ab830e30b2a2f4fd0acb35d913ddaa4a883c3a49-depth.png",
+          "sha256": "68b19692c949a2f132cc666b2fbfe27bbc5f42a2a50e9dd1e8e6d7922d22a787",
+          "bytes": 9468
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "0d88322f38bdcb8fa671428e71eaae5d823b71889bb02bbbbac79e636add4943",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1832200000000-1793771385519",
+      "snapshotSha256": "e74ad65ab855815c988ff97fdf2f5fe1f8b2371c144606baea50b1d4b5ce1b0f",
+      "observedAtUnixMs": 1793771385519,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/0d88322f38bdcb8fa671428e71eaae5d823b71889bb02bbbbac79e636add4943-rgb.png",
+          "sha256": "45f9e35fc40e97f09334333a1fa406f438dba74834dff497d2ed30914853c599",
+          "bytes": 85456
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/0d88322f38bdcb8fa671428e71eaae5d823b71889bb02bbbbac79e636add4943-depth.png",
+          "sha256": "28312c3d4ef6c25ed67e132a2952d8d26d575a7a5a92a88bb24f3a7eeae3ebd3",
+          "bytes": 9463
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "b92457b0521bf41abdc0a8bb7dabd71fedfe0cb6d2beebfcd89ef1ed60fa2385",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1804000000000-1793771343076",
+      "snapshotSha256": "7c5fa06f8b5a9eb1924a48291786a613f919c4db9fdce972fc67a64df1532527",
+      "observedAtUnixMs": 1793771343076,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/b92457b0521bf41abdc0a8bb7dabd71fedfe0cb6d2beebfcd89ef1ed60fa2385-rgb.png",
+          "sha256": "67231fef2c28970c136d1fa4ea2d4758f5e61948a061e28352ae35dc514d6502",
+          "bytes": 100801
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/b92457b0521bf41abdc0a8bb7dabd71fedfe0cb6d2beebfcd89ef1ed60fa2385-depth.png",
+          "sha256": "de69b91ef736ff5ab1920bcdc5c26975df440de3c9cf34b0b265fa819306a457",
+          "bytes": 10704
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "c565e6943f7c423526db2fb0b753145452765af8c7adf625a8f3848aca7890df",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-04-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1799800000000-1793771335652",
+      "snapshotSha256": "903450ce8657d9f41b4efad46e7a2946bcd1a3be007b06b13df2812421a1ae16",
+      "observedAtUnixMs": 1793771335652,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/c565e6943f7c423526db2fb0b753145452765af8c7adf625a8f3848aca7890df-rgb.png",
+          "sha256": "0f67020e02001d8d5a8997acc0495f560409caae8f603069ad0fc0e195bcc40d",
+          "bytes": 105350
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/c565e6943f7c423526db2fb0b753145452765af8c7adf625a8f3848aca7890df-depth.png",
+          "sha256": "9c5ff9be69911f453c1cffacf3fadbaa353b478bc5e1360ebdde80e082e0e561",
+          "bytes": 13165
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "103a072c2c402c3cc46716e1844a3d5c31664c993ef251534d4a7a9f886bbebf",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1799100000000-1793771334373",
+      "snapshotSha256": "96ae4f05d2b647839f2ee4f88151091cc982867449e865e732f33d51020141bb",
+      "observedAtUnixMs": 1793771334373,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "8605a2e678ac57173904834188d2b56ac1cd09a40dc66a9f56b5a94d7e94c22f",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-verify_arrival_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1798600000000-1793771333497",
+      "snapshotSha256": "199f74ccaa82604ff921b393a4fcedb5c8f8938788c08da845ab4a03245f715b",
+      "observedAtUnixMs": 1793771333497,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/8605a2e678ac57173904834188d2b56ac1cd09a40dc66a9f56b5a94d7e94c22f-rgb.png",
+          "sha256": "2aed7d688ea323b51ad62bf96b45adf912dc31f5565081b52e87127925420ac8",
+          "bytes": 105349
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/8605a2e678ac57173904834188d2b56ac1cd09a40dc66a9f56b5a94d7e94c22f-depth.png",
+          "sha256": "9c5ff9be69911f453c1cffacf3fadbaa353b478bc5e1360ebdde80e082e0e561",
+          "bytes": 13165
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "59a5ac149ab4f51b7110a06bd1630de5b247f1844dc5ddb6120821d79de7f244",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-navigate_00",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1798000000000-1793771332473",
+      "snapshotSha256": "bb6e959d8af2ae93627f149c56a706058c4d8673515b493276fe353b382c41cf",
+      "observedAtUnixMs": 1793771332473,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/59a5ac149ab4f51b7110a06bd1630de5b247f1844dc5ddb6120821d79de7f244-rgb.png",
+          "sha256": "65fd545de5486863db4c5051c281b1428ae9edcb08f719f21ea7320458039cb8",
+          "bytes": 105350
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/59a5ac149ab4f51b7110a06bd1630de5b247f1844dc5ddb6120821d79de7f244-depth.png",
+          "sha256": "9c5ff9be69911f453c1cffacf3fadbaa353b478bc5e1360ebdde80e082e0e561",
+          "bytes": 13165
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "96ddbbf08791dc70c3a73f6547749cb72d5a356ff04a4f4c65b7e34a1b0032d2",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-pre_position",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1759600000000-1793771267248",
+      "snapshotSha256": "b5d10d1255ede2778d01232d630d3021ff8d6a2b577ab6e3e78be69a967114fc",
+      "observedAtUnixMs": 1793771267248,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/96ddbbf08791dc70c3a73f6547749cb72d5a356ff04a4f4c65b7e34a1b0032d2-rgb.png",
+          "sha256": "d8ea67d0d8c34db9f05eb125d17f907a214a06e42537225d9e9d4c14d2305edc",
+          "bytes": 72839
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/96ddbbf08791dc70c3a73f6547749cb72d5a356ff04a4f4c65b7e34a1b0032d2-depth.png",
+          "sha256": "b738bf9b73cbd3609f09d30f964fff4bf6fc901206fe7ebcb5e63a3dc41c92ce",
+          "bytes": 12177
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "b96b0201ced43203027559ab014e7e0dcbe016edabc7770ab628246d91b2efa1",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "rev-1-cap-02-observe",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1756200000000-1793771261288",
+      "snapshotSha256": "ddedeb3b24e3b5d7a504f2cb3dc565374e0abeb10e7c8d5cd838dd445d2c7f20",
+      "observedAtUnixMs": 1793771261288,
+      "images": {
+        "rgb": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/b96b0201ced43203027559ab014e7e0dcbe016edabc7770ab628246d91b2efa1-rgb.png",
+          "sha256": "8c98a9db38ff8cb0b3d9d54704b3b6ca9c6eee07a6d23e5a9b7540faaa2d3ba7",
+          "bytes": 71145
+        },
+        "depth": {
+          "status": "verified",
+          "file": "task-86a1f1438b266353b5a9e4965ed6c1fa/b96b0201ced43203027559ab014e7e0dcbe016edabc7770ab628246d91b2efa1-depth.png",
+          "sha256": "0d3f24e626be59cc124d185af16433567d0fc11e8c90d813d036fba656a7a93c",
+          "bytes": 9928
+        }
+      }
+    },
+    {
+      "audit": "audit-004",
+      "id": "5cb02c202fad495408f5fa91d1a369555ebeeb677d381902a3863e291d16f05e",
+      "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+      "taskRevision": 1,
+      "stepId": "grounded",
+      "robotId": "gazebo-home_furnished",
+      "captureId": "gazebo-home_furnished/head-rgbd-1755700000000-1793771260130",
+      "snapshotSha256": "268cd1945d260f8ed37efb70aea5c29a6e60d7d115e39e5a1f2072e7ef62164d",
+      "observedAtUnixMs": 1793771260130,
+      "images": {
+        "rgb": {
+          "status": "not_declared"
+        },
+        "depth": {
+          "status": "not_declared"
+        }
+      }
+    }
+  ],
+  "scope": "Existing task-scoped RGB/depth byte identity only; no new sensing, semantic interpretation or physical success inferred."
+}

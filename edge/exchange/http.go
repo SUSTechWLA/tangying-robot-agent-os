@@ -19,6 +19,8 @@ import (
 
 const MaxEnvelopeBytes = x.MaxPayload + 8192
 
+const maxReceiptBytes = 4096
+
 func tokenMatches(r *http.Request, token string) bool {
 	header := r.Header.Get("Authorization")
 	if !strings.HasPrefix(header, "Bearer ") {
@@ -239,11 +241,31 @@ func (t *HTTPTransport) Send(ctx context.Context, e x.Envelope) (x.Receipt, erro
 	if response.StatusCode != http.StatusOK {
 		return x.Receipt{}, fmt.Errorf("peer rejected exchange data: HTTP %d", response.StatusCode)
 	}
-	decoder := json.NewDecoder(io.LimitReader(response.Body, 4097))
+	// Read one byte beyond the budget so a truncated reader cannot manufacture
+	// EOF and hide oversized whitespace or a second JSON document. Reject
+	// duplicate keys before Go's decoder can silently choose the last value.
+	raw, err = io.ReadAll(io.LimitReader(response.Body, maxReceiptBytes+1))
+	if err != nil || len(raw) > maxReceiptBytes || x.ValidateJSON(raw) != nil {
+		return x.Receipt{}, errors.New("invalid acknowledgement body")
+	}
+	// Struct decoding also accepts case-insensitive aliases (Disposition and
+	// disposition), which can otherwise override one another despite distinct
+	// JSON keys. Require the exact four wire names before decoding their types.
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil || len(fields) != 4 {
+		return x.Receipt{}, errors.New("invalid acknowledgement body")
+	}
+	for _, field := range []string{"schemaVersion", "messageId", "sequence", "disposition"} {
+		if _, ok := fields[field]; !ok {
+			return x.Receipt{}, errors.New("invalid acknowledgement body")
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var receipt x.Receipt
 	if err := decoder.Decode(&receipt); err != nil {
-		return x.Receipt{}, err
+		// Remote field names and values are untrusted and may contain secrets.
+		return x.Receipt{}, errors.New("invalid acknowledgement body")
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		return x.Receipt{}, errors.New("invalid acknowledgement body")

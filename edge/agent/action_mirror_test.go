@@ -3,12 +3,15 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agent/intent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/agentruntime"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/agentcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/runtime"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/skills/manipulation"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/tasks"
 )
 
@@ -70,6 +73,65 @@ func TestRunnerActionAndDurableMirrorPreserveExactCommandArguments(t *testing.T)
 				t.Fatalf("direct source altered actual command: %s want %s fence=%v", got, want, direct.Payload["fencingToken"])
 			}
 		})
+	}
+}
+
+func TestFailureDiagnosticsSurviveBothEventPathsWithoutChangingOutcome(t *testing.T) {
+	for _, input := range []string{`{"goalId":"goal","commandId":"command","observation":{"nav2ErrorCode":208,"nav2ErrorMessage":"no path"}}`, `{"commandId":"another"}`, `invalid`, `[]`, `{"data":"` + strings.Repeat("x", 16384) + `"}`} {
+		var direct agentcontract.Event
+		var durable tasks.TaskEvent
+		runner := &Runner{Events: func(_ context.Context, event agentcontract.Event) { direct = event }, TaskEvents: func(_ context.Context, _ string, event tasks.TaskEvent) error { durable = event; return nil }}
+		runner.publishFailedResult(context.Background(), &tasks.Task{ID: "task"}, runtime.Command{CommandID: "command", StepID: "navigate", TaskRevision: 1, RobotID: "robot", Capability: runtime.CapabilityNavigate}, runtime.Result{Code: "NAV2_ACTION_ENDED", FailureDiagnosticsJSON: input}, "NAV2_ACTION_ENDED")
+		valid := strings.HasPrefix(input, `{"goalId"`)
+		for _, payload := range []map[string]any{direct.Payload, durable.Payload} {
+			if payload["activityStatus"] != "FAILED" || payload["error"] != "NAV2_ACTION_ENDED" || payload["commandId"] != "command" {
+				t.Fatalf("failure changed: %+v", payload)
+			}
+			_, has := payload["diagnostics"]
+			if has != valid {
+				t.Fatalf("diagnostics valid=%v payload=%+v", valid, payload)
+			}
+		}
+		left, _ := json.Marshal(direct.Payload["diagnostics"])
+		right, _ := json.Marshal(durable.Payload["diagnostics"])
+		if string(left) != string(right) {
+			t.Fatal("event paths disagree")
+		}
+	}
+}
+
+func TestRunnerPersistsCatalogEffectsWithAndWithoutEventBus(t *testing.T) {
+	for _, manifest := range manipulation.Catalog() {
+		for _, withBus := range []bool{false, true} {
+			t.Run(manifest.Name+"/bus="+fmt.Sprint(withBus), func(t *testing.T) {
+				var direct agentcontract.Event
+				var durable tasks.TaskEvent
+				runner := &Runner{TaskEvents: func(_ context.Context, _ string, event tasks.TaskEvent) error {
+					durable = event
+					return nil
+				}}
+				if withBus {
+					runner.Events = func(_ context.Context, event agentcontract.Event) { direct = event }
+				}
+				runner.publishToolActivity(context.Background(), &tasks.Task{ID: "task"}, runtime.Command{
+					CommandID: "command", RobotID: "robot", StepID: "step", TaskRevision: 1,
+					Capability: runtime.CapabilityName(manifest.Name),
+				}, "SENDING", nil, "")
+				for _, payload := range []map[string]any{durable.Payload, direct.Payload} {
+					if payload == nil && !withBus {
+						continue
+					}
+					if effect, ok := payload["mutatesWorld"].(bool); !ok || effect != manifest.MutatesWorld || payload["safetyLevel"] != string(manifest.SafetyLevel) {
+						t.Fatalf("catalog effects lost: manifest=%+v payload=%+v", manifest, payload)
+					}
+				}
+			})
+		}
+	}
+	unknown := map[string]any{}
+	declareActionEffects(unknown, "extension.not-registered")
+	if _, known := unknown["mutatesWorld"]; known {
+		t.Fatal("unknown extension classified as read-only")
 	}
 }
 

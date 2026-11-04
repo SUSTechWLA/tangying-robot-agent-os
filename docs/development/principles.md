@@ -15,6 +15,7 @@
 7. **界面只呈现可信状态。** 常用任务流程保持简洁，诊断按需展开。隐藏开发按钮不是服务端权限控制；断线、未知提交结果、急停和视觉降级必须对用户可见。
 8. **粗目标批准不等于任意动作授权。** `core/objective` 固定目标权限；共享 `internal/edgeagent.Host` 只在工具/参数/效果包络、持久预算、期限和原 claim 内细化。模型进度摘要不替代完整账本，诊断/恢复建议不拥有执行端口。未知写入停止对账，确认补认与结果补传不能重新发动作。
 9. **证据与结论绑定版本和环境。** 单元测试、仿真闭环、历史签名包、现场记录是不同证据。报告实际通过与跳过项；接口可调用、离线 READY 和默认参数都不是生产认证。
+10. **接收会话不成为第二个执行权威。** Local 自动保存原句与 session/turn/task 关联；当前 goal 和历史 reference 分开。接收轮次结束、会话轮换、recipe 命中或供应商 KV 命中都不能继承批准、证明动作完成或解除 UNKNOWN。重启先按预分配 task ID 查账；多用户、跨渠道和 HTTP 重发去重需另外定义身份与协议。
 
 现行目标路径见[分层架构](../architecture/hierarchical-edge-objectives.md)，旧 `/v1/tasks` / UI 冻结路径仍兼容。设备数据交换属于独立数据面，不给消息附加批准或运动权限。
 
@@ -28,6 +29,7 @@
 | --- | --- |
 | `cmd/robot-agent`、`internal/robotagent` | CLI、角色生命周期、预检、仿真/Sim2Real 工具分派 |
 | `cmd/local-agent`、`internal/localapp` | Local Brain 装配、依赖注入、恢复与工作队列 |
+| `core/agentsession`、`internal/agentsession`、`tasks/creation_session.go` | 自动接收 Binding、事件与投影、候选 task ID 与任务事务绑定；不承担物理执行或云端 claim |
 | `agent`、`orchestration`、`skills/manipulation` | 意图、计划守卫、能力模板 |
 | `core/objective`、`tasks/objective.go` | 粗目标合同、创建幂等、批准包络与虚拟 `edge.goal` 父节点 |
 | `internal/edgeagent` | Local/Worker 共用目标宿主，子计划/检查点、额度预留、Ops/Recovery、确认补认与全目标完成 |
@@ -70,6 +72,7 @@
 | --- | --- |
 | `agent/agent.go`、`agent/intent/parser.go` | [Agent 契约](../architecture/agent-v1.md)、[语言评测](natural-language-evaluation.md)；`agent/intent/natural_language_test.go` |
 | `tasks/service.go`、`tasks/experience.go` | [API](../production/api-reference.md)、[数据契约](../production/data-contracts.md)；`tasks/service_revision_test.go`、`tests/e2e/test_robocasa_task_updates.py` |
+| `internal/agentsession`、`tasks/creation_session.go` | [会话契约](../../core/agentsession/README.md)、[自动会话运维](../operations/automatic-edge-sessions.md)、[软件验证](../experiments/2026-11-01-automatic-edge-sessions.md)；manager、creation_session 和 HTTP/SQLite 重开测试 |
 | `edge/robotclient/client.go` | 实体与起点关系契约、[Sim2Real provider 要求](../sim2real/README.md)；`edge/robotclient/grounding_test.go` |
 | `sim/robocasa/tangying_robocasa/world.py` | [RoboCasa 方向/回合边界](../operations/robocasa-handoff.md)、语言正反例；不能只增加解析别称就宣告动作已支持 |
 | `web/app.js`、`web/console_ui.js`、`scripts/preview-console.cjs` | [用户指南](../guides/user-console.md)、[前端说明](../frontend/console-v1.md)、[异常运维](../production/operations-and-failures.md)；`make test-web` |

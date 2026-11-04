@@ -1,6 +1,10 @@
 # 文档导航：学习、开发、运维与研究
 
-教材 3.2.0（2026-10-28）以取消竞态、身份重配、模型缓存提示与失败回溯讲解边缘实现，提供 25 幅图、误差/时钟/上下文/时间预算推导及可复核的软件实验。
+当前系统阅读入口（2026-11-02）：[从一句话到会话、任务和执行证据](learning/current-system.md)，配套[教材 3.3.0](../book/README.md)。自动会话由本机管理，操作方法见[会话手册](operations/automatic-edge-sessions.md)。
+
+2026-10-28 当前增量：[系统评估](development/2026-10-28-system-upgrade-assessment.md) → [持续运行与成本升级](development/2026-10-28-edge-scalability.md) → [模型用量和规划经验配置](production/model-cost-and-recipes.md)。协作当前视图、长任务审计、真实 token 记录与可校验复用分别验证。
+
+教材 3.3.0（2026-11-02）纳入自动接收会话、历史投影与原文回查、模型用量和规划经验，以及家庭巡检失败/续测案例；提供 27 幅图，并区分软件、模型、仿真与实机证据。
 
 边缘工作台增量（2026-10-20）：[按机器人切换与任务回溯](operations/edge-robot-workspaces.md) → [实现与验证](development/2026-10-20-edge-robot-workspaces.md)。独立 Agent/数据目录、请求身份、地图与浏览器状态按设备隔离；切换不转移执行权。
 
@@ -14,7 +18,7 @@
 
 最新探索增量（2026-10-17）：[首次扫描实现](development/2026-10-17-exploration-first-scan.md) → [操作指南](guides/robot-service-workflow.md#首次进入未知场景主动扫描与探索) → [实验与全部尝试](experiments/2026-10-17-exploration-first-scan.md) → [书籍补充](../book/updates/2026-10-17-exploration-first-scan.md)。当前为平面本体主动观察和在线 frontier 增强，不代表三维自主探索或实机认证。
 
-基础资料核对到实现 `821659df`（2026-10-16）；后续增量按本页顶部记录与各次源码摘要阅读，教材入口为[数字版 3.2.0](../book/README.md)。云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
+基础资料核对到实现 `821659df`（2026-10-16）；后续增量按本页顶部记录与各次源码摘要阅读，教材入口为[数字版 3.3.0](../book/README.md)。云边架构：[分层目标委托](architecture/hierarchical-edge-objectives.md) → [接口与配置](guides/delegated-edge-goals.md) → [代码变化](development/2026-10-15-hierarchical-edge-objectives.md) → [功能测试与证据](experiments/2026-10-15-hierarchical-edge-objectives.md)。Local 与 Worker 现在共用边缘目标核心，区别于历史已规划节点模式。
 
 从你的工作目标选择入口。四条路线负责推荐顺序，[全量分类目录](catalog.md)负责查找所有文档、实验数据表与配图，[文档维护规则](maintenance.md)说明新增资料该放哪里。
 
@@ -58,7 +62,7 @@
 | 资料 | 用法 | 不能直接推导的结论 |
 | --- | --- | --- |
 | 当前操作与接口指南 | 按所在 Git 提交使用；核对设备角色、配置与能力目录 | 指南里出现一个接口，不代表所有适配器都已实现 |
-| [书籍3.2.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `63af9930` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
+| [书籍3.3.0](../book/README.md) | 系统学习和课程参考；实现复核固定到 `27cbbbaf9` | 纳入分层目标、共享边缘宿主、点云/异构空间通道和恢复；实验仍按各次原提交与二进制引用，见[学习路线](learning/README.md#书籍与系统增量如何一起读) |
 | [软件发布记录](releases/v0.7.0.md)与[Changelog](../CHANGELOG.md) | 区分正式发布和 Unreleased 增量；分支规则见[发布规范](development/branching.md) | 功能分支上的实验通过，不等于已合入 main 或完成发布 |
 | 带日期的实施、审计和实验记录 | 回溯当时的假设、失败、修复及环境；按原版本引用 | 历史成功、旧状态页或设计清单不覆盖今天的全部代码 |
 | 原始观测与机器可读结果 | 根据 manifest、身份和原始字节复验；数据入口见[研究路线](research/README.md) | 仿真、回放、软件合同和真机证据不能互相替代 |

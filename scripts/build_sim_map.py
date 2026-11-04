@@ -33,6 +33,32 @@ from console_session import (
 install_loopback_opener()
 
 
+def record_failure(output, status, error, service, operation_id):
+    """Keep the original failure and cancel only our still-active operation."""
+    record = {"errorType": type(error).__name__, "error": str(error),
+              "lastStatus": {k: v for k, v in status.items() if k not in {"preview", "trajectory"}},
+              "cancelOutcome": "not_attempted_no_operation_identity"}
+    if operation_id:
+        try:
+            current = service("mapping.status")
+            record["statusAtFailure"] = {k: v for k, v in current.items() if k not in {"preview", "trajectory"}}
+            if current.get("operationId") != operation_id:
+                record["cancelOutcome"] = "not_attempted_operation_changed"
+            elif current.get("state") in {"completed", "failed", "cancelled"}:
+                record["cancelOutcome"] = "not_attempted_terminal"
+            else:
+                service("mapping.cancel", {"expectedOperationId": operation_id})
+                record["cancelOutcome"] = "requested"
+        except Exception as cancel_error:  # noqa: BLE001 - preserve the original failure
+            record["cancelOutcome"] = "status_or_cancel_failed"
+            record["cancelErrorType"] = type(cancel_error).__name__
+            record["cancelError"] = str(cancel_error)
+    try:
+        (output / "failure.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    except OSError as write_error:
+        error.add_note(f"Could not save mapping failure record: {write_error}")
+
+
 
 def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode="survey",
         base_map_id="", max_travel_m=0., max_legs=0):
@@ -62,10 +88,13 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
     if base_map_id:parameters["baseMapId"]=base_map_id
     if max_travel_m:parameters["maxTravelM"]=max_travel_m
     if max_legs:parameters["maxLegs"]=max_legs
-    status=service("mapping.start",parameters)
-    session=status["sessionId"]
-    deadline=time.monotonic()+timeout
+    status = {}
+    operation_id = ""
     try:
+        status=service("mapping.start",parameters)
+        session=status["sessionId"]
+        operation_id=status.get("operationId", "")
+        deadline=time.monotonic()+timeout
         with (output/"progress.jsonl").open("w") as log:
             # An automatic survey publishes a leg and keeps going. It reports
             # `exploring` across those boundaries precisely so this loop does not
@@ -74,6 +103,8 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
                 if time.monotonic()>deadline:raise TimeoutError("mapping deadline exceeded")
                 time.sleep(1.)
                 status=service("mapping.status")
+                if operation_id and status.get("operationId") != operation_id:
+                    raise RuntimeError("mapping operation identity changed during observation")
                 if status.get("sessionId") and status["sessionId"]!=session:
                     # An automatic survey publishes a leg and continues from it
                     # under a new session id. That is the feature, not a hijack;
@@ -99,8 +130,8 @@ def run(base_url: str, output: Path, *, name="家庭地图", timeout=600., mode=
         (output/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
         (output/"summary.json").write_text(json.dumps({k:v for k,v in status.items() if k!="preview"},ensure_ascii=False,indent=2)+"\n")
         return status
-    except BaseException:
-        service("mapping.cancel")
+    except BaseException as error:
+        record_failure(output, status, error, service, operation_id)
         raise
 
 

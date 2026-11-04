@@ -2,11 +2,12 @@
 
 ## A.1 先追职责，再追调用
 
-本版代码复核为 9e6a58f6。包名是导航入口，接口和行为以该快照为准；源码文件/目录链接在导出时固定到它；配套文档另固定到本轮文档快照，见出版说明。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
+本版代码复核为 `27cbbbaf96e2d76e1a17a1ea1befc8a8d8db14ce`。包名是导航入口，接口和行为以该快照为准；源码文件/目录链接在导出时固定到它；配套文档另固定到本轮文档快照，见出版说明。以下用“要解释的问题”组织阅读，不用文件数和测试函数数衡量系统质量。
 
 | 问题 | 先读入口 | 再查对象 | 对应章 |
 | --- | --- | --- | --- |
 | 实际装配了什么？ | [cmd/local-agent/main.go](../../cmd/local-agent/main.go)、[cmd/local-agent/agentruntime.go](../../cmd/local-agent/agentruntime.go)、[cmd/edge-worker/main.go](../../cmd/edge-worker/main.go)、[cmd/fleet-control-plane/main.go](../../cmd/fleet-control-plane/main.go) | 路由、数据库、角色与发布口 | 2、6、9、17 |
+| 用户不用选择 session，如何保留关联？ | [internal/agentsession/manager.go](../../internal/agentsession/manager.go)、[tasks/creation_session.go](../../tasks/creation_session.go)、[core/agentsession/context.go](../../core/agentsession/context.go) | 原始输入、turn、预分配 task、pending 查账、reference | 8、9、16、18 |
 | 目标如何成为获批内容？ | [core/objective/contract.go](../../core/objective/contract.go)、[tasks/objective.go](../../tasks/objective.go)、`tasks/` | 未批准 edge.goal 包络、批准摘要、兼容冻结计划 | 7、14、17 |
 | 边缘怎样自主细化目标？ | [internal/edgeagent/host.go](../../internal/edgeagent/host.go)、[internal/capabilityagent/planner.go](../../internal/capabilityagent/planner.go)、[internal/edgeagent/supervision.go](../../internal/edgeagent/supervision.go) | 共享 Host、Task/Ops/Recovery、子计划与剩余额度 | 6、7、9、17 |
 | 什么工具对模型可见？ | `core/capability/`、`core/skills/`、`internal/agentharness/` | Schema、effects、目录与角色 | 5、16 |
@@ -14,6 +15,7 @@
 | 世界事实来自哪里？ | `core/worldmodel/`、`fleet/worldhub/` | 来源、序号、实体与版本 | 4、17 |
 | 谁可发布和处理事件？ | `core/agentcontract/`、`agentruntime/` | 注册身份、topic、sink、丢弃计数 | 6、11 |
 | 只读恢复凭什么继续？ | `internal/autorecovery/`、`internal/recoveryexec/` | 原失败、异常、计划、执行/复验 | 6、11、19 |
+| 重复目标与模型用量怎样保留？ | [internal/capabilityagent/recipe_memory.go](../../internal/capabilityagent/recipe_memory.go)、[internal/actionloop/usage_log.go](../../internal/actionloop/usage_log.go)、[scripts/model_usage_report.py](../../scripts/model_usage_report.py) | 候选计划、hint/validated、start/result、缺失统计 | 12、18 |
 | 上下文如何保存与裁剪？ | `core/agentcontext/`、`internal/actionloop/`、`tasks/` | guard、冷制品、分页、请求 SHA | 18 |
 | 云边执行依据是什么？ | [core/contextcontract/basis.go](../../core/contextcontract/basis.go)、`fleet/coordinator/` | claim、批准摘要、resource/fence | 8、17 |
 | Host 恢复如何区分已确认与未知？ | [internal/edgeagent/recovery.go](../../internal/edgeagent/recovery.go)、`completion.go`、对应测试 | 双重绑定证据、EDGE_STEP_RECOVERED、持久读重试 | 8、11、18 |
@@ -78,7 +80,7 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 
 若文件在更新分支改名，先检出出版说明指定快照，或在对应包内搜索测试名；不要用相似函数替代语义核验。
 
-## A.6 从本轮修复回到设计推导
+## A.6 从可靠性修复回到设计推导
 
 | 机制 | 源码与回归 | 教学问题 |
 | --- | --- | --- |
@@ -89,3 +91,17 @@ Python 空间模块位于 robot/gateway/tangying_robot_gateway/，测试位于 r
 | 失败轨迹 | [Recovery 失败测试](../../internal/recoveryexec/failure_trace_test.go) | 调用取消为什么不应同时取消记录失败？ |
 
 配置、字段和部署限制见[边缘模型交互运行说明](../../docs/production/edge-brain-model-context.md)。
+
+## A.7 当前输入入口的最小阅读闭环
+
+沿 `cmd/local-agent/main.go` → `tasks.Service.Create` → `internal/agentsession.Manager.Begin` → `Planner.modelPlanSeeded` → `TASK_CREATED` → `Manager.Complete` 阅读。先确认原始 request 没被历史替换，再追“接收记录”和“真正的任务批准”何时产生。
+
+| 反例 | 测试入口 | 要核对的不变量 |
+| --- | --- | --- |
+| HTTP/SQLite 重开 | [cmd/local-agent/session_test.go](../../cmd/local-agent/session_test.go) | 不需要用户 session 字段，第二轮有历史但仍产生独立未批准任务 |
+| task 存在而 finalizer 失败 | [internal/agentsession/manager_test.go](../../internal/agentsession/manager_test.go) | 下次同分区 Begin 精确查账，不重新派发 |
+| 输入说另一机器人 | [tasks/creation_session_test.go](../../tasks/creation_session_test.go) | legacy 根与 Sequence 的显式 RobotID 在规划/保存前匹配 |
+| 长原文与损坏引用 | [internal/capabilityagent/session_context_test.go](../../internal/capabilityagent/session_context_test.go) | 外置后精确分页，坏 hash/source 不送模型 |
+| 目录所有权 | [internal/controllease/data_test.go](../../internal/controllease/data_test.go) | 同目录别名不能获得第二份所有权；释放锁不删除 inode |
+
+会话设计与数据字段见[自动会话记录](../../docs/development/2026-11-01-automatic-edge-sessions.md)，软件验证与日志见[实验报告](../../docs/experiments/2026-11-01-automatic-edge-sessions.md)。这条调用链只覆盖 Local 新任务接收，不是 Worker 目标合同的替代。

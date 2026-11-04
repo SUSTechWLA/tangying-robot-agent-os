@@ -33,7 +33,9 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/tasksource"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker"
 	fleetv1 "github.com/SUSTechWLA/tangying-robot-agent-os/gen/go/fleet/v1"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/modelroute"
 )
 
 func main() {
@@ -289,6 +291,10 @@ func runMode(admitRuntimeContract bool) error {
 	}
 	defer goalStore.Close()
 	goalPlanner, err := edgeGoalPlanner()
+	if err != nil {
+		return err
+	}
+	goalPlanner.Memory, err = capabilityagent.NewRecipeMemory(goalStore, capabilityagent.RecipeNamespace(modelroute.Environment(modelroute.Goal)), os.Getenv("AGENT_GOAL_RECIPE_MODE"))
 	if err != nil {
 		return err
 	}

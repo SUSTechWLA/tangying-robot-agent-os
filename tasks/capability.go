@@ -20,18 +20,21 @@ func (s *Service) SetGoalPlanner(planner GoalPlanner) {
 	s.goalPlanner = planner
 }
 func (s *Service) createCapabilityTask(ctx context.Context, request, adapter string, bundle orchestration.Bundle) (*Task, error) {
-	return s.createCapabilityTaskWithID(ctx, request, adapter, bundle, newID("task"))
+	return s.createCapabilityTaskWithID(ctx, request, adapter, bundle, creationTaskID(ctx))
 }
 func (s *Service) createCapabilityTaskWithID(ctx context.Context, request, adapter string, bundle orchestration.Bundle, id string) (*Task, error) {
 	p := bundle.Capabilities
 	if p == nil || p.RobotID == "" || len(p.Calls) == 0 {
 		return nil, fmt.Errorf("invalid capability goal plan")
 	}
+	if err := validateCreationTask(ctx, id, adapter, p.RobotID); err != nil {
+		return nil, err
+	}
 	now := s.now().UTC()
 	task := &Task{ID: id, Request: request, Adapter: NormalizeAdapter(adapter),
 		Intent: manipulation.Intent{Action: "capability_goal", RobotID: p.RobotID}, Plan: &bundle,
 		State: taskgraph.StateReady, CurrentRevision: 1, AggregateVersion: 1, RevisionState: RevisionActive, CreatedAt: now, UpdatedAt: now}
-	task.Events = []TaskEvent{{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now, Payload: map[string]any{"kind": "capability_goal", "catalogRevision": p.CatalogRevision}}}
+	task.Events = []TaskEvent{{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now, Payload: creationPayload(ctx, map[string]any{"kind": "capability_goal", "catalogRevision": p.CatalogRevision})}}
 	steps := capabilitySteps(p, 1)
 	revision := &TaskRevision{TaskID: task.ID, Revision: 1, Request: request, Understanding: request, Intent: task.Intent, Plan: &bundle, Steps: steps, RiskClass: "capability", ApprovalRequired: true, Creator: "task/create", IdempotencyKey: task.ID + "/create", CreatedAt: now}
 	if err := s.store.CreateWithRevision(ctx, task, revision); err != nil {

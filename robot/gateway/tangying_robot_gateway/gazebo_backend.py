@@ -415,7 +415,7 @@ class GazeboSkillBackend(RobotBackend):
             from .grid_navigation import world_route
             from .service_registry import ServiceError
             try:
-                route = world_route(workflow.grid,workflow.map_from_world,current,goal,workflow.footprint_radius)
+                route = world_route(workflow.grid,workflow.map_from_world,current,goal,workflow._planning_clearance())
             except ServiceError as error:
                 return Result(False,error.code,str(error))
             admitted = {**workflow.active,"waypoint_count":len(route),"admission":"saved_measured_grid",
@@ -449,8 +449,15 @@ class GazeboSkillBackend(RobotBackend):
                 return Result(False,"MAP_CHANGED_DURING_NAVIGATION")
             self.navigation_receipt = admitted
             self.navigation_receipt["observationHolds"] = outcome.get("observationHolds", [])
+        payload = {"navigationWaypointsJson": json.dumps(waypoints)}
+        if not outcome["ok"] and outcome.get("failureObservation"):
+            payload["navigationFailureJson"] = json.dumps({
+                "goalId": outcome.get("goalId", ""),
+                "commandId": command.command_id,
+                "observation": outcome["failureObservation"],
+            }, allow_nan=False)
         return Result(bool(outcome["ok"]), outcome.get("code", ""), outcome.get("message", ""),
-                      payload={"navigationWaypointsJson": json.dumps(waypoints)})
+                      payload=payload)
 
     def _wait_post_navigation_capture(self, completed_ns, completed_wall_ms):
         # Even POSE_ALREADY_CONFIRMED must expose post-dispatch evidence. A

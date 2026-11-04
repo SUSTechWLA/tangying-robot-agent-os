@@ -1,0 +1,599 @@
+{
+  "schemaVersion": "user.simulation.audit.v1",
+  "taskId": "task-583c94bad756b62ba0b238c678605c39",
+  "collectedAtUTC": "2026-11-04T05:44:38.460157+00:00",
+  "taskState": "SUCCEEDED",
+  "taskSucceeded": true,
+  "closure": {
+    "verified": true,
+    "state": "SUCCEEDED",
+    "taskRevision": 1,
+    "terminalTransitionSequence": 159,
+    "finishSequences": [
+      161
+    ],
+    "successMarkerPresent": true
+  },
+  "apiStable": true,
+  "traceMatchesTask": true,
+  "originalRequestSHA256Valid": true,
+  "requiredCapabilities": {
+    "required": [
+      "calibration.get"
+    ],
+    "checks": [
+      {
+        "tool": "calibration.get",
+        "presentInFrozenPlan": true,
+        "confirmedCommandIds": [
+          "task-583c94bad756b62ba0b238c678605c39/rev-1-cap-01"
+        ],
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "traceIntegrity": "consistent",
+  "traceFindings": [],
+  "journal": {
+    "available": true,
+    "exactMatch": true,
+    "fieldsEqual": true,
+    "eventsEqual": true,
+    "eventCount": 161,
+    "captureCount": 20,
+    "allDeclaredCaptureHashesValid": true,
+    "capturesWithCompleteRGBD": 16,
+    "hashCheckBoundary": "Null image hash check means no image or digest declared in this capture, not corrupt bytes; patrol arrival requires complete snapshot/RGB/depth checks.",
+    "errors": [],
+    "boundary": "Task-scoped SQLite read transaction, not whole-database backup; image bytes saved only with --images."
+  },
+  "observationMetadataMatches": true,
+  "observationCount": 20,
+  "rpcCount": 1,
+  "rpcStates": {
+    "SUCCEEDED": 1
+  },
+  "stepCount": 21,
+  "stepStates": {
+    "CONFIRMED": 21
+  },
+  "atomicSteps": [
+    {
+      "stepId": "rev-1-cap-01",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/rev-1-cap-01",
+      "tool": "calibration.get",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/rev-1-cap-02",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02-observe",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-02-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1512000000000-1793770884133"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-pre_position",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-02-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1515100000000-1793770888618"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-navigate_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-02-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1534300000000-1793770918455"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-verify_arrival_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-02-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1535300000000-1793770920214"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-03",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/rev-1-cap-03",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-03-observe",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-03-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1536500000000-1793770922164"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-03-pre_position",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-03-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1540200000000-1793770928269"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-03-navigate_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-03-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1570500000000-1793770971272"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-03-verify_arrival_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-03-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1571000000000-1793770972010"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/rev-1-cap-04",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-04-observe",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-04-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1571900000000-1793770973237"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04-pre_position",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-04-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1572800000000-1793770974616"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04-navigate_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-04-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1594000000000-1793771003818"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04-verify_arrival_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-04-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1594500000000-1793771004436"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-05",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/rev-1-cap-05",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-05-observe",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-05-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1595600000000-1793771006187"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-05-pre_position",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-05-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1596400000000-1793771007383"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-05-navigate_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-05-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1644100000000-1793771075245"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-05-verify_arrival_00",
+      "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-05-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1644500000000-1793771075910"
+      ]
+    }
+  ],
+  "modelUsage": {
+    "uniqueCallIDs": 7,
+    "references": 14,
+    "duplicateReferencesExcluded": 7,
+    "conflictingCallIDs": [],
+    "missingIdentityRecords": 0,
+    "validUsageCalls": 7,
+    "unknownUsageCalls": 0,
+    "invalidUsageCalls": 0,
+    "providerReportedKnownTotals": {
+      "prompt_tokens": 92910,
+      "completion_tokens": 5241,
+      "total_tokens": 98151,
+      "cached_tokens": 48768,
+      "cache_write_tokens": null
+    },
+    "fieldReportingCalls": {
+      "prompt_tokens": 7,
+      "completion_tokens": 7,
+      "total_tokens": 7,
+      "cached_tokens": 7,
+      "cache_write_tokens": 0
+    },
+    "fieldTotalsComplete": {
+      "prompt_tokens": true,
+      "completion_tokens": true,
+      "total_tokens": true,
+      "cached_tokens": true,
+      "cache_write_tokens": false
+    },
+    "totalUsageComplete": true,
+    "calls": [
+      {
+        "call_id": "2411f7d8-c5be-4596-b007-9c1b0f0e4fdb",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:16.00708Z",
+        "duration_ms": 2631,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11502,
+          "completion_tokens": 372,
+          "total_tokens": 11874,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 41795,
+        "response_bytes": 2362
+      },
+      {
+        "call_id": "76014e65-5394-4057-8817-72b8c6604101",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:18.649114Z",
+        "duration_ms": 2491,
+        "http_status": 200,
+        "outcome": "invalid_decision",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11738,
+          "completion_tokens": 267,
+          "total_tokens": 12005,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 42570,
+        "response_bytes": 2037
+      },
+      {
+        "call_id": "87a7685a-3c4a-4ced-b5e0-6d6143b95e32",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:21.146457Z",
+        "duration_ms": 1206,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11961,
+          "completion_tokens": 40,
+          "total_tokens": 12001,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 43408,
+        "response_bytes": 768
+      },
+      {
+        "call_id": "ae6b3151-3a23-42a4-bed6-6de95d7c9d1d",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:22.437891Z",
+        "duration_ms": 3091,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 12318,
+          "completion_tokens": 371,
+          "total_tokens": 12689,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 44604,
+        "response_bytes": 2311
+      },
+      {
+        "call_id": "ff29bd0e-3297-49d4-84e9-ac7194d55faa",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:25.538847Z",
+        "duration_ms": 6706,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 14619,
+          "completion_tokens": 1022,
+          "total_tokens": 15641,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 51968,
+        "response_bytes": 5659
+      },
+      {
+        "call_id": "597c3d13-3923-4de1-9a36-7771821cd68b",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:32.263363Z",
+        "duration_ms": 11091,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 15015,
+          "completion_tokens": 1690,
+          "total_tokens": 16705,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 53302,
+        "response_bytes": 8492
+      },
+      {
+        "call_id": "02b2e0b9-eef9-4631-a4d7-b45c0ba731a3",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:40:43.468887Z",
+        "duration_ms": 10015,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 15757,
+          "completion_tokens": 1479,
+          "total_tokens": 17236,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 55416,
+        "response_bytes": 7548
+      }
+    ],
+    "boundary": "Provider-reported telemetry, not an invoice. Unknown/conflicting usage excluded, never zero. Cached tokens are included in prompt tokens; no token estimation."
+  },
+  "patrol": {
+    "performed": true,
+    "passed": true,
+    "expectedRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "frozenRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "confirmations": [
+      {
+        "room": "kitchen",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-02-navigate_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-02-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1534300000000-1793770918455",
+        "eventSequence": 43,
+        "errors": [],
+        "positionErrorM": 0.003037354413361341,
+        "yawErrorRad": 0.027116807198891205
+      },
+      {
+        "room": "kitchen",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-02-verify_arrival_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-02-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1535300000000-1793770920214",
+        "eventSequence": 50,
+        "errors": [],
+        "positionErrorM": 0.003037354413361341,
+        "yawErrorRad": 0.027116807198891205
+      },
+      {
+        "room": "bedroom",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-03-navigate_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-03-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1570500000000-1793770971272",
+        "eventSequence": 77,
+        "errors": [],
+        "positionErrorM": 0.0029752630662783722,
+        "yawErrorRad": 0.02687202783413656
+      },
+      {
+        "room": "bedroom",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-03-verify_arrival_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-03-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1571000000000-1793770972010",
+        "eventSequence": 84,
+        "errors": [],
+        "positionErrorM": 0.0029752630662783722,
+        "yawErrorRad": 0.02687202783413656
+      },
+      {
+        "room": "bathroom",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-04-navigate_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-04-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1594000000000-1793771003818",
+        "eventSequence": 111,
+        "errors": [],
+        "positionErrorM": 0.0016123885076025273,
+        "yawErrorRad": 0.028647211205655276
+      },
+      {
+        "room": "bathroom",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-04-verify_arrival_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-04-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1594500000000-1793771004436",
+        "eventSequence": 118,
+        "errors": [],
+        "positionErrorM": 0.0016123885076025273,
+        "yawErrorRad": 0.028647211205655276
+      },
+      {
+        "room": "living_room",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-05-navigate_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-05-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1644100000000-1793771075245",
+        "eventSequence": 145,
+        "errors": [],
+        "positionErrorM": 0.0021747888005914455,
+        "yawErrorRad": 0.02796191792221991
+      },
+      {
+        "room": "living_room",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-05-verify_arrival_00",
+        "commandId": "task-583c94bad756b62ba0b238c678605c39/revision/1/step/rev-1-cap-05-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1644500000000-1793771075910",
+        "eventSequence": 152,
+        "errors": [],
+        "positionErrorM": 0.0021747888005914455,
+        "yawErrorRad": 0.02796191792221991
+      }
+    ],
+    "errors": [],
+    "boundary": "Recorded odometry/map-route and raw sensor identity, not independent ground truth, collision/contact proof or semantic image interpretation."
+  },
+  "auditFailures": [],
+  "recordAuditPassed": true,
+  "acceptancePassed": true,
+  "scope": "GET-only collection plus optional task-scoped SQLite read. No robot commands. Physical acceptance requires explicitly registered route and independent evidence; no generic safety or collision guarantee."
+}

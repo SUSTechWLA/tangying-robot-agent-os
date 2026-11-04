@@ -91,12 +91,12 @@ test("the first thing to do is the most blocking one", () => {
   assert.match(readiness.items[0].action, /USB/);
 });
 
-test("an uncalibrated robot is not allowed to be used", () => {
+test("missing calibration information stays unknown and does not demand recalibration", () => {
   const readiness = withInput({ calibration: null });
   assert.equal(readiness.ready, false);
   const calibration = readiness.items.find(entry => entry.id === "calibration");
-  assert.equal(calibration.state, "action");
-  assert.match(calibration.situation, /不要让它抓东西/);
+  assert.equal(calibration.state, "unknown");
+  assert.match(calibration.action, /信息缺失不代表需要重新标定/);
   assert.equal(calibration.target, "calibration");
 });
 
@@ -351,4 +351,19 @@ test("Gazebo readiness reports observed stop state without claiming physical saf
   assert.equal(safety({ adapter: "xlerobot_direct", emergencyStopped: false }).state, "action");
   const map = buildReadiness({ map: { ready: true } }).items.find(row => row.id === "map");
   assert.doesNotMatch(map.situation, /已覆盖房间/);
+});
+
+test("navigation dependency failures never become map coverage or movement instructions", () => {
+  for (const input of [
+    { map: { ready: false }, server: { checks: [{ id: "navigation", state: "action", detail: "NAV2_INACTIVE" }] } },
+    { map: { ready: false, summary: "地图还不完整", nextTargets: [{ instruction: "向厨房移动" }] }, server: { checks: [{ id: "navigation", state: "action", detail: "NAV2_INACTIVE" }] } },
+    { map: { ready: false, navigationDriver: { ready: false } } },
+    { map: { ready: false }, server: { checks: [{ id: "navigation", state: "unknown", detail: "NAVIGATION_STATUS_UNAVAILABLE" }] } },
+  ]) {
+    const row = withInput(input).items.find(entry => entry.id === "map");
+    assert.ok(["action", "unknown"].includes(row.state));
+    assert.match(row.action, /导航运行依赖/);
+    assert.doesNotMatch(row.situation + row.action, /地图还不完整|没走过的区域|走一遍|向厨房移动|巡检建图/);
+    assert.equal(row.target, "", "a navigation outage must not send the operator to a movement workflow");
+  }
 });

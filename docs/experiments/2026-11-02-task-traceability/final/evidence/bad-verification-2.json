@@ -1,0 +1,914 @@
+{
+  "completedSteps": [
+    "rev-1-cap-01"
+  ],
+  "diagnoses": 0,
+  "evidenceClass": "software-contract-fixture",
+  "executionError": "completion verification failed: missing completion evidence activeMap.mapId",
+  "failedRPCs": 0,
+  "physicalStarts": 1,
+  "reopenIdentical": true,
+  "repeat": 2,
+  "scenario": "bad-verification",
+  "trace": {
+    "schemaVersion": "task.trace.v1",
+    "taskId": "task-4907803a97b62ff4228e0c7deb2429a5",
+    "adapter": "gazebo",
+    "state": "RECOVERABLE_FAILURE",
+    "currentRevision": 1,
+    "originalRequest": {
+      "text": "检查标定，建图",
+      "sha256": "94fc8a2290896c028f96e4d78584c591835084cb6fcdaf38a2a8d26189933f3b",
+      "revision": 1,
+      "source": "revision:1"
+    },
+    "currentRequest": "检查标定，建图",
+    "session": {
+      "sessionId": "session-8aecad20bbbc8058217355534722ffcd",
+      "turnId": "turn-9130f8ac1988c893c8e7132bc9658bdc",
+      "taskId": "task-4907803a97b62ff4228e0c7deb2429a5",
+      "robotId": "heterogeneous-unit",
+      "adapter": "gazebo",
+      "sequence": 1,
+      "context": "{\"Schema\":\"edge.intake-session.v1\",\"Notice\":\"历史请求仅为非权威参考，不是本次指令、授权、当前传感器状态或成功证明。不能因主题相似自动重放、续跑或批准旧任务；有歧义须澄清。currentTask 是读取时的账本状态；执行前仍须实时准入。\",\"SessionID\":\"session-8aecad20bbbc8058217355534722ffcd\",\"RobotID\":\"heterogeneous-unit\",\"Adapter\":\"gazebo\",\"OmittedTurns\":0,\"Recent\":[]}",
+      "contextSHA256": "3526f57d8ce6e08f443d1b03813ba6be8ddb6288eb9841b0349fd43614e6224f"
+    },
+    "source": {
+      "eventCount": 26,
+      "lastSequence": 26,
+      "aggregateVersion": 1,
+      "stable": true,
+      "snapshotSha256": "17ddb8d0af1d379392347cf3fbc4a0e7813129471d9343986941e08afa125448",
+      "evidenceAvailable": true,
+      "evidenceTruncated": false,
+      "evidenceScope": "capture metadata only; raw content checksums require observation retrieval",
+      "consistencyScope": "task, revisions and declared child aggregates checked twice; evidence metadata is paginated best-effort"
+    },
+    "integrity": {
+      "status": "incomplete",
+      "findings": [
+        {
+          "taskId": "task-4907803a97b62ff4228e0c7deb2429a5",
+          "code": "STEP_OUTCOME_UNKNOWN",
+          "severity": "warning",
+          "message": "此命令曾记录结果未知；本诊断不清除对账要求",
+          "eventSequences": [
+            14,
+            15,
+            18,
+            19,
+            24,
+            25
+          ],
+          "stepKey": "7b0b1d901b37638d91c6fb5addca858834895c1e57252b9fa00792d09c43f1ab"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "key": "8ff3168a6efd46bea92dd4bc4ef0c4808b6d0dde0d44355b3ab0991bd7c85bc8",
+        "taskRevision": 1,
+        "stepId": "rev-1-cap-01",
+        "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+        "robotId": "heterogeneous-unit",
+        "tool": "calibration.get",
+        "status": "CONFIRMED",
+        "eventSequences": [
+          6,
+          7,
+          10,
+          11,
+          12,
+          13
+        ],
+        "evidenceIds": [],
+        "mutatesWorld": false,
+        "outcomeUnknown": false,
+        "firstRecordedAt": "2026-11-02T07:35:15.311353Z",
+        "lastRecordedAt": "2026-11-02T07:35:15.317307Z"
+      },
+      {
+        "key": "7b0b1d901b37638d91c6fb5addca858834895c1e57252b9fa00792d09c43f1ab",
+        "taskRevision": 1,
+        "stepId": "rev-1-cap-02",
+        "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+        "robotId": "heterogeneous-unit",
+        "tool": "mapping.build",
+        "status": "FAILED",
+        "eventSequences": [
+          14,
+          15,
+          18,
+          19,
+          24,
+          25
+        ],
+        "evidenceIds": [],
+        "mutatesWorld": true,
+        "outcomeUnknown": true,
+        "firstRecordedAt": "2026-11-02T07:35:15.320721Z",
+        "lastRecordedAt": "2026-11-02T07:35:15.329018Z"
+      }
+    ],
+    "rpcCalls": [
+      {
+        "rpcId": "7HQJBXU72UFROG55W7ILL2G326",
+        "service": "calibration.get",
+        "requestId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+        "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+        "taskRevision": 1,
+        "robotId": "heterogeneous-unit",
+        "stepId": "rev-1-cap-01",
+        "phase": "dispatch",
+        "status": "SUCCEEDED",
+        "eventSequences": [
+          8,
+          9
+        ],
+        "startedAt": "2026-11-02T07:35:15.313611Z",
+        "finishedAt": "2026-11-02T07:35:15.314392Z"
+      },
+      {
+        "rpcId": "UQCY6WYGWUVQ66FJP25W2SRE3I",
+        "service": "mapping.build",
+        "requestId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+        "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+        "taskRevision": 1,
+        "robotId": "heterogeneous-unit",
+        "stepId": "rev-1-cap-02",
+        "phase": "dispatch",
+        "status": "SUCCEEDED",
+        "eventSequences": [
+          16,
+          17
+        ],
+        "startedAt": "2026-11-02T07:35:15.322165Z",
+        "finishedAt": "2026-11-02T07:35:15.322942Z"
+      },
+      {
+        "rpcId": "X3SUUGK4OYPSNCTX7DUIPLTQ44",
+        "service": "mapping.status",
+        "requestId": "",
+        "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+        "taskRevision": 1,
+        "robotId": "heterogeneous-unit",
+        "stepId": "rev-1-cap-02",
+        "phase": "status",
+        "status": "SUCCEEDED",
+        "eventSequences": [
+          20,
+          21
+        ],
+        "startedAt": "2026-11-02T07:35:15.32509Z",
+        "finishedAt": "2026-11-02T07:35:15.325928Z"
+      },
+      {
+        "rpcId": "WFYN2I6O7TPPJK4ARNCQSN2GT4",
+        "service": "mapping.status",
+        "requestId": "",
+        "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+        "taskRevision": 1,
+        "robotId": "heterogeneous-unit",
+        "stepId": "rev-1-cap-02",
+        "phase": "verification",
+        "status": "SUCCEEDED",
+        "eventSequences": [
+          22,
+          23
+        ],
+        "startedAt": "2026-11-02T07:35:15.326735Z",
+        "finishedAt": "2026-11-02T07:35:15.32748Z"
+      }
+    ],
+    "children": [],
+    "revisions": [
+      {
+        "revision": {
+          "taskId": "task-4907803a97b62ff4228e0c7deb2429a5",
+          "revision": 1,
+          "baseRevision": 0,
+          "expectedAggregateVersion": 0,
+          "request": "检查标定，建图",
+          "understanding": "检查标定，建图",
+          "changeSet": {
+            "retained": null,
+            "changed": null,
+            "added": null,
+            "paused": null
+          },
+          "intent": {
+            "action": "capability_goal",
+            "robotId": "heterogeneous-unit",
+            "object": {
+              "category": ""
+            },
+            "source": {
+              "category": ""
+            },
+            "destination": {
+              "category": ""
+            },
+            "constraints": {
+              "keepUpright": false,
+              "avoidHumans": false
+            }
+          },
+          "plan": {
+            "capabilities": {
+              "robotId": "heterogeneous-unit",
+              "catalogRevision": "6bfbf322fe0a781aa634a1baa5ca6d222c11232e297cf855600dfa2f6c1667d4",
+              "calls": [
+                {
+                  "tool": "calibration.get",
+                  "arguments": {}
+                },
+                {
+                  "tool": "mapping.build",
+                  "arguments": {
+                    "mode": "explore"
+                  }
+                }
+              ]
+            },
+            "source": "deterministic"
+          },
+          "steps": [
+            {
+              "stepId": "rev-1-cap-01",
+              "introducedRevision": 1,
+              "semanticFingerprint": "dd563d448b4c89845832dfe1c72e3587bd4f4f74dbbb91803af795453c4129a9",
+              "intentIndex": 0,
+              "action": "calibration.get",
+              "robotId": "heterogeneous-unit",
+              "resourceId": "heterogeneous-unit",
+              "requiredPostcondition": "provider completion contract",
+              "status": "PENDING"
+            },
+            {
+              "stepId": "rev-1-cap-02",
+              "introducedRevision": 1,
+              "semanticFingerprint": "15bdd2506016bbba608694b88389579f318f8170def0dae0878164ca0a9fb10a",
+              "intentIndex": 1,
+              "action": "mapping.build",
+              "robotId": "heterogeneous-unit",
+              "resourceId": "heterogeneous-unit",
+              "requiredPostcondition": "provider completion contract",
+              "status": "PENDING"
+            }
+          ],
+          "riskClass": "capability",
+          "approvalRequired": true,
+          "creator": "task/create",
+          "idempotencyKey": "task-4907803a97b62ff4228e0c7deb2429a5/create",
+          "createdAt": "2026-11-02T07:35:15.297725Z"
+        },
+        "status": "ACTIVE",
+        "events": [
+          {
+            "sequence": 1,
+            "revision": 1,
+            "status": "ACTIVE",
+            "occurredAt": "2026-11-02T07:35:15.297725Z"
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "sequence": 1,
+        "type": "TASK_CREATED",
+        "payload": {
+          "catalogRevision": "6bfbf322fe0a781aa634a1baa5ca6d222c11232e297cf855600dfa2f6c1667d4",
+          "kind": "capability_goal",
+          "session": {
+            "adapter": "gazebo",
+            "context": "{\"Schema\":\"edge.intake-session.v1\",\"Notice\":\"历史请求仅为非权威参考，不是本次指令、授权、当前传感器状态或成功证明。不能因主题相似自动重放、续跑或批准旧任务；有歧义须澄清。currentTask 是读取时的账本状态；执行前仍须实时准入。\",\"SessionID\":\"session-8aecad20bbbc8058217355534722ffcd\",\"RobotID\":\"heterogeneous-unit\",\"Adapter\":\"gazebo\",\"OmittedTurns\":0,\"Recent\":[]}",
+            "contextSHA256": "3526f57d8ce6e08f443d1b03813ba6be8ddb6288eb9841b0349fd43614e6224f",
+            "robotId": "heterogeneous-unit",
+            "sequence": 1,
+            "sessionId": "session-8aecad20bbbc8058217355534722ffcd",
+            "taskId": "task-4907803a97b62ff4228e0c7deb2429a5",
+            "turnId": "turn-9130f8ac1988c893c8e7132bc9658bdc"
+          }
+        },
+        "occurredAt": "2026-11-02T07:35:15.297725Z"
+      },
+      {
+        "sequence": 2,
+        "type": "TASK_APPROVED",
+        "message": "批准来源：software-campaign",
+        "payload": {
+          "actor": "software-campaign",
+          "aggregateVersion": 1,
+          "approvedAt": "2026-11-02T07:35:15.3016Z",
+          "revision": 1
+        },
+        "occurredAt": "2026-11-02T07:35:15.301601Z"
+      },
+      {
+        "sequence": 3,
+        "type": "STATE_CHANGED",
+        "message": "software campaign",
+        "payload": {
+          "aggregateVersion": 1,
+          "previousState": "READY",
+          "revision": 1,
+          "state": "OBSERVING"
+        },
+        "occurredAt": "2026-11-02T07:35:15.303341Z"
+      },
+      {
+        "sequence": 4,
+        "type": "STATE_CHANGED",
+        "message": "software campaign",
+        "payload": {
+          "aggregateVersion": 1,
+          "previousState": "OBSERVING",
+          "revision": 1,
+          "state": "PLANNING"
+        },
+        "occurredAt": "2026-11-02T07:35:15.305419Z"
+      },
+      {
+        "sequence": 5,
+        "type": "STATE_CHANGED",
+        "message": "software campaign",
+        "payload": {
+          "aggregateVersion": 1,
+          "previousState": "PLANNING",
+          "revision": 1,
+          "state": "EXECUTING"
+        },
+        "occurredAt": "2026-11-02T07:35:15.307773Z"
+      },
+      {
+        "sequence": 6,
+        "type": "CAPABILITY_CALL",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "arguments": {},
+          "catalogRevision": "6bfbf322fe0a781aa634a1baa5ca6d222c11232e297cf855600dfa2f6c1667d4",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "mutatesWorld": false,
+          "robotId": "heterogeneous-unit",
+          "taskRevision": 1,
+          "tool": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.311353Z"
+      },
+      {
+        "sequence": 7,
+        "type": "TOOL_ACTIVITY",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "activityStatus": "RUNNING",
+          "arguments": {},
+          "catalogRevision": "6bfbf322fe0a781aa634a1baa5ca6d222c11232e297cf855600dfa2f6c1667d4",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "eventId": "task-4907803a97b62ff4228e0c7deb2429a5#7",
+          "mutatesWorld": false,
+          "robotId": "heterogeneous-unit",
+          "stepId": "rev-1-cap-01",
+          "taskRevision": 1,
+          "tool": "calibration.get",
+          "toolName": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.312037Z"
+      },
+      {
+        "sequence": 8,
+        "type": "CAPABILITY_RPC_STARTED",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "arguments": {},
+          "argumentsBytes": 2,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "mutatesWorld": false,
+          "operationId": "",
+          "operationLeaseMs": 30000,
+          "operationOwnerId": "",
+          "phase": "dispatch",
+          "requestId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "7HQJBXU72UFROG55W7ILL2G326",
+          "service": "calibration.get",
+          "startedAt": "2026-11-02T07:35:15.313598Z",
+          "status": "STARTED",
+          "taskRevision": 1,
+          "tool": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.313611Z"
+      },
+      {
+        "sequence": 9,
+        "type": "CAPABILITY_RPC_FINISHED",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "arguments": {},
+          "argumentsBytes": 2,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "durationMs": 0,
+          "finishedAt": "2026-11-02T07:35:15.314374Z",
+          "mutatesWorld": false,
+          "operationId": "",
+          "operationLeaseMs": 30000,
+          "operationOwnerId": "",
+          "phase": "dispatch",
+          "providerCode": "",
+          "providerCodeBytes": 0,
+          "providerCodeProjected": false,
+          "providerCodeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerCodeTruncated": false,
+          "providerDurationMs": 0,
+          "providerMessage": "",
+          "providerMessageBytes": 0,
+          "providerMessageProjected": false,
+          "providerMessageSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerMessageTruncated": false,
+          "requestId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "result": {
+            "revision": "cal-1"
+          },
+          "resultBytes": 20,
+          "resultOmitted": false,
+          "resultProjected": false,
+          "resultSHA256": "0d6dfa27bd785999cd9c00d02648640be48a442fc8f4d0a9182563274eda4adf",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "7HQJBXU72UFROG55W7ILL2G326",
+          "service": "calibration.get",
+          "startPersisted": true,
+          "startedAt": "2026-11-02T07:35:15.313598Z",
+          "status": "SUCCEEDED",
+          "taskRevision": 1,
+          "tool": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.314392Z"
+      },
+      {
+        "sequence": 10,
+        "type": "CAPABILITY_RECEIPT",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "binding": "dd563d448b4c89845832dfe1c72e3587bd4f4f74dbbb91803af795453c4129a9",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "deadline": "2026-11-02T08:20:15.315289Z",
+          "mutatesWorld": false,
+          "result": {
+            "revision": "cal-1"
+          },
+          "robotId": "heterogeneous-unit",
+          "taskRevision": 1,
+          "tool": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.315292Z"
+      },
+      {
+        "sequence": 11,
+        "type": "TOOL_ACTIVITY",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "activityStatus": "AWAITING_EVIDENCE",
+          "binding": "dd563d448b4c89845832dfe1c72e3587bd4f4f74dbbb91803af795453c4129a9",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "deadline": "2026-11-02T08:20:15.315289Z",
+          "eventId": "task-4907803a97b62ff4228e0c7deb2429a5#11",
+          "mutatesWorld": false,
+          "result": {
+            "revision": "cal-1"
+          },
+          "robotId": "heterogeneous-unit",
+          "stepId": "rev-1-cap-01",
+          "taskRevision": 1,
+          "tool": "calibration.get",
+          "toolName": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.315966Z"
+      },
+      {
+        "sequence": 12,
+        "type": "CAPABILITY_VERIFIED",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "evidence": {
+            "readResult": {
+              "revision": "cal-1"
+            }
+          },
+          "mutatesWorld": false,
+          "operationResult": {
+            "revision": "cal-1"
+          },
+          "robotId": "heterogeneous-unit",
+          "taskRevision": 1,
+          "tool": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.316647Z"
+      },
+      {
+        "sequence": 13,
+        "type": "TOOL_ACTIVITY",
+        "stepId": "rev-1-cap-01",
+        "payload": {
+          "activityStatus": "CONFIRMED",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-01",
+          "eventId": "task-4907803a97b62ff4228e0c7deb2429a5#13",
+          "evidence": {
+            "readResult": {
+              "revision": "cal-1"
+            }
+          },
+          "mutatesWorld": false,
+          "operationResult": {
+            "revision": "cal-1"
+          },
+          "robotId": "heterogeneous-unit",
+          "stepId": "rev-1-cap-01",
+          "taskRevision": 1,
+          "tool": "calibration.get",
+          "toolName": "calibration.get"
+        },
+        "occurredAt": "2026-11-02T07:35:15.317307Z"
+      },
+      {
+        "sequence": 14,
+        "type": "CAPABILITY_CALL",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {
+            "mode": "explore"
+          },
+          "catalogRevision": "6bfbf322fe0a781aa634a1baa5ca6d222c11232e297cf855600dfa2f6c1667d4",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "mutatesWorld": true,
+          "robotId": "heterogeneous-unit",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.320721Z"
+      },
+      {
+        "sequence": 15,
+        "type": "TOOL_ACTIVITY",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "activityStatus": "RUNNING",
+          "arguments": {
+            "mode": "explore"
+          },
+          "catalogRevision": "6bfbf322fe0a781aa634a1baa5ca6d222c11232e297cf855600dfa2f6c1667d4",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "eventId": "task-4907803a97b62ff4228e0c7deb2429a5#15",
+          "mutatesWorld": true,
+          "robotId": "heterogeneous-unit",
+          "stepId": "rev-1-cap-02",
+          "taskRevision": 1,
+          "tool": "mapping.build",
+          "toolName": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.321412Z"
+      },
+      {
+        "sequence": 16,
+        "type": "CAPABILITY_RPC_STARTED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {
+            "mode": "explore"
+          },
+          "argumentsBytes": 18,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "336cc1388e2fe1a2549c1469e1404d101372a9cf28fe9bed7b6adb3b0036cee3",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "mutatesWorld": true,
+          "operationId": "",
+          "operationLeaseMs": 30000,
+          "operationOwnerId": "",
+          "phase": "dispatch",
+          "requestId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "UQCY6WYGWUVQ66FJP25W2SRE3I",
+          "service": "mapping.build",
+          "startedAt": "2026-11-02T07:35:15.322145Z",
+          "status": "STARTED",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.322165Z"
+      },
+      {
+        "sequence": 17,
+        "type": "CAPABILITY_RPC_FINISHED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {
+            "mode": "explore"
+          },
+          "argumentsBytes": 18,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "336cc1388e2fe1a2549c1469e1404d101372a9cf28fe9bed7b6adb3b0036cee3",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "durationMs": 0,
+          "finishedAt": "2026-11-02T07:35:15.322916Z",
+          "mutatesWorld": true,
+          "operationId": "",
+          "operationLeaseMs": 30000,
+          "operationOwnerId": "",
+          "phase": "dispatch",
+          "providerCode": "",
+          "providerCodeBytes": 0,
+          "providerCodeProjected": false,
+          "providerCodeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerCodeTruncated": false,
+          "providerDurationMs": 0,
+          "providerMessage": "",
+          "providerMessageBytes": 0,
+          "providerMessageProjected": false,
+          "providerMessageSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerMessageTruncated": false,
+          "requestId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "result": {
+            "sessionId": "owned-session",
+            "state": "exploring"
+          },
+          "resultBytes": 49,
+          "resultOmitted": false,
+          "resultProjected": false,
+          "resultSHA256": "ba15737feaa99fb790a5c32e0303ecc4334fd14ab694cbe554944cfb9606c10a",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "UQCY6WYGWUVQ66FJP25W2SRE3I",
+          "service": "mapping.build",
+          "startPersisted": true,
+          "startedAt": "2026-11-02T07:35:15.322145Z",
+          "status": "SUCCEEDED",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.322942Z"
+      },
+      {
+        "sequence": 18,
+        "type": "CAPABILITY_RECEIPT",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "binding": "15bdd2506016bbba608694b88389579f318f8170def0dae0878164ca0a9fb10a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "deadline": "2026-11-02T08:20:15.323717Z",
+          "mutatesWorld": true,
+          "result": {
+            "sessionId": "owned-session",
+            "state": "exploring"
+          },
+          "robotId": "heterogeneous-unit",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.32372Z"
+      },
+      {
+        "sequence": 19,
+        "type": "TOOL_ACTIVITY",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "activityStatus": "AWAITING_EVIDENCE",
+          "binding": "15bdd2506016bbba608694b88389579f318f8170def0dae0878164ca0a9fb10a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "deadline": "2026-11-02T08:20:15.323717Z",
+          "eventId": "task-4907803a97b62ff4228e0c7deb2429a5#19",
+          "mutatesWorld": true,
+          "result": {
+            "sessionId": "owned-session",
+            "state": "exploring"
+          },
+          "robotId": "heterogeneous-unit",
+          "stepId": "rev-1-cap-02",
+          "taskRevision": 1,
+          "tool": "mapping.build",
+          "toolName": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.324395Z"
+      },
+      {
+        "sequence": 20,
+        "type": "CAPABILITY_RPC_STARTED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {},
+          "argumentsBytes": 2,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "mutatesWorld": true,
+          "operationId": "",
+          "operationLeaseMs": 0,
+          "operationOwnerId": "",
+          "phase": "status",
+          "requestId": "",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "X3SUUGK4OYPSNCTX7DUIPLTQ44",
+          "service": "mapping.status",
+          "startedAt": "2026-11-02T07:35:15.325077Z",
+          "status": "STARTED",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.32509Z"
+      },
+      {
+        "sequence": 21,
+        "type": "CAPABILITY_RPC_FINISHED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {},
+          "argumentsBytes": 2,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "durationMs": 0,
+          "finishedAt": "2026-11-02T07:35:15.325907Z",
+          "mutatesWorld": true,
+          "operationId": "",
+          "operationLeaseMs": 0,
+          "operationOwnerId": "",
+          "phase": "status",
+          "providerCode": "",
+          "providerCodeBytes": 0,
+          "providerCodeProjected": false,
+          "providerCodeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerCodeTruncated": false,
+          "providerDurationMs": 0,
+          "providerMessage": "",
+          "providerMessageBytes": 0,
+          "providerMessageProjected": false,
+          "providerMessageSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerMessageTruncated": false,
+          "requestId": "",
+          "result": {
+            "sessionId": "owned-session",
+            "state": "completed"
+          },
+          "resultBytes": 49,
+          "resultOmitted": false,
+          "resultProjected": false,
+          "resultSHA256": "1be94e9c4814235e5d837c0095493bcde9a7fe873cd24c74b36252f30fc0e61e",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "X3SUUGK4OYPSNCTX7DUIPLTQ44",
+          "service": "mapping.status",
+          "startPersisted": true,
+          "startedAt": "2026-11-02T07:35:15.325077Z",
+          "status": "SUCCEEDED",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.325928Z"
+      },
+      {
+        "sequence": 22,
+        "type": "CAPABILITY_RPC_STARTED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {},
+          "argumentsBytes": 2,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "mutatesWorld": true,
+          "operationId": "",
+          "operationLeaseMs": 0,
+          "operationOwnerId": "",
+          "phase": "verification",
+          "requestId": "",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "WFYN2I6O7TPPJK4ARNCQSN2GT4",
+          "service": "mapping.status",
+          "startedAt": "2026-11-02T07:35:15.326723Z",
+          "status": "STARTED",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.326735Z"
+      },
+      {
+        "sequence": 23,
+        "type": "CAPABILITY_RPC_FINISHED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "arguments": {},
+          "argumentsBytes": 2,
+          "argumentsOmitted": false,
+          "argumentsProjected": false,
+          "argumentsSHA256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "durationMs": 0,
+          "finishedAt": "2026-11-02T07:35:15.32746Z",
+          "mutatesWorld": true,
+          "operationId": "",
+          "operationLeaseMs": 0,
+          "operationOwnerId": "",
+          "phase": "verification",
+          "providerCode": "",
+          "providerCodeBytes": 0,
+          "providerCodeProjected": false,
+          "providerCodeSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerCodeTruncated": false,
+          "providerDurationMs": 0,
+          "providerMessage": "",
+          "providerMessageBytes": 0,
+          "providerMessageProjected": false,
+          "providerMessageSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "providerMessageTruncated": false,
+          "requestId": "",
+          "result": {
+            "sessionId": "owned-session",
+            "state": "completed"
+          },
+          "resultBytes": 49,
+          "resultOmitted": false,
+          "resultProjected": false,
+          "resultSHA256": "1be94e9c4814235e5d837c0095493bcde9a7fe873cd24c74b36252f30fc0e61e",
+          "robotId": "heterogeneous-unit",
+          "rpcId": "WFYN2I6O7TPPJK4ARNCQSN2GT4",
+          "service": "mapping.status",
+          "startPersisted": true,
+          "startedAt": "2026-11-02T07:35:15.326723Z",
+          "status": "SUCCEEDED",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.32748Z"
+      },
+      {
+        "sequence": 24,
+        "type": "CAPABILITY_FAILED",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "automaticRetryForbidden": true,
+          "code": "CAPABILITY_EXECUTION_FAILED",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "error": "completion verification failed: missing completion evidence activeMap.mapId",
+          "failureClass": "UNKNOWN_OUTCOME",
+          "message": "completion verification failed: missing completion evidence activeMap.mapId",
+          "mutatesWorld": true,
+          "outcomeUnknown": true,
+          "phase": "verification",
+          "rejected": false,
+          "requestNotDispatched": false,
+          "robotId": "heterogeneous-unit",
+          "taskRevision": 1,
+          "tool": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.328252Z"
+      },
+      {
+        "sequence": 25,
+        "type": "TOOL_ACTIVITY",
+        "stepId": "rev-1-cap-02",
+        "payload": {
+          "activityStatus": "FAILED",
+          "automaticRetryForbidden": true,
+          "code": "CAPABILITY_EXECUTION_FAILED",
+          "commandId": "task-4907803a97b62ff4228e0c7deb2429a5/rev-1-cap-02",
+          "error": "completion verification failed: missing completion evidence activeMap.mapId",
+          "eventId": "task-4907803a97b62ff4228e0c7deb2429a5#25",
+          "failureClass": "UNKNOWN_OUTCOME",
+          "message": "completion verification failed: missing completion evidence activeMap.mapId",
+          "mutatesWorld": true,
+          "outcomeUnknown": true,
+          "phase": "verification",
+          "rejected": false,
+          "requestNotDispatched": false,
+          "robotId": "heterogeneous-unit",
+          "stepId": "rev-1-cap-02",
+          "taskRevision": 1,
+          "tool": "mapping.build",
+          "toolName": "mapping.build"
+        },
+        "occurredAt": "2026-11-02T07:35:15.329018Z"
+      },
+      {
+        "sequence": 26,
+        "type": "STATE_CHANGED",
+        "message": "software verifier refused completion",
+        "payload": {
+          "aggregateVersion": 1,
+          "previousState": "EXECUTING",
+          "revision": 1,
+          "state": "RECOVERABLE_FAILURE"
+        },
+        "occurredAt": "2026-11-02T07:35:15.331993Z"
+      }
+    ],
+    "evidence": []
+  }
+}

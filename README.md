@@ -7,19 +7,19 @@
 [![仿真演示免 Key](https://img.shields.io/badge/仿真演示-不需要%20API%20Key-2ad0bb.svg)](#跑起来)
 [![仿真免 GPU](https://img.shields.io/badge/仿真-纯%20CPU%20可跑-2ad0bb.svg)](#跑起来)
 
-### 说一句中文，机器人自己把它做完——而且**每一步都能证明自己真做了**。
+### 面向长程任务的机器人边缘大脑：目标编排、受控执行、持久通信与任务回溯。
 
-一套面向家庭场景与具身机器人的**分布式 AgentOS**：把大模型规划、任务编排、世界裁决与机器人实时执行，拆成可替换的控制面与边缘运行时。
+一套以单机器人自治为基础的**分布式 Robot AgentOS**。云端给目标和授权范围，边缘 Agent 根据本机能力编排细步骤；Robot Runtime 连接 ROS 2 控制器、传感器与仿真。任务、动作和观测分别留存，遇到未知结果先对账。默认参考场景为 Gazebo 家庭场景，ROS 2 Profile 为 AGV、足式和无人机提供共用接入合同。
+
+**当前定位：受控集成与实机测试候选。** 具体大疆飞控、宇树控制器和 AGV 底盘仍需按型号完成驱动、定位、停止及现场验收。版本徽章指最近的软件发布 `v0.7.0`；主分支后续增量列在 [Unreleased](CHANGELOG.md#unreleased)，教材单独使用 3.3.0 版次。
 
 **第一次来：**先看[项目框架](#项目框架)和[目录说明](#目录说明)，再按[你的工作选择入口](#新人从哪里开始)。想直接体验，跳到[跑起来](#跑起来)。
 
+最新工作台巡检与故障处置见 [2026-11-04 仿真实验](docs/experiments/2026-11-04-user-simulation/README.md)。恢复卡片支持逐步记录未知动作的核查结论和依据，回溯导出保留原失败与后续对账；对账不等于任务成功，也不会自动重放动作。
+
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
-**边缘与云端开发共同入口：**[消息传递、上下文管理与核心 Harness](docs/architecture/edge-agent-communication-and-context.md)，逐层说明本机 Agent、跨机器人、云边和 ROS 2 通道传什么、如何去重与恢复、谁维护执行权和事实；[当前上线就绪评估与本轮复测](docs/development/2026-10-18-edge-communication-readiness.md)给出受控集成与正式无人值守上线的边界。
-
-单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
-
-空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
+**边缘与云端开发共同入口：**[消息传递、上下文管理与核心 Harness](docs/architecture/edge-agent-communication-and-context.md)，说明本机、机器人间、云边和 ROS 2 通道的字段与权威边界；[本次系统评估](docs/development/2026-10-28-system-upgrade-assessment.md)与[升级记录](docs/development/2026-10-28-edge-scalability.md)说明当前优先级、改动和验证范围。
 
 ```text
 从客厅出发，去厨房拿杯子，放进收纳盘，然后回到客厅
@@ -30,10 +30,10 @@
 
 | | |
 | --- | --- |
-| 🦾 **真闭环** | 改变物理世界的工具返回成功只是**触发观察**，缺新鲜证据就是没做完 |
+| 🦾 **完成需要证据** | 改变物理世界的工具返回成功只是**触发观察**；证据不满足已声明判据就不能确认完成 |
 | 🧠 **模型不碰底层** | 工具由目录、Server/Edge 角色与目标合同过滤；模型提出受限业务参数，驱动与实时控制归设备侧 |
 | 🌐 **一开始就是分布式** | Local Agent + SQLite 单机自治，云端 Fleet 统一管机群；同一 Agent 内核按角色装配模型和工具 |
-| 🔌 **开箱即用** | 默认 Gazebo + ROS 2 Jazzy，同源 XLeRobot 四房间家庭；需要 Docker，支持 CPU 软件渲染。旧 MuJoCo 任务基线保留显式入口 |
+| 🔌 **可复现的参考场景** | 默认 Gazebo + ROS 2 Jazzy，同源 XLeRobot 四房间家庭；需要 Docker，支持 CPU 软件渲染。旧 MuJoCo 任务基线保留显式入口 |
 | 🔬 **工程可见** | Go/Python/Web 回归、仿真与部署合同、[软件验收记录](docs/production/agent-harness-docker-acceptance.md)和[实机前就绪审计](docs/production/field-readiness-2026-09-26.md)；实机与规模结论单独认证 |
 
 ---
@@ -93,6 +93,8 @@ flowchart LR
     Runtime -->|回执与证据| Host
     Host -->|目标进度与结果| Worker
     Worker -->|进度与完成回执| Fleet
+    Host -. 显式业务数据适配 .-> Exchange[edge-exchange：持久 inbox/outbox]
+    Exchange <-->|带身份和版本的建议数据| Peer[其他机器人 / 云端数据 peer]
 ```
 
 | 先理解的概念 | 在项目中的职责 |
@@ -102,9 +104,48 @@ flowchart LR
 | **Fleet / Edge Worker** | 云端保存目标与协作权限，Worker 接收已批准目标；本机共享 Edge Host 自主编排工具、执行和验证，Worker 负责续租与回传 |
 | **Edge Host / 目标合同** | `internal/edgeagent` 共用目标规划/执行器；`core/objective` 限定工具参数、效果、预算和完成条件，保留父目标与子计划因果链 |
 | **Robot Runtime / Backend** | Runtime 管命令准入、幂等日志、停止和证据；Backend 对接具体驱动或仿真 |
+| **Peer Exchange** | 独立数据伴随进程，保存 inbox/outbox 与收件游标；覆盖建议必须匹配任务、地图、坐标与新鲜度，消息不授予执行权 |
 | **地图 / 定位 / 导航** | 分别提供空间依据、当前位置和可通行路径；设备控制器完成实际运动跟踪 |
 
 Local Agent 和 Fleet Worker 是两种边缘部署入口，共用目标核心；同一台机器人选择其中一种控制方式。新增 `POST /v1/objectives` 走“云端给粗目标、边缘自主细化”路径；原 `/v1/tasks` 与现有表单保持已规划任务兼容。边缘只能在批准包络内重规划，未知动作结果停下对账。学习单机路线时无需先部署 Fleet、MySQL 或 Redis。先读[分层目标架构](docs/architecture/hierarchical-edge-objectives.md)和[接入指南](docs/guides/delegated-edge-goals.md)，再查[模块边界](docs/architecture/modular-extensibility.md)与[任务例子](docs/guides/natural-language-task-lifecycle.md)。
+
+## 通信、上下文与模型成本
+
+学习当前完整流程，先读[系统速读与对象关系](docs/learning/current-system.md)；自动会话的日常使用与升级排障见[操作手册](docs/operations/automatic-edge-sessions.md)。
+
+**本地任务会话由系统自动管理。** 用户继续在工作台输入自然语言，无需创建或选择 session；Local Agent 按本机机器人与 adapter 保存输入轮次、任务关联和近期历史，重启后按预分配 task ID 查账。原始输入独立保存，长历史沿既有上下文预算外置并可回查。会话提供参考，任务批准和物理结果仍由任务与 Runtime 账本决定。当前面向本地单操作员，云端目标合同保持独立；纯“继续／重试”须进入确切任务的恢复入口。实现、数据流和边界见[自动边缘会话](docs/development/2026-11-01-automatic-edge-sessions.md)，学习说明见[教材自动会话补充](book/updates/2026-11-01-automatic-edge-sessions.md)。
+
+| 边界 | 传递什么 | 谁维护真实状态 |
+| --- | --- | --- |
+| 云端 → Worker → Host | 批准目标、工具/参数包络、完成条件、预算、revision、claim/fence | 云端维护父目标与 claim；边缘持久保存子计划、已用预算与执行检查点 |
+| 本机 Task / Ops / Recovery | 任务和步骤事件、故障原因、恢复建议、证据引用 | 执行器回读任务与命令账本；进程内事件总线不保证可靠全日志 |
+| 机器人 ↔ 机器人 / 云端数据 peer | 状态、证据引用、带空间 basis 的观测或地图引用 | 各设备保留自己的事实；ACK 证明收件，覆盖建议不替代本机验证 |
+| Agent ↔ 大模型 | 固定规则、允许工具 Schema、目标、受保护状态、有限历史与语义查询结果 | 模型仅产生候选；原始点云/高频 IMU 不直接塞入 GOAL 上下文 |
+| Runtime ↔ ROS 2 控制器 | 类型化动作、路径、传感器/定位、停止与回执 | 设备控制器负责实时闭环；Runtime 核对身份、时效与动作后证据 |
+
+**上下文从账本投影，而不是聊天历史不断拼接。** robot/task/revision 隔离作用域；当前权限、未决动作和关键约束保留，长工具结果归档并可有界回查。无法容纳必要状态时拒绝继续，不靠摘要删掉未知动作。分布式一致性依靠版本、身份、幂等、局部事务和受控资源 fencing；没有“所有设备始终共享同一份全局上下文”的保证。
+
+**降耗分三层。** 控制模型输入和输出预算；可选后端前缀缓存提示；再利用本机持久规划经验。精确重复需重新查询规划条件并校验目录、授权和进度，相似任务只给一个有界参考。真实 API usage、缺失统计、输入字节和调用耗时分别记录，不把节省的调用次数换算成未经测量的费用。配置与导出方法见[模型成本与任务经验](docs/production/model-cost-and-recipes.md)。
+
+自动会话接入后，Local 的规划经验保守降为提示，避免相同句子在不同历史下直接跳过模型；会话持久化与供应商 KV 缓存是两套机制。当前 API 尚无任务创建重发去重，响应丢失时先查任务记录；自动会话不会重放未决机器人动作。
+
+**从原始自然语言追到原子调用：**工作台可查看并下载 `GET /v1/tasks/{id}/trace` 的持久回溯快照，分别列出首版原句、当前目标、计划版本、命令尝试、底层 RPC 和观测索引。状态前后值与审批身份落入账本，诊断会报告身份冲突、缺失结果、状态断链和证据缺口；不同尝试的成功不能替未知动作收尾。数据流、排障例子、保留期与性能边界见[任务回溯架构](docs/architecture/task-traceability.md)。
+
+## 当前能力与验证
+
+以下记录各有源码、场景与测试边界。当前源码已包含自动会话，正在运行的进程是否具备该功能仍取决于其部署版本。
+
+2026-10-28 增量聚焦持续运行：当前协作视图与历史 feed 分离，长任务审计增量写入，模型用量可统计，重复目标保留可校验的规划经验。缓存命中不代表任务已完成；完整机制及配置见[模型成本与任务经验](docs/production/model-cost-and-recipes.md)。前一轮的授权竞态、预算停止、缓存提示和失败回溯修复见[可靠性记录](docs/development/2026-10-28-edge-brain-reliability.md)。
+
+同日[任务复测](docs/experiments/2026-10-28-edge-task-validation/README.md)完成 Gazebo 三机器人完整路线（30 次导航与 30 次独立到达确认）及独立场景 6 项停止测试，并[修复](docs/development/2026-10-28-task-validation-fixes.md)取消后的无效规划重试、模型计量写入失败继续请求、小批次通信饥饿、异常 ACK 接受和停止就绪误判。模型/通信补丁另经软件回归；UAV 接触通道覆盖仍未证实，严格安全指标保持未通过，完整失败记录与源码版本一并留存。
+
+上一轮工作台真实用户流程检查见[浏览器到任务收尾验收](docs/experiments/2026-10-28-user-workbench-e2e/README.md)与[实现说明](docs/development/2026-10-28-workbench-e2e-hardening.md)：区分保存地图与实时导航依赖，改进批准后入队重试、执行收尾、物理结果回放、建图相机和 GOAL 统计。只读任务完整收尾与未批准草案取消已验证；本轮家庭完整巡检仍因地图覆盖和桌边安全包络阻塞而未完成。实际失败与重测分别留存，不能把“接口可访问”当成物理任务成功。
+
+后续续测在独立 Gazebo 家庭场景完成卧室→卫生间→客厅巡检，保留两轮扫描失败和一次成功的分开记录。路线接入、传感器时效、故障部分地图和操作身份改进见[实现说明](docs/development/2026-10-30-exploration-operation-integrity.md)，逐次实测和最新结论见[巡检续测记录](docs/experiments/2026-10-30-patrol-continuation.md)。登记路线和保存部分地图均不等于未知环境全覆盖，也不代替实际到位证据。
+
+单机器人长任务的恢复规则和新数据见[鲁棒性实现](docs/development/2026-10-15-single-robot-robustness.md)与[实验报告](docs/experiments/2026-10-15-single-robot-robustness.md)：连续长步骤链、故障注入、重启不重复动作、上下文投影和原始研究证据分别留存。
+
+空间能力见[统一 2D、地形与 3D 导航](docs/development/spatial-navigation.md)：保留二维 SLAM/Nav2，扩展 SE3 注册点云建图、完整定位、空中体素路径与地面支撑约束，通过 ROS 2 路径和观测协议接入异构控制器。实现边界与实际任务记录见[空间导航实验](docs/experiments/2026-10-14-spatial-navigation.md)。
 
 ## 目录说明
 
@@ -185,13 +226,11 @@ Local Agent 和 Fleet Worker 是两种边缘部署入口，共用目标核心；
 
 ## 为什么值得一看
 
-市面上讲「大模型控制机器人」的项目，大多数停在**工具调用成功**这一步：调用 `pick` 返回 `SUCCESS`，任务就标记完成了。
-
-物理世界不是这样工作的。杯子可能没夹住、可能滑了、可能夹的是旁边那个。所以这个项目把边界划在了别处：
+机器人任务需要区分**工具调用成功**与**物理目标达成**。调用 `pick` 返回 `SUCCESS` 后，杯子仍可能没夹住、滑落或识别错误。因此本项目要求执行后重新观察并核对完成条件：
 
 > **工具返回成功，只是「去看一眼世界」的触发器，永远不是「世界已经按预期改变」的证明。**
 
-这一条假设，往下推出了整套设计——闭环契约、证据校验、八类失败分类、结果未知禁止重试。这是它和普通机器人 Demo 最根本的区别，也是[第 3 期长文](artifacts/marketing/03-工具调用/小红书长文-03-软件MCP与物理世界工具调用.md)专门在讲的事。
+这条原则贯穿闭环契约、证据校验、八类失败分类和结果未知时的对账流程；[第 3 期长文](artifacts/marketing/03-工具调用/小红书长文-03-软件MCP与物理世界工具调用.md)用抓杯子展开解释。
 
 ## v0.7.0：长程任务与协作机制
 
@@ -212,8 +251,8 @@ Local Agent 和 Fleet Worker 是两种边缘部署入口，共用目标核心；
 | 场景 | 要不要 LLM API Key | 说明 |
 | --- | --- | --- |
 | **固定句式仿真演示、离线回归** | **不需要** | 默认 `AGENT_PROVIDER=deterministic`，走确定性解析器。开头那句演示指令就是它的固定用例（见 [`agent/intent/home_route_test.go`](agent/intent/home_route_test.go)），其物理闭环不依赖模型服务；复现上面的模型编排实验则需要 GOAL 模型 |
-| **开发 / 自用：想让模型编排更多自然表达** | **需要** | 配置 GOAL 模型后，每条自然语言目标都由它选择能力与顺序；没有 GOAL 模型时只支持保守的完整句式离线语法。旧导航/抓放解析器仍可解析复合子任务；不完整或不支持的目标会要求澄清 |
-| **实机部署或对外提供自然语言入口** | **需要** | 否则只能处理解析器已覆盖的句式；不是不能跑，是能听懂的说话方式有限 |
+| **开发 / 自用：想让模型编排更多自然表达** | **需要模型服务；Key 取决于服务** | 配置 GOAL 模型后选择能力与顺序；受校验的重复规划可复用。自建兼容服务可能无需 Key；无模型时只支持保守的完整句式离线语法 |
+| **实机部署或对外提供自然语言入口** | **按模型服务配置** | 自由表达需要可用模型；已覆盖的确定性句式可以无模型。配置模型本身不构成实机放行 |
 
 配置方式（本地 Console 的"开发模式 → 开发诊断"，或私有配置文件）：
 
@@ -257,8 +296,8 @@ make gvf-experiment # 30 个任务模板 × 5 个种子，生成对照报告
 
 | 设计 | 解决的问题 |
 | --- | --- |
-| **单写协调 + 资源归属** | 多个写者不会同时改同一个物理世界（地图、位姿、谁抓着什么、充电位） |
-| **租约 + 单调递增的 fencing token** | 旧持有者拿着过期授权写入，会被直接拒绝——脑裂挡在数据层，不靠人盯 |
+| **单写协调 + 资源归属** | 在声明的受控资源与执行入口内校验归属；跨机器人共享空间/物体仍需显式协调和设备侧准入 |
+| **租约 + 单调递增的 fencing token** | 拒绝经过校验边界的旧授权；只在接收端确实检查 token 的资源上成立，不能覆盖绕开 Runtime 的控制通道 |
 | **事件与 Outbox + 幂等键** | 先落盘事实再投递；进程重启/队列宕机后能接着做，而不是从头再来 |
 | **云端慢环 + 边缘任务环 + 控制器快环** | 云端分配粗目标，边缘在授权内细化与恢复，实时控制和安全监督留在设备；Fleet 失去父 claim 后停止并对账 |
 
@@ -433,7 +472,7 @@ robot-agent demo
 
 云边和算法扩展的当前能力、模块职责与后续门槛见[模块化与扩展性评价](docs/architecture/modular-extensibility.md)；新的建图实现按[SLAM Provider 指南](docs/development/slam-providers.md)接入。
 
-**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.2.0：19 章、25 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖执行权威、Harness、失败恢复、跨域消息、模型输入、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
+**想系统读懂这套系统？** [`book/`](book/README.md) 提供数字版 3.3.0：19 章、27 幅架构/时序/数据流图，以巡检任务讲清设计目的、实现和取舍。重点覆盖自动会话、执行权威、Harness、失败恢复、跨域消息、真实 token 计量、KV cache 推导、长程上下文与一致性；配有[两个无硬件小实验](book/labs/README.md)、[14 组项目实验](book/appendix/F-learning-labs.md)、57 道分层题和[16 周课程](book/appendix/G-course-design.md)。可生成离线 HTML/EPUB；历史实验和旧版身份分别保留。
 
 ## 十、这个仓库故意不做什么
 
@@ -445,11 +484,11 @@ robot-agent demo
 - **不承诺单机开发栈已经具备跨地域生产级高可用**（那属于 Fleet 的待验证清单）。
 - **不让大模型输出关节角。** 物理动作的粒度是任务，不是电机。
 
-## 其他路线（保留但暂不聚焦）
+## 其他部署与历史基线
 
-以下能力保留且仍有测试，只是当前不投入：
+边缘开发优先跑通单机器人；需要机群或历史实验时使用以下入口：
 
-- **多机器人 / Fleet**：`cmd/fleet-control-plane`、`fleet/`、`edge/`。单机器人把自己的任务做完即可；多机协调属于调度层，不影响上面的闭环。
+- **多机器人 / Fleet**：`cmd/fleet-control-plane`、`fleet/`、`edge/`。父目标、共享资源和多机分工在云端协调；每台机器人的 Host 保持本地执行边界，peer 数据经业务适配消费。
 - **RoboCasa 双机交接**：`./scripts/fleet-sim.sh handoff`；Compose 云端流程为 `./scripts/fleet-up.sh up`。旧 `./install.sh cloud` 只返回迁移提示。
 - **固定工位桌面任务**：`make rgbd-start`（显式 MuJoCo 历史 `tabletop` 夹具）。
 
@@ -469,7 +508,7 @@ robot-agent demo
 
 **如果这套设计对你正在做的事有用，欢迎 star、提 issue，或者直接来聊。** 我在找具身智能 / 机器人软件方向的工作（机器人 Agent 与系统、SLAM 与导航），缺人的话求内推 🙏
 
-MIT License · [分类文档](docs/catalog.md) · 源码含 1462 个 Go 测试函数 + 2573 个 Python 测试函数（静态计数，非已运行结果；通过/跳过以 CI 和实验记录为准）
+MIT License · [分类文档](docs/catalog.md) · 源码含 1630 个 Go 测试函数 + 2699 个 Python 测试函数（静态计数，非已运行结果；通过/跳过以 CI 和实验记录为准）
 
 ### Agent 上下文评测
 

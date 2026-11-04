@@ -32,6 +32,7 @@ go test ./internal/edgeagent -run '^TestDelegatedUnknownPhysicalResultNeverRepla
 | --- | --- | --- |
 | 新能力 | 目录、grant、Executor、验证器 | 参数合法但超出本次授权 |
 | 新恢复策略 | 原失败 binding、journal、checkpoint | 另一命令成功被误用于原 unknown |
+| 新接收/会话路由 | `tasks/creation_session.go`、`internal/agentsession/` | task 已保存但接收收尾失败；显式机器人与本地 binding 不同 |
 | 新上下文投影 | 原事实、guard、归档、实际请求 | 压缩后丢失一条活动约束 |
 | 新机器人工作空间 | 注册、身份代理、独立数据库 | 相同 taskId 和端点换机 |
 | 新覆盖策略 | 目标集合、几何依据、覆盖账本 | 预测可见被计成已观察 |

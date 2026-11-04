@@ -1,0 +1,5 @@
+attempt,taskId,stateAtExecutionClosure,acceptancePassed,recordAuditPassed,approvalToFinishSeconds,events,steps,confirmedSteps,navigationAndArrivalConfirmed,requiredNavigationAndArrivalConfirmations,captureCount,capabilityRPCCount,odomSamplingCoverageComplete,odomSamples,sampledPlanarPathM,maxReceiptGapSeconds,maximumArrivalPositionErrorM,maximumArrivalYawErrorRad,modelCalls,prompt_tokens,completion_tokens,total_tokens,cached_tokens,cache_write_tokens
+1,task-3b03351306d5b7df4835f7be6e69d577,RECOVERABLE_FAILURE,False,False,6.391873046875,64,5,3,0,8,3,1,False,0,,,,,6,70451,4695,75146,40576,
+2,task-a0fc09863e3a4be4f14ef61945b72877,RECOVERABLE_FAILURE,False,False,39.558701904296875,64,5,3,0,8,3,1,True,76,3.4943050684163897,0.648,,,7,85653,5352,91005,47744,
+3,task-583c94bad756b62ba0b238c678605c39,SUCCEEDED,True,True,193.48393896484376,161,21,21,8,8,20,1,True,377,18.494308134091465,0.609,0.003037354413361341,0.028647211205655276,7,92910,5241,98151,48768,
+4,task-86a1f1438b266353b5a9e4965ed6c1fa,SUCCEEDED,True,True,239.24832397460938,205,25,25,8,8,20,5,True,465,21.925887701867662,0.667,0.003372899085186499,0.02953303546507624,5,67270,4125,71395,34432,

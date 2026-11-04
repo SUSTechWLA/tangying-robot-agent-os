@@ -1,0 +1,597 @@
+{
+  "schemaVersion": "user.simulation.audit.v1",
+  "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+  "collectedAtUTC": "2026-11-04T05:51:41.298528+00:00",
+  "taskState": "SUCCEEDED",
+  "taskSucceeded": true,
+  "closure": {
+    "verified": true,
+    "state": "SUCCEEDED",
+    "taskRevision": 1,
+    "terminalTransitionSequence": 203,
+    "finishSequences": [
+      205
+    ],
+    "successMarkerPresent": true
+  },
+  "apiStable": true,
+  "traceMatchesTask": true,
+  "originalRequestSHA256Valid": true,
+  "requiredCapabilities": {
+    "required": [
+      "calibration.get"
+    ],
+    "checks": [
+      {
+        "tool": "calibration.get",
+        "presentInFrozenPlan": true,
+        "confirmedCommandIds": [
+          "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-01"
+        ],
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "traceIntegrity": "consistent",
+  "traceFindings": [],
+  "journal": {
+    "available": true,
+    "exactMatch": true,
+    "fieldsEqual": true,
+    "eventsEqual": true,
+    "eventCount": 205,
+    "captureCount": 20,
+    "allDeclaredCaptureHashesValid": true,
+    "capturesWithCompleteRGBD": 16,
+    "hashCheckBoundary": "Null image hash check means no image or digest declared in this capture, not corrupt bytes; patrol arrival requires complete snapshot/RGB/depth checks.",
+    "errors": [],
+    "boundary": "Task-scoped SQLite read transaction, not whole-database backup; image bytes saved only with --images."
+  },
+  "observationMetadataMatches": true,
+  "observationCount": 20,
+  "rpcCount": 5,
+  "rpcStates": {
+    "SUCCEEDED": 5
+  },
+  "stepCount": 25,
+  "stepStates": {
+    "CONFIRMED": 25
+  },
+  "atomicSteps": [
+    {
+      "stepId": "rev-1-cap-01",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-01",
+      "tool": "calibration.get",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-02",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02-observe",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-02-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1756200000000-1793771261288"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-pre_position",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-02-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1759600000000-1793771267248"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-navigate_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-02-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1798000000000-1793771332473"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-verify_arrival_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-02-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1798600000000-1793771333497"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-03",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-03",
+      "tool": "navigation.status",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-04",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-04",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-04-observe",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-04-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1799800000000-1793771335652"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04-pre_position",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-04-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1804000000000-1793771343076"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04-navigate_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-04-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1832200000000-1793771385519"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-04-verify_arrival_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-04-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1832600000000-1793771386023"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-05",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-05",
+      "tool": "navigation.status",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-06",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-06",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-06-observe",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-06-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1833800000000-1793771387965"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-06-pre_position",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-06-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1834700000000-1793771389282"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-06-navigate_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-06-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1856900000000-1793771421732"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-06-verify_arrival_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-06-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1857500000000-1793771422495"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-07",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-07",
+      "tool": "navigation.status",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-08",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-08",
+      "tool": "robot.task",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-08-observe",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-08-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1858400000000-1793771423902"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-08-pre_position",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-08-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1859100000000-1793771424831"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-08-navigate_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-08-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1906700000000-1793771497755"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-08-verify_arrival_00",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-08-verify_arrival_00",
+      "tool": "verify_arrival",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1907100000000-1793771498474"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-09",
+      "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/rev-1-cap-09",
+      "tool": "navigation.status",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    }
+  ],
+  "modelUsage": {
+    "uniqueCallIDs": 5,
+    "references": 10,
+    "duplicateReferencesExcluded": 5,
+    "conflictingCallIDs": [],
+    "missingIdentityRecords": 0,
+    "validUsageCalls": 5,
+    "unknownUsageCalls": 0,
+    "invalidUsageCalls": 0,
+    "providerReportedKnownTotals": {
+      "prompt_tokens": 67270,
+      "completion_tokens": 4125,
+      "total_tokens": 71395,
+      "cached_tokens": 34432,
+      "cache_write_tokens": null
+    },
+    "fieldReportingCalls": {
+      "prompt_tokens": 5,
+      "completion_tokens": 5,
+      "total_tokens": 5,
+      "cached_tokens": 5,
+      "cache_write_tokens": 0
+    },
+    "fieldTotalsComplete": {
+      "prompt_tokens": true,
+      "completion_tokens": true,
+      "total_tokens": true,
+      "cached_tokens": true,
+      "cache_write_tokens": false
+    },
+    "totalUsageComplete": true,
+    "calls": [
+      {
+        "call_id": "771cb2f2-e0f2-4ae4-be1d-90dcd7f8a3d7",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:46:46.720937Z",
+        "duration_ms": 3527,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 12048,
+          "completion_tokens": 452,
+          "total_tokens": 12500,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 43527,
+        "response_bytes": 2705
+      },
+      {
+        "call_id": "f37c33f1-3239-46a9-bd2c-eec9eb4d112b",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:46:50.261867Z",
+        "duration_ms": 1942,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 12284,
+          "completion_tokens": 291,
+          "total_tokens": 12575,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 44302,
+        "response_bytes": 1954
+      },
+      {
+        "call_id": "11d6b792-c59a-4a6d-8efa-75267ee6375e",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:46:52.212391Z",
+        "duration_ms": 7144,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 12645,
+          "completion_tokens": 1067,
+          "total_tokens": 13712,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 45496,
+        "response_bytes": 5582
+      },
+      {
+        "call_id": "ba1a5d6c-2549-4e18-b9ae-d0d15121cd35",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:46:59.376063Z",
+        "duration_ms": 5381,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 14948,
+          "completion_tokens": 686,
+          "total_tokens": 15634,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 52866,
+        "response_bytes": 4056
+      },
+      {
+        "call_id": "ea1efc70-492c-4fe4-86ab-aabf1feabe80",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:47:04.773761Z",
+        "duration_ms": 10168,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 15345,
+          "completion_tokens": 1629,
+          "total_tokens": 16974,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 54203,
+        "response_bytes": 8386
+      }
+    ],
+    "boundary": "Provider-reported telemetry, not an invoice. Unknown/conflicting usage excluded, never zero. Cached tokens are included in prompt tokens; no token estimation."
+  },
+  "patrol": {
+    "performed": true,
+    "passed": true,
+    "expectedRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "frozenRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "confirmations": [
+      {
+        "room": "kitchen",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-02-navigate_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-02-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1798000000000-1793771332473",
+        "eventSequence": 43,
+        "errors": [],
+        "positionErrorM": 0.0021774385479392897,
+        "yawErrorRad": 0.027135620902613455
+      },
+      {
+        "room": "kitchen",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-02-verify_arrival_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-02-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1798600000000-1793771333497",
+        "eventSequence": 50,
+        "errors": [],
+        "positionErrorM": 0.0021774385479392897,
+        "yawErrorRad": 0.027135620902613455
+      },
+      {
+        "room": "bedroom",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-04-navigate_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-04-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1832200000000-1793771385519",
+        "eventSequence": 88,
+        "errors": [],
+        "positionErrorM": 0.003372899085186499,
+        "yawErrorRad": 0.027160512883957155
+      },
+      {
+        "room": "bedroom",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-04-verify_arrival_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-04-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1832600000000-1793771386023",
+        "eventSequence": 95,
+        "errors": [],
+        "positionErrorM": 0.003372899085186499,
+        "yawErrorRad": 0.027160512883957155
+      },
+      {
+        "room": "bathroom",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-06-navigate_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-06-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1856900000000-1793771421732",
+        "eventSequence": 133,
+        "errors": [],
+        "positionErrorM": 0.003088520073878819,
+        "yawErrorRad": 0.027535512883997137
+      },
+      {
+        "room": "bathroom",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-06-verify_arrival_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-06-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1857500000000-1793771422495",
+        "eventSequence": 140,
+        "errors": [],
+        "positionErrorM": 0.003088520073878819,
+        "yawErrorRad": 0.027535512883997137
+      },
+      {
+        "room": "living_room",
+        "tool": "navigation.navigate",
+        "stepId": "rev-1-cap-08-navigate_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-08-navigate_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1906700000000-1793771497755",
+        "eventSequence": 178,
+        "errors": [],
+        "positionErrorM": 0.0010232016349792377,
+        "yawErrorRad": 0.02953303546507624
+      },
+      {
+        "room": "living_room",
+        "tool": "verify_arrival",
+        "stepId": "rev-1-cap-08-verify_arrival_00",
+        "commandId": "task-86a1f1438b266353b5a9e4965ed6c1fa/revision/1/step/rev-1-cap-08-verify_arrival_00",
+        "captureId": "gazebo-home_furnished/head-rgbd-1907100000000-1793771498474",
+        "eventSequence": 185,
+        "errors": [],
+        "positionErrorM": 0.0010232016349792377,
+        "yawErrorRad": 0.02953303546507624
+      }
+    ],
+    "errors": [],
+    "boundary": "Recorded odometry/map-route and raw sensor identity, not independent ground truth, collision/contact proof or semantic image interpretation."
+  },
+  "auditFailures": [],
+  "recordAuditPassed": true,
+  "acceptancePassed": true,
+  "scope": "GET-only collection plus optional task-scoped SQLite read. No robot commands. Physical acceptance requires explicitly registered route and independent evidence; no generic safety or collision guarantee."
+}

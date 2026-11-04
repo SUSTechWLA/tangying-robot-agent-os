@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "sampled.odometry.audit.v1",
+  "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+  "taskRevision": 1,
+  "taskState": "RECOVERABLE_FAILURE",
+  "approvalUnixMs": 1793768744282.795,
+  "runFinishedUnixMs": 1793768750674.668,
+  "executionWindowSeconds": 6.391873046875,
+  "sourceFirstSampleUnixMs": 1793768751724,
+  "sourceLastSampleUnixMs": 1793770461056,
+  "sourceSampleCount": 3317,
+  "samplesInsideWindow": 0,
+  "uniqueFreshOdomSamples": 0,
+  "staleOrOutOfWindowOdomExcluded": 0,
+  "invalidOrMissingOdomSamples": 0,
+  "missingPrefixSeconds": 7.441205078125,
+  "missingSuffixSeconds": 0.0,
+  "samplingCoverageComplete": false,
+  "firstUsedReceiptUnixMs": null,
+  "lastUsedReceiptUnixMs": null,
+  "maximumReceiptGapSeconds": null,
+  "nonmonotonicSensorStampCount": 0,
+  "sampledPlanarPathM": null,
+  "maximumReportedLinearSpeedMPS": null,
+  "sensorElapsedSeconds": null,
+  "scope": "Approximate 2 Hz odometry polyline during approval-to-finish, not total continuous trajectory or independent ground truth. Missing coverage is unknown, never zero. No contact/collision proof. Complete means recording brackets the interval, used first/last messages within 1 s of its bounds, maximum message gap <=1 s and sensor stamps monotonic.",
+  "sampledPoses": [],
+  "sources": {
+    "artifacts/acceptance/user-sim-20261104-001/audit-001/task-before.json": {
+      "sha256": "f20dd0df5ec10d164ce9b726ef1510483a35b885c14161664ef60d7ad7af283d",
+      "bytes": 3747075
+    },
+    "artifacts/acceptance/user-sim-20261104-001/ros-observations-001.jsonl": {
+      "sha256": "c9959bac0b0ddedc276420003c22318d4856670f667033945cc8da52381e3d14",
+      "bytes": 12426123
+    }
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "command": [
+    "python3",
+    "/tmp/user-e2e-metrics-20261028/verify_retained.py",
+    "verification-final"
+  ],
+  "reportedBaselineCommit": "79a8c3553",
+  "sourceSHA256": {
+    "scripts/analyze_gazebo_field_campaign.py": "6783f96c0a79c87dc1e601375d390c7c5b1d38f03fc1af73aaf3f85954377823",
+    "scripts/run_gazebo_stop_checks.py": "70efea12ad37d77c7eb7795b698168cd3a1f68d64ec0919e1bb051a15ec69f03",
+    "tests/scripts/test_analyze_gazebo_field_campaign.py": "b2731016a0c9cfb30899657e794b9dd561c27e619346ab591db8c589a009c826",
+    "tests/scripts/test_gazebo_stop_checks.py": "95e2b40b73e2936ac2966fe2d9bba68717b1aea99477341e9578f7a4d7f718f7"
+  },
+  "sourceStable": true,
+  "archiveSHA256": "a1c5348001d70e0319e0dc2d574d1a404f720300953061fae813077a1ef764d3",
+  "unchangedOriginalMembers": 183,
+  "originalMetricValuesUnchanged": {
+    "taskCount": true,
+    "successCount": true,
+    "navigationCommands": true,
+    "independentArrivalChecks": true,
+    "minimumMeasuredBoundingSphereGapM": true,
+    "measuredPathLengthM": true,
+    "maximumMeasuredSpeedMps": true,
+    "simulationDurationS": true,
+    "physicsCaptures": true,
+    "safetyMetricsPassed": true
+  },
+  "taskCount": 3,
+  "successCount": 3,
+  "plannedTaskCount": 3,
+  "taskJournalsVerified": true,
+  "endToEndClosureVerified": true,
+  "safetyMetricsPassed": false,
+  "stops": [
+    {
+      "robotId": "ground-a",
+      "mode": "watchdog",
+      "passed": true,
+      "metrics": {
+        "measuredStopped": true,
+        "sampleCount": 12,
+        "measurementIdentityVerified": true,
+        "discardedNonadvancingSamples": 0,
+        "maximumSampleGapSimulationSeconds": 0.1200000000000001,
+        "dwellEvidence": "sampled states only; no continuous-motion certificate",
+        "settledSinceSimulationTime": 1.698,
+        "elapsedSimulationSeconds": 1.21,
+        "maximumDisplacementMeters": 0.25607620576209034,
+        "travelDistanceMeters": 0.25607625834513853,
+        "lastSpeedMetersPerSecond": 2.1570465469878745e-06,
+        "positionSource": "Gazebo rigid-body measured state",
+        "landingVerified": false
+      }
+    },
+    {
+      "robotId": "ground-a",
+      "mode": "explicit_stop",
+      "passed": true,
+      "metrics": {
+        "measuredStopped": true,
+        "sampleCount": 9,
+        "measurementIdentityVerified": true,
+        "discardedNonadvancingSamples": 0,
+        "maximumSampleGapSimulationSeconds": 0.10199999999999987,
+        "dwellEvidence": "sampled states only; no continuous-motion certificate",
+        "settledSinceSimulationTime": 3.088,
+        "elapsedSimulationSeconds": 0.9060000000000001,
+        "maximumDisplacementMeters": 0.11587238024285125,
+        "travelDistanceMeters": 0.11587238024285144,
+        "lastSpeedMetersPerSecond": 3.3115203770256283e-09,
+        "positionSource": "Gazebo rigid-body measured state",
+        "landingVerified": false
+      }
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "watchdog",
+      "passed": true,
+      "metrics": {
+        "measuredStopped": true,
+        "sampleCount": 12,
+        "measurementIdentityVerified": true,
+        "discardedNonadvancingSamples": 0,
+        "maximumSampleGapSimulationSeconds": 0.10799999999999965,
+        "dwellEvidence": "sampled states only; no continuous-motion certificate",
+        "settledSinceSimulationTime": 4.696,
+        "elapsedSimulationSeconds": 1.19,
+        "maximumDisplacementMeters": 0.2075910135493797,
+        "travelDistanceMeters": 0.2075910135493797,
+        "lastSpeedMetersPerSecond": 8.233543215452854e-10,
+        "positionSource": "Gazebo rigid-body measured state",
+        "landingVerified": false
+      }
+    },
+    {
+      "robotId": "ground-b",
+      "mode": "explicit_stop",
+      "passed": true,
+      "metrics": {
+        "measuredStopped": true,
+        "sampleCount": 8,
+        "measurementIdentityVerified": true,
+        "discardedNonadvancingSamples": 0,
+        "maximumSampleGapSimulationSeconds": 0.10799999999999965,
+        "dwellEvidence": "sampled states only; no continuous-motion certificate",
+        "settledSinceSimulationTime": 5.994,
+        "elapsedSimulationSeconds": 0.8099999999999996,
+        "maximumDisplacementMeters": 0.0578601668083738,
+        "travelDistanceMeters": 0.0578601668083738,
+        "lastSpeedMetersPerSecond": 1.0775882711492454e-09,
+        "positionSource": "Gazebo rigid-body measured state",
+        "landingVerified": false
+      }
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "watchdog",
+      "passed": true,
+      "metrics": {
+        "measuredStopped": true,
+        "sampleCount": 18,
+        "measurementIdentityVerified": true,
+        "discardedNonadvancingSamples": 0,
+        "maximumSampleGapSimulationSeconds": 0.10799999999999965,
+        "dwellEvidence": "sampled states only; no continuous-motion certificate",
+        "settledSinceSimulationTime": 8.486,
+        "elapsedSimulationSeconds": 1.790000000000001,
+        "maximumDisplacementMeters": 0.3506921141452535,
+        "travelDistanceMeters": 0.35670892864632775,
+        "lastSpeedMetersPerSecond": 0.0016651701498381672,
+        "positionSource": "Gazebo rigid-body measured state",
+        "landingVerified": false
+      }
+    },
+    {
+      "robotId": "uav-a",
+      "mode": "explicit_stop",
+      "passed": true,
+      "metrics": {
+        "measuredStopped": true,
+        "sampleCount": 16,
+        "measurementIdentityVerified": true,
+        "discardedNonadvancingSamples": 0,
+        "maximumSampleGapSimulationSeconds": 0.10799999999999876,
+        "dwellEvidence": "sampled states only; no continuous-motion certificate",
+        "settledSinceSimulationTime": 10.7,
+        "elapsedSimulationSeconds": 1.596,
+        "maximumDisplacementMeters": 0.20506664810855457,
+        "travelDistanceMeters": 0.21111602202395718,
+        "lastSpeedMetersPerSecond": 0.0009968174382098836,
+        "positionSource": "Gazebo rigid-body measured state",
+        "landingVerified": false
+      }
+    }
+  ],
+  "scope": "offline retained-data reanalysis only; no new physical/model run"
+}

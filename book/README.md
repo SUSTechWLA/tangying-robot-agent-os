@@ -1,7 +1,7 @@
 # 深入理解分布式机器人 Agent 系统
 
-**数字版 3.2.0 · 2026-10-28**
-从跨域协议到模型上下文：架构、推导与故障实验
+**数字版 3.3.0 · 2026-11-02**
+从自动会话到长程执行：上下文、成本与持久恢复
 
 一本以 Tangying Robot AgentOS 为可检查案例的系统教材。读者从“机器人收到一句目标”出发，追踪目标如何变成受限计划、工具调用、物理观测、持久事实和下一轮决策。重点是理解设计，而不是记住组件名称。
 
@@ -12,7 +12,7 @@
 | 把自然语言变成可检查的任务 | 1、3、7 | 为巡检任务定义目标、禁止区、完成谓词与 unknown |
 | 解释架构与权限分工 | 2、5、6 | 画出云端、Host、Harness、Runtime、控制器的调用与反馈 |
 | 推演失败和重启 | 8、11 | 在四个中断位置判断能否重试、对账或停止 |
-| 管理长程上下文与模型计算 | 18 | 拆两消息请求、保护未知命令、推导 KV 显存/时延与压缩回本 |
+| 管理会话、上下文与模型计算 | 9、18 | 区分 turn/task，推演 pending 恢复、原文回查、token 账本与 KV 成本 |
 | 接入异构机器人与同行数据 | 4、9、10、17 | 解释坐标、地图、定位、身份和消息版本冲突 |
 | 评价一个方案是否更好 | 12、15、19 | 设计有分母、有对照、有失败记录的实验 |
 
@@ -23,7 +23,7 @@
 - 课堂教学：[两个无硬件小实验](labs/README.md) → [14 组项目实验](appendix/F-learning-labs.md) → [16 周课程与课堂脚本](appendix/G-course-design.md) → [习题指导](appendix/I-exercise-guide.md)。
 - 研究与工程：[源码索引](appendix/A-source-map.md)、[实验来源](appendix/C-experiment-index.md)、[工程记录模板](appendix/H-engineering-playbook.md)。
 
-全书四篇、19 章、9 附录，保留 57 道基础/工程/研究题，包含 23 幅离线 SVG 架构/时序/数据流图与 2 幅场景插画。贯穿案例是 AGV 的 A→B→C→A 巡检，再引入无人机观察与同行数据。教学参数与历史实测分开标明；最后一章拆解真实成功、失败和开发者介入。
+全书四篇、19 章、9 附录，保留 57 道基础/工程/研究题，包含 25 幅离线 SVG 架构/时序/数据流图与 2 幅场景插画。贯穿案例是 AGV 的 A→B→C→A 巡检，再引入无人机观察与同行数据。教学参数与历史实测分开标明；最后一章拆解真实成功、失败和开发者介入。
 
 ## 五个核心问题与可检查答案
 
@@ -33,7 +33,9 @@
 - **长程上下文如何保持可信？** 区分 Host 与 managed 两条路径，说明保护状态、热冷分层、scope、哈希和超预算拒绝。
 - **一致性到底保证在哪？** 第 8 章用 CAS 竞争、Outbox 中断、网络分区、因果时钟和可合并集合解释边界，避免泛称全局强一致。
 
-本次包含运行时代码：以取消竞态、身份重配、预算耗尽和恢复记录丢失为反例，完成针对性 race 回归和重复软件故障实验。数据入口见[本轮实现与验证](../docs/development/2026-10-28-edge-brain-reliability.md)。没有新增真实模型缓存性能、Gazebo 或实机运动数据。
+3.3.0 将此前补充纳入正文：自动接收会话由谁管理、原句怎样与历史 reference 分离、任务已提交而会话未收尾时如何恢复，以及 Local 的 recipe 为什么保守降为提示。第 19 章对照原工作台失败与后续独立 Gazebo 巡检成功，按各自源码与场景解释结果；本轮书稿更新没有新增模型或机器人运行实验。
+
+[长历史成本与规划经验补充](updates/2026-10-28-cost-and-long-horizon.md)和[自动会话补充](updates/2026-11-01-automatic-edge-sessions.md)保留演进时点，正文统一以本版实现快照讲解。当前操作看[会话手册](../docs/operations/automatic-edge-sessions.md)，测试来源看[会话软件验证](../docs/experiments/2026-11-01-automatic-edge-sessions.md)。
 
 ## 阅读与构建
 
@@ -47,8 +49,8 @@ make book-release
 .venv-book/bin/python -m pytest -q -o addopts='' tests/book
 ```
 
-产物在 `artifacts/book/3.2.0/`：`index.html`、`book.epub`、`book.md`、`assets/`、`provenance.json`、`SHA256SUMS` 和许可证。分享 HTML 时保留 assets 目录；EPUB 已内嵌所有插图。生成物不进入 Git。HTML 支持篇/章/节导航、窄屏和打印；图表无需脚本或联网渲染。
+产物在 `artifacts/book/3.3.0/`：`index.html`、`book.epub`、`book.md`、`assets/`、`provenance.json`、`SHA256SUMS` 和许可证。分享 HTML 时保留 assets 目录；EPUB 已内嵌所有插图。生成物不进入 Git。HTML 支持篇/章/节导航、窄屏和打印；图表无需脚本或联网渲染。
 
-代码链接固定到 `63af99305fd8204c0a54d86145cb94d89b754326`，配套项目文档固定到 `021e99c6e8994db474c5bca6771357f6a1b3af03`。书稿身份另由源文件哈希记录。源变更不能覆盖相同版次的已发布目录，请先用新的临时目录预览。上一版 [3.1.0 的完整源身份](editions/3.1.0/README.md)已归档；历史 2.2.0 的清单与恢复步骤在 [editions/2.2.0](editions/2.2.0/README.md)，早期版本也保留。
+代码链接固定到 `27cbbbaf96e2d76e1a17a1ea1befc8a8d8db14ce`，配套项目文档固定到 `edition.json` 的 `documentation_snapshot`。书稿身份另由源文件哈希记录。源变更不能覆盖相同版次的已发布目录，请先用新的临时目录预览。上一版 [3.2.0 的完整源身份](editions/3.2.0/README.md)已归档；[3.1.0](editions/3.1.0/README.md)继续保留；历史 2.2.0 的清单与恢复步骤在 [editions/2.2.0](editions/2.2.0/README.md)，早期版本也保留。
 
 本书提供可用于授课的教材稿与实验材料；课程效果仍需真实课堂反馈。软件、模型、Gazebo 与实机分别构成不同证据，教材重编不会新增硬件可靠性结论。

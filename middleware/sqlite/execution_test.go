@@ -159,3 +159,16 @@ func TestAStepThatWasNeverStartedCannotBeReconciled(t *testing.T) {
 		t.Fatal("a conclusion was accepted for a step with no record")
 	}
 }
+
+func TestCompletedStepCannotBeReconciled(t *testing.T) {
+	store, record := reconcileFixture(t)
+	ctx := context.Background()
+	if err := store.MarkStepCompleted(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.ReconcileStep(ctx, record, middleware.StepReconciliation{
+		Outcome: middleware.StepOutcomeAbandoned, Actor: "fixture", Note: "must not replace known completion", RecordedAt: time.Now().UTC(),
+	}); err == nil {
+		t.Fatal("known completion accepted as unknown")
+	}
+}

@@ -1,6 +1,6 @@
 # 完整系统架构
 
-2026-10-16 按实现提交 `821659df` 核对，软件发布版本仍为 v0.7.0。[新增目标 API](../guides/delegated-edge-goals.md)批准粗目标及工具/参数/预算包络，由 Local/Worker 共用的 Edge Host 在边缘生成、监督和验证子计划；原 `/v1/tasks` 与现有 UI/MCP 草案工具仍在审批前冻结完整能力序列。[完整长程说明](../architecture/long-horizon-collaboration.md)整合通讯、上下文、协作和[2026-10-15 实验](../experiments/2026-10-15-single-robot-robustness.md)，历史报告保留各自代码及证据边界。
+当前入口与自动会话核对到 `27cbbbaf9`（2026-11-02），软件发布版本仍为 v0.7.0。基础目标架构在 `821659df` 中已完成：[目标 API](../guides/delegated-edge-goals.md)批准粗目标及工具/参数/预算包络，由 Local/Worker 共用的 Edge Host 在边缘生成、监督和验证子计划；原 `/v1/tasks` 与现有 UI/MCP 草案工具仍在审批前冻结完整能力序列。Local 在该入口前增加[自动接收会话](../operations/automatic-edge-sessions.md)，用户无需管理模型 session。[完整长程说明](../architecture/long-horizon-collaboration.md)整合通讯、上下文、协作；历史实验保持各自代码及证据身份。
 
 **当前软件部署形态：云端 Server Agent 管全局目标与机群协作；Local Agent 和 Fleet Worker 是单机器人边缘 Agent 的两种接入方式，共用目标规划、诊断、受控恢复与执行核心。** 单机器人首版的受限工位与 Local Agent 路线仍保留。角色工具、模型与镜像边界见[Harness 升级规范](../superpowers/specs/2026-09-25-role-specific-agent-harness-docker-adr.md)和[软件验收](agent-harness-docker-acceptance.md)。单机感知/执行/恢复的具体链路见[RGB-D 闭环](../development/single-robot-loop.md)，历史相机数据见[证据存储](../development/observation-evidence.md)。家庭 RGB-D 参考路线的环境信息来自机载 RGB-D；严格异构路线由 Profile 声明传感器及规范观测，空间通道可接外部已注册三维测量。关节、夹爪、末端属于合法本体反馈。模拟器完整世界可供开发排错，不进入这条路线的目标绑定和视觉验证。
 
@@ -35,11 +35,13 @@ Browser Console ─HTTPS/JWT/WS─> Fleet API
                     实机或仿真工具      实机或仿真工具
 
 Orin NX 单机自治（本机模型和依赖可用时可离线）
-Browser Console/API ─loopback HTTP─> Local Agent + 同一 Edge Host + SQLite
+Browser Console/API ─loopback HTTP─> Local Agent + 自动接收会话 + SQLite
+                                      │
+                             共享 Edge Host / 执行器
                                       │
                              同一 RobotRuntime gRPC
                                       │
-                             实机或 MuJoCo
+                             实机或 Gazebo / MuJoCo
 ```
 
 云端与本地共享 `robot.v1` Runtime、工具目录、Observation 契约、`world.snapshot.v1` 和任务体验模型；`internal/edgeagent.Host` 还统一批准目标的规划、检查点、监督和完成验证。Worker 不再要求云端预列目标的所有工具调用，但也未继承 Local 全部 `agentruntime` 总线。`internal/agentharness` 用同一决策循环装配不同角色。Server 只看到机群只读查询与待审批草案工具；Edge 只看到单机器人读、本地和受审批的物理写工具。云端的 `AGENT_SYSTEM_*` 与意图/规划、边缘的意图/规划/恢复模型分别配置；边缘可通过受限 Assist 凭据调用云端只读推理。云端使用多进程、多机器人、事件/Outbox/lease 协调；Local Brain 在 Orin 或开发机以 SQLite 和单进程队列完成单机闭环。`local-agent` 与 `edge-worker` 不可同时控制同一 Runtime。云端与 Orin 的 Compose 均从 `Dockerfile.agent` 构建；Orin 的 `edge`/`fleet` profile 互斥。
@@ -58,6 +60,7 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 | --- | --- | --- | --- |
 | Agent / Parser / Planner | `agent/`, `orchestration/` | 将自然语言解析为目标、任务步骤和机器人绑定 | 配置 GOAL 模型时按注册能力规划并校验；无 GOAL 模型时保留完整句式的保守离线语法，歧义要求澄清；旧 Intent/Planner 路线独立保留 |
 | Task Service | `tasks/` | 创建、审批、取消、版本提议、CAS 确认、状态投影 | Task 是聚合；Revision 不可变；`expectedRevision` / `expectedCurrentRevision` 防止覆盖并发更新 |
+| 自动接收会话 | `core/agentsession/`、`internal/agentsession/`、`tasks/creation_session.go` | Local 输入轮次、原句留存、有界历史、候选 task 关联与中断查账 | robot/adapter 分区、先接收后规划；参考历史不继承批准；本地单操作员与单写者 |
 | Coordinator | `fleet/coordinator/` | 领取步骤、分派机器人、寻找安全点、资源转移、恢复 | 单写协调；leader lease；command/step/revision/fencing 多重身份 |
 | EventLog / Outbox | `fleet/eventlog/`, `fleet/mysql/` | 持久化领域事件并可靠发布可执行工作 | 提交事实与投影分离；消费者幂等；cursor 可重放 |
 | Resource custody | `fleet/coordinator/`, `worldmodel/` | 维护方块等独占资源 owner 与 fencing token | token 只能单调增加；旧持有者不能以旧命令继续写入 |
@@ -89,7 +92,7 @@ MCP 是 Fleet 的统一任务/查询入口，使用现有鉴权与机器人能�
 
 ### 4.2 兼容冻结计划路径
 
-1. 用户提交自然语言；Task Service 创建 revision 1，Task 初态 `READY`、`approved=false`。
+1. 用户提交自然语言。Local 先持久化原始输入、session/turn 和候选 task ID，按机器人/adapter 生成有限历史 reference，再交当前原句给规划器；Task Service 将绑定与 task 一起创建，revision 1 初态 `READY`、`approved=false`。Fleet 的冻结计划入口没有自动继承这份本地接收会话。
 
    解析先保留明确的机器人、物体、起点和终点；已识别的否定、条件与不完整理解返回澄清错误。创建成功还不代表场景可执行，实体唯一性与指定起点在 `edge/robotclient.Ground` 根据 Runtime 观测检查。当前 RoboCasa 的单向回合与重新授权限制见[评测报告](../development/natural-language-evaluation.md)。
 2. Local Console 先复述理解与步骤，再单独审批；Fleet 页面“创建并开始”会依次调用创建与审批。审批写入 `approved=true` 与 `TASK_APPROVED` 事件，不是独立 `APPROVED` Task 状态。
@@ -129,6 +132,14 @@ Host 检查点和完整子账本必须保留。已完成子步骤的独立 StepC
 | 浏览器状态 | 只读投影 | 丢 revision 时 REST resync；旧 socket/旧 fetch 被 generation fence |
 
 系统采用“局部强一致 + 跨组件幂等/补偿”的模型，而不是假设跨 MySQL、Redis、机器人和物理世界存在一个全局事务。
+
+Local 接收会话也遵守这一边界：接收事件/状态在一次 CAS 中提交，Task 与会话绑定在后续任务事务中提交；两者之间通过预分配 task ID 查账。下一次输入发现 pending 时，存在匹配任务则恢复关联，不存在则记录 interrupted，均不执行动作。内部事件幂等不等于客户端 POST 去重。数据目录 `.agent-owner.lock` 与 Runtime 地址锁分别约束本地状态所有权和控制入口；它们不提供跨主机共识。
+
+### 5.1 模型历史、任务经验与计算缓存
+
+自动会话保留当前机器人最近收到的目标，最多八轮预览、6000 字节摘要，原始请求最多 8000 字节；全文由源事件核验后作为独立引用，超预算可外置并限域回查。空闲 30 分钟或接收 32 轮后在下次输入轮换。模型原句、历史引用、当前账本状态和传感器事实分别构建，不能把旧请求重解释为本次执行权。
+
+规划经验保存经过校验的候选，Provider KV 缓存复用相同前缀计算。含自动会话的 Local 路径将精确经验降为模型提示；Worker 等未接入会话路径保留当前条件重验证。模型用量以实际 usage、缺失情况和请求耗时记录，不因 session 或缓存提示存在就计为省 token。配置见[成本与任务经验](model-cost-and-recipes.md)，发送字段与作用域见[模型请求](edge-brain-model-context.md)。
 
 ## 6. 安全边界
 

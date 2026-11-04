@@ -1,0 +1,151 @@
+{
+  "recordedAt": "2026-10-28T17:05:12.019874+00:00",
+  "scope": "current working tree sources at independent UI audit; not a published commit",
+  "files": [
+    {
+      "path": "console/local_experience.go",
+      "bytes": 6797,
+      "sha256": "a0b957df76f424d1146a99fd27ac869dbb51e9095cebf1616a68371327dec489"
+    },
+    {
+      "path": "console/navigation_completion_test.go",
+      "bytes": 5039,
+      "sha256": "5146ae174486ee4624883b26401fe76cb1b6120c469dd613855781bf59d6b268"
+    },
+    {
+      "path": "console/navigation_readiness_test.go",
+      "bytes": 5457,
+      "sha256": "ff9780444eb90e329475e249238637156330efc91ce1e8c7f8cce3f995dff654"
+    },
+    {
+      "path": "console/readiness.go",
+      "bytes": 25659,
+      "sha256": "99fbddef0a318d8c5d31b483fed8acca3a5a33e72e1a01237affda24c0043f34"
+    },
+    {
+      "path": "console/readonly_experience_test.go",
+      "bytes": 3167,
+      "sha256": "9a5b1a66ac744e955f5a775db672364d78f2ebf119f81953f2a8ed7cbdb3cca6"
+    },
+    {
+      "path": "internal/localapp/admission_retry_test.go",
+      "bytes": 3331,
+      "sha256": "626f53e4cc3b96696b334c86bdd035ec6f8f3353a3d609a5e9b41537e3d360ac"
+    },
+    {
+      "path": "internal/localapp/app.go",
+      "bytes": 23855,
+      "sha256": "834f59c693fc766e7a8d8aaecce56ed989936a7913c8226055f7154bd8c423c4"
+    },
+    {
+      "path": "internal/localapp/cancel_finish_race_test.go",
+      "bytes": 9438,
+      "sha256": "204755bfbc5353365f684b82274d8f67297ec09e998cc59b060606a3c377a568"
+    },
+    {
+      "path": "internal/localapp/recovery.go",
+      "bytes": 6116,
+      "sha256": "46a47af1487cf5896ad8d265d345e3dfeb74eb597a8b044b9be03e3ca7337a7a"
+    },
+    {
+      "path": "internal/localapp/recovery_reconciliation_test.go",
+      "bytes": 4140,
+      "sha256": "cd0d48e57fcf1b09cd22f3152d4af9e593087da88a3252ff2b91fe5a81ca3e2d"
+    },
+    {
+      "path": "internal/localapp/recovery_test.go",
+      "bytes": 15264,
+      "sha256": "c3b94f794269736e00ce2fe4dbf98022b24d5248bbb91211752b339fe8be6e8d"
+    },
+    {
+      "path": "internal/localapp/run_finished_test.go",
+      "bytes": 2497,
+      "sha256": "448f8d1f074082535c953b13eab686c752a7bd58c4781be1bbb88332ff878dfc"
+    },
+    {
+      "path": "orchestration/metrics.go",
+      "bytes": 5116,
+      "sha256": "2b436d352922ad55f2a6e773586d31f5d7b7b479df61db9f07e29f809c99916b"
+    },
+    {
+      "path": "orchestration/metrics_outcomes_test.go",
+      "bytes": 797,
+      "sha256": "c0210a6ec5fde3662e0e889be55372096d36041dc00e0b351c572075e780185d"
+    },
+    {
+      "path": "tasks/experience.go",
+      "bytes": 26616,
+      "sha256": "55b1778af9017471219b0ce6810fd7d4c23e93e3471a7604211dad473fd83b05"
+    },
+    {
+      "path": "tasks/experience_test.go",
+      "bytes": 14097,
+      "sha256": "30a8de34fe7a19710311ae08bdc28669d06b84ef446c6dc12ca222bd3cad6cc5"
+    },
+    {
+      "path": "tasks/orchestration_metrics_test.go",
+      "bytes": 3122,
+      "sha256": "a0ce33923a95e5d3ecade074d0068e803ade2b90188de9f6fe38026977f1e608"
+    },
+    {
+      "path": "tasks/service.go",
+      "bytes": 30272,
+      "sha256": "a86da049084ef7b48cd5f499577f574dad7a93170b92f83aa3e32caed85bc6f4"
+    },
+    {
+      "path": "web/app.js",
+      "bytes": 305398,
+      "sha256": "d2b48fb41b86ffa629af6391f2b46828bb4a3dea02091d80a5ecdc98d40718ff"
+    },
+    {
+      "path": "web/index.html",
+      "bytes": 68656,
+      "sha256": "d9f31ee2243bdb30a0b6566111f55906dba7c973b5e424561f1b140a898f36b5"
+    },
+    {
+      "path": "web/local_lifecycle_audit_test.mjs",
+      "bytes": 5494,
+      "sha256": "d9ef7c49a18d2d974a2f964de4fbecec10ffb26a0c4ad26636b052541db5420a"
+    },
+    {
+      "path": "web/mapping_camera_test.mjs",
+      "bytes": 14567,
+      "sha256": "e9c88fa4de75ee3e49e86e767954d4f21e2005de065b7da7146b24507973a7e3"
+    },
+    {
+      "path": "web/onboarding.js",
+      "bytes": 15524,
+      "sha256": "f3d807911859726a993cf3dcb7c50b34f8b23cf0afdbec1c694e878fa2d155f4"
+    },
+    {
+      "path": "web/onboarding_test.mjs",
+      "bytes": 16785,
+      "sha256": "2948788ca803e77b69eea2cd9d4310696d1ad1a91f9f36ab49a1e5b226efd548"
+    },
+    {
+      "path": "web/robot_services.js",
+      "bytes": 39960,
+      "sha256": "4307675c860bb21bb15656272ee6040e2776e77c6abfefd446b4cedacdea6691"
+    },
+    {
+      "path": "web/robot_services_test.mjs",
+      "bytes": 7219,
+      "sha256": "ca0dd467bdec2e987b8386ca2dc1265d0c9b5bbf71c4ceef3302424d35368f2c"
+    },
+    {
+      "path": "web/task_trace.js",
+      "bytes": 55301,
+      "sha256": "2c2f1dc03e63b3a0c9a974a18bfe62a0fec2f794836c06a23032d2d29a2dff01"
+    },
+    {
+      "path": "web/task_trace_capability_test.mjs",
+      "bytes": 14783,
+      "sha256": "75c269b61bd7c3a70ccac2c0002d9efaced3547031f4d62bb7be988d90f1e0c8"
+    },
+    {
+      "path": "web/task_trace_test.mjs",
+      "bytes": 21970,
+      "sha256": "53c04409c4759dc1186e24a738b90aba91fc119b19d4eea90e4950653746980d"
+    }
+  ]
+}

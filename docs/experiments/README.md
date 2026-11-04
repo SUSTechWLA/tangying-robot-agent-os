@@ -1,5 +1,17 @@
 # 实验协议、报告与证据索引
 
+2026-11-04 [工作台自然语言四房间巡检](2026-11-04-user-simulation/README.md)：实际浏览器输入/批准、Gazebo 执行、地图恢复不完整导致的失败、显式对账、逐站观测与账本核验。工具、前后版本和失败样本分别留存。
+
+新增：[2026-11-02 任务回溯与故障定位验收](2026-11-02-task-traceability/README.md)。保留 13 次最终软件验收的原始指令、事件、RPC、子计划、文件摘要与失败结果；不计作 Gazebo 或实机实验。
+
+2026-11-01 [自动边缘会话验证](2026-11-01-automatic-edge-sessions.md)：真实任务 HTTP/SQLite 数据流配合模型 fixture，检查重启关联、上下文外置、作用域和授权边界；保留审查修复及软件回归日志，不计为新增物理任务验收。
+
+2026-10-30 [家庭巡检续测](2026-10-30-patrol-continuation.md)：保留原失败、独立仿真逐次扫描及版本切换记录，按原自然语言任务和到位证据判断结果。代码改动见[探索操作完整性](../development/2026-10-30-exploration-operation-integrity.md)。
+
+2026-10-28 [任务复测与故障修复](2026-10-28-edge-task-validation/README.md)：10 个连续规划情景、通信/云边重复故障、异构 Harness 合同、Gazebo 三条完整路线和独立 6 项停止。保留取消、账本写入、异常 ACK、停止编排的原始失败；UAV 接触证据未齐，严格安全判据未通过。
+
+2026-10-28 当前升级的[实验与来源](2026-10-28-edge-scalability/README.md)：协作视图容量、长任务增量审计、规划经验与用量统计。性能对照、故障回归和真实模型/设备未测项分别列出。
+
 2026-10-28 边缘增量：[模型缓存提示与失败回溯](../production/edge-brain-model-context.md)、[实现/测试边界](../development/2026-10-28-edge-brain-reliability.md)、[十轮软件故障实验](../experiments/2026-10-27-edge-brain-reliability/README.md)。
 
 

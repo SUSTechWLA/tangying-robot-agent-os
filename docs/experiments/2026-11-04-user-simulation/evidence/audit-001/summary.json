@@ -1,0 +1,337 @@
+{
+  "schemaVersion": "user.simulation.audit.v1",
+  "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+  "collectedAtUTC": "2026-11-04T05:06:40.386457+00:00",
+  "taskState": "RECOVERABLE_FAILURE",
+  "taskSucceeded": false,
+  "closure": {
+    "verified": true,
+    "state": "RECOVERABLE_FAILURE",
+    "taskRevision": 1,
+    "terminalTransitionSequence": 47,
+    "finishSequences": [
+      48
+    ],
+    "successMarkerPresent": false
+  },
+  "apiStable": true,
+  "traceMatchesTask": true,
+  "traceIntegrity": "incomplete",
+  "traceFindings": [
+    {
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "code": "STEP_OUTCOME_UNKNOWN",
+      "severity": "warning",
+      "message": "此命令曾记录结果未知；本诊断不清除对账要求",
+      "eventSequences": [
+        20,
+        21,
+        43,
+        44
+      ],
+      "stepKey": "f7b048b3a4f5d0db860474a1af65831449bc8d886e1584b553f860415447cad2"
+    },
+    {
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "code": "STEP_EFFECT_UNKNOWN",
+      "severity": "warning",
+      "message": "缺少工具效果声明，不能假定只读或已物理验证",
+      "eventSequences": [
+        23,
+        25,
+        27
+      ],
+      "stepKey": "fda1db0ff37016c8cdea741d5acf7a2bf65ebc43db62d639264cd675dd75d5e1"
+    },
+    {
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "code": "STEP_EFFECT_UNKNOWN",
+      "severity": "warning",
+      "message": "缺少工具效果声明，不能假定只读或已物理验证",
+      "eventSequences": [
+        30,
+        32,
+        34
+      ],
+      "stepKey": "26b5db2ac98f4ecf31200cd741a13324a8e401de3fd2bcfc0d495bc223dc1187"
+    },
+    {
+      "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+      "code": "STEP_EFFECT_UNKNOWN",
+      "severity": "warning",
+      "message": "缺少工具效果声明，不能假定只读或已物理验证",
+      "eventSequences": [
+        37,
+        39,
+        41
+      ],
+      "stepKey": "54a6780c122f4350c02e5332e349b29ea898fb311bdc1e7f932655882dc0b85e"
+    }
+  ],
+  "journal": {
+    "available": true,
+    "exactMatch": true,
+    "fieldsEqual": true,
+    "eventsEqual": true,
+    "eventCount": 64,
+    "captureCount": 3,
+    "allCaptureHashesValid": false,
+    "errors": [],
+    "boundary": "Task-scoped SQLite read transaction, not whole-database backup; image bytes saved only with --images."
+  },
+  "observationMetadataMatches": true,
+  "observationCount": 3,
+  "rpcCount": 1,
+  "rpcStates": {
+    "SUCCEEDED": 1
+  },
+  "stepCount": 5,
+  "stepStates": {
+    "CONFIRMED": 3,
+    "FAILED": 2
+  },
+  "atomicSteps": [
+    {
+      "stepId": "rev-1-cap-01",
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/rev-1-cap-01",
+      "tool": "calibration.get",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02",
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/rev-1-cap-02",
+      "tool": "robot.task",
+      "status": "FAILED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": true,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02-observe",
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/revision/1/step/rev-1-cap-02-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-106600000000-1793768745070"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-pre_position",
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/revision/1/step/rev-1-cap-02-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-109700000000-1793768749351"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-navigate_00",
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/revision/1/step/rev-1-cap-02-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "FAILED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    }
+  ],
+  "modelUsage": {
+    "uniqueCallIDs": 6,
+    "references": 12,
+    "duplicateReferencesExcluded": 6,
+    "conflictingCallIDs": [],
+    "missingIdentityRecords": 0,
+    "validUsageCalls": 6,
+    "unknownUsageCalls": 0,
+    "invalidUsageCalls": 0,
+    "providerReportedKnownTotals": {
+      "prompt_tokens": 70451,
+      "completion_tokens": 4695,
+      "total_tokens": 75146,
+      "cached_tokens": 40576,
+      "cache_write_tokens": null
+    },
+    "fieldReportingCalls": {
+      "prompt_tokens": 6,
+      "completion_tokens": 6,
+      "total_tokens": 6,
+      "cached_tokens": 6,
+      "cache_write_tokens": 0
+    },
+    "fieldTotalsComplete": {
+      "prompt_tokens": true,
+      "completion_tokens": true,
+      "total_tokens": true,
+      "cached_tokens": true,
+      "cache_write_tokens": false
+    },
+    "totalUsageComplete": true,
+    "calls": [
+      {
+        "call_id": "5c97d077-01cc-4cec-9ed8-f00399c42757",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:04:33.666017Z",
+        "duration_ms": 1905,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 10386,
+          "completion_tokens": 244,
+          "total_tokens": 10630,
+          "cached_tokens": 6656
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 38337,
+        "response_bytes": 1764
+      },
+      {
+        "call_id": "1b7b567a-29cc-4c89-bc44-a7abc27d1bae",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:04:35.590919Z",
+        "duration_ms": 4897,
+        "http_status": 200,
+        "outcome": "invalid_decision",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 10622,
+          "completion_tokens": 712,
+          "total_tokens": 11334,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 39112,
+        "response_bytes": 4011
+      },
+      {
+        "call_id": "b29d13f9-6acd-4e76-8eee-c2c5df9d08fd",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:04:40.491945Z",
+        "duration_ms": 5652,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 10845,
+          "completion_tokens": 900,
+          "total_tokens": 11745,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 39950,
+        "response_bytes": 4964
+      },
+      {
+        "call_id": "b6cc7fd3-785b-42fa-af74-8f46df6254bd",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:04:46.15444Z",
+        "duration_ms": 2899,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11198,
+          "completion_tokens": 404,
+          "total_tokens": 11602,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 41112,
+        "response_bytes": 2554
+      },
+      {
+        "call_id": "e8fa3448-4d5d-4fa1-adf5-3c0b27e05f44",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:04:49.078839Z",
+        "duration_ms": 3300,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 13501,
+          "completion_tokens": 418,
+          "total_tokens": 13919,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 48482,
+        "response_bytes": 2616
+      },
+      {
+        "call_id": "38480396-ab38-4efa-ae83-7ef61c38aa2c",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:04:52.400367Z",
+        "duration_ms": 13197,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 13899,
+          "completion_tokens": 2017,
+          "total_tokens": 15916,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 49822,
+        "response_bytes": 10560
+      }
+    ],
+    "boundary": "Provider-reported telemetry, not an invoice. Unknown/conflicting usage excluded, never zero. Cached tokens are included in prompt tokens; no token estimation."
+  },
+  "patrol": {
+    "performed": true,
+    "passed": false,
+    "expectedRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "frozenRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "confirmations": [],
+    "errors": [
+      "expected 8 navigation/arrival confirmations, got 0"
+    ],
+    "boundary": "Recorded odometry/map-route and raw sensor identity, not independent ground truth, collision/contact proof or semantic image interpretation."
+  },
+  "auditFailures": [
+    "trace integrity"
+  ],
+  "recordAuditPassed": false,
+  "acceptancePassed": false,
+  "scope": "GET-only collection plus optional task-scoped SQLite read. No robot commands. Physical acceptance requires explicitly registered route and independent evidence; no generic safety or collision guarantee."
+}

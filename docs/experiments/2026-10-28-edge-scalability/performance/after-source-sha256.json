@@ -1,0 +1,11 @@
+{
+  "tasks/store.go": "2668b11b4757f18692cea12fb07a2a7022de61fca7f6995466769de023050c6b",
+  "tasks/service.go": "967bee2304fb5cb77bc394aa675c9f6fd5a274d9f2032afa98a7d3ae252ad377",
+  "middleware/sqlite/tasks.go": "d9089554495091df683eea889cc3671a6733c36baadb326e68363f21d98ed514",
+  "internal/edgeagent/host.go": "7f54e87931b2bf4698c320524f514b84b1525a0e14df5d5baa868525bdb87728",
+  "internal/edgeagent/journal.go": "81b3accf1afb5bdfcc8300aad003beefb86d21133c9e74c6787682a0439a4d64",
+  "internal/edgeagent/campaign_test.go": "becae2897a32ade8632f7c15731c00397419efe4e777805062e9dbb21e70f64f",
+  "tasks/record_event_test.go": "bf3914f546ad382c590533af11a2764eae032756ef724898f4e28b2ea7ebd50e",
+  "middleware/sqlite/event_append_test.go": "8bd906f379e068644b221fabda5b9d7e7a266f03dc122aa9dc1b1dd42fa263d4",
+  "internal/edgeagent/report_scaling_test.go": "a9035e4615a9406df9f2a2276a14dd9ae6c06267abc22eedecf99bab4e909471"
+}

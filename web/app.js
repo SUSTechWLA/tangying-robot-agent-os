@@ -55,6 +55,11 @@ let localTaskExperienceState = { taskId: "", revision: 0, aggregateVersion: 0, c
 // Last accepted experience payload, reused by the replay so opening a task does
 // not fetch the same record twice.
 let localExperiencePayload = null;
+let localDurableTrace = null;
+let localDurableTraceStatus = "loading";
+let localTraceRequestGeneration = 0;
+let localTraceRequestKey = "";
+let localTraceReadAt = 0;
 // A task recorded before the experience feature existed answers 404 forever, so
 // remember that and stop re-asking on every poll. Cleared when another task is
 // selected or a developer asks for a fresh read.
@@ -64,6 +69,10 @@ let fleetExperienceRequestGeneration = 0;
 let localRecovery = null;
 let localRecoveryGuidance = null;
 let localRecoveryRequestGeneration = 0;
+let localReconciliationKey = "";
+let localReconciliationTaskId = "";
+let localReconciliationForms = new Map();
+let localReconciliationFormSequence = 0;
 let localSelectionGeneration = 0;
 let localTaskRequestGeneration = 0;
 let localTaskListGeneration = 0;
@@ -462,7 +471,13 @@ async function createTask() {
     return;
   }
   button.disabled = true;
-  button.textContent = "正在理解…";
+  button.textContent = "正在生成计划…";
+  button.setAttribute("aria-busy", "true");
+  const planningStatus = $("#planning-status");
+  if (planningStatus) {
+    planningStatus.textContent = "正在理解任务并生成计划，耗时取决于模型响应。请勿重复提交；收到结果后可核对步骤。";
+    planningStatus.hidden = false;
+  }
   const selectionGeneration = ++localSelectionGeneration;
   try {
     const response = await edgeFetch("/v1/tasks", {
@@ -471,25 +486,57 @@ async function createTask() {
       body: JSON.stringify({ request: requestInput.value.trim(), adapter: adapterInput.value }),
     });
     const body = await response.json();
+    if (selectionGeneration !== localSelectionGeneration) { void loadLocalTasks(); return; }
     if (!response.ok) {
-      stateLabel.textContent = `${body.code || "ERROR"}: ${body.message || "请求失败"}`;
+      // A rejected new request must not relabel the previously selected task.
+      if (!activeTask) stateLabel.textContent = `${body.code || "ERROR"}: ${body.message || "请求失败"}`;
+      renderPlanningFailure(body);
       globalThis.TangyingConsoleUI?.feedback(body.message || "任务未能创建，请检查描述后重试。", true);
       return;
     }
-    if (selectionGeneration !== localSelectionGeneration) { void loadLocalTasks(); return; }
     activeTask = body;
     renderTask(body);
     connectEvents(body.id);
     void loadLocalTaskExperience(body.id);
     void loadLocalRecovery(body.id);
     void loadLocalTasks();
-    globalThis.TangyingConsoleUI?.feedback("任务已生成。请查看机器人理解和执行步骤，再批准物理动作。");
+    if (globalThis.TangyingConsoleUI?.taskFeedback) globalThis.TangyingConsoleUI.taskFeedback(body.id);
+    else globalThis.TangyingConsoleUI?.feedback("任务已生成；请核对当前任务状态和执行步骤。");
   } catch (_) {
     globalThis.TangyingConsoleUI?.feedback("连接中断，任务创建结果尚未确认，请检查任务状态后再重试。", true);
   } finally {
     button.disabled = false;
     button.textContent = "生成任务";
+    button.removeAttribute("aria-busy");
+    if (planningStatus) planningStatus.hidden = true;
   }
+}
+
+// Rejected planning has no executable task ID. Keep its durable archive link
+// beside the composer, bound to the robot URL at failure time.
+function renderPlanningFailure(body) {
+  const panel = $("#planning-failures");
+  const list = $("#planning-failure-list");
+  if (!panel || !list) return;
+  const id = String(body.planningAttemptId || "");
+  if (!/^planning-attempt-[0-9a-f]{32}$/.test(id) && !body.auditUnavailable) return;
+  panel.hidden = false;
+  panel.open = true;
+  const entry = document.createElement("li");
+  entry.append(makeTextElement("p", "", body.message || "规划未通过；没有创建可执行任务。"));
+  if (body.auditUnavailable) {
+    entry.append(makeTextElement("p", "hint", "规划失败且回溯归档不可用。请保留本次错误；不能按零模型消耗或未发生请求处理。"));
+  } else {
+    entry.append(makeTextElement("code", "", id));
+    const link = document.createElement("a");
+    link.href = edgeURL(`/v1/planning-attempts/${encodeURIComponent(id)}`);
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "打开已保存的规划证据（JSON）";
+    entry.append(link);
+  }
+  list.prepend(entry);
+  while (list.children.length > 10) list.lastElementChild.remove();
 }
 
 async function taskAction(action) {
@@ -506,6 +553,9 @@ async function taskAction(action) {
     if (activeTask?.id !== taskId) return;
     if (!response.ok) {
       globalThis.TangyingConsoleUI?.feedback(body.message || "操作未得到服务确认，请查看任务状态后重试。", true);
+      // Approval may have committed before queue admission failed. Read that
+      // fact back so retrying startup remains possible without new consent.
+      if (action === "approve") await refreshTask(taskId);
       return;
     }
     if (body.taskId === taskId) {
@@ -624,6 +674,7 @@ function appendEvent(event) {
   eventList.replaceChildren(...ordered.map(localEventElement));
   $("#local-event-count").textContent = `${ordered.length} 条记录 · 最新序号 ${ordered.at(-1).sequence}`;
   globalThis.TangyingConsoleUI?.update({ taskEventSequence: ordered.at(-1).sequence });
+  if (event.type?.startsWith("CAPABILITY_") && localMissionSteps.length) renderLocalMissionSteps(localMissionSteps);
   scheduleLocalReplay();
 }
 
@@ -707,7 +758,7 @@ function renderTask(task) {
   const source = task.plan?.source || "deterministic";
   $("#plan-source").textContent = source === "llm_consensus" ? "LLM consensus" : source;
   const intents = task.intent?.sequence?.length ? task.intent.sequence : task.intent ? [task.intent] : [];
-  $("#subtask-count").textContent = intents.length;
+  $("#subtask-count").textContent = task.plan?.capabilities?.calls?.length || intents.length;
   // Once evidence has arrived, a task metadata refresh must not reset its
   // confirmed steps to the static plan's pending state.
   if (localTaskExperienceState.revision === 0) renderPlanSteps(task.plan?.plans || [], task);
@@ -738,6 +789,13 @@ function renderPlanSteps(plans, task) {
 }
 
 function clearLocalReplay() {
+  localTraceRequestGeneration += 1;
+  localDurableTrace = null;
+  localDurableTraceStatus = "loading";
+  localTraceRequestKey = "";
+  localTraceReadAt = 0;
+  const download = $("#download-local-trace");
+  if (download) download.disabled = true;
   if (localReplayTimer) { clearTimeout(localReplayTimer); localReplayTimer = null; }
   const body = $("#local-replay-body");
   if (body) { body.replaceChildren(); delete body.dataset.renderKey; }
@@ -756,6 +814,7 @@ function resetLocalTaskExperience(taskId) {
   localRecoveryRequestGeneration += 1;
   localRecovery = null;
   localRecoveryGuidance = null;
+  renderLocalReconciliations(null);
   localExperiencePayload = null;
   localExperienceMissingTaskId = "";
   $("#pause").disabled = true;
@@ -786,7 +845,9 @@ function resetLocalTaskExperience(taskId) {
 function updateLocalActionButtons() {
   const task = activeTask;
   const terminal = !task || ["SUCCEEDED", "CANCELLED", "FAILED", "FAILED_SAFE"].includes(task.state);
-  approveButton.disabled = localActionPending || terminal || task?.approved || !["READY", "WAITING_APPROVAL"].includes(task?.state);
+  const retryStart = task?.approved && task?.state === "READY";
+  approveButton.disabled = localActionPending || terminal || (task?.approved && !retryStart) || !["READY", "WAITING_APPROVAL"].includes(task?.state);
+  approveButton.textContent = retryStart ? "重试启动（已批准）" : "批准物理动作";
   cancelButton.disabled = localActionPending || terminal;
   const current = localRecovery?.taskId === task?.id ? localRecovery : null;
   const currentState = !current?.state || current.state === task?.state;
@@ -816,18 +877,20 @@ function renderLocalRecovery(recovery) {
   scheduleLocalReplay();
   const panel = $("#local-recovery");
   const content = $("#local-recovery-content");
-  if (["SUCCEEDED", "CANCELLED"].includes(activeTask?.state)) {
+  if (["SUCCEEDED", "CANCELLED"].includes(activeTask?.state) && !recovery?.requiresReconciliation && !recovery?.reconciliations?.length) {
     localRecoveryGuidance = null;
     panel.hidden = true; content.replaceChildren();
+    renderLocalReconciliations(null);
     globalThis.TangyingConsoleUI?.update({ recovery: null });
     return true;
   }
   const guidance = localRecoveryGuidance;
-  const needsRecovery = recovery && (recovery.pauseRequested || recovery.canResume || recovery.requiresReconciliation
+  const needsRecovery = recovery && (recovery.pauseRequested || recovery.canResume || recovery.requiresReconciliation || recovery.reconciliations?.length
     || ["PAUSED", "RECOVERABLE_FAILURE", "FAILED", "FAILED_SAFE", "SAFETY_STOPPED", "RECOVERING", "WAITING_USER"].includes(activeTask?.state)
     || (recovery.reasonCode === "RECOVERY_STATUS_UNAVAILABLE" && !["SUCCEEDED", "CANCELLED", "FAILED"].includes(activeTask?.state)));
   panel.hidden = !activeTask || (!needsRecovery && !guidance);
   content.replaceChildren();
+  renderLocalReconciliations(recovery);
   if (panel.hidden) return true;
   const uncertain = recovery?.requiresReconciliation === true;
   panel.dataset.tone = uncertain ? "danger" : "warning";
@@ -857,14 +920,147 @@ function renderLocalRecovery(recovery) {
       }
       content.append(timeline);
     }
-    if (guidance.userActions?.length) {
+    if (!uncertain && !recovery?.reconciliations?.some(record => record.outcome === "ABANDONED") && guidance.userActions?.length) {
       const actions = document.createElement("ul");
       for (const action of guidance.userActions) actions.append(makeTextElement("li", "", missionReferenceLabel(action)));
       content.append(actions);
     }
   }
+  if (uncertain) content.append(makeTextElement("p", "", "先核对每个未知动作并保存对账结论。若放弃该步骤，结束旧任务路径后再评估新任务；结果未确认前不得重新批准或重放动作。"));
+  else if (recovery?.reconciliations?.some(record => record.outcome === "ABANDONED")) {
+    content.append(makeTextElement("p", "", "已有步骤被放弃，不能沿原路径继续。请核对现场与停止状态，结束旧任务后再评估新任务。"));
+  }
   globalThis.TangyingConsoleUI?.update({ recovery });
   return true;
+}
+
+const RECONCILIATION_OUTCOMES = {
+  HAPPENED: "已发生：已核实动作产生了目标效果",
+  NEVER_ACTED: "从未下发：已核实动作没有被派发",
+  ABANDONED: "放弃该步骤：现场可能已变化，不再沿此路径继续",
+};
+
+function renderLocalReconciliations(recovery) {
+  const container = $("#local-reconciliation");
+  if (!container) return;
+  const taskId = recovery?.taskId === activeTask?.id ? recovery.taskId : "";
+  const steps = taskId && recovery?.requiresReconciliation
+    ? [...new Set((recovery.uncertainStepIds || []).filter(id => typeof id === "string" && id.trim()))] : [];
+  const records = taskId && Array.isArray(recovery.reconciliations) ? recovery.reconciliations : [];
+  const key = JSON.stringify([taskId, steps, records]);
+  if (key === localReconciliationKey) return; // Polling must not erase input or steal focus.
+  localReconciliationKey = key;
+  if (taskId !== localReconciliationTaskId) localReconciliationForms = new Map();
+  localReconciliationTaskId = taskId;
+  for (const id of localReconciliationForms.keys()) if (!steps.includes(id)) localReconciliationForms.delete(id);
+  container.replaceChildren();
+  container.hidden = !steps.length && !records.length;
+  if (steps.length) {
+    container.append(makeTextElement("h3", "", "记录已核查的动作结论"));
+    container.append(makeTextElement("p", "hint", "逐步核对机器人或仿真现场，选择结论并填写依据。对账只保存结论，不会自动继续、重试或批准任务；原始执行状态仍保留。"));
+    for (const stepId of steps) {
+      let entry = localReconciliationForms.get(stepId);
+      if (!entry) {
+        const form = document.createElement("form");
+        form.className = "local-reconciliation-form";
+        form.append(makeTextElement("p", "", `任务：${taskId}`), makeTextElement("code", "", `步骤：${stepId}`));
+        const outcome = document.createElement("select");
+        const placeholder = makeTextElement("option", "", "请选择核查结论（不预选）");
+        placeholder.value = ""; placeholder.disabled = true; placeholder.selected = true;
+        outcome.append(placeholder);
+        for (const [value, label] of Object.entries(RECONCILIATION_OUTCOMES)) {
+          const option = makeTextElement("option", "", `${value} — ${label}`); option.value = value; outcome.append(option);
+        }
+        outcome.value = ""; outcome.required = true;
+        const operator = document.createElement("input");
+        operator.type = "text"; operator.required = true; operator.maxLength = 240;
+        operator.placeholder = "例如：张三，实机现场核查；或 Codex，Gazebo 仿真核查";
+        const note = document.createElement("textarea");
+        note.required = true; note.rows = 3; note.maxLength = 8000;
+        note.placeholder = "说明核查时间、控制器终止状态、静止遥测或现场观察，并附证据编号。不要把推测写成已确认结果。";
+        const formId = `local-reconciliation-${++localReconciliationFormSequence}`;
+        for (const [name, key, input] of [["核查结论", "outcome", outcome], ["核查者与环境", "operator", operator], ["核查依据", "note", note]]) {
+          input.id = `${formId}-${key}`;
+          const label = makeTextElement("label", "", name); label.setAttribute("for", input.id); form.append(label, input);
+        }
+        const status = makeTextElement("p", "hint", ""); status.setAttribute("role", "status"); status.setAttribute("aria-live", "polite");
+        const submit = makeTextElement("button", "secondary", "保存此步骤的对账结论"); submit.type = "submit"; submit.disabled = true;
+        form.append(submit, status);
+        entry = { form, outcome, operator, note, submit, status, busy: false, saved: false };
+        const valid = () => Object.hasOwn(RECONCILIATION_OUTCOMES, outcome.value) && operator.value.trim() && note.value.trim();
+        for (const input of [outcome, operator, note]) {
+          for (const event of ["input", "change"]) input.addEventListener(event, () => { submit.disabled = entry.busy || entry.saved || !valid(); });
+        }
+        form.addEventListener("submit", event => { event.preventDefault(); return submitLocalReconciliation(taskId, stepId, entry); });
+        localReconciliationForms.set(stepId, entry);
+      }
+      container.append(entry.form);
+    }
+  }
+  if (records.length) {
+    container.append(makeTextElement("h3", "", "已记录的对账结论"));
+    for (const record of records) {
+      const article = document.createElement("article"); article.className = "local-reconciliation-record";
+      article.append(makeTextElement("code", "", `${record.stepId || "未提供步骤"}${record.capability ? ` · ${record.capability}` : ""}`),
+        makeTextElement("p", "", `${record.outcome || "未知结论"} · 原始状态：${record.originalStatus || "未提供"}`),
+        makeTextElement("p", "", `记录时间：${record.recordedAt || "未提供"} · 认证来源：${record.actor || "未提供"}`),
+        makeTextElement("p", "local-reconciliation-note", record.note || "未提供依据"));
+      container.append(article);
+    }
+  }
+}
+
+async function submitLocalReconciliation(taskId, stepId, entry) {
+  const isCurrent = () => activeTask?.id === taskId && localReconciliationForms.get(stepId) === entry;
+  if (!isCurrent() || entry.busy || entry.saved) return;
+  if (localRecovery?.taskId !== taskId || !localRecovery.requiresReconciliation || !localRecovery.uncertainStepIds?.includes(stepId)) return;
+  const outcome = entry.outcome.value;
+  const operator = entry.operator.value.trim();
+  const note = entry.note.value.trim();
+  if (!Object.hasOwn(RECONCILIATION_OUTCOMES, outcome) || !operator || !note) {
+    entry.status.textContent = "请明确选择结论，并填写核查者、环境和依据。";
+    return;
+  }
+  entry.busy = true; entry.submit.disabled = true; entry.submit.setAttribute("aria-busy", "true");
+  for (const control of [entry.outcome, entry.operator, entry.note]) control.disabled = true;
+  entry.status.textContent = "正在保存对账结论；不会启动机器人动作。";
+  try {
+    const response = await edgeFetch(`/v1/tasks/${encodeURIComponent(taskId)}/reconcile`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stepId, outcome, note: `核查者与环境：${operator}\n依据：${note}` }),
+    });
+    const body = await response.json();
+    if (!isCurrent()) return;
+    if (!response.ok) {
+      entry.status.textContent = body.message || "对账未获服务确认，请核对当前记录后处理。";
+      return;
+    }
+    if (body.taskId !== taskId || body.stepId !== stepId || body.outcome !== outcome) {
+      entry.status.textContent = "返回的对账身份不匹配，保存结果尚未确认。请刷新记录核对，勿重复提交。";
+      entry.saved = true; // Do not resend an unconfirmed write blindly.
+      return;
+    }
+    entry.saved = true;
+    entry.status.textContent = "对账结论已保存，正在重新读取任务、恢复条件与准备检查。";
+    await refreshTask(taskId);
+    if (activeTask?.id !== taskId) return;
+    await loadLocalRecovery(taskId);
+    if (activeTask?.id !== taskId) return;
+    await refreshReadiness();
+    if (activeTask?.id === taskId) {
+      void loadLocalTaskExperience(taskId);
+      globalThis.TangyingConsoleUI?.feedback("对账结论已保存；请核对最新恢复条件和准备检查。系统没有自动继续或重新批准任务。");
+    }
+  } catch (_) {
+    if (isCurrent()) {
+      entry.saved = true;
+      entry.status.textContent = "连接中断，对账保存结果尚未确认。请重新读取恢复记录，勿重复提交。";
+    }
+  } finally {
+    entry.busy = false; entry.submit.removeAttribute("aria-busy");
+    entry.submit.disabled = entry.saved;
+    for (const control of [entry.outcome, entry.operator, entry.note]) control.disabled = entry.saved;
+  }
 }
 
 async function loadLocalRecovery(taskId) {
@@ -1041,7 +1237,7 @@ async function openLocalTask(taskId, options = {}) {
     renderTask(task);
     connectEvents(taskId);
     if (options.navigate !== false) globalThis.TangyingConsoleUI?.navigate(pageVisible("tasks") ? "tasks" : "workspace");
-    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId)]);
+    await Promise.all([loadLocalTaskExperience(taskId), loadLocalRecovery(taskId), loadLocalEvidence(taskId), loadLocalDurableTrace(taskId)]);
     renderLocalReplay();
     return true;
   } catch (_) {
@@ -1060,7 +1256,7 @@ async function pollLocalTask() {
     if (pageVisible("workspace", "tasks", "diagnostics")) requests.push(loadLocalTaskExperience(taskId));
     // Replay is visible on both pages and needs the evidence index to advance
     // with task events, including when the scene itself is not visible.
-    if (pageVisible("workspace", "tasks")) requests.push(loadLocalEvidence(taskId));
+    if (pageVisible("workspace", "tasks")) requests.push(loadLocalEvidence(taskId), loadLocalDurableTrace(taskId));
     await Promise.all(requests);
     if (!socket && activeTask?.id === taskId) connectEvents(taskId);
   } catch (_) {
@@ -1806,7 +2002,8 @@ function renderOnboarding(mapStatus) {
     adapter: telemetry.adapter || adapterInput?.value || "",
     emergencyStopped: typeof telemetry.emergencyStopped === "boolean" ? telemetry.emergencyStopped : null,
     safetyAcknowledged: acknowledgedForThisSituation(telemetry),
-    calibration: globalThis.TangyingOnboarding.calibrationReadiness(latestCalibrationServiceResult, robotState),
+    calibration: globalThis.TangyingOnboarding.calibrationReadiness(
+      latestCalibrationServiceResult?.robotId === telemetry.robotId ? latestCalibrationServiceResult : null, robotState),
     map: mapStatus || null,
     // The authoritative answer, from the same endpoint support reads.
     server: latestReadiness,
@@ -1871,7 +2068,9 @@ async function refreshOnboarding() {
   }
   try {
     const result = await globalThis.TangyingRobotServices?.readCalibrationReadiness();
-    latestCalibrationServiceResult = result?.robotId === primaryTelemetry?.robotId ? result : null;
+    // Initial telemetry can still be selecting its adapter. Retain the bound
+    // result, but render it only when the live robot identity matches above.
+    latestCalibrationServiceResult = result?.robotId ? result : null;
   } catch (_) {
     latestCalibrationServiceResult = null;
   }
@@ -1912,6 +2111,8 @@ function renderLocalReplay() {
   // evidence thumbnail — on every cycle even when nothing changed.
   const renderKey = [
     task.id, task.state, task.currentRevision,
+    localDurableTraceStatus, localTraceRequestGeneration,
+    localDurableTrace?.source?.lastSequence, localDurableTrace?.source?.aggregateVersion,
     (task.events || []).length,
     Object.keys(task.intent || {}).length,
     observations.length,
@@ -1927,6 +2128,8 @@ function renderLocalReplay() {
   const trace = traceApi.buildTaskTrace({
     task,
     observations,
+    durableTrace: localDurableTrace,
+    durableTraceStatus: localDurableTraceStatus,
     experience: localExperiencePayload?.taskId === task.id ? localExperiencePayload : null,
     recovery: localRecovery?.taskId === task.id ? localRecovery : null,
   });
@@ -1974,8 +2177,71 @@ $("#refresh-local-replay")?.addEventListener("click", async () => {
   const taskId = activeTask?.id;
   if (!taskId) return;
   // An explicit refresh is allowed to re-ask for a record the poll gave up on.
-  await Promise.all([loadLocalTaskExperience(taskId, { force: true }), loadLocalEvidence(taskId)]);
+  await Promise.all([loadLocalTaskExperience(taskId, { force: true }), loadLocalRecovery(taskId), loadLocalEvidence(taskId), loadLocalDurableTrace(taskId, { force: true })]);
   if (activeTask?.id === taskId) renderLocalReplay();
+});
+
+// The server snapshot is a diagnostic artifact, never an execution authority.
+// Keep requests inside the selected robot workspace; a selection generation also
+// rejects late responses when task A -> B -> A happens during a slow fetch.
+async function loadLocalDurableTrace(taskId, { force = false } = {}) {
+  if (!taskId || activeTask?.id !== taskId || location.protocol === "file:") return false;
+  const path = `/v1/tasks/${encodeURIComponent(taskId)}/trace`;
+  const scope = edgeURL(path);
+  const task = activeTask;
+  const key = JSON.stringify([scope, task.currentRevision, task.aggregateVersion,
+    task.state, task.events?.length, task.events?.at(-1)?.sequence]);
+  // Child aggregates have their own event watermarks. A quiet parent ledger
+  // does not mean its children stopped changing; re-read them periodically.
+  if (!force && localTraceRequestKey === key &&
+      ((localDurableTraceStatus === "ready" && !localDurableTrace?.children?.length) || Date.now() - localTraceReadAt < 10000)) return false;
+  const generation = ++localTraceRequestGeneration;
+  const current = () => generation === localTraceRequestGeneration && activeTask?.id === taskId && edgeURL(path) === scope;
+  localTraceRequestKey = key;
+  localTraceReadAt = Date.now();
+  localDurableTraceStatus = "loading";
+  const download = $("#download-local-trace");
+  if (download) download.disabled = true;
+  try {
+    const response = await edgeFetch(path, { cache: "no-store" });
+    if (!current()) return false;
+    if (!response.ok) throw new Error("trace unavailable");
+    const report = await response.json();
+    if (!current()) return false;
+    if (report.schemaVersion !== "task.trace.v1" || report.taskId !== taskId ||
+        !report.source || !Array.isArray(report.events) || !Array.isArray(report.steps) ||
+        !Array.isArray(report.integrity?.findings) ||
+        !["consistent", "incomplete", "inconsistent"].includes(report.integrity?.status)) {
+      throw new Error("trace identity or schema mismatch");
+    }
+    localDurableTrace = report;
+    localDurableTraceStatus = "ready";
+    if (download) download.disabled = false;
+    scheduleLocalReplay();
+    return true;
+  } catch (_) {
+    if (!current()) return false;
+    // A failed read is not a clean bill of health, and must not offer an old
+    // snapshot as if it were the result of the current request.
+    localDurableTrace = null;
+    localDurableTraceStatus = "unavailable";
+    scheduleLocalReplay();
+    return false;
+  }
+}
+
+$("#download-local-trace")?.addEventListener("click", () => {
+  const report = localDurableTrace;
+  if (localDurableTraceStatus !== "ready" || report?.taskId !== activeTask?.id) return;
+  const blob = new Blob([JSON.stringify(report, null, 2) + "\n"], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `task-trace-${String(report.taskId).replace(/[^a-zA-Z0-9_-]/g, "_")}-${report.source.lastSequence}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 async function loadLocalEvidence(taskId, options = {}) {
@@ -3177,19 +3443,28 @@ async function pollMetrics() {
 }
 
 function renderMetrics(metrics) {
-  const fields = [
-    ["总任务", metrics.totalTasks ?? 0],
-    ["LLM 计划率", percent(metrics.llmPlanRate)],
-    ["候选通过率", percent(metrics.llmCandidateRate)],
-    ["端到端成功率", percent(metrics.endToEndSuccessRate)],
-    ["综合编排分", (metrics.orchestrationScore ?? 0).toFixed(1)],
-    ["序列任务", metrics.sequenceTasks ?? 0],
-    ["LLM 接管", metrics.llmGeneratedTasks ?? 0],
-    ["回退任务", metrics.llmFallbackTasks ?? 0],
-    ["成功 / 失败", `${metrics.succeededTasks ?? 0} / ${metrics.failedTasks ?? 0}`],
-    ["安全停止", metrics.safetyStoppedTasks ?? 0],
-  ];
   const grid = $("#metrics-grid");
+  if (metrics.available === false) {
+    grid.replaceChildren(makeTextElement("p", "hint", "任务指标读取失败；无法将缺失数据当作零。"));
+    return;
+  }
+  const fields = [
+    ["已创建任务", metrics.totalTasks ?? 0],
+    ["LLM 计划率", percent(metrics.llmPlanRate)],
+    ["旧规划器候选通过率", metrics.legacyCandidateAttempts > 0 ? percent(metrics.llmCandidateRate) : "无样本"],
+    ["已创建任务成功占比（含待执行、取消）", percent(metrics.endToEndSuccessRate)],
+    ["旧口径综合分", (metrics.orchestrationScore ?? 0).toFixed(1)],
+    ["多意图 / 多能力任务", metrics.sequenceTasks ?? 0],
+    ["模型来源计划（含经验复用）", metrics.llmGeneratedTasks ?? 0],
+    ["回退任务", metrics.llmFallbackTasks ?? 0],
+    ["成功 / 失败 / 取消（当前状态）", `${metrics.succeededTasks ?? 0} / ${metrics.failedTasks ?? 0} / ${metrics.cancelledTasks ?? 0}`],
+    ["安全停止", metrics.safetyStoppedTasks ?? 0],
+    ["GOAL 客户端调用尝试", metrics.goalModelCallAttempts ?? "—"],
+    ["GOAL 决策输出拒绝", metrics.goalDecisionRejected ?? "—"],
+    ["GOAL 提案通过 / 提交", `${metrics.goalAcceptedProposals ?? "—"} / ${metrics.goalProposalAttempts ?? "—"}`],
+    ["GOAL 提案通过率", metrics.goalProposalAcceptanceRate == null ? "无样本" : percent(metrics.goalProposalAcceptanceRate)],
+    ["规划经验复用", metrics.goalRecipeHits ?? "—"],
+  ];
   grid.replaceChildren();
   for (const [label, value] of fields) {
     const article = document.createElement("article");
@@ -3200,6 +3475,7 @@ function renderMetrics(metrics) {
     article.append(span, strong);
     grid.append(article);
   }
+  grid.append(makeTextElement("p", "hint", "范围：已成功创建并保存的任务；创建前的规划失败单独归档，不在此分母。旧口径综合分沿用旧规划器权重，不适合跨架构比较或作为论文指标。调用尝试不等于实际 HTTP 请求或计费 token，费用请查看用量账本。"));
 }
 
 function percent(value) {
@@ -5527,7 +5803,7 @@ function renderMissionActivities(activities, professionalActivities, professiona
     card.append(
       makeTextElement("span", "mission-tool-status", `${activity.robotId || "机器人"} · ${activity.statusText || "等待机器人反馈"}`),
       makeTextElement("strong", "", activity.displayName || "机器人能力"),
-      makeTextElement("p", "", activity.purpose || "机器人正在执行当前步骤"),
+      makeTextElement("p", "", activity.purpose || "此步骤的用途尚未提供，请查看执行记录。"),
     );
 	if (activity.controlMethod) {
 	  const control = document.createElement("div");
@@ -5692,7 +5968,14 @@ function renderLocalMissionSteps(steps) {
   localMissionSteps = steps || [];
   if (!localStepRibbon) return;
   const list = localStepRibbon;
-  const renderKey = JSON.stringify([activeTask?.id, localTaskExperienceState.revision, steps, (steps || []).map(step => evidenceRenderKey(localGoalEvidenceRecord(step)))]);
+  const traceApi = globalThis.TangyingTaskTrace;
+  const capabilityTrace = traceApi?.capabilityStepEvidenceText && activeTask
+    ? traceApi.buildTaskTrace({ task: { ...activeTask,
+      events: localEventTaskId === activeTask.id ? [...localEvents.values()] : activeTask.events || [],
+    } }) : null;
+  const explanations = (steps || []).map(step => capabilityTrace
+    ? traceApi.capabilityStepEvidenceText(step.stepId, capabilityTrace.steps, localTaskExperienceState.revision || activeTask?.currentRevision || 1) : "");
+  const renderKey = JSON.stringify([activeTask?.id, localTaskExperienceState.revision, steps, explanations, (steps || []).map(step => evidenceRenderKey(localGoalEvidenceRecord(step)))]);
   if (list.dataset.renderKey === renderKey) return;
   list.dataset.renderKey = renderKey;
   list.replaceChildren();
@@ -5714,6 +5997,8 @@ function renderLocalMissionSteps(steps) {
     if (observation) {
       aside.append(makeTextElement("span", "mission-evidence", observation.expired ? "动作观测记录已保存，图像已清理" : "动作观测可回看"));
       aside.append(localEvidenceButton(observation));
+    } else if (explanations[index]) {
+      aside.append(makeTextElement("span", "mission-evidence", explanations[index]));
     } else if (step.evidenceText) {
       aside.append(makeTextElement("span", "mission-evidence", step.status === "SATISFIED" && step.evidenceText === "等待环境证据" ? "此记录尚未附带观测证据" : step.evidenceText));
     }
@@ -6192,7 +6477,9 @@ function startLocalMode() {
   localModeStarted = true;
   cameraPageWasVisible = scenePageVisible();
   globalThis.TangyingConsoleUI?.update({ mode: "local" });
-  pollTelemetry();
+  // Read existing calibration only after resolving the connected robot identity.
+  // No calibration or other physical operation is started by this refresh.
+  void pollTelemetry().finally(() => refreshOnboarding());
   pollMetrics();
   pollRuntime();
   loadLLMConfig();
@@ -6251,10 +6538,8 @@ async function bootApplication() {
   return "local";
 }
 
-// Once at load, after every module-level binding exists, so the readiness panel
-// is never an empty shell. This deliberately renders from state the console
-// already holds: loading a page must not add API requests, and the map row says
-// so honestly until the operator asks for a fresh check.
+// Render an unknown initial view; local boot then reads the connected Runtime's
+// existing readiness, map and calibration without starting a physical action.
 renderOnboarding(null);
 renderCalibration(null);
 renderMap(null);

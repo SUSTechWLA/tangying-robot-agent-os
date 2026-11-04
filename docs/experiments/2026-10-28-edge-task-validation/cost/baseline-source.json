@@ -1,0 +1,13 @@
+{
+  "commit": "a98c0681d524a6db7036a7a5bbe121df6f8e239d",
+  "captured_at": "2026-10-28T14:32:13.803773+00:00",
+  "files": {
+    "internal/actionloop/llmdecider.go": "abb5e574b4d4db4a0f237a9d3dcfc2c68a7f9b04b155dcce22cc7064acc344fc",
+    "internal/actionloop/usage_log.go": "859bbcf8c41e1c62ae46bb8515705390996a9974150a5c417ecf8a611e180c91",
+    "internal/capabilityagent/planner.go": "7534ab9ecb45a752a8520d07a5950b969502ccd35575f0dee0527538d6052b8a",
+    "internal/capabilityagent/recipe_memory.go": "2398c42e6d98d6e417540e4425f7908c78328aec292a6209c29059558a109bfa",
+    "scripts/model_usage_report.py": "1592a0aaf222afe9f3bebe5230a5d84cff7a9e8c8b47edbd88c72520982f36af",
+    "internal/capabilityagent/cost_campaign_test.go": "ad13e5f9ea3d0200986c56753d42d88cb6444a2acb885b031eea857c1589301e"
+  },
+  "scope": "loopback HTTP fixtures and SQLite; no external model, ROS2, hardware or Gazebo"
+}

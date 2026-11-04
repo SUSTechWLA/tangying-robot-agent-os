@@ -1,0 +1,17 @@
+[
+  {
+    "sequence": 1,
+    "type": "TASK_CREATED",
+    "occurredAt": "2026-10-28T16:47:58.982138Z"
+  },
+  {
+    "sequence": 2,
+    "type": "STATE_CHANGED",
+    "occurredAt": "2026-10-28T16:48:23.216382Z"
+  },
+  {
+    "sequence": 3,
+    "type": "state.transition",
+    "occurredAt": "2026-10-28T16:48:23.216382Z"
+  }
+]

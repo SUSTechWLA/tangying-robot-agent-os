@@ -1,0 +1,14 @@
+test_cli_cannot_overwrite_ledger_through_hardlink (test_model_usage_report.UsageReportTest.test_cli_cannot_overwrite_ledger_through_hardlink) ... ok
+test_cli_writes_a_report_without_changing_input (test_model_usage_report.UsageReportTest.test_cli_writes_a_report_without_changing_input) ... ok
+test_cross_robot_or_model_changes_are_conflicts (test_model_usage_report.UsageReportTest.test_cross_robot_or_model_changes_are_conflicts) ... ok
+test_duplicates_conflicts_unfinished_and_orphan_results (test_model_usage_report.UsageReportTest.test_duplicates_conflicts_unfinished_and_orphan_results) ... ok
+test_inconsistent_cache_and_non_integer_usage_are_invalid (test_model_usage_report.UsageReportTest.test_inconsistent_cache_and_non_integer_usage_are_invalid) ... ok
+test_non_finite_and_over_nested_json_are_invalid_records (test_model_usage_report.UsageReportTest.test_non_finite_and_over_nested_json_are_invalid_records) ... ok
+test_partial_fields_zero_missing_and_cache_denominators (test_model_usage_report.UsageReportTest.test_partial_fields_zero_missing_and_cache_denominators) ... ok
+test_read_error_keeps_observed_start_and_closes_input (test_model_usage_report.UsageReportTest.test_read_error_keeps_observed_start_and_closes_input) ... ok
+test_torn_line_and_foreign_trace_are_reported_not_repaired (test_model_usage_report.UsageReportTest.test_torn_line_and_foreign_trace_are_reported_not_repaired) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.005s
+
+OK

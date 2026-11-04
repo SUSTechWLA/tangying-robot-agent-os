@@ -80,6 +80,10 @@ curl -fsS -X POST "$BASE/v1/tasks/$TASK/revisions/2/confirm" \
 
 ## 3. Local Brain HTTP API
 
+`cmd/local-agent` 默认给 `POST /v1/tasks` 接入自动 intake session（核对 `27cbbbaf9`，2026-11-02）。请求仍为原 `request/adapter`，客户端不管理 session ID；`TASK_CREATED.payload.session` 留存 session、turn、预分配 task、robot、adapter、轮次及上下文摘要绑定。控制台访问 token 与该会话不同。纯“继续／重试”等请求返回 422 `UNSUPPORTED_INTENT` 澄清，已有任务走下表的 resume/reconcile。接收轮次结束不表示任务完成；外部重发 POST 仍无通用幂等保证。使用和中断处理见[会话手册](../operations/automatic-edge-sessions.md)，精确字段见[数据契约](data-contracts.md#自动接收会话与任务绑定)。
+
+自动接收入口限制原始 `request` 非空、有效 UTF-8 且最多 8000 字节，规范化 adapter 最多 128 字节；非法输入在 Begin 前返回澄清，存储或来源校验错误仍是内部故障。根/组合 Intent 中显式机器人必须匹配本机绑定，否则要求切换设备。当前没有 `/v1/sessions` 创建、选择、清空或跨会话搜索 API，也没有用户账户隔离；`POST /v1/objectives` 和云端目标合同保持其独立幂等、批准和检查点语义。
+
 Local Brain 路由由 `console/server.go` 注册：
 
 2026-10-20 增加按机器人访问的工作空间。每个 Agent 仍绑定独立 Runtime 和数据目录；入口通过 `/robots/<workspace-id>/v1/...` 转发既有 API 和任务 WebSocket，`X-Tangying-Robot-ID` 固定预期设备，身份错误或离线不退回本机。目录配置、会话守卫及完整边界见[边缘工作空间指南](../operations/edge-robot-workspaces.md)。该代理不提供用户账户或角色权限。
@@ -107,6 +111,7 @@ Local Brain 路由由 `console/server.go` 注册：
 | `POST /v1/tasks/{id}/revisions/{revision}/confirm` | CAS 确认更新 |
 | `GET /v1/tasks/{id}/revisions` | 版本历史 |
 | `GET /v1/tasks/{id}/experience` | 用户任务体验投影 |
+| `GET /v1/tasks/{id}/trace` | `task.trace.v1` 持久诊断：首版原句、当前目标、全部版本/事件、原子命令/RPC 与传感器索引；只读、`Cache-Control: private, no-store`。404 `TASK_NOT_FOUND`；稳定读取重试 3 次仍变化则 503 `TRACE_SNAPSHOT_BUSY`（`Retry-After: 1`）；其他读失败 500 `TRACE_READ_FAILED` |
 | `GET /v1/tasks/{id}/events/ws` | 单任务事件流 |
 | `GET /v1/telemetry` | 本地遥测。`adapter` 查询指定运行时（不传则 `hasLatest:false`，因为 hub 按 adapter 归档）。**`unfiled`** 在收到过**没有标明 adapter** 的观测时出现：`{count,lastAt,reason}`。它区分"机器人什么都没说"与"机器人在说但我们归档不了"——只有 `hasLatest` 时这两种情况长得一模一样，而后者是接线故障 |
 | `GET /v1/telemetry/latency` | 步骤耗时遥测：`groupBy`（capability/safety/robot/outcome）、`windowMs`（0 表示全部保留样本）；按**排队/准入/执行/核验**四段给出 p50/p95/p99、结果分布与最慢步骤；未启用采集返回 `LATENCY_UNAVAILABLE`，非法分组/窗口返回 400 |
@@ -137,6 +142,12 @@ Local Brain 路由由 `console/server.go` 注册：
 | `GET /` | 本地 Console |
 
 Local Brain 默认只监听 `127.0.0.1:8787`。若反向代理到局域网，必须自行增加 TLS、身份认证和访问控制。
+
+回溯接口的 `originalRequest` 来自不可变 revision 1，`steps` 按版本、机器人、步骤、命令与工具关联，`rpcCalls` 区分每次服务调用。`integrity.status` 是 `consistent / incomplete / inconsistent`，并附问题码和事件序号；它不授予恢复权限，不是物理成功证明。任务和版本经过双读比较，证据元数据按页尽力读取，`source.consistencyScope` 明示范围。最多导出 4000 条证据索引，达到上限且存在后续记录时返回 `evidenceTruncated/evidenceNextBefore`；原始图像另走 observations 接口。
+
+`children` 读取父声明关联的权威子聚合，最多 64 个，包含原始子任务、命令、RPC 及覆盖缺口；子目标不是用户原句。`findings.taskId` 区分父子事件序号。双读检查也涵盖这些子聚合；子传感器证据尚未自动展开。
+
+`source.snapshotSha256` 是服务端读取的完整 task、版本历史、证据元数据及 children 的 JSON 指纹，不是响应文件直接取哈希的值，也不是防篡改签名。长期实验应另存下载文件 SHA-256、软件版本和尚在保留期的原始证据。身份、状态检查、故障窗口及导出示例见[任务回溯架构](../architecture/task-traceability.md)。
 
 ## 4. WebSocket
 

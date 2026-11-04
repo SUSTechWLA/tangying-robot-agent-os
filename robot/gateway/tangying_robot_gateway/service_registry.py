@@ -31,6 +31,7 @@ class RegisteredService:
     mutates_world: bool = False
     contract: dict = field(default_factory=dict)
     authority: Callable | None = None
+    invoker: Callable | None = None
 
 
 class ServiceRegistry:
@@ -90,9 +91,12 @@ class ServiceRegistry:
                         raise ServiceError("RECEIPT_CAPACITY", "操作记录已满，请在空闲时重启机器人服务。")
                     self._receipts[request.request_id] = (fingerprint, None)
             try:
-                payload = service.handler(parameters)
-                if service.authority is not None:
-                    service.authority(request, payload)
+                if service.invoker is not None:
+                    payload = service.invoker(request, parameters, service.handler)
+                else:
+                    payload = service.handler(parameters)
+                    if service.authority is not None:
+                        service.authority(request, payload)
                 response = robot_pb2.ServiceResponse(ok=True, code="OK")
                 response.result.update(payload)
             except Exception as error:  # noqa: BLE001 - RPC faults become retained failure receipts.

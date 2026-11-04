@@ -56,7 +56,23 @@ go run ./console/testdata/workspace-preview
 
 操作配置见[工作空间部署指南](../../docs/operations/edge-robot-workspaces.md)。本章强调设计原因；实际连接设备前应按该指南配置私有会话与路径。
 
-## 9.7 分层习题
+## 9.7 用户直接使用，系统自动组织接收历史
+
+从产品看，用户仍在原表单输入“读取当前整机标定状态”，稍后输入“重新读取标定状态，检查相机是否仍有效”。默认 Local 为两次输入创建同一接收 session 下的不同 turn 和 Task；每个 Task 有自己的原句、批准和结果。用户无需先新建 session，也不能用第二句继承第一句批准。
+
+需要区分此前工作空间中的 `sessionFile`：那个文件保存目标控制台访问 token，供受信代理发请求；新的 intake session 保存输入关联。前者轮换不要求删除后者，后者轮换不取消 Task。当前 `robotId + normalized adapter` 是接收分区，切换工作空间访问的是另一台 Agent 的分区；没有用户/租户维度，所以多人共用同一个 Local 时会共享该机器人的近期输入，暂不适合直接开放多人服务。
+
+[cmd/local-agent/main.go](../../cmd/local-agent/main.go) 在绑定实际 Runtime 身份后装配 manager，并让模型设置重载继续复用同一个 manager。`Begin` 到 `Complete` 串行化的是接收与规划，不是用一个会话锁占住机器人的整个长任务。未配置 GOAL 模型时仍记录会话，但旧离线语法只解析本轮原句，没有因此获得跨轮指代理解。
+
+可以只运行软件集成检查：
+
+```bash
+go test ./cmd/local-agent -run '^TestAutomaticSessionHTTPModelAndJournalRestart$' -count=1
+```
+
+它经过真实 HTTP handler、模型请求序列化和 SQLite 重开，但模型与机器人为 fixture。阅读断言时应找到“同一 session、新 turn/task、原句不变、未自动批准、第二轮模型含历史、副作用调用为零”，再解释为什么这些结论还不能替代 Gazebo 导航。
+
+## 9.8 分层习题
 
 基础题 B：为什么healthz正常但readiness为false可能是正确状态？
 

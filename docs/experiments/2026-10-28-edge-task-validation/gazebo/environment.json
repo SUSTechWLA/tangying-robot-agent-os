@@ -1,0 +1,29 @@
+{
+  "baseline": "a98c0681d524a6db7036a7a5bbe121df6f8e239d",
+  "container": "tangying-gazebo-4d6962a6c3d7-gazebo-house-1",
+  "image": "tangying-navigation:dev",
+  "initialContainerState": "stopped",
+  "originalEntrypointSha256": "c2711c239e25e9738b40d0c85668d9a25a308e22b89438c1d5494ada84a53466",
+  "originalEntrypointMode": "0o755",
+  "temporaryEntrypoint": "sleep infinity",
+  "oldBindMountsUsedByExperiment": false,
+  "oldEvidencePath": "/tmp/tangying-gazebo-field-20261018-001",
+  "newContainerRoot": "/tmp/tangying-gazebo-field-20261028-001",
+  "runEnvironment": {
+    "ROS_DOMAIN_ID": "128",
+    "ROS_LOCALHOST_ONLY": "1",
+    "GZ_PARTITION": "tangying-field-20261028-001",
+    "modelMode": "deterministic; inherited AGENT_*, EDGE_*, TANGYING_* removed before setup"
+  },
+  "entrypointBackup": "private host bootstrap directory; byte restoration will be checked",
+  "scope": {
+    "actualGazebo": true,
+    "actualROS2": true,
+    "realRobot": false,
+    "localization": "Gazebo ground truth",
+    "vendorControllers": false,
+    "goalRecipeOrModelUsageMeasured": false,
+    "entry": "/v1/tasks deterministic legacy route"
+  },
+  "embeddedAndGoTrackedDiffAgainstBaseline": []
+}

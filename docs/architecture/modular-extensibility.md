@@ -1,5 +1,7 @@
 # 模块化与扩展性：云端大脑、边缘 Agent 与异构机器人
 
+2026-11-02 按 `27cbbbaf9` 补齐会话模块边界：Local 的自动接收 session 复用既有事件存储，负责原句、轮次与任务关联；`core/agentsession` 只承载值，`internal/agentsession` 编排持久接收。Worker 的目标合同、执行 Basis 和本地子账本保持独立，不能通过复制 session 获得执行权。下表与职责表纳入这项当前能力；历史空间/仿真实验仍保留原版本。详见[会话数据流](edge-agent-communication-and-context.md#83-用户不管理-session系统怎样接收下一句话)。
+
 2026-10-18 增量见[已知覆盖与多层地面](../development/2026-10-18-spatial-coverage-upgrade.md)：显式任务目标、预测覆盖策略/传感器/路径端口、分层支撑以及新观测完成判据。规划制品与动作授权分开，保留现有 Runtime/控制器边界；独立协调消融不回写旧报告的联合对照。
 
 2026-10-17 新增[异构三维探索与研究扩展层](../development/2026-10-17-heterogeneous-spatial-exploration.md)：共同网格目标、可替换观察策略、本体路径准入、持久覆盖账本和有 fence 的分配；`SpatialMissionRunner` 提供地图/驱动/报告端口，[基准协议](../experiments/2026-10-17-spatial-exploration-protocol.md)提供配对消融和独立指标回放，[10-18 实际报告](../experiments/2026-10-18-spatial-exploration.md)保留软件样本、图表及来源。当前是软件闭环及后续在线接线基础，没有自动获得跨地图 SLAM 融合、通用异构 DAG、并发多机避碰或已验证的实体飞行能力。下文历史评估按原日期阅读。
@@ -31,6 +33,7 @@
 | 多机器人合作 | 显式 robot ID、有序意图、资源监护权和已有双机交接路径 | Task 的单 Adapter、单能力计划绑定单机器人；还没有通用异构 DAG 分配、竞价、自动替补和跨机持物转移协议 |
 | SLAM 与地图 | Dense 平面 RGB-D Provider、RTAB-Map/Nav2、SE3 注册测量采集/体素地图包、地形与三维几何规划、点云语义和版本绑定导航 | LiDAR/视觉惯性位姿估计仍由外部算法与适配器提供；动态避障/跟踪、跨机器人融合、实机飞行/步态和通用异构调度仍需验证 |
 | 长程任务与上下文 | 确定性阶段投影、热约束/冷归档、Host 完整子账本与有界进度、持久读/写额度、只读故障恢复；软件 32–128 次写链和新旧路径 Gazebo 案例分别留证 | 单次成功不能给出可靠性概率；真机长期运行、断网故障矩阵、异构合作和开放词汇识别需新实验 |
+| 自动接收与会话 | Local 按 robot/adapter 保存 session/turn、原始输入、预分配 task 绑定；有界摘要/原文回查、重启查账、dataDir 单写者；含会话参考时 recipe 降为提示 | 未实现用户/租户隔离、跨渠道路由、HTTP 创建重发去重和旧 session 语义召回；离线 grammar 不因记账而理解跨轮指代 |
 
 证据入口：[长程协作实现](long-horizon-collaboration.md)、[异构适配器](../development/robot-adapters.md)、[语义执行协议](semantic-execution-protocol.md)、[五站任务及全部失败](../experiments/2026-10-13-semantic-execution.md)。接口测试、算法测试、仿真、真机分别评价。
 
@@ -62,6 +65,7 @@ flowchart TB
 | 模块 | 唯一负责的事实或决定 | 输入 → 输出 | 不应承担 |
 | --- | --- | --- | --- |
 | 云端大脑 / 边缘 Task | 云端提出全局目标与分工；边缘在批准包络内形成子计划 | 用户目标/授权、本机目录与有限观测 → 经 Host 校验的子计划 | 签发自己的批准、编造观测、直接控制电机 |
+| 本地接收会话 | 记录输入顺序、原文与任务关联，构造近期参考 | 原句/robot/adapter → session/turn、候选 taskId、历史 reference | 修改原句、替任务批准、重放旧动作、管理云端 claim |
 | 任务 / 协调器 | 已批准任务修订、分配、claim、资源监护权 | 验证后的计划和账本 → 执行授权与完成收尾 | 将通知送达当作物理完成 |
 | 边缘执行器 | 当前授权内的步骤进度、局部 grounding、诊断结果 | 执行上下文、当前能力与观测 → Runtime 命令和检查点 | 修改云端批准内容、在未知结果后盲重试 |
 | Runtime / Safety / Journal | 命令接纳、幂等身份、设备停止与实际结果 | 有效语义命令 → 设备动作和终态证据 | 任务级合作规划与云端模型选择 |

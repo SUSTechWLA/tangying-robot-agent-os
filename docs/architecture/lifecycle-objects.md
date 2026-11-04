@@ -1,6 +1,6 @@
 # 生命周期对象：一次家庭任务里到底有几种"东西"在各自走状态
 
-阅读范围（2026-10-16）：本页用早期家庭任务说明生命周期，例子保留其原事实。当前又增加了目标 Host 的父检查点与子计划/账本，和父 claim、预算、目录 pin 共同管理长程执行。最新职责见[分层目标](hierarchical-edge-objectives.md)和[完整架构](../production/architecture.md)；本文末尾缺口表已同步对应变化。
+阅读范围：本页用早期家庭任务说明生命周期，例子保留其原事实。2026-11-02 按 `27cbbbaf9` 同步对象边界：目标 Host 保存父检查点与子账本；Local 还保存自动接收 session/turn。前者管理获批执行，后者管理用户输入与任务关联，生命周期分别推进。最新职责见[分层目标](hierarchical-edge-objectives.md)、[会话数据流](edge-agent-communication-and-context.md#83-用户不管理-session系统怎样接收下一句话)和[完整架构](../production/architecture.md)。
 
 这篇文档回答三个问题：
 
@@ -516,6 +516,7 @@ Revision 可以拒绝、Event 可以重放，代价是零。
 | Tool 下发 | 秒 | — |
 | Agent 健康 | 秒~分 | — |
 | Task | 分~小时 | 太短 → 重启丢业务 |
+| Intake session | 默认空闲 30 分钟或 32 轮后轮换 | 轮换若被当成任务结束，会切断仍在执行的任务；若不轮换，旧意图持续影响新输入 |
 | 地图/标定 | 天 | 太短 → 每次观测都"过期" |
 
 一个统一的 TTL 机制**必然在某个尺度上是错的**。
@@ -531,7 +532,8 @@ Revision 可以拒绝、Event 可以重放，代价是零。
 | **人工审批** | 只是一个字符串 `ApprovalID`（`runner.go` 里 `"approval:" + taskID + ":physical"`） | **没有对象、没有超时、没有队列**。EscalationAgent 要落地必须先补这个 |
 | **跨中心主控交接** | 已有父 claim、设备/资源 lease、leader incarnation 与本机 controllease；它们各有范围 | 仍需同存储原子 fencing 和跨主机交接验收，不能再说“只有资源租约” |
 | **标定 / 地图 / 策略版本** | 已有 Profile/目录 pin、map/transform/calibration 身份、PolicyManifest 与空间部署摘要 | 版本可回溯不等于算法正确；跨机器人地图配准与新型号现场质量仍须独立验收 |
-| **操作员会话** | 控制台有登录 | 不参与任何生命周期 |
+| **控制台访问 token** | 本地写接口访问控制 | 不是用户/租户身份，也不是 intake session 或任务批准 |
+| **本地接收 session / turn** | 已实现持久原句、轮次、任务关联和有界历史；用户无需管理 | 单操作员分区；跨用户/跨渠道隔离与外部请求重发去重尚未实现 |
 
 **`ApprovalID` 是最值得注意的一个**：它现在处于"大部分看着像新对象的东西，最后都是既有对象缺一个字段"这个判断的边界上——它缺的那个字段比较关键（超时和队列），所以它很可能是真要升格为对象的那一个。
 
@@ -561,9 +563,9 @@ Revision 可以拒绝、Event 可以重放，代价是零。
 
 是 → 需要幂等身份 + 不可逆终态。
 
-### 三条都不满足 → **不要新建对象**
+### 三条都不满足 → **不要新增执行权威，优先用事件与投影**
 
-用「事件 + 投影」。这正是我把 Agent 事件塞进既有账本、而不是新建事件存储的原因。
+用「事件 + 投影」。例如自动接收会话确实需要 session/turn 身份来回溯输入、恢复任务关联，但不需要另建一个能覆盖 Task 的执行状态机。当前 manager 在既有 eventstore 中保存接收事件与快照，物理执行仍由 Task/Revision/Command 和 Runtime journal 决定。
 
 ---
 
@@ -581,11 +583,15 @@ Revision 可以拒绝、Event 可以重放，代价是零。
 - **Remedy 作为对象** —— Python 侧 `fault_remedy.py` 已经是一次有界动作（有尝试次数、有证据、有成功判据），但只存在于 Python 运行时。若要把 `ops.recovery_proposed` 接到执行，它得升格为跨语言对象。
 - **经验 / 技能（Beads）** —— 接口我留好了（`agentcontract.Beads`，可修订、带版本、带置信度），但**刻意没有持久化实现**：没有消费者就先建 schema，是在为不存在的需求做设计。
 
-### 建议不要加
+### 已实现的接收会话应该管到哪里
 
-"Agent session"、"conversation"、"memory session" 这类。当前每一个都是既有对象换名字，加了只会让"谁是权威"变模糊。
+早期把所有“session”都视为 Task 的别名不够准确：两个独立输入可以属于一个阅读上下文，却产生两个独立、未批准的 Task。现在 `internal/agentsession` 自动组织这种关联；它没有提供第二份机器人状态。
 
-特别地：**LLM 对话不是权威状态**。为回溯而持久化的规划 trace、实际请求和输入上下文只是决策证据；当前目标 Host 也保存完整子规划历史。保存记录不授予模型动作权限，执行仍读取批准、claim、目录、预算和独立物理证据。
+接收生命周期为：原句已持久接收（pending）→ 规划/任务创建 → `task_created` 或 `intake_failed` 收尾。若进程在中途退出，下一次接收按预分配 task ID 查账：存在且 `TASK_CREATED` binding 相同则补记关联；不存在则 `interrupted`。这个“恢复”不调用机器人，也不意味着 Task 成功。
+
+例如 turn 1 产生 task A，task A 仍在执行时，turn 2 可以规划 task B；A 的传感器证据和批准不随 B 的会话关联转移。会话轮换也不取消 A。相反，用户在创建入口仅说“继续”时，系统要求进入确切任务的恢复或对账入口，不能从会话猜出新的动作许可。
+
+**LLM 对话不是物理执行权威。** 原始输入是“用户当时说过什么”的接收事实，规划 trace 和输入投影是决策证据；当前目标 Host 另保存子规划和执行事实。保存记录不授予模型动作权限，执行仍读取批准、claim、目录、预算和独立物理证据。字段与例子见[会话契约](../../core/agentsession/README.md)。
 
 ---
 
@@ -597,6 +603,7 @@ Revision 可以拒绝、Event 可以重放，代价是零。
 |---|---|---|
 | `agentruntime`（Agent/Bus/Registry） | **完全可丢弃** | `TANGYING_AGENTS=task` 关掉它，任务结果逐字节不变 |
 | `core/agentcontract` | 只有值类型和接口 | **契约不该有生命周期**，有生命周期的是实现 |
+| `core/agentsession` / `internal/agentsession` | Binding 值可重建；原始接收事件和 task 关联须保留 | 运行中快照不是批准；pending 依据原 taskId 查账，不重新执行 |
 | Task / Step / 租约 / 证据 | **不可丢弃** | 一个都没动 |
 
 判断一个对象属于哪层，只要问：**它崩溃后，会不会有人不知道世界的样子？**

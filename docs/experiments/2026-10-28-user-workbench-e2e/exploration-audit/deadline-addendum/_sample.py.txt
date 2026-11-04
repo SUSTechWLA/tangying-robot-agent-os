@@ -1,0 +1,65 @@
+    def _sample(self, *, seen_captures=None, deadline=None):
+        # A busy simulator may hand us one queued frame while its camera is
+        # still publishing. Wait briefly for a fresh *new* capture, but never
+        # integrate the stale one or wait without a bound.
+        freshness_deadline = time.monotonic()+8.0 if deadline is None else deadline
+        while True:
+            self._check_cancel()
+            observation = self.capture()
+            self._check_cancel()
+            age = int(time.time()*1000)-observation.wall_time_unix_ms
+            if 0 <= age <= 2000:
+                break
+            if time.monotonic() >= freshness_deadline:
+                raise ServiceError("STALE_CAPTURE","RGB-D 与底盘位姿已过期，停止扫描。")
+            time.sleep(0.1)
+        # A provider call cannot be preempted here, but returning a fresh image
+        # after the caller's acquisition budget does not authorize integrating
+        # it. The operation lease is a separate, wider authority boundary.
+        if deadline is not None and time.monotonic() >= deadline:
+            return "capture_timeout"
+        if self.calibration_get()["revision"] != self.calibration_revision:
+            raise ServiceError("CALIBRATION_CHANGED","标定发生变化，请重新扫描。")
+        if seen_captures is not None:
+            # Capture IDs may be allocated per read, not per camera exposure.
+            # In particular the Gazebo provider can return the same source stamp
+            # under a new observation ID. Do not count that as another failed
+            # depth measurement while bootstrapping a continuation.
+            perception = dict(dict(observation.robot_state).get("perception", {}))
+            source = str(perception.get("source_id", ""))
+            stamp = str(perception.get("sensor_stamp_ns", ""))
+            key = (source, "sensor", stamp) if stamp and stamp != "0" else (
+                source, "wall", observation.wall_time_unix_ms)
+            if key in seen_captures:
+                return "duplicate_capture"
+            seen_captures.add(key)
+        with self._slam_lock:
+            if self.slam.info != self._slam_info:
+                raise ValueError("SLAM provider identity changed during acquisition")
+            try:
+                added = self.slam.add(observation)
+            except InsufficientDepthError:
+                # A view with too few measured depth points is a local sensor
+                # condition - a blank wall at arm's length, a dark corner - not a
+                # reason to throw away a survey that is most of the way through a
+                # house. Measured: a whole-house leg died at 74% mapped on exactly
+                # this, and the map was never published. The frame is skipped, the
+                # survey keeps driving (the view changes as it moves), and a leg
+                # that keeps hitting it ends gracefully instead.
+                self._depth_starved += 1
+                self._depth_rejected += 1
+                return "insufficient_depth"
+            if not added: return "skipped"
+            progress = self.slam.progress()
+            if (not isinstance(progress, SlamProgress) or progress.frame_count != self.slam.frame_count
+                    or not 1 <= progress.frame_count <= self.slam.max_frames):
+                raise ValueError("SLAM progress does not match the bounded provider session")
+            # A valid registered view breaks the consecutive depth-loss streak.
+            # Duplicate/rejected keyframes do not manufacture sensor recovery.
+            self._depth_starved = 0
+            self._observe_objects(observation, progress.latest_odometry)
+        with self._lock:
+            self._summary = progress.summary()
+            self._preview = {"points": [list(point) for point in progress.preview_points],
+                             "colors": [list(point) for point in progress.preview_colors]}
+        return "accepted"

@@ -1,0 +1,11 @@
+{
+  "baseline": "a98c0681d",
+  "run002": "exact frozen source baseline",
+  "run003": "baseline plus stop readiness/HTTP diagnostics patch",
+  "files": {
+    "sim/gazebo/field_hub.py": "11ef6452e02ff4b3e0325a85ac1c30860a3f73cde5360d94a2d2aec80284f550",
+    "scripts/run_gazebo_stop_checks.py": "34befcbbb18a3a3cdf60a47cc233495019dc25880af9342499eaee5b2f553016",
+    "tests/scripts/test_gazebo_field_hub.py": "38fb6fe180e5034287cb1913e2d827587fe4b81fba63fd3e5debd3925e6c0550",
+    "tests/scripts/test_gazebo_stop_checks.py": "445c433e3e3020859fbb663e4b759cff69fae450932c3c620c3c2c347ae717de"
+  }
+}

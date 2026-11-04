@@ -81,3 +81,11 @@ scripts/sim-stack.sh stop --artifacts-dir artifacts/sim-stack/gazebo-xlerobot-ho
 `artifacts/sim-assets/xlerobot-home/` 包含生成的 SDF、网格、纹理和 commissioning 清单；地图、Runtime journal 与 Agent 数据按运行目录持久化。资源摘要变化后旧地图不得静默激活。删除闲置生成场景不能删除上游 CAD、许可证、保存地图、历史证据或生产数据卷。
 
 Runtime 状态备份必须包含 `runtime/commands.json` 及 `runtime/commands.json.events/`。v2 将完整回执保存在摘要绑定的事件文件中；缺失或篡改会锁存停止，不能删除日志后重新执行未知动作。
+
+工作台显示“已有地图”不等于导航现在可执行。排查时分别核对 RTAB-Map 数据库/进程、map TF、Nav2 三个生命周期节点的 ACTIVE 状态，以及本次目的地的实测自由空间。数据库损坏时先保留原件与日志；另建数据库属于新建图历元，不能将旧地图覆盖率搬到新图上。不要通过重复批准任务处理定位故障。
+
+恢复已有场景必须同时核对 **workflow 保存地图**和**匹配资源/相机版本的 RTAB-Map 原生库**。只复制前者可能让语义地点正常显示，却让 Nav2 因缺少路径而拒绝运动；[2026-11-04 实验](../experiments/2026-11-04-user-simulation/README.md)完整保留了该失败。先备份原库、确认无活动命令，再使用明确的地图恢复流程；不能通过重置机器人位置制造通过。
+
+导航状态中的 `mode` 来自实际 RTAB-Map `Mem/IncrementalMemory` 参数，`configuredMode` 仅表示启动配置，`modeEvidence` 标注来源与年龄。模式未知或过期时拒绝运动；localization 仍需新鲜定位证据。成功读取参数不代表已有全屋可达地图。
+
+自动探索的 `no_reachable_frontier`、`no_frames` 或 `NAV_ENVELOPE` 都不能解释为“全屋扫描完成”。桌边保护圈阻塞时保持停止，不能减小保护距离、删除障碍点或重置位置来制造通过。当前部署没有在同一完整保护圈下验证过的底盘退让接口。真实发现与修复、部分地图和未完成的巡检见[2026-10-28–29 工作台用户验收](../experiments/2026-10-28-user-workbench-e2e/README.md)。

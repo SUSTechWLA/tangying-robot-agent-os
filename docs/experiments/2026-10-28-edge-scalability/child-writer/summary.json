@@ -1,0 +1,192 @@
+{
+  "schema_version": "edge-child-writer-verification.v1",
+  "command": "go test -race -json ./internal/edgeagent -run 'TestSingleRobot.*Campaign' -count=1 -timeout=180s",
+  "machine": "darwin arm64 Apple M5",
+  "evidence_level": "scripted_in_process_contract_fixture",
+  "race": true,
+  "old_failure_log": "docs/experiments/2026-10-28-edge-scalability/verification/long-campaign.jsonl",
+  "old_failure_seconds": 180.505,
+  "diagnosis": "Cumulative 368-station robot episode grows receipt payloads. Timeout stack was runnable inside SQLite child checkpoint UPSERT, not a lock cycle. All scenarios retained.",
+  "passes": [
+    {
+      "test": "TestSingleRobotCampaignSQLiteCloseReopen",
+      "elapsed_seconds": 2.33
+    },
+    {
+      "test": "TestSingleRobotCampaignUnknownAfterLongConfirmedPrefix",
+      "elapsed_seconds": 1.46
+    },
+    {
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_01_032_steps",
+      "elapsed_seconds": 2.23
+    },
+    {
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_02_048_steps",
+      "elapsed_seconds": 6.14
+    },
+    {
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_03_064_steps",
+      "elapsed_seconds": 14.34
+    },
+    {
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_04_096_steps",
+      "elapsed_seconds": 40.94
+    },
+    {
+      "test": "TestSingleRobotLongHorizonCampaign/persistent_task_05_128_steps",
+      "elapsed_seconds": 96.8
+    },
+    {
+      "test": "TestSingleRobotLongHorizonCampaign",
+      "elapsed_seconds": 160.48
+    },
+    {
+      "test": "TestSingleRobotCampaignBudgetBoundaries/plan_budget_after_confirmed_prefix",
+      "elapsed_seconds": 0.86
+    },
+    {
+      "test": "TestSingleRobotCampaignBudgetBoundaries/step_budget_rejects_oversized_next_chunk",
+      "elapsed_seconds": 0.88
+    },
+    {
+      "test": "TestSingleRobotCampaignBudgetBoundaries/read_budget_preserves_final_check",
+      "elapsed_seconds": 0.89
+    },
+    {
+      "test": "TestSingleRobotCampaignBudgetBoundaries",
+      "elapsed_seconds": 2.62
+    },
+    {
+      "test": "package",
+      "elapsed_seconds": 168.415
+    }
+  ],
+  "records": [
+    {
+      "scenario": "sqlite_close_reopen_verified_goal",
+      "taskOrdinal": 1,
+      "targetCount": 32,
+      "durationNs": 2285432000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "physicalStarts": 32,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "SUCCEEDED",
+      "writesBefore": null
+    },
+    {
+      "scenario": "unknown_effect_after_long_confirmed_prefix",
+      "taskOrdinal": null,
+      "targetCount": 64,
+      "durationNs": 1423935000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "physicalStarts": 25,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "RECONCILIATION",
+      "writesBefore": null
+    },
+    {
+      "scenario": "persistent_single_robot_multi_task",
+      "taskOrdinal": 1,
+      "targetCount": 32,
+      "durationNs": 2151544000,
+      "durationScope": "initial_host_run_only",
+      "physicalStarts": 32,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "SUCCEEDED",
+      "writesBefore": 0
+    },
+    {
+      "scenario": "persistent_single_robot_multi_task",
+      "taskOrdinal": 2,
+      "targetCount": 48,
+      "durationNs": 5975993000,
+      "durationScope": "initial_host_run_only",
+      "physicalStarts": 48,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "SUCCEEDED",
+      "writesBefore": 32
+    },
+    {
+      "scenario": "persistent_single_robot_multi_task",
+      "taskOrdinal": 3,
+      "targetCount": 64,
+      "durationNs": 14026262000,
+      "durationScope": "initial_host_run_only",
+      "physicalStarts": 64,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "SUCCEEDED",
+      "writesBefore": 80
+    },
+    {
+      "scenario": "persistent_single_robot_multi_task",
+      "taskOrdinal": 4,
+      "targetCount": 96,
+      "durationNs": 40305896000,
+      "durationScope": "initial_host_run_only",
+      "physicalStarts": 96,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "SUCCEEDED",
+      "writesBefore": 144
+    },
+    {
+      "scenario": "persistent_single_robot_multi_task",
+      "taskOrdinal": 5,
+      "targetCount": 128,
+      "durationNs": 95587120000,
+      "durationScope": "initial_host_run_only",
+      "physicalStarts": 128,
+      "restartWrites": 0,
+      "restartPlans": 0,
+      "outcome": "SUCCEEDED",
+      "writesBefore": 240
+    },
+    {
+      "scenario": "plan_budget_after_confirmed_prefix",
+      "taskOrdinal": null,
+      "targetCount": 32,
+      "durationNs": 827612000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "physicalStarts": 16,
+      "restartWrites": 0,
+      "restartPlans": null,
+      "outcome": "BOUNDED_STOP",
+      "writesBefore": null
+    },
+    {
+      "scenario": "step_budget_rejects_oversized_next_chunk",
+      "taskOrdinal": null,
+      "targetCount": 32,
+      "durationNs": 847713000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "physicalStarts": 16,
+      "restartWrites": 0,
+      "restartPlans": null,
+      "outcome": "BOUNDED_STOP",
+      "writesBefore": null
+    },
+    {
+      "scenario": "read_budget_preserves_final_check",
+      "taskOrdinal": null,
+      "targetCount": 32,
+      "durationNs": 854349000,
+      "durationScope": "initial_run_checkpoint_and_restart",
+      "physicalStarts": 16,
+      "restartWrites": 0,
+      "restartPlans": null,
+      "outcome": "BOUNDED_STOP",
+      "writesBefore": null
+    }
+  ],
+  "raw_sha256": "3930c13fa811bcc3afc75f5d5d47f5427bb059ff0c2d5395890decfcf2e6a28c",
+  "sources": {
+    "internal/edgeagent/host.go": "4223de401f27e9f998dcd6d274a400b55f920c9c9c84f146de935668e8edb0ec",
+    "internal/edgeagent/journal.go": "9e73a46f569ef3331e9733832c78c79a8070a719dfbf3958c8447a9f23db3048",
+    "internal/edgeagent/child_writer_test.go": "c5509dabf636498c0512e39e0bb8573ce98e336b57d37e942b1c1b33ed3910f3"
+  }
+}

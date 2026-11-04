@@ -1,0 +1,42 @@
+[
+  {
+    "taskId": "task-3b03351306d5b7df4835f7be6e69d577",
+    "state": "CANCELLED",
+    "eventCount": 97,
+    "stable": true,
+    "snapshotSha256": "9b121e96c312eafd56181c4f512d1be166a4c44bcb907e8ed0d823a82631a01b",
+    "integrity": "incomplete",
+    "reconciliationAvailable": true,
+    "reconciliationCount": 1
+  },
+  {
+    "taskId": "task-a0fc09863e3a4be4f14ef61945b72877",
+    "state": "CANCELLED",
+    "eventCount": 80,
+    "stable": true,
+    "snapshotSha256": "7587c5be6b51235a7d60d07ae9037a18d052239016de1c7edcd9eb9f424759dd",
+    "integrity": "incomplete",
+    "reconciliationAvailable": true,
+    "reconciliationCount": 1
+  },
+  {
+    "taskId": "task-583c94bad756b62ba0b238c678605c39",
+    "state": "SUCCEEDED",
+    "eventCount": 161,
+    "stable": true,
+    "snapshotSha256": "539cdb422017ae5775876500b21a14fd75770af417bd467ad92017626973ecbb",
+    "integrity": "consistent",
+    "reconciliationAvailable": true,
+    "reconciliationCount": 0
+  },
+  {
+    "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+    "state": "SUCCEEDED",
+    "eventCount": 205,
+    "stable": true,
+    "snapshotSha256": "64294c731013b0e56ac027986dcc6200eb0905a3ed5851ca5c6a2825db705823",
+    "integrity": "consistent",
+    "reconciliationAvailable": true,
+    "reconciliationCount": 0
+  }
+]

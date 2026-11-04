@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"log"
 	"sync"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/taskgraph"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/edge/agent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/incidents"
+	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/discovery"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/internal/recoveryexec"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/middleware"
@@ -293,24 +293,26 @@ func (a *App) enqueueLocked(taskID string) error {
 func (a *App) Cancel(taskID string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	cancel := a.active[taskID]
-	if cancel != nil {
-		cancel()
-		task, err := a.service.Get(context.Background(), taskID)
-		if err != nil {
-			return err
-		}
-		if task.Plan != nil && task.Plan.Capabilities != nil {
-			_, err = a.service.AppendEvent(context.Background(), taskID, tasks.TaskEvent{Type: "LOCAL_CANCEL_REQUESTED", Message: "等待后台操作确认停止"})
-			return err
-		}
-	}
 	task, err := a.service.Get(context.Background(), taskID)
 	if err != nil {
 		return err
 	}
 	if terminal(task.State) {
 		return nil
+	}
+	cancel := a.active[taskID]
+	if cancel != nil {
+		if task.State == taskgraph.StatePaused || task.State == taskgraph.StateRecoverableFailure ||
+			task.State == taskgraph.StateWaitingUser || task.State == taskgraph.StateSafetyStopped {
+			// The runner already returned; no worker remains to consume a new
+			// cancellation request. Finish its audit before accepting a change.
+			return errors.New("previous execution is still stopping")
+		}
+		cancel()
+		if task.Plan != nil && task.Plan.Capabilities != nil {
+			_, err = a.service.AppendEvent(context.Background(), taskID, tasks.TaskEvent{Type: "LOCAL_CANCEL_REQUESTED", Message: "等待后台操作确认停止"})
+			return err
+		}
 	}
 	runs, err := a.runner.ExecutionHistory(context.Background(), taskID)
 	if err != nil {
@@ -559,17 +561,24 @@ func (a *App) recordIncident(ctx context.Context, taskID string, state taskgraph
 
 func (a *App) run(parent context.Context, taskID string) {
 	a.mu.Lock()
+	runStarted := false
 	delete(a.queued, taskID)
 	attempt := a.resumes[taskID]
 	delete(a.resumes, taskID)
 	runContext, cancel := context.WithCancel(parent)
 	a.active[taskID] = cancel
 	defer func() {
-		cancel()
 		a.mu.Lock()
+		defer a.mu.Unlock()
+		// A terminal state can be observed before incident and execution audit
+		// writes finish. Mark the end of this attempt while ownership is still
+		// live; consumers must not mistake this for successful task completion.
+		if runStarted {
+			a.recordRunFinished(taskID)
+		}
+		cancel()
 		delete(a.active, taskID)
 		delete(a.pauses, taskID)
-		a.mu.Unlock()
 	}()
 
 	task, err := a.service.Get(runContext, taskID)
@@ -605,6 +614,7 @@ func (a *App) run(parent context.Context, taskID string) {
 		a.mu.Unlock()
 		return
 	}
+	runStarted = true
 	a.mu.Unlock()
 	for {
 		result, err := a.runner.RunControlled(runContext, task, agent.RunControl{ObservationAttempt: attempt, BeforeStep: func(ctx context.Context) error {
@@ -672,7 +682,6 @@ func (a *App) run(parent context.Context, taskID string) {
 				break
 			}
 		}
-		delete(a.active, taskID)
 		a.mu.Unlock()
 		if finalErr != nil {
 			return
@@ -683,6 +692,24 @@ func (a *App) run(parent context.Context, taskID string) {
 			},
 		})
 		return
+	}
+}
+
+func (a *App) recordRunFinished(taskID string) {
+	// Shutdown cancels the execution context; its audit still needs a bounded
+	// opportunity to persist. Failure to write remains visible as missing proof.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	task, err := a.service.Get(ctx, taskID)
+	if err == nil {
+		_, err = a.service.AppendEvent(ctx, taskID, tasks.TaskEvent{
+			Type: "LOCAL_RUN_FINISHED", Payload: map[string]any{
+				"state": string(task.State), "taskRevision": task.CurrentRevision,
+			},
+		})
+	}
+	if err != nil {
+		log.Printf("task %s: local execution finish audit not written: %v", taskID, err)
 	}
 }
 

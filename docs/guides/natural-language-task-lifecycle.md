@@ -2,6 +2,8 @@
 
 范围：下面逐阶段案例保留原任务和代码证据，使用 `/v1/tasks` 冻结计划通道。最新架构还提供[目标委托](delegated-edge-goals.md)：批准粗目标后，由 Local/Worker 共享 Host 在边缘持续编排。新旧路径的 2026-10-15 任务与全部失败见[完整实验记录](../experiments/2026-10-15-single-robot-robustness.md)。
 
+当前入口已核对到 `27cbbbaf9`（2026-11-02）：新版 Local 在规划前自动记录 session/turn 和候选 task ID，用户无需管理会话。下图展示当前 Local 数据流；下文 2026-09-28 的样本保留其当时原始轨迹，不能补写后来新增的 session 字段。日常使用与恢复见[自动会话手册](../operations/automatic-edge-sessions.md)。
+
 本文是阅读当前系统的入口。示例来自 2026-09-28 的 **Local Agent + Gazebo `home_furnished` + XLeRobot** 实验，任务 `task-62e0c7e11385ae4d11c76461` 最终 `SUCCEEDED`。模型为当次配置的 `deepseek-flash`；这里解释已保存的轨迹，不承诺再次运行会生成逐字相同的计划。原始任务文件留在实验机，入库的[报告](../experiments/2026-09-28-complex-model-led-goals.md)和[带 SHA-256 的清单](../experiments/2026-09-28-complex-model-led-goals.json)记录其位置和结论。
 
 > 请重新按已注册的家庭巡检路线完成 SLAM 建图，保存并启用新地图，核对新地图上的卧室语义地点可导航，然后前往卧室确认到位并报告新地图版本和定位状态。
@@ -9,7 +11,9 @@
 ```mermaid
 flowchart LR
     U[用户自然语言] --> T[Task API]
-    T --> P[GOAL Agent]
+    T --> Intake[自动接收会话：原句事件与候选 task ID]
+    Intake --> P[GOAL Agent]
+    H[有界历史 reference] --> P
     C[Runtime 能力目录] --> P
     S[结构化语义状态] --> P
     P --> F[校验并冻结计划]
@@ -35,6 +39,8 @@ flowchart LR
 ## 阶段 1：接收原句，取得能力目录
 
 工作台「安排任务」与 `POST /v1/tasks` 调用同一 Task 服务。请求体是 `{"request":"上面的完整原句","adapter":"gazebo"}`；`request` 保留原句，Task 服务优先交给已配置的 GOAL Planner。创建草案**不会启动运动**。直接调用接口需遵守 [Local API 的会话规则](../production/api-reference.md#3-local-brain-http-api)。[HTTP 入口](../../console/server.go)、[Task 创建](../../tasks/service.go)和[GOAL Planner](../../internal/capabilityagent/planner.go)是这段代码的入口。
+
+当前 Local 的 [自动接收层](../../tasks/creation_session.go)先按已绑定 robot/adapter 串行接收，持久化原始输入与候选任务 ID，再开始规划。近期历史和原文通过独立 reference 提供给 GOAL，始终与当前原句分开；创建的 `TASK_CREATED.payload.session` 保存本轮绑定。会话参考不继承批准、不提供当前传感器事实，也不改变任务收尾判据。未配置 GOAL 时，离线语法仍只解析当前原句。
 
 Planner 从 Runtime 获取该机器人的 Service Catalog。能力声明输入 Schema、`READ`/物理运动/制品写入等效果、资源、长操作状态/取消接口及独立完成核验契约。不受支持、不可用或缺少写操作核验契约的服务不能获得执行资格。目录带机器人身份，计划保存其指纹；执行前还会重新比对。[能力契约](../../core/capability/capability.go)
 
@@ -87,6 +93,8 @@ Executor 为每项调用分配 `rev-1-cap-01` 至 `rev-1-cap-05`，执行前重�
 本例早于融合来源字段的最后一次传播修复，保存的最终 `navigation.status` 有 `poseSource=registered_localization`，没有 `poseFusionSource`。随后独立的 `case08` 在真实 Gazebo 重启后读到 `poseFusionSource=imu_roll_pitch_odom_yaw`；不要把后一次字段误写成本例的原始事件。[两例及限制](../experiments/2026-09-28-complex-model-led-goals.md)
 
 ## 阶段 5：失败时如何停下并回溯
+
+当前接收阶段还有一个恢复窗口：若 task 已保存而 session 未收尾，下一次接收按预分配 ID 核对原 task 与绑定；若尚无 task，记录 interrupted，均不重放动作。`SESSION_TURN_ENDED` 只是接收结束。外部 POST 仍没有通用创建幂等；响应丢失时先查询任务，不能因为会话可恢复就重复提交。纯“继续／重试”在新任务入口需要澄清，已有任务应进入确切的 resume/reconcile 流程。
 
 - **创建前**：工具不存在、Schema 错误、目标丢失或模型连续无法提交合法计划时，不生成可批准的运动任务。
 - **执行中**：过期 RGB-D、IMU/关节反馈未就绪、地点不可导航或到位核验失败会保留具体步骤与错误；不能把 `ok=true` 或“地图已保存”当成整项任务完成。

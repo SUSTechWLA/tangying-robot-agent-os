@@ -1,0 +1,15 @@
+........................................................................ [ 63%]
+.........................................                                [100%]
+- generated xml file: /Users/wanglian/Projects/tangying-robot-agent-os/docs/experiments/2026-10-28-edge-task-validation/verification/python-final/results.xml -
+============================= slowest 20 durations =============================
+0.05s call     tests/scripts/test_export_gazebo_field_evidence.py::test_complete_archive_preserves_failed_logs_sqlite_sensors_and_extra_evidence
+0.04s call     tests/scripts/test_export_gazebo_field_evidence.py::test_standalone_verifier_checks_every_member_even_if_archive_digest_is_updated[unexpected]
+0.04s call     tests/scripts/test_export_gazebo_field_evidence.py::test_standalone_verifier_checks_every_member_even_if_archive_digest_is_updated[missing]
+0.04s call     tests/scripts/test_export_gazebo_field_evidence.py::test_standalone_verifier_checks_every_member_even_if_archive_digest_is_updated[content]
+0.03s call     tests/scripts/test_export_gazebo_field_evidence.py::test_export_refuses_credentials_or_symlinks_without_output_or_secret_diagnostics[chunk_boundary]
+0.03s call     tests/scripts/test_export_gazebo_field_evidence.py::test_export_refuses_credentials_or_symlinks_without_output_or_secret_diagnostics[dotenv_leak]
+0.03s call     tests/scripts/test_export_gazebo_field_evidence.py::test_export_refuses_credentials_or_symlinks_without_output_or_secret_diagnostics[filename]
+0.03s call     tests/scripts/test_export_gazebo_field_evidence.py::test_export_refuses_credentials_or_symlinks_without_output_or_secret_diagnostics[symlink]
+
+(12 durations < 0.005s hidden.  Use -vv to show these durations.)
+113 passed in 0.58s

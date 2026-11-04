@@ -4,6 +4,8 @@
 
 本文扩展的是 Local Agent 事件式 `agentruntime`，不等于向 Worker 注册远程 Agent。新粗目标路径中 Local/Worker 共享 `internal/edgeagent.Host`；目标 Task/Ops/Recovery 是宿主内的逻辑角色，替换建议实现应使用 `RecoveryPolicy` 端口，并保留宿主对权限、预算和未知效果的最终检查。先按[分层架构](../architecture/hierarchical-edge-objectives.md)选择扩展层；注册新观察角色不会自行获得动作权限。
 
+自动接收会话由 `tasks.Service.Create` 上的 manager 管理，不是给每个观察 Agent 各开一个聊天窗口。新增角色需要历史时，应按 task/robot/revision 权限读取已声明的事实或引用，不直接共享原始 session 数据目录；会话 Binding 不提供执行许可或用户隔离。扩展跨渠道接收时还需独立设计认证主体、可见性和 request 幂等协议，详见[会话契约](../../core/agentsession/README.md)。
+
 ## 三步
 
 1. 实现 `agentcontract.Agent`（通常在 `agentruntime/` 或你的 Agent 自己的包里）。

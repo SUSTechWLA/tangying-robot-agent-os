@@ -65,6 +65,36 @@
     const [label, tone] = Object.hasOwn(labels, state) ? labels[state] : ["状态待确认", "pending"];
     return { label, tone };
   }
+  function environmentDescription(state) {
+    // Knowing an adapter does not mean a catalogue request is in flight. The
+    // catalogue is loaded on demand by setup pages; report only observed state.
+    if (state.runtimeConnected === false) return "机器人实时连接不可用；仍可查看已保存的任务记录。";
+    if (state.serviceConnected === false) return "服务目录读取失败；可在标定或建图页面重试。";
+    if (state.serviceConnected === true) return "服务目录已读取；任务执行前会检查准备状态。";
+    if (state.runtimeConnected === true || state.connection === "LIVE") return "已收到机器人状态；任务执行前会检查准备状态。";
+    if (state.adapter) return "已识别机器人；等待实时连接确认。";
+    return "连接后显示机器人与服务状态。";
+  }
+  function taskGuidance(task) {
+    const states = {
+      READY: [task?.approved ? "任务已获批准，当前等待开始。请核对准备检查与启动结果。" : "任务已生成。请查看机器人理解和执行步骤，再批准物理动作。", "good"],
+      WAITING_APPROVAL: ["任务等待确认。请核对机器人理解和执行步骤，再批准物理动作。", "warning"],
+      AWAITING_APPROVAL: ["任务等待确认。请核对机器人理解和执行步骤，再批准物理动作。", "warning"],
+      RUNNING: ["任务正在执行，可查看步骤进展与现场观测。", "good"],
+      EXECUTING: ["任务正在执行，可查看步骤进展与现场观测。", "good"],
+      RECOVERABLE_FAILURE: ["任务需要恢复处理。请先核对动作结果与恢复说明；结果未确认前不要重新批准或重复执行。", "warning"],
+      FAILED: ["任务未完成。请查看失败步骤、原因与执行证据，再决定后续处理。", "danger"],
+      SUCCEEDED: ["任务已完成。可在任务记录中核对各步骤结果与执行证据。", "good"],
+      CANCELLED: ["任务已取消。请核对停止结果与已执行步骤。", "neutral"],
+      PAUSED: ["任务已暂停。请查看当前动作结果和恢复条件。", "warning"],
+      SAFETY_STOPPED: ["任务已触发安全停止。请核对现场和停止原因，再按恢复说明处理。", "danger"],
+      FAILED_SAFE: ["任务已安全停止。请查看失败原因与恢复说明。", "danger"],
+      PLANNING: ["正在理解任务并生成计划，请等待服务返回结果。", "pending"],
+    };
+    const [message, tone] = Object.hasOwn(states, task?.state)
+      ? states[task.state] : ["请根据当前任务状态，查看执行步骤与处理说明。", "pending"];
+    return { message, tone };
+  }
   function supportSummary(state) {
     return {
       schemaVersion: 1, consoleMode: state.mode || "detecting", connection: state.connection || "CONNECTING",
@@ -98,7 +128,7 @@
       : "三维场景暂不可用，正在使用简洁视图。其他展示方式仍可切换。";
     return "正在加载三维场景，先显示物体位置。也可以切换到机器人画面。";
   }
-  const api = { resolveRoute, connectionPresentation, topConnectionPresentation, taskPresentation, supportSummary, taskExamples, sceneGuidance };
+  const api = { resolveRoute, connectionPresentation, topConnectionPresentation, taskPresentation, environmentDescription, taskGuidance, supportSummary, taskExamples, sceneGuidance };
   globalThis.TangyingConsoleUI = api;
   if (typeof document === "undefined") return;
 
@@ -111,6 +141,7 @@
   let developer = false;
   let examplesKey = "";
   let displayedTaskId = null;
+  let feedbackTaskId = null;
   function text(selector, value) {
     const node = $(selector);
     if (node && node.textContent !== String(value)) node.textContent = String(value);
@@ -142,6 +173,17 @@
   }
   api.navigate = (route) => { navigate(`#${route}`, true); };
   function render() {
+    if (feedbackTaskId) {
+      // Creation acknowledgement is guidance for one selected task, not a
+      // permanent instruction to approve after its state has already changed.
+      if (feedbackTaskId === state.task?.id) {
+        const guidance = taskGuidance(state.task);
+        showFeedback(guidance.message, guidance.tone);
+      } else {
+        feedbackTaskId = null;
+        showFeedback("", "neutral");
+      }
+    }
     const connection = topConnectionPresentation(document.body.dataset.page, state);
     text("#workspace-connection", connection.label);
     $("#workspace-connection").dataset.tone = connection.tone;
@@ -153,7 +195,7 @@
     text("#workspace-task-status", task.label);
     $("#workspace-task-status").dataset.tone = task.tone;
     const adapter = String(state.adapter || "");
-    text("#environment-description", adapter ? "已连接；正在读取可用服务与状态" : "连接后读取可用服务与状态");
+    text("#environment-description", environmentDescription(state));
     const warning = state.emergencyStopped ? "机器人已停止。请先检查现场，再由负责人完成安全复位。" : state.anomalyCount ? "机器人报告了异常，请查看机器人状态并联系维护人员。" : "";
     text("#workspace-safety-alert", warning);
     $("#workspace-safety-alert").hidden = !warning;
@@ -198,10 +240,19 @@
     }
   }
   api.update = (patch) => { Object.assign(state, patch); render(); };
-  api.feedback = (message, error = false) => {
+  function showFeedback(message, tone) {
     text("#console-feedback", message);
     $("#console-feedback").hidden = !message;
-    $("#console-feedback").dataset.tone = error ? "danger" : "good";
+    $("#console-feedback").dataset.tone = tone;
+  }
+  api.feedback = (message, error = false) => {
+    feedbackTaskId = null;
+    showFeedback(message, error ? "danger" : "good");
+  };
+  api.taskFeedback = (taskId) => {
+    if (!taskId || taskId !== state.task?.id) return;
+    feedbackTaskId = taskId;
+    render();
   };
   for (const link of all("[data-nav]")) link.addEventListener("click", (event) => {
     event.preventDefault(); navigate(link.hash, true);

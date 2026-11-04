@@ -143,7 +143,7 @@ class SemanticCloudServices:
             if (self.workflow.world_frame_revision != binding["worldFrameRevision"]
                     or [float(value) for value in self.workflow.map_from_world] != binding["mapFromWorld"]):
                 _reject("WORLD_FRAME_REVISION_CONFLICT", "定位坐标系或地图锚定变换已变化，请重新规划。")
-            if float(self.workflow.footprint_radius) != binding["footprintRadiusM"]:
+            if float(self.workflow._planning_clearance()) != binding["footprintRadiusM"]:
                 _reject("ROBOT_FOOTPRINT_CHANGED", "机器人足迹已变化，请重新规划。")
         if self.store.head_revision(binding["identity"]) != binding["semanticRevision"]:
             _reject("SEMANTIC_REVISION_CONFLICT", "语义层已变化，请重新规划。")
@@ -311,7 +311,7 @@ class SemanticCloudServices:
             grid = self.workflow.grid
             anchor = self.workflow.map_from_world.copy()
             world_frame_revision = self.workflow.world_frame_revision
-            footprint_radius = self.workflow.footprint_radius
+            footprint_radius = self.workflow._planning_clearance()
         planner = GridPathPlanner(grid, radius=footprint_radius)
         result = observation_candidates(grid, status["mapPose"], annotation,
             radius=footprint_radius,
@@ -322,7 +322,7 @@ class SemanticCloudServices:
         if (self.workflow.world_frame_revision != world_frame_revision
                 or not np.array_equal(self.workflow.map_from_world, anchor)):
             _reject("WORLD_FRAME_REVISION_CONFLICT", "规划期间定位坐标系或地图锚定变换已变化。")
-        if self.workflow.footprint_radius != footprint_radius:
+        if self.workflow._planning_clearance() != footprint_radius:
             _reject("ROBOT_FOOTPRINT_CHANGED", "规划期间机器人足迹已变化。")
         # Geometry computation may outlive the first capture. Obtain actual new
         # localization, never relabel the old stamp. Certify a short connector
@@ -340,7 +340,7 @@ class SemanticCloudServices:
         if (self.store.head_revision(identity) != document["semanticRevision"]
                 or self.workflow.world_frame_revision != world_frame_revision
                 or not np.array_equal(self.workflow.map_from_world, anchor)
-                or self.workflow.footprint_radius != footprint_radius):
+                or self.workflow._planning_clearance() != footprint_radius):
             _reject("SEMANTIC_PLAN_CHANGED", "规划完成后的地图锚定或语义身份已变化。")
         inverse = relative(anchor, np.zeros(3))
         for candidate in result:

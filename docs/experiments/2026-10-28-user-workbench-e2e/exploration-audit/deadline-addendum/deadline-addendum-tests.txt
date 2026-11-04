@@ -1,0 +1,7 @@
+..................                                                       [100%]
+-- generated xml file: /tmp/scan002-bootstrap-fix/deadline-addendum-tests.xml --
+============================= slowest 20 durations =============================
+0.03s call     robot/gateway/tests/test_survey_continuation_bootstrap.py::test_continuation_waits_for_real_frame_after_one_insufficient_depth
+
+(19 durations < 0.005s hidden.  Use -vv to show these durations.)
+18 passed in 0.56s

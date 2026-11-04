@@ -56,6 +56,7 @@ type TaskEvent struct {
 
 type Service struct {
 	goalPlanner GoalPlanner
+	sessions    CreationSessions
 	// Serialize read/modify/write mutations so tool receipts, operator actions,
 	// and revision commits cannot overwrite each other's event sequence/state.
 	mu        sync.Mutex
@@ -109,6 +110,9 @@ func (s *Service) notifyEvent(ctx context.Context, taskID string, event TaskEven
 	if current == nil {
 		return
 	}
+	// Observer annotations are advisory, never mutations of the committed fact
+	// or of the Task returned to the caller of AppendEvent.
+	event.Payload = cloneAnyMap(event.Payload)
 	current(ctx, taskID, event)
 }
 
@@ -189,7 +193,7 @@ func NormalizeAdapter(adapter string) string {
 	}
 }
 
-func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, error) {
+func (s *Service) create(ctx context.Context, request, adapter string) (*Task, error) {
 	s.plannerMu.RLock()
 	goalPlanner := s.goalPlanner
 	s.plannerMu.RUnlock()
@@ -206,6 +210,9 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	if err != nil {
 		return nil, err
 	}
+	if err := validateCreationIntent(ctx, parsed); err != nil {
+		return nil, err
+	}
 	adapter = NormalizeAdapter(adapter)
 	// The world the plan has to be consistent with. Without it a plan can instruct
 	// the robot to look for an object in a room it is not in, which always fails
@@ -219,7 +226,7 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 	}
 	now := s.now().UTC()
 	task := &Task{
-		ID:               newID("task"),
+		ID:               creationTaskID(ctx),
 		Request:          request,
 		Adapter:          adapter,
 		Intent:           parsed,
@@ -231,7 +238,7 @@ func (s *Service) Create(ctx context.Context, request, adapter string) (*Task, e
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
-	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now})
+	task.Events = append(task.Events, TaskEvent{Sequence: 1, Type: "TASK_CREATED", OccurredAt: now, Payload: creationPayload(ctx, nil)})
 	revision := &TaskRevision{
 		TaskID: task.ID, Revision: 1, Request: request, Understanding: understandingForIntent(parsed),
 		Intent: parsed, Plan: &planBundle, Steps: buildRevisionSteps(parsed, 1, nil),
@@ -659,6 +666,10 @@ func (s *Service) OrchestrationMetrics(ctx context.Context) orchestration.Metric
 			record.Attempts = task.Plan.Attempts
 			record.AcceptedCandidates = task.Plan.AcceptedCandidates
 			record.Rejections = task.Plan.Rejections
+			if task.Plan.Capabilities != nil {
+				record.Sequence = record.Sequence || len(task.Plan.Capabilities.Calls) > 1
+				record.PlanningTrace = task.Plan.Capabilities.PlanningTrace
+			}
 		}
 		records = append(records, record)
 	}
@@ -680,11 +691,22 @@ func (s *Service) Approve(ctx context.Context, taskID, actor string) (*Task, err
 	if err != nil {
 		return nil, err
 	}
+	if task.State != taskgraph.StateReady && task.State != taskgraph.StateWaitingApproval {
+		return nil, fmt.Errorf("task %s cannot be approved from %s", task.ID, task.State)
+	}
+	// Queue admission can fail after consent was saved. Retrying that admission
+	// must preserve the original approval identity and must not create new consent.
+	if task.Approved {
+		return task, nil
+	}
 	task.Approved = true
 	task.ApprovedBy = strings.TrimSpace(actor)
 	task.ApprovedAt = s.now().UTC()
 	task.UpdatedAt = task.ApprovedAt
-	s.appendEvent(task, "TASK_APPROVED", "", "批准来源："+task.ApprovedBy)
+	s.appendEvent(task, "TASK_APPROVED", "", "批准来源："+task.ApprovedBy, map[string]any{
+		"actor": task.ApprovedBy, "approvedAt": task.ApprovedAt,
+		"revision": task.CurrentRevision, "aggregateVersion": task.AggregateVersion,
+	})
 	return task, s.store.Update(ctx, task)
 }
 
@@ -706,14 +728,16 @@ func (s *Service) Transition(ctx context.Context, taskID string, target taskgrap
 	previous := task.State
 	task.State = target
 	task.UpdatedAt = s.now().UTC()
-	event := s.appendEvent(task, "STATE_CHANGED", "", reason)
+	// Persist both sides together with the state mutation. Adding these fields
+	// only to the observer's copy makes live diagnostics disagree with replay
+	// after a restart, when the previous state can no longer be recovered.
+	event := s.appendEvent(task, "STATE_CHANGED", "", reason, map[string]any{
+		"previousState": string(previous), "state": string(target),
+		"revision": task.CurrentRevision, "aggregateVersion": task.AggregateVersion,
+	})
 	err = s.store.Update(ctx, task)
 	s.mu.Unlock()
 	if err == nil {
-		// The previous state is carried on the event so an observer can report
-		// both sides of the change. It is not reconstructable afterwards: by the
-		// time anyone reads the task, the old state is gone.
-		event.Payload = map[string]any{"previousState": string(previous), "state": string(target)}
 		s.notifyEvent(ctx, taskID, event)
 	}
 	return err
@@ -726,19 +750,7 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 		s.mu.Unlock()
 		return nil, err
 	}
-	event.Sequence = uint64(len(task.Events) + 1)
-	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
-		// A tool fact may also arrive through the direct runner publisher. Keep
-		// that identity, or allocate the durable identity before either path can
-		// observe it, so restart replay also counts each dispatch only once.
-		event.Payload = cloneAnyMap(event.Payload)
-		if event.Payload == nil {
-			event.Payload = map[string]any{}
-		}
-		if id, _ := event.Payload["eventId"].(string); id == "" {
-			event.Payload["eventId"] = fmt.Sprintf("%s#%d", taskID, event.Sequence)
-		}
-	}
+	event = AssignEventSequence(taskID, event, uint64(len(task.Events)+1))
 	if event.OccurredAt.IsZero() {
 		event.OccurredAt = s.now().UTC()
 	}
@@ -758,13 +770,60 @@ func (s *Service) AppendEvent(ctx context.Context, taskID string, event TaskEven
 	return task, nil
 }
 
+// RecordEvent appends a durable fact when the caller does not need the complete
+// task history. Repositories without an append-only port retain AppendEvent's
+// behavior. Observers always run after commit and outside the service lock.
+func (s *Service) RecordEvent(ctx context.Context, taskID string, event TaskEvent) (TaskEvent, error) {
+	store, ok := s.store.(EventAppender)
+	if !ok {
+		task, err := s.AppendEvent(ctx, taskID, event)
+		if err != nil {
+			return TaskEvent{}, err
+		}
+		return task.Events[len(task.Events)-1], nil
+	}
+	s.mu.Lock()
+	if event.OccurredAt.IsZero() {
+		event.OccurredAt = s.now().UTC()
+	}
+	event, err := store.AppendTaskEvent(ctx, taskID, event)
+	s.mu.Unlock()
+	if err != nil {
+		return TaskEvent{}, err
+	}
+	if event.Type == "STATE_CHANGED" || event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
+		s.notifyEvent(ctx, taskID, event)
+	}
+	return event, nil
+}
+
+// AssignEventSequence applies the task journal's sequence and stable tool fact
+// identity. Atomic append adapters call it only after reserving that sequence.
+// Existing externally assigned event IDs are preserved.
+func AssignEventSequence(taskID string, event TaskEvent, sequence uint64) TaskEvent {
+	event.Sequence = sequence
+	if event.Type == "TOOL_ACTIVITY" || event.Type == "POLICY_PREPARATION_FAILED" {
+		// A tool fact may also arrive through the direct runner publisher. Keep
+		// that identity, or allocate the durable identity before either path can
+		// observe it, so restart replay also counts each dispatch only once.
+		event.Payload = cloneAnyMap(event.Payload)
+		if event.Payload == nil {
+			event.Payload = map[string]any{}
+		}
+		if id, _ := event.Payload["eventId"].(string); id == "" {
+			event.Payload["eventId"] = fmt.Sprintf("%s#%d", taskID, event.Sequence)
+		}
+	}
+	return event
+}
+
 // appendEvent records one event on the task and returns it, so a caller that
 // needs the assigned sequence number or the resolved timestamp does not have to
 // guess them. Callers must hold the service lock.
-func (s *Service) appendEvent(task *Task, eventType, stepID, message string) TaskEvent {
+func (s *Service) appendEvent(task *Task, eventType, stepID, message string, payload map[string]any) TaskEvent {
 	event := TaskEvent{
 		Sequence: uint64(len(task.Events) + 1), Type: eventType, StepID: stepID,
-		Message: message, OccurredAt: s.now().UTC(),
+		Message: message, Payload: payload, OccurredAt: s.now().UTC(),
 	}
 	task.Events = append(task.Events, event)
 	return event

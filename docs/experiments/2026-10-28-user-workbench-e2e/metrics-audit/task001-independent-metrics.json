@@ -1,0 +1,89 @@
+{
+  "taskId": "task-e133310fd2f0b570d65e4dce",
+  "scope": "read-only independent audit of task001 retained evidence and live GET + consistent online SQLite backup",
+  "requestBindings": [
+    {
+      "round": 1,
+      "callId": "34fb620b-2325-4d54-8df6-048d9c2e2efc",
+      "requestBytesRecorded": 36798,
+      "retainedWireRequestBytes": 36798,
+      "bytesMatch": true,
+      "sha256Match": true,
+      "contextInputBytes": 12169,
+      "outputTokenCap": 4096
+    },
+    {
+      "round": 2,
+      "callId": "20016d11-2a2b-4678-a511-d21c6805a243",
+      "requestBytesRecorded": 37550,
+      "retainedWireRequestBytes": 37550,
+      "bytesMatch": true,
+      "sha256Match": true,
+      "contextInputBytes": 12817,
+      "outputTokenCap": 4096
+    },
+    {
+      "round": 3,
+      "callId": "559203a0-a2f0-4dbf-b2af-009789b18677",
+      "requestBytesRecorded": 46001,
+      "retainedWireRequestBytes": 46001,
+      "bytesMatch": true,
+      "sha256Match": true,
+      "contextInputBytes": 20032,
+      "outputTokenCap": 4096
+    },
+    {
+      "round": 4,
+      "callId": "adfc62bb-7e3d-4670-a300-55013a22d6b8",
+      "requestBytesRecorded": 47339,
+      "retainedWireRequestBytes": 47339,
+      "bytesMatch": true,
+      "sha256Match": true,
+      "contextInputBytes": 21194,
+      "outputTokenCap": 4096
+    }
+  ],
+  "latencyChecks": [
+    {
+      "capability": "navigation.pre_position",
+      "sampleCount": 1,
+      "outcomes": {
+        "FAILED": 1
+      },
+      "phaseSumMs": 180179.021,
+      "totalMs": 180179.023,
+      "roundingOrUnattributedMs": 0.001999999978579581,
+      "singleSampleQuantiles": true
+    },
+    {
+      "capability": "observe_scene",
+      "sampleCount": 1,
+      "outcomes": {
+        "COMPLETED": 1
+      },
+      "phaseSumMs": 651.736,
+      "totalMs": 651.737,
+      "roundingOrUnattributedMs": 0.0009999999999763531,
+      "singleSampleQuantiles": true
+    }
+  ],
+  "observedTaskDenominator": 1,
+  "observedTaskSuccesses": 0,
+  "modelDecisionDenominator": 4,
+  "modelDecisionRejected": 1,
+  "recordedHTTPResponseDenominator": 4,
+  "recordedHTTPNon2xx": 0,
+  "providerUsageValidDenominator": 4,
+  "providerReportedTokens": {
+    "prompt_tokens": 46135,
+    "completion_tokens": 1503,
+    "total_tokens": 47638,
+    "cached_tokens": 20352
+  },
+  "recoveryActions": {
+    "execution.read-history": 3,
+    "observe.re-read": 1
+  },
+  "collectorSHA256": "d8ce2005e6f0db57163f186e7bbcc712269c57a474f2d91e9bc6d888e0b8acfb",
+  "legacyFinishInterpretation": "legacy_no_explicit_finish is a new-verification limitation, not a violation of an existing LOCAL_RUN_FAILED contract; old code never promised that event"
+}

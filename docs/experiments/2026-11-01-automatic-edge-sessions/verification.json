@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "automatic-session-validation.v1",
+  "baseCommit": "47f300fb67ca7e83c145f5c3cc00d984bccc1c82",
+  "branch": "codex/edge-long-horizon-scalability",
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "go": "go version go1.26.2 darwin/arm64"
+  },
+  "runs": [
+    {
+      "name": "go-race",
+      "command": {
+        "command": [
+          "go",
+          "test",
+          "-race",
+          "-json",
+          "./core/agentsession",
+          "./internal/agentsession",
+          "./tasks",
+          "./internal/capabilityagent",
+          "./internal/controllease",
+          "./cmd/local-agent",
+          "./console",
+          "./middleware/sqlite",
+          "./internal/edgeagent",
+          "./edge/worker",
+          "-count=1"
+        ],
+        "startedAt": "2026-11-01T14:55:46.238586+00:00",
+        "endedAt": "2026-11-01T15:01:10.933390+00:00",
+        "exitCode": 0
+      },
+      "rawLogSHA256": "a45661211bbb05209ff189794c40337e6fbea2230c6e22df3d97427b09cc4609",
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent",
+          "topLevelTests": {
+            "pass": 77
+          },
+          "subtests": {
+            "pass": 91
+          },
+          "status": "pass",
+          "elapsedSeconds": 5.339
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/console",
+          "topLevelTests": {
+            "pass": 128
+          },
+          "subtests": {
+            "pass": 103
+          },
+          "status": "pass",
+          "elapsedSeconds": 5.756
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/core/agentsession",
+          "topLevelTests": {
+            "pass": 2
+          },
+          "subtests": {},
+          "status": "pass",
+          "elapsedSeconds": 1.952
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/edge/worker",
+          "topLevelTests": {
+            "pass": 70
+          },
+          "subtests": {
+            "pass": 49
+          },
+          "status": "pass",
+          "elapsedSeconds": 17.454
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentsession",
+          "topLevelTests": {
+            "pass": 13
+          },
+          "subtests": {},
+          "status": "pass",
+          "elapsedSeconds": 5.421
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/capabilityagent",
+          "topLevelTests": {
+            "pass": 66
+          },
+          "subtests": {
+            "pass": 71
+          },
+          "status": "pass",
+          "elapsedSeconds": 11.531
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/controllease",
+          "topLevelTests": {
+            "pass": 3
+          },
+          "subtests": {},
+          "status": "pass",
+          "elapsedSeconds": 3.058
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/edgeagent",
+          "topLevelTests": {
+            "pass": 31
+          },
+          "subtests": {
+            "pass": 35
+          },
+          "status": "pass",
+          "elapsedSeconds": 319.425
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite",
+          "topLevelTests": {
+            "pass": 33
+          },
+          "subtests": {
+            "pass": 10
+          },
+          "status": "pass",
+          "elapsedSeconds": 27.405
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/tasks",
+          "topLevelTests": {
+            "pass": 116
+          },
+          "subtests": {
+            "pass": 28
+          },
+          "status": "pass",
+          "elapsedSeconds": 4.504
+        }
+      ]
+    },
+    {
+      "name": "go-final",
+      "command": {
+        "command": [
+          "go",
+          "test",
+          "-race",
+          "-json",
+          "./tasks",
+          "./internal/agentsession",
+          "./cmd/local-agent",
+          "./console",
+          "-count=1"
+        ],
+        "startedAt": "2026-11-01T15:11:17.431262+00:00",
+        "endedAt": "2026-11-01T15:11:26.721692+00:00",
+        "exitCode": 0
+      },
+      "rawLogSHA256": "0738806f235804cb3de8fdbc24a34112dfbd74c396dd5db56107a5f3fc910eb0",
+      "packages": [
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/cmd/local-agent",
+          "topLevelTests": {
+            "pass": 77
+          },
+          "subtests": {
+            "pass": 91
+          },
+          "status": "pass",
+          "elapsedSeconds": 4.677
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/console",
+          "topLevelTests": {
+            "pass": 128
+          },
+          "subtests": {
+            "pass": 103
+          },
+          "status": "pass",
+          "elapsedSeconds": 4.056
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/internal/agentsession",
+          "topLevelTests": {
+            "pass": 13
+          },
+          "subtests": {},
+          "status": "pass",
+          "elapsedSeconds": 5.069
+        },
+        {
+          "package": "github.com/SUSTechWLA/tangying-robot-agent-os/tasks",
+          "topLevelTests": {
+            "pass": 122
+          },
+          "subtests": {
+            "pass": 41
+          },
+          "status": "pass",
+          "elapsedSeconds": 3.219
+        }
+      ]
+    }
+  ],
+  "sourceScope": "Final source hashes describe go-final; go-race preceded input-validation and legacy-robot-scope fixes. Other tested code unchanged.",
+  "finalSourceSHA256": {
+    "cmd/local-agent/main.go": "df7a158f6203b92d0b7915ad879e0d739ab00240fc782933ce612b651b7ce9a5",
+    "cmd/local-agent/session_test.go": "ac194408490b956abba1a96a995f720a1c5dbdb5789ee0417ef51c5e5e4cc58a",
+    "core/agentsession/context.go": "8cbbb4c4f65057e3301e8ce28d4be7c99fc8a3ff4cc0945fcaf446775e3ac002",
+    "core/agentsession/context_test.go": "c6a2732bc4a8806322474a2834e74cab0456cfc08e6a03e6e1d20d5a8eeaf891",
+    "internal/agentsession/manager.go": "7bb9a713bb5d2476ecb218acefff9928298c3f4eae76ed7cafedf0bf4604ee71",
+    "internal/agentsession/manager_test.go": "98d6537800e48a2b5d5a21ef6cd2e82769884ab6164a58d4a2974f8932d6fb7e",
+    "internal/capabilityagent/planner.go": "6d0580daf06dad5724f17068a9d950de53aa782ce491e7c3f783ac6bca5dcf6f",
+    "internal/capabilityagent/recipe_memory.go": "9d6fad5d68bcb2c601a3b0f1c90c0fa13d929feaa4e47774e19619723ee9f818",
+    "internal/capabilityagent/session_context_test.go": "35ab0e79b0df7ebb370bb1ddfda00fd1a1eb170e934bcedb5f0e292e3c4b9408",
+    "internal/controllease/data_test.go": "8e8a0f5d2d4885c748005e66275a77a48eef6ae30d1d8680a4b851badf018055",
+    "internal/controllease/lock.go": "b3e8efa1d1d8b65088dc4084c96b235deee6016c4d16f0a914bb6d92abfef159",
+    "tasks/capability.go": "43c18d2faefbe3927f6fe35052465c15be770ea53055e1f138d45c7e71e32e6f",
+    "tasks/creation_session.go": "1ff4b50fc294e867e05ed16e1c98d728b9c8999a2191459820c990c03fc3193c",
+    "tasks/creation_session_test.go": "76b331f7aa41794f0bdef016657e441a62d59eef73ca9a7f1e5870680162a569",
+    "tasks/service.go": "d6d6ee17c292aed1fddaa1906b437f9b0598335c22443d5d31a9608a4d9b3c57"
+  },
+  "limits": [
+    "Local model and robot fixtures; no public API or physical motion",
+    "Parent and subtest counts overlap; reruns are not independent task samples",
+    "No real token savings or robot reliability measured"
+  ]
+}

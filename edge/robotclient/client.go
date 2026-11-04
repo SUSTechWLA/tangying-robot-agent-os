@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/robotcontract"
 	"github.com/SUSTechWLA/tangying-robot-agent-os/core/telemetry"
@@ -499,6 +500,11 @@ func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.R
 	if field := terminal.GetDetails().GetFields()["state_report_json"]; field != nil {
 		result.StateReportJSON = field.GetStringValue()
 	}
+	if !result.Success && terminal.CommandId == request.CommandId {
+		if field := terminal.GetDetails().GetFields()["navigationFailureJson"]; field != nil {
+			result.FailureDiagnosticsJSON = boundedFailureDiagnostics(field.GetStringValue(), request.CommandId)
+		}
+	}
 	if captured := terminal.EvidenceObservation; captured != nil {
 		if terminal.CommandId != request.CommandId || captured.ObservationId != terminal.ObservationId || captured.ObservationId == "" {
 			return runtime.Result{}, errors.New("command evidence identity does not match result")
@@ -529,6 +535,29 @@ func (c *Client) Invoke(ctx context.Context, command runtime.Command) (runtime.R
 		result.Evidence = &snapshot
 	}
 	return result, nil
+}
+
+const maxFailureDiagnosticsBytes = 16 * 1024
+
+// Drop malformed, oversized or misbound diagnostics without changing the
+// terminal outcome. Diagnostics never establish safe retry or physical success.
+func boundedFailureDiagnostics(raw, commandID string) string {
+	if len(raw) == 0 || len(raw) > maxFailureDiagnosticsBytes || !utf8.ValidString(raw) {
+		return ""
+	}
+	var object map[string]json.RawMessage
+	if json.Unmarshal([]byte(raw), &object) != nil || len(object) == 0 {
+		return ""
+	}
+	var bound string
+	if json.Unmarshal(object["commandId"], &bound) != nil || bound != commandID || bound == "" {
+		return ""
+	}
+	canonical, err := json.Marshal(object)
+	if err != nil || len(canonical) > maxFailureDiagnosticsBytes {
+		return ""
+	}
+	return string(canonical)
 }
 
 // Cancel asks the Robot Runtime to cancel an in-flight capability invocation.

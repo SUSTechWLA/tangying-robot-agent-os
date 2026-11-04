@@ -5,6 +5,7 @@ import vm from "node:vm";
 
 const appSource = await readFile(new URL("./app.js", import.meta.url), "utf8");
 const worldViewSource = await readFile(new URL("./world_view.js", import.meta.url), "utf8");
+const taskTraceSource = await readFile(new URL("./task_trace.js", import.meta.url), "utf8");
 
 function deferred() {
   let resolve;
@@ -217,10 +218,11 @@ function createHarness(options = {}) {
   });
   const boot = appSource.lastIndexOf("\nvoid bootApplication();");
   assert.notEqual(boot, -1, "app boot marker missing");
+  if (options.taskTrace) vm.runInContext(taskTraceSource, context, { filename: "task_trace.js" });
   const source = `${appSource.slice(0, boot)}\n;globalThis.__hooks = { bootApplication, pollTelemetry, drawScene, trails, adapterInput, sceneFrame, noteFleetWorldUpdate, checkFleetWorldFreshness, worldGridCellRect, renderFleetWorld, renderFleetIntents, renderFleetDevices, createFleetTask, describeFleetWorldEntity, isFleetWorldClick, fleetExecutionAdapter: () => fleetExecutionAdapter, createFleetWorldRenderer: (...args) => typeof createFleetWorldRenderer === "function" ? createFleetWorldRenderer(...args) : Promise.reject(new Error("createFleetWorldRenderer missing")), retryFleetWorldVisual: (...args) => typeof retryFleetWorldVisual === "function" ? retryFleetWorldVisual(...args) : Promise.reject(new Error("retryFleetWorldVisual missing")), bindFleetWorldToolbar, fleetLogout, startFleetWorld, fleetSelectTask, renderTaskExperience, loadFleetTaskExperience, proposeFleetTaskRevision, confirmFleetTaskRevision, taskExperienceState: () => ({ ...fleetTaskExperienceState }), pendingTaskRevision: () => fleetPendingTaskRevision, installSelectedFleetTask: (task) => { selectedFleetTask = task; }, fleetLogout, installFleetWorldTestState: (renderer, camera) => { fleetWorldRenderer = renderer; fleetWorldCamera = camera; }, setFleetTokenForTest: (token) => { fleetToken = token; }, activeFleetWorldClient: () => fleetWorldClient, latestFleetWorldSnapshot: () => fleetWorldLatestSnapshot, fleetWorldMessageQueueForTest: () => fleetWorldMessageQueue, activeFleetWebGLRenderer: () => fleetWorldWebGLRenderer, activeFleetWebGLInteraction: () => fleetWorldWebGLInteraction };`;
   vm.runInContext(source, context, { filename: "app.js" });
   vm.runInContext(`Object.assign(__hooks, {
-    renderTask, renderLocalTaskExperience, loadLocalTaskExperience, refreshTask, connectEvents,
+    createTask, renderTask, renderLocalTaskExperience, loadLocalTaskExperience, refreshTask, connectEvents, appendEvent,
     selectLocalTask: (task) => { activeTask = task; renderTask(task); },
     localExperienceState: () => ({ ...localTaskExperienceState }),
     robotEntitiesFromSnapshot, setFleetSceneView, pollFleetFrames,
@@ -228,6 +230,8 @@ function createHarness(options = {}) {
     loadLocalTasks, openLocalTask, renderLocalProfessional, renderTelemetry,
     taskAction, drawScene2D, setSceneViewMode,
     loadLocalEvidence: (...args) => loadLocalEvidence(...args),
+    loadLocalDurableTrace, clearLocalReplay,
+    durableTraceState: () => ({ report: localDurableTrace, status: localDurableTraceStatus }),
     selectLocalEvidence: (...args) => selectLocalEvidence(...args),
     renderLocalMissionActivities,
     pointCloudViewData: (...args) => pointCloudViewData(...args),
@@ -1123,6 +1127,147 @@ test("local recovery never enables resume for unconfirmed physical outcomes", ()
   assert.equal(harness.element("resume").disabled, false, "another task cannot replace current permissions");
 });
 
+function reconciliationControls(harness, index = 0) {
+  const form = harness.element("local-reconciliation").children.filter(node => node.className === "local-reconciliation-form")[index];
+  const controlForLabel = text => {
+    const id = descendantWithText(form, text).attributes.get("for");
+    assert.ok(id, `${text} requires an explicit control association`);
+    return form.children.find(node => node.id === id);
+  };
+  return { form,
+    outcome: controlForLabel("核查结论"),
+    operator: controlForLabel("核查者与环境"),
+    note: controlForLabel("核查依据"),
+    submit: descendantWithText(form, "保存此步骤的对账结论"),
+    status: form.children.at(-1),
+  };
+}
+
+function fillReconciliation(controls) {
+  controls.outcome.value = "ABANDONED";
+  controls.operator.value = "Codex，Gazebo 仿真核查，非实机现场人工核查";
+  controls.note.value = "Nav2 已终止，连续静止遥测 obs-1/obs-2；放弃此路径，不认定目标已到达。";
+  controls.note.emit("input");
+}
+
+test("unknown steps require an explicit result and evidence; polling preserves the operator's draft", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-reconcile", state: "RECOVERABLE_FAILURE" });
+  const recovery = { taskId: "task-reconcile", requiresReconciliation: true, uncertainStepIds: ["navigation-1", "pick-2"] };
+  harness.hooks.renderLocalRecovery(recovery);
+  const controls = reconciliationControls(harness);
+  assert.match(descendantText(controls.form), /task-reconcile.*navigation-1/);
+  assert.match(descendantText(reconciliationControls(harness, 1).form), /pick-2/);
+  const otherControls = reconciliationControls(harness, 1);
+  assert.equal(new Set([controls.outcome.id, controls.operator.id, controls.note.id, otherControls.outcome.id, otherControls.operator.id, otherControls.note.id]).size, 6);
+  assert.equal(controls.outcome.value, "");
+  assert.equal(controls.submit.disabled, true);
+  await controls.form.emit("submit", { preventDefault() {} });
+  assert.equal(harness.fetches.some(url => url.endsWith("/reconcile")), false);
+  assert.match(controls.status.textContent, /明确选择结论/);
+  fillReconciliation(controls);
+  assert.equal(controls.submit.disabled, false);
+  controls.note.focus();
+  harness.hooks.renderLocalRecovery({ ...recovery });
+  assert.equal(reconciliationControls(harness).form, controls.form);
+  assert.equal(controls.note.focused, true);
+  assert.match(controls.note.value, /obs-1/);
+});
+
+test("reconciliation records the declared evidence, refreshes authoritative state and never resumes automatically", async () => {
+  const harness = createHarness();
+  const task = { id: "task-reconcile", state: "RECOVERABLE_FAILURE", approved: true };
+  harness.hooks.selectLocalTask(task);
+  harness.hooks.renderLocalRecovery({ taskId: task.id, requiresReconciliation: true, uncertainStepIds: ["navigation-1"] });
+  const controls = reconciliationControls(harness); fillReconciliation(controls);
+  const response = deferred(); const requests = [];
+  let saved;
+  harness.setFetch(async (url, options = {}) => {
+    requests.push([url, options.method || "GET"]);
+    if (url.endsWith("/reconcile")) { saved = JSON.parse(options.body); return response.promise; }
+    if (url === "/v1/tasks/task-reconcile") return { ok: true, json: async () => task };
+    if (url.endsWith("/recovery")) return { ok: true, json: async () => ({ taskId: task.id, requiresReconciliation: false,
+      uncertainStepIds: [], reconciliations: [{ ...saved, originalStatus: "STARTED", actor: "console-session:example", recordedAt: "2026-11-04T08:00:00Z" }] }) };
+    if (url === "/v1/readiness") return { ok: true, json: async () => ({ ready: false, issues: [] }) };
+    return { ok: false, status: 404 };
+  });
+  const pending = controls.form.emit("submit", { preventDefault() {} });
+  await controls.form.emit("submit", { preventDefault() {} });
+  assert.equal(controls.submit.disabled, true);
+  assert.equal(requests.filter(([, method]) => method === "POST").length, 1);
+  assert.equal(saved.outcome, "ABANDONED");
+  assert.equal(saved.stepId, "navigation-1");
+  assert.equal(Object.hasOwn(saved, "actor"), false, "server owns authenticated attribution");
+  assert.match(saved.note, /Codex，Gazebo 仿真核查，非实机现场人工核查.*\n依据：Nav2/);
+  response.resolve({ ok: true, json: async () => ({ taskId: task.id, stepId: saved.stepId, outcome: saved.outcome }) });
+  await pending;
+  assert.deepEqual(requests.filter(([, method]) => method === "POST"), [["/v1/tasks/task-reconcile/reconcile", "POST"]]);
+  assert.ok(requests.some(([url]) => url === "/v1/readiness"));
+  assert.equal(harness.element("state").textContent, "RECOVERABLE_FAILURE");
+  assert.equal(harness.element("resume").disabled, true);
+  const record = descendantText(harness.element("local-reconciliation"));
+  assert.match(record, /ABANDONED.*STARTED.*console-session:example.*Codex/);
+  assert.equal(harness.element("local-reconciliation").children.some(node => node.className === "local-reconciliation-form"), false);
+});
+
+test("unconfirmed reconciliation responses do not authorize an automatic second write", async () => {
+  for (const failure of ["mismatch", "disconnect"]) {
+    const harness = createHarness();
+    harness.hooks.selectLocalTask({ id: "task-reconcile", state: "RECOVERABLE_FAILURE" });
+    harness.hooks.renderLocalRecovery({ taskId: "task-reconcile", requiresReconciliation: true, uncertainStepIds: ["navigation-1"] });
+    const controls = reconciliationControls(harness); fillReconciliation(controls);
+    harness.setFetch(async () => {
+      if (failure === "disconnect") throw new Error("network lost");
+      return { ok: true, json: async () => ({ taskId: "another-task", stepId: "navigation-1", outcome: "ABANDONED" }) };
+    });
+    await controls.form.emit("submit", { preventDefault() {} });
+    assert.match(controls.status.textContent, /尚未确认/);
+    assert.equal(controls.submit.disabled, true);
+    await controls.form.emit("submit", { preventDefault() {} });
+    assert.equal(harness.fetches.filter(url => url.endsWith("/reconcile")).length, 1);
+  }
+});
+
+test("a late reconciliation acknowledgement cannot change the newly selected task", async () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-old", state: "RECOVERABLE_FAILURE" });
+  harness.hooks.renderLocalRecovery({ taskId: "task-old", requiresReconciliation: true, uncertainStepIds: ["navigation-1"] });
+  const controls = reconciliationControls(harness); fillReconciliation(controls);
+  const response = deferred(); harness.setFetch(() => response.promise);
+  const pending = controls.form.emit("submit", { preventDefault() {} });
+  harness.hooks.selectLocalTask({ id: "task-new", state: "READY" });
+  response.resolve({ ok: true, json: async () => ({ taskId: "task-old", stepId: "navigation-1", outcome: "ABANDONED" }) });
+  await pending;
+  assert.equal(harness.element("state").textContent, "READY");
+  assert.equal(harness.element("local-reconciliation").hidden, true);
+  assert.equal(harness.fetches.filter(url => url.includes("task-old")).length, 1);
+});
+
+test("cancelled tasks retain reconciled outcomes and their original execution status for replay", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-old", state: "CANCELLED" });
+  harness.hooks.renderLocalRecovery({ taskId: "task-old", reconciliations: [{ stepId: "navigation-1", outcome: "ABANDONED", originalStatus: "STARTED", note: "Gazebo obs-1", actor: "console-session:test" }] });
+  assert.equal(harness.element("local-recovery").hidden, false);
+  assert.match(descendantText(harness.element("local-reconciliation")), /ABANDONED.*STARTED.*Gazebo obs-1/);
+});
+
+test("unknown or abandoned actions override generic experience advice to approve again", () => {
+  const harness = createHarness();
+  harness.hooks.selectLocalTask({ id: "task-1", state: "RECOVERABLE_FAILURE" });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ taskId: "task-1", recovery: {
+    knownState: "动作结果未知", userActions: ["状态恢复后重新批准或更新任务"],
+  } }));
+  harness.hooks.renderLocalRecovery({ taskId: "task-1", requiresReconciliation: true, uncertainStepIds: ["navigation-1"] });
+  let text = descendantText(harness.element("local-recovery-content"));
+  assert.doesNotMatch(text, /状态恢复后重新批准或更新任务/);
+  assert.match(text, /先核对每个未知动作.*保存对账结论.*结束旧任务路径/);
+  harness.hooks.renderLocalRecovery({ taskId: "task-1", requiresReconciliation: false,
+    reconciliations: [{ stepId: "navigation-1", outcome: "ABANDONED", note: "已核查" }] });
+  text = descendantText(harness.element("local-recovery-content"));
+  assert.doesNotMatch(text, /状态恢复后重新批准或更新任务/);
+  assert.match(text, /不能沿原路径继续.*结束旧任务/);
+});
+
 test("local recovery request rejects a response after task selection changes", async () => {
   const harness = createHarness();
   harness.hooks.selectLocalTask({ id: "task-1", state: "PAUSED" });
@@ -1797,6 +1942,53 @@ test("double-clicking create sends one task while the first request is pending",
   assert.equal(harness.element("fleet-create").disabled, false);
 });
 
+test("local planning explains a pending request without relabelling the selected task or submitting twice", async () => {
+  const feedback = [];
+  const harness = createHarness({ TangyingConsoleUI: {
+    update() {}, taskPresentation: state => ({ label: state }),
+    feedback: message => feedback.push(message),
+  } });
+  harness.hooks.selectLocalTask({ id: "previous-task", state: "SUCCEEDED" });
+  const previousState = harness.element("state").textContent;
+  const response = deferred();
+  harness.element("request").value = "巡检卧室和卫生间，最后回到客厅";
+  harness.setFetch(() => response.promise);
+  const first = harness.hooks.createTask();
+  await harness.hooks.createTask();
+  assert.equal(harness.fetches.filter(url => url === "/v1/tasks").length, 1);
+  assert.equal(harness.element("create").attributes.get("aria-busy"), "true");
+  assert.equal(harness.element("planning-status").hidden, false);
+  assert.match(harness.element("planning-status").textContent, /模型响应.*请勿重复提交/);
+  assert.equal(harness.element("state").textContent, previousState);
+  response.resolve({ ok: false, status: 503, json: async () => ({ message: "模型响应超时" }) });
+  await first;
+  assert.equal(harness.element("state").textContent, previousState);
+  assert.equal(harness.element("planning-status").hidden, true);
+  assert.equal(harness.element("create").disabled, false);
+  assert.equal(harness.element("create").attributes.has("aria-busy"), false);
+  assert.equal(feedback.at(-1), "模型响应超时");
+});
+
+test("local task creation binds guidance to the returned task instead of assuming approval is next", async () => {
+  for (const state of ["READY", "FAILED", "RECOVERABLE_FAILURE", "SUCCEEDED"]) {
+    const messages = [];
+    const bound = [];
+    const harness = createHarness({ TangyingConsoleUI: {
+      update() {}, taskPresentation: state => ({ label: state }),
+      feedback: message => messages.push(message), taskFeedback: taskId => bound.push(taskId),
+    } });
+    harness.element("request").value = "巡检卧室后返回客厅";
+    harness.setFetch(async (url, options) => url === "/v1/tasks" && options?.method === "POST"
+      ? { ok: true, status: 201, json: async () => ({ id: `created-${state}`, state }) }
+      : { ok: false, status: 404 });
+    await harness.hooks.createTask();
+    assert.deepEqual(bound, [`created-${state}`]);
+    assert.equal(harness.element("state").textContent, state);
+    assert.equal(harness.element("planning-status").hidden, true);
+    assert.equal(messages.some(message => /再批准物理动作/.test(message)), false);
+  }
+});
+
 
 test("Fleet emergency stop and source anomalies propagate to the operator summary", () => {
   const updates = [];
@@ -2226,6 +2418,46 @@ test("completed tasks hide stale recovery guidance even when the experience cont
   harness.hooks.renderLocalTaskExperience(taskExperience({ revision: 1, recovery: { knownState: "出错", robotSafetyState: "机器人已停止推进出错步骤", userActions: ["重新批准"] } }));
   assert.equal(harness.element("local-recovery").hidden, true);
   assert.equal(descendantText(harness.element("local-recovery-content")), "");
+});
+
+test("mission evidence updates when contract verification arrives after the experience snapshot", () => {
+  const harness = createHarness({ taskTrace: true, setTimeout: () => 1 });
+  const event = (sequence, type, payload) => ({ sequence, type, stepId: "rev-1-cap-01",
+    occurredAt: new Date(1789124864000 + sequence * 100).toISOString(), payload: { tool: "calibration.get", ...payload } });
+  harness.hooks.selectLocalTask({ id: "task-1", state: "EXECUTING", currentRevision: 1,
+    plan: { capabilities: { calls: [{ tool: "calibration.get", arguments: {} }] } },
+    events: [event(1, "CAPABILITY_CALL", {}), event(2, "CAPABILITY_RECEIPT", { result: { revision: "cal-1" } })],
+  });
+  const experience = taskExperience({ taskId: "task-1", revision: 1, steps: [
+    { stepId: "rev-1-cap-01", status: "SATISFIED", statusText: "已完成", evidenceText: "等待环境证据" },
+  ] });
+  harness.hooks.renderLocalTaskExperience(experience);
+  assert.match(descendantText(harness.element("local-step-ribbon")), /尚未形成完整的契约复验链/);
+  harness.hooks.appendEvent(event(3, "CAPABILITY_VERIFIED", { evidence: { readResult: { revision: "cal-1" } } }));
+  const verifiedText = descendantText(harness.element("local-step-ribbon"));
+  assert.match(verifiedText, /结构化状态.*不要求 RGB-D 图像/);
+  assert.doesNotMatch(verifiedText, /此记录尚未附带观测证据|等待环境证据|回看当时观测/);
+  assert.equal(experience.steps[0].evidenceText, "等待环境证据");
+  harness.hooks.appendEvent(event(4, "CAPABILITY_FAILED", { error: "late failure" }));
+  assert.doesNotMatch(descendantText(harness.element("local-step-ribbon")), /已记录能力执行契约的独立复验结果/);
+});
+
+test("robot.task cards point to child evidence without inventing a parent image or proving unrelated steps", () => {
+  const harness = createHarness({ taskTrace: true, setTimeout: () => 1 });
+  const event = (sequence, type, payload) => ({ sequence, type, stepId: "rev-1-cap-01",
+    occurredAt: new Date(1789124864000 + sequence * 100).toISOString(), payload: { tool: "robot.task", ...payload } });
+  harness.hooks.selectLocalTask({ id: "task-1", state: "EXECUTING", currentRevision: 1,
+    plan: { capabilities: { calls: [{ tool: "robot.task", arguments: {} }] } },
+    events: [event(1, "CAPABILITY_CALL", {}), event(2, "CAPABILITY_VERIFIED", { evidence: { basis: "LEGACY_RUNNER_VERIFIED_CHILD_STEPS" } })],
+  });
+  harness.hooks.renderLocalTaskExperience(taskExperience({ taskId: "task-1", revision: 1, steps: [
+    { stepId: "rev-1-cap-01", status: "SATISFIED", statusText: "已完成", evidenceText: "等待环境证据" },
+    { stepId: "intent-000/a1", status: "SATISFIED", statusText: "已完成", evidenceText: "等待环境证据" },
+  ] }));
+  const cards = harness.element("local-step-ribbon").children;
+  assert.match(descendantText(cards[0]), /父能力已按执行契约复验.*各物理子步骤/);
+  assert.doesNotMatch(descendantText(cards[0]), /回看当时观测|尚未附带观测/);
+  assert.match(descendantText(cards[1]), /此记录尚未附带观测证据/);
 });
 
 test("a satisfied local goal links only its own confirmed placement capture without fabricating harness evidence", async () => {
@@ -3370,4 +3602,78 @@ test("opening a task from history keeps its search context and does not execute 
   assert.equal(harness.element("local-task-search").value, "task-review");
   assert.deepEqual(routes, ["tasks"]);
   assert.ok(urls.every(url => !/\/(approve|resume|cancel|pause)$/.test(url)));
+});
+
+
+function durableTraceFixture(taskId = "trace-task", overrides = {}) {
+  return { schemaVersion: "task.trace.v1", taskId, state: "READY", currentRevision: 1,
+    originalRequest: { text: "检查厨房", source: "revision_1", sha256: "a".repeat(64), revision: 1 },
+    source: { eventCount: 1, lastSequence: 1, aggregateVersion: 1, stable: true },
+    integrity: { status: "consistent", findings: [] }, events: [], steps: [], ...overrides };
+}
+
+test("durable trace reads are cached until the task watermark changes; failed reads clear old reports", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  const task = { id: "trace-task", currentRevision: 1, aggregateVersion: 1, state: "READY", events: [{ sequence: 1 }] };
+  h.hooks.selectLocalTask(task);
+  h.setFetch(async () => ({ ok: true, json: async () => durableTraceFixture() }));
+  assert.equal(await h.hooks.loadLocalDurableTrace(task.id), true);
+  assert.equal(h.hooks.durableTraceState().status, "ready");
+  assert.equal(h.element("download-local-trace").disabled, false);
+  const reads = h.fetches.length;
+  assert.equal(await h.hooks.loadLocalDurableTrace(task.id), false);
+  assert.equal(h.fetches.length, reads);
+  h.hooks.selectLocalTask({ ...task, events: [{ sequence: 1 }, { sequence: 2 }] });
+  h.setFetch(async () => ({ ok: false, status: 503 }));
+  assert.equal(await h.hooks.loadLocalDurableTrace(task.id), false);
+  assert.equal(h.hooks.durableTraceState().report, null);
+  assert.equal(h.hooks.durableTraceState().status, "unavailable");
+  assert.equal(h.element("download-local-trace").disabled, true);
+});
+
+test("late durable trace responses cannot cross an A to B to A task selection", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  const task = { id: "trace-task", state: "READY", events: [] };
+  const pending = deferred();
+  h.hooks.selectLocalTask(task);
+  h.setFetch(() => pending.promise);
+  const loading = h.hooks.loadLocalDurableTrace(task.id);
+  h.hooks.selectLocalTask({ ...task, id: "other-task" });
+  h.hooks.selectLocalTask(task);
+  pending.resolve({ ok: true, json: async () => durableTraceFixture() });
+  assert.equal(await loading, false);
+  assert.equal(h.hooks.durableTraceState().report, null);
+  assert.equal(h.element("download-local-trace").disabled, true);
+});
+
+test("a mismatched or missing durable report never becomes a successful integrity read", async () => {
+  const h = createHarness({ setTimeout: () => 1 });
+  h.hooks.selectLocalTask({ id: "trace-task", state: "READY", events: [] });
+  for (const response of [
+    { ok: false, status: 404 },
+    { ok: true, json: async () => durableTraceFixture("other-task") },
+    { ok: true, json: async () => durableTraceFixture("trace-task", { schemaVersion: "other" }) },
+  ]) {
+    h.setFetch(async () => response);
+    assert.equal(await h.hooks.loadLocalDurableTrace("trace-task", { force: true }), false);
+    assert.equal(h.hooks.durableTraceState().status, "unavailable");
+    assert.equal(h.hooks.durableTraceState().report, null);
+  }
+});
+
+test("child-ledger updates are refreshed even when the parent event watermark is unchanged", async () => {
+  let now = 1000;
+  class TestDate extends Date { static now() { return now; } }
+  const h = createHarness({ Date: TestDate, setTimeout: () => 1 });
+  h.hooks.selectLocalTask({ id: "trace-task", currentRevision: 1, aggregateVersion: 1, state: "READY", events: [{ sequence: 1 }] });
+  let version = 1;
+  h.setFetch(async () => ({ ok: true, json: async () => durableTraceFixture("trace-task", {
+    children: [{ childId: "child", aggregateVersion: version, coverage: "found", bindingVerified: true }],
+  }) }));
+  assert.equal(await h.hooks.loadLocalDurableTrace("trace-task"), true);
+  version = 2;
+  assert.equal(await h.hooks.loadLocalDurableTrace("trace-task"), false);
+  now += 10001;
+  assert.equal(await h.hooks.loadLocalDurableTrace("trace-task"), true);
+  assert.equal(h.hooks.durableTraceState().report.children[0].aggregateVersion, 2);
 });

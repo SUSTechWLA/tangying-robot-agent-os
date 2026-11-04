@@ -1,0 +1,12 @@
+BLE001 Do not catch blind exception: `Exception`
+   --> robot/ros2_ws/src/tangying_navigation/tangying_navigation/navigation_node.py:198:32
+    |
+196 |                             state = future.result().current_state
+197 |                             self.nav2_states[name] = (int(state.id), str(state.label), now)
+198 |                         except Exception:
+    |                                ^^^^^^^^^
+199 |                             self.nav2_states.pop(name, None)
+200 |                     else:
+    |
+
+Found 1 error.
