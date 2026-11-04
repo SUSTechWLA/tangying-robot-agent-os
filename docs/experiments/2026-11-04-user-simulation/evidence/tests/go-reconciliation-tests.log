@@ -1,0 +1,3 @@
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/console	4.472s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/internal/localapp	8.433s
+ok  	github.com/SUSTechWLA/tangying-robot-agent-os/middleware/sqlite	20.392s

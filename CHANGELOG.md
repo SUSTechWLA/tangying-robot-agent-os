@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 通过工作台 Gazebo 巡检排查地图恢复、导航诊断和任务状态呈现问题：新增显式动作对账表单及持久结论导出，限制对账仅用于停止执行后的未知步骤，完整保存工具效果声明和有界 Nav2 失败诊断；导航模式改为读取真实 ROS 状态。失败与复测、实验判据和测试范围见[2026-11-04 记录](docs/experiments/2026-11-04-user-simulation/README.md)。
+
 - 增强从原始自然语言、版本、父子计划到命令/RPC/观测的持久回溯，新增只读 trace API、完整性诊断和工作台 JSON 导出；修复状态前后值未落盘、内存证据共享引用、停止身份及部分持久化错误丢失。13 次软件验收保留正常、恢复与安全失败结果；见[变更记录](docs/development/2026-11-02-task-traceability.md)和[实验数据](docs/experiments/2026-11-02-task-traceability/README.md)。
 
 - 将当前指南、README、学习/研究导航与教材同步到自动边缘会话实现 `27cbbbaf9`。教材 3.3.0 纳入接收/任务/命令生命周期、历史预算与回查、token/recipe/KV 成本及家庭巡检案例，新增两幅离线 SVG；保存 3.2.0 恢复清单。此次仅更新文档和出版工具，测试与出版记录见[同步说明](docs/development/2026-11-02-documentation-sync.md)。

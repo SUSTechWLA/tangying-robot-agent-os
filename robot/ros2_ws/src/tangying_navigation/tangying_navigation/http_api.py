@@ -45,6 +45,18 @@ def failure_observation(world):
         result["readinessBlockers"] = [
             value[:128] for value in world["readinessBlockers"][:32] if isinstance(value, str)
         ]
+    # The action's result is an independent diagnostic source. Do not infer a
+    # safe retry from an abort: Nav2 may already have moved before it failed.
+    action = world.get("nav2Action")
+    if isinstance(action, dict):
+        bounded = {}
+        for key in ("status", "errorCode"):
+            if type(action.get(key)) is int and 0 <= action[key] <= 65535:
+                bounded[key] = action[key]
+        if isinstance(action.get("errorMessage"), str):
+            bounded["errorMessage"] = action["errorMessage"][:2048]
+        if bounded:
+            result["nav2Action"] = bounded
     return result
 
 
@@ -108,7 +120,9 @@ class GoalRegistry:
             return False
         blockers = set(world.get("readinessBlockers", []))
         transient = {"BASE_RGBD_STALE", "HEAD_RGBD_STALE", "RTABMAP_PROCESSING_STALE",
-                     "MAP_POSE_STALE", "ODOMETRY_STALE", "LOCALIZATION_UNAVAILABLE"}
+                     "MAP_POSE_STALE", "ODOMETRY_STALE", "LOCALIZATION_UNAVAILABLE",
+                     "RTABMAP_MODE_UNAVAILABLE", "NAV2_CONTROLLER_SERVER_STATE_STALE",
+                     "NAV2_PLANNER_SERVER_STATE_STALE", "NAV2_BT_NAVIGATOR_STATE_STALE"}
         if (not getattr(self.driver, "supports_observation_hold", False)
                 or not callable(setter) or not blockers or not blockers <= transient
                 or blockers == {"LOCALIZATION_UNAVAILABLE"}):

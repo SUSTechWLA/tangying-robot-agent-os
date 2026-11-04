@@ -33,6 +33,7 @@ type Trace struct {
 	Revisions       []RevisionRecord      `json:"revisions"`
 	Events          []TaskEvent           `json:"events"`
 	Evidence        []EvidenceRecord      `json:"evidence"`
+	Reconciliations []LocalReconciliation `json:"reconciliations"`
 }
 
 type TraceRequest struct {
@@ -43,16 +44,17 @@ type TraceRequest struct {
 }
 
 type TraceSource struct {
-	EventCount         int    `json:"eventCount"`
-	LastSequence       uint64 `json:"lastSequence"`
-	AggregateVersion   uint64 `json:"aggregateVersion"`
-	Stable             bool   `json:"stable"`
-	SnapshotSHA256     string `json:"snapshotSha256"`
-	EvidenceAvailable  bool   `json:"evidenceAvailable"`
-	EvidenceTruncated  bool   `json:"evidenceTruncated"`
-	EvidenceNextBefore int64  `json:"evidenceNextBefore,omitempty"`
-	EvidenceScope      string `json:"evidenceScope"`
-	ConsistencyScope   string `json:"consistencyScope"`
+	EventCount              int    `json:"eventCount"`
+	LastSequence            uint64 `json:"lastSequence"`
+	AggregateVersion        uint64 `json:"aggregateVersion"`
+	Stable                  bool   `json:"stable"`
+	SnapshotSHA256          string `json:"snapshotSha256"`
+	ReconciliationAvailable bool   `json:"reconciliationAvailable"`
+	EvidenceAvailable       bool   `json:"evidenceAvailable"`
+	EvidenceTruncated       bool   `json:"evidenceTruncated"`
+	EvidenceNextBefore      int64  `json:"evidenceNextBefore,omitempty"`
+	EvidenceScope           string `json:"evidenceScope"`
+	ConsistencyScope        string `json:"consistencyScope"`
 }
 
 type TraceIntegrity struct {
@@ -94,7 +96,30 @@ type TraceStep struct {
 
 var ErrTraceBusy = errors.New("task trace changed while being read; retry")
 
-// Trace reads the task and immutable revisions twice around evidence metadata.
+// ReconciliationReader is optional audit history, never an execution authority.
+// An unsupported repository is distinct from a supported, verified empty list.
+type ReconciliationReader interface {
+	ListReconciliations(context.Context, string) ([]LocalReconciliation, error)
+}
+
+func (s *Service) traceReconciliations(ctx context.Context, id string) ([]LocalReconciliation, bool, error) {
+	reader, available := s.store.(ReconciliationReader)
+	if !available {
+		return nil, false, nil
+	}
+	records, err := reader.ListReconciliations(ctx, id)
+	if err != nil {
+		return nil, true, err
+	}
+	// Copy and order the projection, preserving nil (unavailable) versus []
+	// (available and empty) in both the wire format and snapshot digest.
+	records = append([]LocalReconciliation{}, records...)
+	sort.SliceStable(records, func(i, j int) bool { return records[i].StepID < records[j].StepID })
+	return records, true, nil
+}
+
+// Trace reads the task, immutable revisions and available reconciliation
+// history twice around evidence metadata.
 // A moving journal is retried three times, never returned as a coherent snapshot.
 // This relies on the existing single owner / append-only repository contract;
 // it is not a cross-host transaction or cryptographic attestation.
@@ -112,7 +137,11 @@ func (s *Service) Trace(ctx context.Context, id string, evidence EvidenceStore) 
 		if err != nil {
 			return nil, err
 		}
-		before, err := traceDigest([]any{task, history, children})
+		reconciliations, reconciliationAvailable, err := s.traceReconciliations(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		before, err := traceDigest([]any{task, history, children, reconciliationAvailable, reconciliations})
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +194,11 @@ func (s *Service) Trace(ctx context.Context, id string, evidence EvidenceStore) 
 		if err != nil {
 			return nil, err
 		}
-		after, err := traceDigest([]any{afterTask, afterHistory, afterChildren})
+		afterReconciliations, afterReconciliationAvailable, err := s.traceReconciliations(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		after, err := traceDigest([]any{afterTask, afterHistory, afterChildren, afterReconciliationAvailable, afterReconciliations})
 		if err != nil {
 			return nil, err
 		}
@@ -174,6 +207,8 @@ func (s *Service) Trace(ctx context.Context, id string, evidence EvidenceStore) 
 		}
 		result := BuildTrace(*task, history, records, evidence != nil, truncated)
 		result.Children = children
+		result.Reconciliations = reconciliations
+		result.Source.ReconciliationAvailable = reconciliationAvailable
 		for _, child := range children {
 			parentRevisionFound := child.ParentRevision == 0
 			for _, record := range history {
@@ -202,7 +237,7 @@ func (s *Service) Trace(ctx context.Context, id string, evidence EvidenceStore) 
 		if truncated {
 			result.Source.EvidenceNextBefore = cursor
 		}
-		result.Source.SnapshotSHA256, err = traceDigest([]any{task, history, records, children})
+		result.Source.SnapshotSHA256, err = traceDigest([]any{task, history, records, children, reconciliationAvailable, reconciliations})
 		if err != nil {
 			return nil, err
 		}
@@ -227,7 +262,7 @@ func BuildTrace(task Task, history []RevisionRecord, evidence []EvidenceRecord, 
 		State: task.State, CurrentRevision: task.CurrentRevision, CurrentRequest: task.Request,
 		Source: TraceSource{EventCount: len(task.Events), AggregateVersion: task.AggregateVersion,
 			EvidenceAvailable: available, EvidenceTruncated: truncated, EvidenceScope: "capture metadata only; raw content checksums require observation retrieval",
-			ConsistencyScope: "task, revisions and declared child aggregates checked twice; evidence metadata is paginated best-effort"},
+			ConsistencyScope: "task, revisions, declared child aggregates and available reconciliation history checked twice; evidence metadata is paginated best-effort"},
 		Integrity: TraceIntegrity{Status: "consistent", Findings: []TraceFinding{}}, Steps: []TraceStep{},
 		Revisions: append([]RevisionRecord{}, history...), Events: append([]TaskEvent{}, task.Events...), Evidence: append([]EvidenceRecord{}, evidence...)}
 	add := func(code, severity, message, key string, sequences ...uint64) {

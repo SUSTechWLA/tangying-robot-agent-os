@@ -556,7 +556,11 @@ class GazeboNavigationClient:
         # refusal rule is written for: the sidecar stopped at an obstacle, or could
         # not plan through space the gateway's grid believes is free. Reporting the
         # code it gave keeps the two layers' vocabularies connected.
-        return {"ok": False, "code": message or "NAVIGATION_FAILED", "message": message}
+        failure = {"ok": False, "code": message or "NAVIGATION_FAILED", "message": message}
+        if isinstance(status.get("failureObservation"), dict) and status["failureObservation"]:
+            failure["failureObservation"] = status["failureObservation"]
+            failure["goalId"] = goal_id
+        return failure
 
 
 class GazeboTravelClearance:

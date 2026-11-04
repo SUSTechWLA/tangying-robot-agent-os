@@ -19,6 +19,30 @@ import (
 // to wait for a person, so a software path that could clear it would make the
 // wait theatre.
 func (a *App) ReconcileStep(ctx context.Context, record middleware.StepRecord, reconciliation middleware.StepReconciliation) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, active := a.active[record.TaskID]; active {
+		return errors.New("任务仍在执行，不能对账正在进行的动作")
+	}
+	if _, queued := a.queued[record.TaskID]; queued {
+		return errors.New("任务仍在排队，不能对账即将执行的动作")
+	}
+	if _, err := a.service.Get(ctx, record.TaskID); err != nil {
+		return err
+	}
+	runs, err := a.runner.ExecutionHistory(ctx, record.TaskID)
+	if err != nil {
+		return err
+	}
+	eligible := false
+	for _, run := range runs {
+		if run.StepID == record.StepID && run.Status == middleware.StepStarted && run.Reconciled == nil && !agent.IsReadOnlyCapability(run.Capability) {
+			eligible = true
+		}
+	}
+	if !eligible {
+		return errors.New("该步骤不是等待核对的未知物理动作")
+	}
 	return a.runner.ReconcileStep(ctx, record, reconciliation)
 }
 
@@ -45,6 +69,11 @@ func (a *App) Recovery(ctx context.Context, taskID string) (tasks.LocalRecovery,
 		// the execution policy. ABANDONED forbids continuing this path; neither
 		// HAPPENED nor NEVER_ACTED substitutes for the runner's recovery proof.
 		if run.Reconciled != nil {
+			view.Reconciliations = append(view.Reconciliations, tasks.LocalReconciliation{
+				StepID: run.StepID, Capability: run.Capability, OriginalStatus: string(run.Status),
+				Outcome: string(run.Reconciled.Outcome), Actor: run.Reconciled.Actor,
+				Note: run.Reconciled.Note, RecordedAt: run.Reconciled.RecordedAt,
+			})
 			abandoned = abandoned || run.Reconciled.Outcome == middleware.StepOutcomeAbandoned
 			reconciledInterrupted = reconciledInterrupted || (run.Status == middleware.StepStarted && !agent.IsReadOnlyCapability(run.Capability))
 			continue

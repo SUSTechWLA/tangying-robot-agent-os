@@ -469,6 +469,10 @@ body[data-audience="operator"] .mission-safe-arguments, body[data-audience="oper
 .local-recovery[data-tone="danger"] { border-color: var(--danger); background: var(--danger-soft); }
 .local-recovery p { color: var(--muted); line-height: 1.8; }
 .local-recovery-counts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; }
+.local-reconciliation-form, .local-reconciliation-record { display: grid; gap: 10px; margin-top: 14px; padding: 14px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--panel); }
+.local-reconciliation-form label { display: grid; gap: 6px; }
+.local-reconciliation-form code, .local-reconciliation-record code { overflow-wrap: anywhere; }
+.local-reconciliation-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Task history. Each row is a card-like target: the id is what a developer
    copies, so it gets its own monospaced line rather than being buried in the
    metadata run. */

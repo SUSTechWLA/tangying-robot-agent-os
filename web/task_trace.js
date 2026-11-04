@@ -66,7 +66,7 @@ function effectText(step) {
 
 function capabilityEvidenceText(step) {
   if (!step.capability) return "";
-  if (step.capabilityVerified) {
+  if (step.capabilityVerified && step.status === "CONFIRMED") {
     return step.toolName === "robot.task"
       ? "父能力已按执行契约复验；各物理子步骤的观测证据分别列在下方。"
       : "已记录能力执行契约的独立复验结果；本级证据为结构化状态，不要求 RGB-D 图像。";
@@ -74,6 +74,16 @@ function capabilityEvidenceText(step) {
   return step.status === "CONFIRMED"
     ? "能力被记为完成，但缺少完整的调用、回执与契约复验记录。"
     : "能力执行记录尚未形成完整的契约复验链。";
+}
+
+/** Evidence wording shared by the task cards and the replay explanation.
+ * The immutable experience snapshot may predate the verification event. Keep
+ * its raw text intact, but explain the exact revision/step from the event chain.
+ */
+function capabilityStepEvidenceText(stepId, traceSteps, revision) {
+  const step = (traceSteps || []).find(item => item.capability && item.stepId === stepId
+    && item.taskRevision === Number(revision));
+  return step ? capabilityEvidenceText(step) : "";
 }
 
 function contractEvidenceSummary(step) {
@@ -414,7 +424,9 @@ function buildTaskTrace({ task, observations = [], experience = null, recovery =
     durationS: Math.max(0, secondsBetween(timeValue(task?.createdAt), endMs) ?? 0),
     understanding: experience?.understanding || "",
     headline: experience?.headline || "",
-    experienceSteps: experience?.steps || [],
+    experienceSteps: (experience?.steps || []).map(item => ({ ...item,
+      evidenceExplanation: capabilityStepEvidenceText(item.stepId, steps, experience?.revision || task?.currentRevision || 1),
+    })),
     // The declared decomposition, when the task stored one. The Local path
     // derives its decomposition during execution, so this is often empty; the
     // tool steps below are the authoritative record either way.
@@ -853,7 +865,7 @@ function renderTaskTrace(trace, { empty = "" } = {}) {
       `<div class="trace-plain-step ${statusClass(item.status)}">
          <strong>${escapeHTML(item.statusText || item.status)}</strong>
          <span>${escapeHTML(item.explanation || "")}</span>
-         <em>${escapeHTML(item.evidenceText || "")}</em>
+         <em>${escapeHTML(item.evidenceExplanation || item.evidenceText || "")}</em>
        </div>`).join("")}</div>` : ""}
     ${trace.declaredSteps.length ? `<div class="trace-declared">
       <p class="hint">系统拆解出的步骤</p>
@@ -1258,7 +1270,7 @@ function renderTaskTraceNodes(trace) {
       row.append(
         element("strong", "", item.statusText || item.status || ""),
         element("span", "", item.explanation || ""),
-        element("em", "", item.evidenceText || ""),
+        element("em", "", item.evidenceExplanation || item.evidenceText || ""),
       );
       plain.append(row);
     }
@@ -1334,6 +1346,7 @@ globalThis.TangyingTaskTrace = {
   toolLabel,
   describeArguments,
   buildTaskTrace,
+  capabilityStepEvidenceText,
   analyseAlignment,
   declaredIntentSteps,
   traceVerdict,

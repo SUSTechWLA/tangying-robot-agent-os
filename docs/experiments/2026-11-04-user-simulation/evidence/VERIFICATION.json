@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "evidence.package.verification.v1",
+  "auditArchives": {
+    "audit-001": {
+      "files": 19,
+      "manifestAndCollectorVerified": true
+    },
+    "audit-002": {
+      "files": 20,
+      "manifestAndCollectorVerified": true
+    },
+    "audit-003": {
+      "files": 37,
+      "manifestAndCollectorVerified": true
+    },
+    "audit-004": {
+      "files": 37,
+      "manifestAndCollectorVerified": true
+    }
+  },
+  "imageFiles": 72,
+  "recomputedTaskWindows": [
+    2,
+    3,
+    4
+  ],
+  "stationaryWindows": [
+    1,
+    2
+  ],
+  "uiExports": {
+    "3": {
+      "taskMatches": true,
+      "stateMatches": true,
+      "snapshotSHA256Matches": true
+    },
+    "4": {
+      "taskMatches": true,
+      "stateMatches": true,
+      "snapshotSHA256Matches": true
+    }
+  },
+  "passed": true
+}

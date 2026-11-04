@@ -42,6 +42,25 @@ test("device page distinguishes Runtime connectivity from camera and history ava
   assert.equal(ui.topConnectionPresentation("devices", { mode: "fleet", connection: "STALE" }).label, "场景更新延迟");
 });
 
+test("environment summary distinguishes observed state, service catalogue and disconnected runtime", () => {
+  const shell = createConsoleShell();
+  const description = () => shell.nodes.get("environment-description").textContent;
+  assert.match(description(), /连接后/);
+  shell.ui.update({ adapter: "gazebo" });
+  assert.match(description(), /已识别.*等待/);
+  assert.doesNotMatch(description(), /已连接|正在读取/);
+  shell.ui.update({ connection: "LIVE", runtimeConnected: true });
+  assert.match(description(), /已收到机器人状态/);
+  assert.doesNotMatch(description(), /服务目录已读取|正在读取/);
+  shell.ui.update({ serviceConnected: true });
+  assert.match(description(), /服务目录已读取.*检查准备状态/);
+  shell.ui.update({ serviceConnected: false });
+  assert.match(description(), /读取失败/);
+  // A saved adapter/catalogue must not hide a subsequent runtime disconnect.
+  shell.ui.update({ serviceConnected: true, runtimeConnected: false });
+  assert.match(description(), /实时连接不可用/);
+});
+
 test("task state labels distinguish failure, cancellation and waiting for approval", () => {
   assert.equal(ui.taskPresentation("SUCCEEDED").label, "任务已完成");
   assert.equal(ui.taskPresentation("FAILED").tone, "danger");
@@ -51,6 +70,52 @@ test("task state labels distinguish failure, cancellation and waiting for approv
   assert.equal(ui.taskPresentation("constructor").label, "状态待确认");
   assert.equal(ui.taskPresentation("SAFETY_STOPPED").tone, "danger");
   assert.equal(ui.taskPresentation("WAITING_USER").label, "需要你处理");
+});
+
+test("creation guidance follows the selected task through execution, recovery and terminal states", () => {
+  const shell = createConsoleShell();
+  const feedback = () => shell.nodes.get("console-feedback");
+  shell.ui.update({ task: { id: "task-created", state: "READY", approved: false } });
+  shell.ui.taskFeedback("task-created");
+  assert.match(feedback().textContent, /再批准物理动作/);
+  shell.ui.update({ task: { id: "task-created", state: "RUNNING", approved: true } });
+  assert.match(feedback().textContent, /正在执行/);
+  assert.doesNotMatch(feedback().textContent, /再批准/);
+  shell.ui.update({ task: { id: "task-created", state: "RECOVERABLE_FAILURE", approved: true } });
+  assert.match(feedback().textContent, /先核对动作结果.*不要重新批准或重复执行/);
+  assert.equal(feedback().dataset.tone, "warning");
+  assert.doesNotMatch(feedback().textContent, /任务已生成/);
+  shell.ui.update({ task: { id: "task-created", state: "FAILED", approved: true } });
+  assert.match(feedback().textContent, /任务未完成.*失败步骤/);
+  assert.equal(feedback().dataset.tone, "danger");
+  shell.ui.update({ task: { id: "task-created", state: "SUCCEEDED", approved: true } });
+  assert.match(feedback().textContent, /任务已完成.*执行证据/);
+  assert.doesNotMatch(feedback().textContent, /批准/);
+});
+
+test("task guidance distinguishes an approved READY task and never leaks across task selection", () => {
+  const shell = createConsoleShell();
+  shell.ui.update({ task: { id: "task-ready", state: "READY", approved: true } });
+  shell.ui.taskFeedback("task-ready");
+  assert.match(shell.nodes.get("console-feedback").textContent, /已获批准.*等待开始/);
+  assert.doesNotMatch(shell.nodes.get("console-feedback").textContent, /再批准/);
+  shell.ui.update({ task: { id: "task-other", state: "FAILED" } });
+  assert.equal(shell.nodes.get("console-feedback").hidden, true);
+  shell.ui.taskFeedback("task-ready");
+  assert.equal(shell.nodes.get("console-feedback").hidden, true, "late feedback cannot target another selected task");
+});
+
+test("unrelated updates preserve current task guidance and explicit request errors remain visible", () => {
+  const shell = createConsoleShell();
+  shell.ui.update({ task: { id: "task-failed", state: "RECOVERABLE_FAILURE" } });
+  shell.ui.taskFeedback("task-failed");
+  const before = shell.nodes.get("console-feedback").textContent;
+  shell.ui.update({ connection: "LIVE", worldRevision: 42 });
+  assert.equal(shell.nodes.get("console-feedback").textContent, before);
+  shell.ui.feedback("新任务规划失败；模型响应超时。", true);
+  shell.ui.update({ task: { id: "task-failed", state: "RECOVERABLE_FAILURE" }, worldRevision: 43 });
+  assert.equal(shell.nodes.get("console-feedback").textContent, "新任务规划失败；模型响应超时。");
+  assert.equal(shell.nodes.get("console-feedback").dataset.tone, "danger");
 });
 
 test("support summary includes correlation fields but excludes credentials and raw payloads", () => {

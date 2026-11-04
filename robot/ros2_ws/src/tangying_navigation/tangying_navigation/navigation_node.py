@@ -17,6 +17,8 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Twist, Twi
 from lifecycle_msgs.srv import GetState
 from nav2_msgs.action import NavigateToPose
 from nav_msgs.msg import OccupancyGrid, Odometry
+from rcl_interfaces.msg import ParameterType
+from rcl_interfaces.srv import GetParameters
 from rclpy.action import ActionClient
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.duration import Duration
@@ -87,9 +89,21 @@ class NavigationNode(Node):
         # Admission therefore also needs fresh, read-only lifecycle evidence.
         self.nav2_states = {}
         self.nav2_pending = {}
-        self.nav2_clients = {name: self.create_client(GetState, name + "/get_state")
+        # Map conversion and action callbacks must not starve the evidence
+        # proving remote lifecycle/mode. A multithreaded executor still
+        # serializes everything left in its default callback group.
+        self.management_callbacks = MutuallyExclusiveCallbackGroup()
+        self.nav2_clients = {name: self.create_client(GetState, name + "/get_state",
+                                                     callback_group=self.management_callbacks)
                              for name in ("controller_server", "planner_server", "bt_navigator")}
-        self.create_timer(.5, self.poll_nav2_states)
+        self.create_timer(.5, self.poll_nav2_states, callback_group=self.management_callbacks)
+        # RTAB-Map exposes runtime mode-switching services. The launch value
+        # alone is not evidence of its current localization contract.
+        self.slam_mode_sample = None
+        self.slam_mode_pending = None
+        self.slam_mode_client = self.create_client(GetParameters, "/rtabmap/rtabmap/get_parameters",
+                                                  callback_group=self.management_callbacks)
+        self.create_timer(.5, self.poll_slam_mode, callback_group=self.management_callbacks)
         self.goal_handles = {}
         self.goal_map_poses = {}
         self.goal_odom_poses = {}
@@ -178,6 +192,43 @@ class NavigationNode(Node):
 
     def clock_ms(self):
         return now_ms()
+
+    def poll_slam_mode(self):
+        now = time.monotonic()
+        with self.lock:
+            pending = self.slam_mode_pending
+            if pending is not None:
+                future, started = pending
+                if now - started > 3.:
+                    future.cancel()
+                    self.slam_mode_sample = None
+                elif future.done():
+                    try:
+                        values = future.result().values
+                        if len(values) != 1:
+                            raise ValueError("missing RTAB-Map mode")
+                        value = values[0]
+                        if value.type == ParameterType.PARAMETER_STRING and value.string_value in {"true", "false"}:
+                            incremental = value.string_value == "true"
+                        elif value.type == ParameterType.PARAMETER_BOOL:
+                            incremental = value.bool_value
+                        else:
+                            raise ValueError("invalid RTAB-Map mode")
+                        self.slam_mode_sample = ("mapping" if incremental else "localization", started)
+                    except Exception:  # noqa: BLE001 — unknown remote mode cannot authorize motion.
+                        self.slam_mode_sample = None
+                else:
+                    return
+                self.slam_mode_pending = None
+            try:
+                if self.slam_mode_client.service_is_ready():
+                    request = GetParameters.Request(names=["Mem/IncrementalMemory"])
+                    self.slam_mode_pending = (self.slam_mode_client.call_async(request), now)
+                else:
+                    self.slam_mode_sample = None
+            except Exception:  # noqa: BLE001 — failed mode reads must fail closed.
+                self.slam_mode_sample = None
+                self.slam_mode_pending = None
 
     def poll_nav2_states(self):
         now = time.monotonic()
@@ -358,6 +409,7 @@ class NavigationNode(Node):
             info_ms, info_ref, odom_ms = self.info_ms, self.info_ref, self.odom_ms
             quality = dict(self.visual_quality)
             localization_ms, covariance_ok = self.localization_ms, self.localization_covariance_ok
+            mode_sample = self.slam_mode_sample
         current = self.clock_ms()
         fresh = lambda stamp, limit: -250 <= current - stamp <= limit
         pose, pose_stamp = None, 0
@@ -366,8 +418,11 @@ class NavigationNode(Node):
             pose, pose_stamp = pose_list(transform.transform), self.stamp_unix_ms(transform.header.stamp)
         except TransformException:
             pose, pose_stamp = None, 0
-        localization_ready = self.mode == "mapping" or (
-            fresh(localization_ms, 2500) and covariance_ok
+        mode_age = time.monotonic() - mode_sample[1] if mode_sample else None
+        mode_known = mode_age is not None and 0 <= mode_age <= 3.
+        mode = mode_sample[0] if mode_known else "unknown"
+        localization_ready = mode == "mapping" or (
+            mode == "localization" and fresh(localization_ms, 2500) and covariance_ok
         )
         checks = {
             "MAP_EMPTY": bool(data.get("knownCells", 0)),
@@ -379,6 +434,7 @@ class NavigationNode(Node):
             "BASE_RGBD_STALE": fresh(sensors["base"], 1000),
             "HEAD_RGBD_STALE": fresh(sensors["head"], 1000),
             "LOCALIZATION_UNAVAILABLE": localization_ready,
+            "RTABMAP_MODE_UNAVAILABLE": mode_known,
             "NAV2_ACTION_UNAVAILABLE": self.action.server_is_ready(),
             "CANCELLATION_PENDING": not cancellation_pending,
         }
@@ -389,8 +445,12 @@ class NavigationNode(Node):
         for name in self.nav2_clients:
             state_id, label, checked = lifecycle.get(name, (0, "unknown", 0.))
             age_ms = max(0., (monotonic_now - checked) * 1000.) if checked else None
-            checks["NAV2_" + name.upper() + "_INACTIVE"] = (
-                state_id == 3 and checked > 0 and 0 <= monotonic_now - checked <= 3.)
+            state_fresh = checked > 0 and 0 <= monotonic_now - checked <= 3.
+            # Stale evidence does not prove the remote node became inactive.
+            # Both block velocity; only observation loss is eligible for a
+            # bounded zero-output hold while the same goal remains active.
+            checks["NAV2_" + name.upper() + "_STATE_STALE"] = state_fresh
+            checks["NAV2_" + name.upper() + "_INACTIVE"] = not state_fresh or state_id == 3
             nav2_states[name] = {"stateId": state_id, "label": label, "ageMs": age_ms}
         blockers = [name for name, valid in checks.items() if not valid]
         ready = not blockers
@@ -416,7 +476,10 @@ class NavigationNode(Node):
         return {
             **data,
             "ready": ready,
-            "mode": self.mode,
+            "mode": mode,
+            "configuredMode": self.mode,
+            "modeEvidence": {"source": "rtabmap/Mem/IncrementalMemory",
+                             "ageMs": mode_age * 1000 if mode_age is not None else None},
             "scene": self.scene,
             "frameId": "map",
             "robotId": self.robot_id,
@@ -433,7 +496,7 @@ class NavigationNode(Node):
             "checkedAtUnixMs": current,
             "odomObservedAtUnixMs": odom_ms,
             "localizationState": "MAPPING_ODOMETRY"
-            if self.mode == "mapping" and ready
+            if mode == "mapping" and ready
             else "LOCALIZED"
             if localization_ready and ready
             else "UNAVAILABLE",
@@ -542,13 +605,29 @@ class NavigationNode(Node):
         with self.lock:
             self.goal_odom_poses.pop(goal_id, None)
         try:
-            status = future.result().status
+            response = future.result()
+            status = response.status
             state = {
                 GoalStatus.STATUS_SUCCEEDED: "SUCCEEDED",
                 GoalStatus.STATUS_CANCELED: "CANCELLED",
             }.get(status, "FAILED")
+            observation = None
+            if state != "SUCCEEDED":
+                # Keep the actual action result at its terminal transition.
+                # A later healthy status poll must not erase why Nav2 aborted.
+                try:
+                    observation = dict(self.map_status())
+                except Exception:  # noqa: BLE001 — diagnostics must not prevent stopping.
+                    observation = {}
+                action_result = getattr(response, "result", None)
+                observation["nav2Action"] = {
+                    "status": status,
+                    "errorCode": getattr(action_result, "error_code", None),
+                    "errorMessage": getattr(action_result, "error_msg", None),
+                }
             self.registry.update(
                 goal_id, state, "" if state == "SUCCEEDED" else "NAV2_ACTION_ENDED",
+                observation=observation,
                 completion_source="nav2_action" if state == "SUCCEEDED" else "",
                 completion_pose_stamp=(
                     self.map_status().get("poseObservedAtUnixMs", 0) if state == "SUCCEEDED" else 0

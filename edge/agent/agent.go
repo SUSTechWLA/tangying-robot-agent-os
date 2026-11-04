@@ -253,7 +253,7 @@ func (r *Runner) publish(ctx context.Context, event agentcontract.Event) {
 // reads; the bus is what a live observer subscribes to. Publishing is additive
 // and failure-free by construction — the sink returns nothing — so no
 // subscriber can make a step fail.
-func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command runtime.Command, status string, evidenceIDs []string, errorText, receiptID string) string {
+func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command runtime.Command, status string, evidenceIDs []string, errorText, receiptID string, diagnostics map[string]any) string {
 	if r.Events == nil {
 		return ""
 	}
@@ -276,6 +276,10 @@ func (r *Runner) publishAction(ctx context.Context, task *tasks.Task, command ru
 	// fences; the durable TOOL_ACTIVITY mirror records these exact values.
 	event.Payload["arguments"] = command.Parameters
 	event.Payload["fencingToken"] = command.FencingToken
+	declareActionEffects(event.Payload, command.Capability)
+	if len(diagnostics) > 0 {
+		event.Payload["diagnostics"] = diagnostics
+	}
 	// The durable TOOL_ACTIVITY and direct publication describe one transition.
 	// Sharing its identity lets the runtime and restart sweep deduplicate them.
 	event.Payload["eventId"] = event.ID
@@ -312,6 +316,19 @@ func safetyLevelFor(capability runtime.CapabilityName) string {
 		return ""
 	}
 	return string(level)
+}
+
+// Persist the catalog declaration on both event paths. A missing capability
+// remains unknown; in particular, physical_motion alone does not imply
+// MutatesWorld (emergency stop has different evidence requirements).
+func declareActionEffects(payload map[string]any, capability runtime.CapabilityName) {
+	for _, manifest := range manipulation.Catalog() {
+		if manifest.Name == string(capability) {
+			payload["safetyLevel"] = string(manifest.SafetyLevel)
+			payload["mutatesWorld"] = manifest.MutatesWorld
+			return
+		}
+	}
 }
 
 // mutatesWorldCapability reports whether the trusted catalog marks a capability

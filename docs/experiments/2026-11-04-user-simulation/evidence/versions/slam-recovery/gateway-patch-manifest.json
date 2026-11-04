@@ -1,0 +1,28 @@
+{
+  "scope": "gateway only; world RTABMap navigation_http retained",
+  "journalBeforeSHA256": "047d245f8acd17d01547ed7f7d72d869b9beeee23baf0a5ae65f50dcd7ed7b4f",
+  "terminalCommands": [
+    {
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/revision/1/step/rev-1-cap-02-observe",
+      "type": "SKILL_EVENT_SUCCEEDED",
+      "code": "OK"
+    },
+    {
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/revision/1/step/rev-1-cap-02-pre_position",
+      "type": "SKILL_EVENT_SUCCEEDED",
+      "code": "NAVIGATION_SUCCEEDED"
+    },
+    {
+      "commandId": "task-3b03351306d5b7df4835f7be6e69d577/revision/1/step/rev-1-cap-02-navigate_00",
+      "type": "SKILL_EVENT_FAILED",
+      "code": "NAV2_ACTION_ENDED"
+    }
+  ],
+  "files": {
+    "robot/gateway/tangying_robot_gateway/gazebo_backend.py": "dfa854327d5cbe9644a5d1f32ac3340fb4a1768c5d9c1ad62ad4cdf00b30d98a",
+    "robot/gateway/tangying_robot_gateway/gazebo_workflow.py": "d2054ad613c98110bae7d9e0b9f1518fc55674397a2d5188367471ad172b5024",
+    "robot/gateway/tangying_robot_gateway/service.py": "046617be6d0acd462a627289f36d2d4b4826d32b0e65814e72ebde6dc7f7a600"
+  },
+  "journalAfterSHA256": "047d245f8acd17d01547ed7f7d72d869b9beeee23baf0a5ae65f50dcd7ed7b4f",
+  "journalPreserved": true
+}

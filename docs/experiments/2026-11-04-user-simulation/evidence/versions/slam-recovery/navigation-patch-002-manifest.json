@@ -1,0 +1,7 @@
+{
+  "scope": "navigation_http only; callback isolation and bounded hold; no world restart",
+  "files": {
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/http_api.py": "22b71184c7e9dc236b82bd44bc1980fb96f3d2e2e9e5998a0eb72c882e29405a",
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/navigation_node.py": "faeb109c2fb20acf4a11cd98eb015c13faf6ec36c0b196e98c809bf1d9ba9784"
+  }
+}

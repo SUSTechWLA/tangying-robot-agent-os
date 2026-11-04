@@ -316,7 +316,7 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             terminal.type == robot_pb2.SKILL_EVENT_SUCCEEDED, terminal.code, terminal.message,
             terminal.observation_id, terminal.verification_confidence,
             {key: value for key, value in MessageToDict(terminal.details).items()
-             if key in {"state_report_json", "state_report_nl"}},
+             if key in {"state_report_json", "state_report_nl", "navigationFailureJson"}},
         )
 
     def observe_once(self, request: ObservationRequest) -> Observation:
@@ -490,6 +490,22 @@ class RobotRuntimeService(robot_pb2_grpc.RobotRuntimeServicer):
             if result.payload.get("state_report_json"):
                 events[-1].details.update({key: result.payload[key] for key in
                                           ("state_report_json", "state_report_nl")})
+            # Bounded failure diagnostics are retained in the command journal;
+            # they never substitute for sensor evidence or authorize a retry.
+            diagnostic = result.payload.get("navigationFailureJson")
+            if event_type != robot_pb2.SKILL_EVENT_SUCCEEDED and isinstance(diagnostic, str):
+                try:
+                    if len(diagnostic.encode("utf-8")) > 16 * 1024:
+                        raise ValueError("diagnostic too large")
+                    value = json.loads(diagnostic)
+                    if not isinstance(value, dict) or value.get("commandId") != command.command_id:
+                        raise ValueError("diagnostic command mismatch")
+                    canonical = json.dumps(value, ensure_ascii=True, sort_keys=True, allow_nan=False,
+                                           separators=(",", ":"))
+                    if len(canonical.encode("utf-8")) <= 16 * 1024:
+                        events[-1].details.update({"navigationFailureJson": canonical})
+                except (ValueError, TypeError, UnicodeError, RecursionError):
+                    pass  # Preserve the failure; malformed diagnostics have no authority.
         if command.idempotency_key:
             self.journal.record(
                 command.idempotency_key,

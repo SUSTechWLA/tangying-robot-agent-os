@@ -1,0 +1,341 @@
+{
+  "schemaVersion": "user.simulation.audit.v1",
+  "taskId": "task-a0fc09863e3a4be4f14ef61945b72877",
+  "collectedAtUTC": "2026-11-04T05:30:56.778695+00:00",
+  "taskState": "RECOVERABLE_FAILURE",
+  "taskSucceeded": false,
+  "closure": {
+    "verified": true,
+    "state": "RECOVERABLE_FAILURE",
+    "taskRevision": 1,
+    "terminalTransitionSequence": 47,
+    "finishSequences": [
+      48
+    ],
+    "successMarkerPresent": false
+  },
+  "apiStable": true,
+  "traceMatchesTask": true,
+  "originalRequestSHA256Valid": true,
+  "requiredCapabilities": {
+    "required": [
+      "calibration.get"
+    ],
+    "checks": [
+      {
+        "tool": "calibration.get",
+        "presentInFrozenPlan": true,
+        "confirmedCommandIds": [
+          "task-a0fc09863e3a4be4f14ef61945b72877/rev-1-cap-01"
+        ],
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "traceIntegrity": "incomplete",
+  "traceFindings": [
+    {
+      "taskId": "task-a0fc09863e3a4be4f14ef61945b72877",
+      "code": "STEP_OUTCOME_UNKNOWN",
+      "severity": "warning",
+      "message": "此命令曾记录结果未知；本诊断不清除对账要求",
+      "eventSequences": [
+        20,
+        21,
+        43,
+        44
+      ],
+      "stepKey": "8b4885fcdc3b84cc7b3ea53969ee5dd6bdc1cef0c44a587d9ae8fc920b95085e"
+    }
+  ],
+  "journal": {
+    "available": true,
+    "exactMatch": true,
+    "fieldsEqual": true,
+    "eventsEqual": true,
+    "eventCount": 64,
+    "captureCount": 3,
+    "allDeclaredCaptureHashesValid": true,
+    "capturesWithCompleteRGBD": 2,
+    "hashCheckBoundary": "Null image hash check means no image or digest declared in this capture, not corrupt bytes; patrol arrival requires complete snapshot/RGB/depth checks.",
+    "errors": [],
+    "boundary": "Task-scoped SQLite read transaction, not whole-database backup; image bytes saved only with --images."
+  },
+  "observationMetadataMatches": true,
+  "observationCount": 3,
+  "rpcCount": 1,
+  "rpcStates": {
+    "SUCCEEDED": 1
+  },
+  "stepCount": 5,
+  "stepStates": {
+    "CONFIRMED": 3,
+    "FAILED": 2
+  },
+  "atomicSteps": [
+    {
+      "stepId": "rev-1-cap-01",
+      "commandId": "task-a0fc09863e3a4be4f14ef61945b72877/rev-1-cap-01",
+      "tool": "calibration.get",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02",
+      "commandId": "task-a0fc09863e3a4be4f14ef61945b72877/rev-1-cap-02",
+      "tool": "robot.task",
+      "status": "FAILED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": true,
+      "evidenceIds": []
+    },
+    {
+      "stepId": "rev-1-cap-02-observe",
+      "commandId": "task-a0fc09863e3a4be4f14ef61945b72877/revision/1/step/rev-1-cap-02-observe",
+      "tool": "observe_scene",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1013900000000-1793770194310"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-pre_position",
+      "commandId": "task-a0fc09863e3a4be4f14ef61945b72877/revision/1/step/rev-1-cap-02-pre_position",
+      "tool": "navigation.pre_position",
+      "status": "CONFIRMED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": [
+        "gazebo-home_furnished/head-rgbd-1014500000000-1793770195432"
+      ]
+    },
+    {
+      "stepId": "rev-1-cap-02-navigate_00",
+      "commandId": "task-a0fc09863e3a4be4f14ef61945b72877/revision/1/step/rev-1-cap-02-navigate_00",
+      "tool": "navigation.navigate",
+      "status": "FAILED",
+      "robotId": "gazebo-home_furnished",
+      "taskRevision": 1,
+      "outcomeUnknown": false,
+      "evidenceIds": []
+    }
+  ],
+  "modelUsage": {
+    "uniqueCallIDs": 7,
+    "references": 14,
+    "duplicateReferencesExcluded": 7,
+    "conflictingCallIDs": [],
+    "missingIdentityRecords": 0,
+    "validUsageCalls": 7,
+    "unknownUsageCalls": 0,
+    "invalidUsageCalls": 0,
+    "providerReportedKnownTotals": {
+      "prompt_tokens": 85653,
+      "completion_tokens": 5352,
+      "total_tokens": 91005,
+      "cached_tokens": 47744,
+      "cache_write_tokens": null
+    },
+    "fieldReportingCalls": {
+      "prompt_tokens": 7,
+      "completion_tokens": 7,
+      "total_tokens": 7,
+      "cached_tokens": 7,
+      "cache_write_tokens": 0
+    },
+    "fieldTotalsComplete": {
+      "prompt_tokens": true,
+      "completion_tokens": true,
+      "total_tokens": true,
+      "cached_tokens": true,
+      "cache_write_tokens": false
+    },
+    "totalUsageComplete": true,
+    "calls": [
+      {
+        "call_id": "56361c74-237e-455a-828c-1f427cc18753",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:28:46.061723Z",
+        "duration_ms": 1897,
+        "http_status": 200,
+        "outcome": "invalid_decision",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 10945,
+          "completion_tokens": 177,
+          "total_tokens": 11122,
+          "cached_tokens": 7040
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 40065,
+        "response_bytes": 1554
+      },
+      {
+        "call_id": "e54306af-1210-4b3b-bb7a-3e2bc5836e25",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:28:47.976546Z",
+        "duration_ms": 1207,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11152,
+          "completion_tokens": 147,
+          "total_tokens": 11299,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 40817,
+        "response_bytes": 1271
+      },
+      {
+        "call_id": "a7c78816-0f3c-401e-9a7f-149ab17ca1d2",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:28:49.196037Z",
+        "duration_ms": 4563,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11396,
+          "completion_tokens": 685,
+          "total_tokens": 12081,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 41646,
+        "response_bytes": 3969
+      },
+      {
+        "call_id": "982863bf-60ba-4a81-92a6-ead0435fa9e0",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:28:53.767381Z",
+        "duration_ms": 5687,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11576,
+          "completion_tokens": 822,
+          "total_tokens": 12398,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 42342,
+        "response_bytes": 4551
+      },
+      {
+        "call_id": "331f356f-74d2-41e4-9d3f-e25d86ce3c54",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:28:59.483077Z",
+        "duration_ms": 4229,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 11860,
+          "completion_tokens": 608,
+          "total_tokens": 12468,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 43327,
+        "response_bytes": 3360
+      },
+      {
+        "call_id": "7fc8ff1a-f4e8-4c38-9b97-93f7a840af18",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:29:03.747557Z",
+        "duration_ms": 9192,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 14163,
+          "completion_tokens": 1411,
+          "total_tokens": 15574,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 50695,
+        "response_bytes": 7504
+      },
+      {
+        "call_id": "7015d33c-0e16-4d36-85e7-d52afb50105e",
+        "stage": "GOAL",
+        "model": "deepseek-v4-flash",
+        "started_at": "2026-11-04T05:29:12.954177Z",
+        "duration_ms": 9262,
+        "http_status": 200,
+        "outcome": "accepted",
+        "finish_reason": "tool_calls",
+        "usage_status": "valid",
+        "usage": {
+          "prompt_tokens": 14561,
+          "completion_tokens": 1502,
+          "total_tokens": 16063,
+          "cached_tokens": 6784
+        },
+        "output_tokens": 4096,
+        "cache_mode": "off",
+        "request_bytes": 52035,
+        "response_bytes": 7660
+      }
+    ],
+    "boundary": "Provider-reported telemetry, not an invoice. Unknown/conflicting usage excluded, never zero. Cached tokens are included in prompt tokens; no token estimation."
+  },
+  "patrol": {
+    "performed": true,
+    "passed": false,
+    "expectedRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "frozenRooms": [
+      "kitchen",
+      "bedroom",
+      "bathroom",
+      "living_room"
+    ],
+    "confirmations": [],
+    "errors": [
+      "expected 8 navigation/arrival confirmations, got 0"
+    ],
+    "boundary": "Recorded odometry/map-route and raw sensor identity, not independent ground truth, collision/contact proof or semantic image interpretation."
+  },
+  "auditFailures": [
+    "trace integrity"
+  ],
+  "recordAuditPassed": false,
+  "acceptancePassed": false,
+  "scope": "GET-only collection plus optional task-scoped SQLite read. No robot commands. Physical acceptance requires explicitly registered route and independent evidence; no generic safety or collision guarantee."
+}

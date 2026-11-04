@@ -1,0 +1,26 @@
+{
+  "scope": "Final live Python patch hashes; no clean image claim",
+  "files": {
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/navigation_node.py": {
+      "sourceSHA256": "faeb109c2fb20acf4a11cd98eb015c13faf6ec36c0b196e98c809bf1d9ba9784",
+      "liveSHA256": "faeb109c2fb20acf4a11cd98eb015c13faf6ec36c0b196e98c809bf1d9ba9784"
+    },
+    "robot/ros2_ws/src/tangying_navigation/tangying_navigation/http_api.py": {
+      "sourceSHA256": "22b71184c7e9dc236b82bd44bc1980fb96f3d2e2e9e5998a0eb72c882e29405a",
+      "liveSHA256": "22b71184c7e9dc236b82bd44bc1980fb96f3d2e2e9e5998a0eb72c882e29405a"
+    },
+    "robot/gateway/tangying_robot_gateway/gazebo_backend.py": {
+      "sourceSHA256": "dfa854327d5cbe9644a5d1f32ac3340fb4a1768c5d9c1ad62ad4cdf00b30d98a",
+      "liveSHA256": "dfa854327d5cbe9644a5d1f32ac3340fb4a1768c5d9c1ad62ad4cdf00b30d98a"
+    },
+    "robot/gateway/tangying_robot_gateway/gazebo_workflow.py": {
+      "sourceSHA256": "d2054ad613c98110bae7d9e0b9f1518fc55674397a2d5188367471ad172b5024",
+      "liveSHA256": "d2054ad613c98110bae7d9e0b9f1518fc55674397a2d5188367471ad172b5024"
+    },
+    "robot/gateway/tangying_robot_gateway/service.py": {
+      "sourceSHA256": "046617be6d0acd462a627289f36d2d4b4826d32b0e65814e72ebde6dc7f7a600",
+      "liveSHA256": "046617be6d0acd462a627289f36d2d4b4826d32b0e65814e72ebde6dc7f7a600"
+    }
+  },
+  "agentBinarySHA256": "292d9003b7b2b806565b56e92e77b17a3f361a5f101141d89d9436fb7c381efa"
+}

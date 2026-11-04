@@ -1,6 +1,6 @@
 # 从原始自然语言到原子调用的任务回溯
 
-更新日期：2026-11-02。适用范围：Local 任务库、能力执行器和工作台；数据合同为 `task.trace.v1`。本页说明软件如何保存和核对证据，不构成新的 Gazebo 或实机完成报告。
+更新日期：2026-11-04。适用范围：Local 任务库、能力执行器和工作台；数据合同为 `task.trace.v1`。实际仿真测试另见[工作台四房间巡检](../experiments/2026-11-04-user-simulation/README.md)，本页说明存储与诊断合同。
 
 回溯需要回答三个问题：**用户最初要求什么，系统实际做过什么，支持结论的记录是否可靠。** 当前通过 `GET /v1/tasks/{id}/trace` 将不可变任务版本、原始事件、命令、底层服务调用和传感器证据索引关联起来。工作台“任务全过程回放”显示持久快照与诊断，并可下载 JSON。读取和下载都不会重新执行任务。
 
@@ -50,6 +50,18 @@ trace 的命令分组同时使用 `(revision, robotId, stepId, commandId, tool)`
 **原始自然语言来自 `revision 1.Request`。** 激活新版本会改变当前 `Task.Request`，所以 `originalRequest` 与 `currentRequest` 分开。缺少首版时返回明确缺口，不把修改后的目标称为原句。`originalRequest.sha256` 是原句字节的 SHA-256；`session.contextSHA256` 校验该轮参考上下文。两者均不授予权限，也不是防止有权写数据库的人篡改记录的签名机制。
 
 ## 状态、命令与 RPC 怎样持久化
+
+### 对账是独立事实，不是改写过去
+
+工作台恢复卡片逐项列出未知步骤。操作者必须选择 `HAPPENED / NEVER_ACTED / ABANDONED` 并写明核查者、环境和依据；没有默认结论，提交也不触发继续或重试。仿真核查须明确说明仿真来源，不能冒充实机现场人工核查。
+
+`POST /v1/tasks/{id}/reconcile` 经原有会话写保护进入 Local App。App 在同一执行锁内拒绝活动/排队任务，以及只读、完成或已对账步骤；SQLite 条件更新仅接受未对账的 `STARTED` 行。结论单次写入，原执行状态保留。`ABANDONED` 禁止继续原路径；其他结论仍需执行器恢复凭据，不能充当成功证明或重放许可。
+
+`GET .../recovery` 返回 `reconciliations`，包含步骤、能力、原状态、结论、认证来源、依据和时间。`GET .../trace` 通过可选存储接口读取同样的持久事实：两次读取均包含对账历史，且历史参与 `snapshotSha256`。不支持此接口的存储显式返回 `source.reconciliationAvailable=false`，不能把未知包装成“没有对账”。此接口不新增或伪造任务事件，旧 `STEP_OUTCOME_UNKNOWN` 仍保留，供读者区分原失败和后来的处置。
+
+边缘 Runner 的 `action.executed` 与 `TOOL_ACTIVITY` 现在都从可信能力目录保存 `safetyLevel / mutatesWorld`。不能从工具名称或 `physical_motion` 猜测该字段：例如停止动作的证据合同与位置变化不同。旧事件缺少声明仍报告缺口。
+
+导航失败可在 FAILED 事件的 `diagnostics` 中保留 Nav2 终止状态、错误码/消息与命令身份。设备服务、gRPC 客户端和 Runner 限制诊断为合法且有界的对象（16 KiB），不将诊断内容作为执行指令。错误码、原失败状态和禁止盲目重试规则保持原义。
 
 ### 状态与批准
 

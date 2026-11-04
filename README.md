@@ -15,6 +15,8 @@
 
 **第一次来：**先看[项目框架](#项目框架)和[目录说明](#目录说明)，再按[你的工作选择入口](#新人从哪里开始)。想直接体验，跳到[跑起来](#跑起来)。
 
+最新工作台巡检与故障处置见 [2026-11-04 仿真实验](docs/experiments/2026-11-04-user-simulation/README.md)。恢复卡片支持逐步记录未知动作的核查结论和依据，回溯导出保留原失败与后续对账；对账不等于任务成功，也不会自动重放动作。
+
 边缘实机集成从[ROS 2 设备侧测试指南](docs/operations/edge-field-testing.md)开始：覆盖单机长任务、持久通信与无人车/足式/无人机能力合同。具体驱动和现场物理验收按型号完成，软件模板不代替硬件测试。
 
 **边缘与云端开发共同入口：**[消息传递、上下文管理与核心 Harness](docs/architecture/edge-agent-communication-and-context.md)，说明本机、机器人间、云边和 ROS 2 通道的字段与权威边界；[本次系统评估](docs/development/2026-10-28-system-upgrade-assessment.md)与[升级记录](docs/development/2026-10-28-edge-scalability.md)说明当前优先级、改动和验证范围。

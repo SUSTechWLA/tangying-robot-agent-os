@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "核查结论",
+      "role": "combobox",
+      "labels": 2,
+      "accessibleNames": 2
+    },
+    {
+      "name": "核查者与环境",
+      "role": "textbox",
+      "labels": 2,
+      "accessibleNames": 2
+    },
+    {
+      "name": "核查依据",
+      "role": "textbox",
+      "labels": 2,
+      "accessibleNames": 2
+    }
+  ],
+  "uniqueControlIds": 6,
+  "labelDrivenInteraction": true,
+  "staleApprovalAdviceSuppressed": true,
+  "requestsSubmitted": 0,
+  "scope": "isolated static browser fixture; no robot service access"
+}

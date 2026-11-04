@@ -61,6 +61,41 @@ test("an empty capability verification record cannot hide missing proof", () => 
   assert.ok(trace.findings.some(f => f.code === "CAPABILITY_WITHOUT_VERIFICATION"));
 });
 
+test("experience evidence descriptions derive from the exact capability chain without changing the saved snapshot", () => {
+  for (const tool of ["calibration.get", "robot.task"]) {
+    const evidence = tool === "robot.task" ? { basis: "LEGACY_RUNNER_VERIFIED_CHILD_STEPS" } : { readResult: { revision: "cal-1" } };
+    const events = [
+      event(1, "CAPABILITY_CALL", 0, { tool }),
+      event(2, "CAPABILITY_RECEIPT", 1, { tool, result: {} }),
+      event(3, "CAPABILITY_VERIFIED", 2, { tool, evidence }),
+    ];
+    const experience = { taskId: "long-goal", revision: 1, steps: [{ stepId: "rev-1-cap-01", status: "SATISFIED", evidenceText: "等待环境证据" }] };
+    const trace = buildTaskTrace({ task: task(tool, events), experience });
+    const description = tool === "robot.task" ? /各物理子步骤的观测证据/ : /结构化状态/;
+    assert.match(trace.experienceSteps[0].evidenceExplanation, description);
+    assert.match(renderTaskTrace(trace), description);
+    assert.doesNotMatch(renderTaskTrace(trace), /<em>等待环境证据<\/em>/);
+    assert.equal(experience.steps[0].evidenceText, "等待环境证据");
+    assert.equal(Object.hasOwn(experience.steps[0], "evidenceExplanation"), false, "the persisted explanation must not be rewritten");
+    assert.equal(context.TangyingTaskTrace.capabilityStepEvidenceText("rev-1-cap-01", trace.steps, 2), "", "other revisions cannot supply proof");
+    assert.equal(context.TangyingTaskTrace.capabilityStepEvidenceText("rev-1-cap-02", trace.steps, 1), "", "other steps cannot supply proof");
+  }
+});
+
+test("a completed experience label or malformed verification cannot stand in for the contract chain", () => {
+  const experience = { taskId: "long-goal", revision: 1, steps: [{ stepId: "rev-1-cap-01", status: "SATISFIED", evidenceText: "等待环境证据" }] };
+  const call = event(1, "CAPABILITY_CALL", 0, { tool: "calibration.get" });
+  const receipt = event(2, "CAPABILITY_RECEIPT", 1, { tool: "calibration.get" });
+  const verified = event(3, "CAPABILITY_VERIFIED", 2, { tool: "calibration.get", evidence: { readResult: { revision: "cal-1" } } });
+  for (const events of [[], [call, receipt], [verified], [call, verified],
+    [call, receipt, { ...verified, payload: { ...verified.payload, evidence: {} } }],
+    [call, receipt, { ...verified, occurredAt: new Date(start - 1).toISOString() }],
+    [call, receipt, verified, event(4, "CAPABILITY_FAILED", 3, { tool: "calibration.get" })]]) {
+    const trace = buildTaskTrace({ task: task("calibration.get", events), experience });
+    assert.doesNotMatch(trace.experienceSteps[0].evidenceExplanation, /已记录能力执行契约的独立复验结果/);
+  }
+});
+
 test("robot.task contract verification keeps physical child RGB-D proof checks intact", () => {
   const child = "rev-1-cap-01-navigate-1";
   const trace = buildTaskTrace({ task: task("robot.task", [

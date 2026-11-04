@@ -1,0 +1,287 @@
+{
+  "schemaVersion": "experiment.evidence.package.v1",
+  "files": {
+    "README.md": {
+      "sha256": "98e6b89165d43be13076540d5093857c8148529da5ecd4792f4063830fb31826",
+      "bytes": 4460
+    },
+    "VERIFICATION.json": {
+      "sha256": "2c414d50c6c1bda249de7e314db55b752b58d3ba8c2b9d12b8e4da9e89db9251",
+      "bytes": 809
+    },
+    "audit-001/manifest.json": {
+      "sha256": "a858f653afd54eb3527dfaaa1d93e38327a1a4a43bc2149b4ceaaea610e8a63d",
+      "bytes": 2777
+    },
+    "audit-001/summary.json": {
+      "sha256": "e661d667d7168fcb46190cd5eb8f56d37bef9012e54eeb954b98915a7b2b6170",
+      "bytes": 10133
+    },
+    "audit-002/manifest.json": {
+      "sha256": "09ea876081db9ace914b7d9252443907de7470aaa200461fa905f5963540a692",
+      "bytes": 2916
+    },
+    "audit-002/summary.json": {
+      "sha256": "890a0758d2c7978b1467e89b966a2268efdb74f665959318c9f0e271522da8c1",
+      "bytes": 10255
+    },
+    "audit-003/manifest.json": {
+      "sha256": "15073fdfcffbf4829f9e56050c726fd43f191e60572e5cd2aba6f6c195926f4a",
+      "bytes": 6338
+    },
+    "audit-003/summary.json": {
+      "sha256": "be63d0b1d27e30b9262d25db0e930924ebfa4812f43cfaa78a1866bf991fb14c",
+      "bytes": 19941
+    },
+    "audit-004/manifest.json": {
+      "sha256": "d76582af68e7b0042b1b4e8be4538974b18fc3268863f356379834d168792c78",
+      "bytes": 6339
+    },
+    "audit-004/summary.json": {
+      "sha256": "956edaa05a665624e6e7fe883eba36394615dd7677575d283888b252ac43cda0",
+      "bytes": 19870
+    },
+    "campaign-metrics.csv": {
+      "sha256": "a972099d772ff8eead5f6eb6e40fbd3eb5503bc3ff683cbeac47b02dd6bc7285",
+      "bytes": 1166
+    },
+    "campaign-metrics.json": {
+      "sha256": "43a2a6744b859e84d85a97bc0fac636dd6d7fb9e05fcfc23ff4b08d5a978be0e",
+      "bytes": 4134
+    },
+    "collectors/collector-3510d4752abde4a9839846ca6ab3b8d663fa601cf44ceea8976e2fab538916e9.py": {
+      "sha256": "3510d4752abde4a9839846ca6ab3b8d663fa601cf44ceea8976e2fab538916e9",
+      "bytes": 30798
+    },
+    "collectors/collector-d532c956ea15091dd03ab4f2cef5ec9f965167325d13a7be28cc0fd14f9b608b.py": {
+      "sha256": "d532c956ea15091dd03ab4f2cef5ec9f965167325d13a7be28cc0fd14f9b608b",
+      "bytes": 26501
+    },
+    "images-manifest.json": {
+      "sha256": "a543cfc7d9257572e6f47615b729fa68cb268fbf16709a566155d35454c0f99f",
+      "bytes": 47847
+    },
+    "images.tar.gz": {
+      "sha256": "5f2ccfed50b1ad608cd3fb0fc0e7dbb9031b3d3f58247c847a99d16a923b7602",
+      "bytes": 3334561
+    },
+    "odometry/observer-continuation-002.json": {
+      "sha256": "7053ecef0d592bc40e9d0008864c79a10445432f658b456cd49f3a6927dced04",
+      "bytes": 549
+    },
+    "odometry/observer-start-001.jsonl.gz": {
+      "sha256": "77504b0509ae5e2bb7bfcc06b02c2c84273b975fcb9a0fee5c38f8d9216071b3",
+      "bytes": 3222
+    },
+    "odometry/observer-start-002.jsonl.gz": {
+      "sha256": "2ba2bd60440ac8bc7e5a9b6e6ed660330331a158a75715db5e9cdf3097460cdb",
+      "bytes": 2939
+    },
+    "odometry/odom-audit-001.json": {
+      "sha256": "8632721246547d2114d859ef78996d1707ab60c3e6044d06c5d8db7057f744d9",
+      "bytes": 1679
+    },
+    "odometry/odom-audit-002.json": {
+      "sha256": "2e67360adfced7b8dd3df81bb82882b9650f9f6c13f445217dac141c91aceacd",
+      "bytes": 37939
+    },
+    "odometry/odom-audit-003.json": {
+      "sha256": "ead6e7fbf3057ef8c4008ea1e2626d6e4eab6af4bda973df89c86f181fbd59c2",
+      "bytes": 179893
+    },
+    "odometry/odom-audit-004.json": {
+      "sha256": "c6f9fdda2312dfcb0f173b127c9b53841a10728d8853ced198ef392dc1e38c92",
+      "bytes": 221535
+    },
+    "odometry/odom-window-002-source.json": {
+      "sha256": "102c1ceddbbc7f950f35f68b50d4ac9a57e16cba4138b7d30683b593536218d4",
+      "bytes": 495
+    },
+    "odometry/odom-window-002.jsonl.gz": {
+      "sha256": "eb1b63f09a68b9e45cfa8949fb65fadb29a5fe155b40bf1a336e0fc67975bde2",
+      "bytes": 60504
+    },
+    "odometry/odom-window-003-source.json": {
+      "sha256": "eba858b64e6e4df9ba62cc7ea61219cb95a7f5ae84d7e009944452b75740daa8",
+      "bytes": 451
+    },
+    "odometry/odom-window-003.jsonl.gz": {
+      "sha256": "6301db3cfaef7bbc95d384dac2ca743e70c87ca3f75426c87730304596d00952",
+      "bytes": 290044
+    },
+    "odometry/odom-window-004-source.json": {
+      "sha256": "0929e37369bc483f21de08522ed30a3782477e7922ffa3f9a520f4dd2994510c",
+      "bytes": 474
+    },
+    "odometry/odom-window-004.jsonl.gz": {
+      "sha256": "a208a4c04270c529c9df5c59c4af640234d8ea1eab8ce3fdc1189f001de9d126",
+      "bytes": 355311
+    },
+    "odometry/ros-observations-001.stderr.log": {
+      "sha256": "7dd804211edcbdbd4d05fa2facb77eccaa2c51b8cfe73d25755ffb89b616afe5",
+      "bytes": 300
+    },
+    "odometry/ros-observations-002.stderr.log": {
+      "sha256": "8dcb201c100e3a0b9a5f6ed059177bd03e4852618aff4ef359d7ecea2523d214",
+      "bytes": 300
+    },
+    "odometry/stationary-window-001-summary.json": {
+      "sha256": "ae4b5c10b88415fb9a22d49b9240510b04b650f8362557e46296aad4b2661d6e",
+      "bytes": 1575
+    },
+    "odometry/stationary-window-001.jsonl.gz": {
+      "sha256": "3c48e3ca78126be9a3241240585c20cb0224a10a9e5f2b397f0fe42797fe8801",
+      "bytes": 11938
+    },
+    "odometry/stationary-window-002-summary.json": {
+      "sha256": "f485ff9ea404bc8bc185290e21324ad0b292a43f7abe5f1acd8428327aaae332",
+      "bytes": 1568
+    },
+    "odometry/stationary-window-002.jsonl.gz": {
+      "sha256": "971a0fde6fa96f758812d3fc6e85cb45a53133878d14c34052a6221258ae97a0",
+      "bytes": 12405
+    },
+    "post-restart-traces.json": {
+      "sha256": "f58645d7c7bedd2e349321ee022081b8c0b9059f2e922715d2c454aa4560dae1",
+      "bytes": 1281
+    },
+    "raw/audit-001.tar.xz": {
+      "sha256": "aaf41d4de66cf0cfb6d29ae0c0e09b6de6067c248b43e061048d3e228dddd89a",
+      "bytes": 457272
+    },
+    "raw/audit-002.tar.xz": {
+      "sha256": "a310696f430aa55dc7de624d3bc7b0117243c866e1086b0b33a129ac0f22afe1",
+      "bytes": 263068
+    },
+    "raw/audit-003.tar.xz": {
+      "sha256": "87215c6972fe24b4706a5dae707bc56f1772b2a82d5a559874389217146ab4e4",
+      "bytes": 1460544
+    },
+    "raw/audit-004.tar.xz": {
+      "sha256": "e84680966af68786720c099a8054a5cc1f1c5af2f23bd0901e035de7a80179fc",
+      "bytes": 1450432
+    },
+    "raw/inputs-and-navigation.tar.xz": {
+      "sha256": "bf5a2fb86751fbdd73f939e9b231edf7b68ac13616b5e6b773c86436177abd95",
+      "bytes": 152704
+    },
+    "tests/audit-tools-pytest.log": {
+      "sha256": "190f5898366bd44b48c8818ad80453299d9a74f963799e58ce8a54078b03c2e2",
+      "bytes": 841
+    },
+    "tests/docs-tests-final.log": {
+      "sha256": "bc95f6fbfc6a55915ab9822f2dd3c0c7fc0d8f119f25a35068b308068b4b578e",
+      "bytes": 3174
+    },
+    "tests/go-diagnostics-binding-tests.log": {
+      "sha256": "243f2e1635f77af320e84a0f0cfbc042a84065aa3ed582a4da2822fb10a972bb",
+      "bytes": 69
+    },
+    "tests/go-final-tests.log": {
+      "sha256": "b418217adb8d019084116e7dc68a5b6c701c4044dcb246621c004b2390b96ae2",
+      "bytes": 506
+    },
+    "tests/go-reconciliation-tests.log": {
+      "sha256": "887bddda95e79bbd1b0150a95b1acb7546f25e48f30964153f22cbe55f88a413",
+      "bytes": 219
+    },
+    "tests/go-trace-tests-final.log": {
+      "sha256": "f16c53c5808ed2310fe798c5d068697ce5192267c04e4fc78786387e68790b5f",
+      "bytes": 280
+    },
+    "tests/go-web-tests-final.log": {
+      "sha256": "0af85a7b0f2c3c1b2ceabb106b7ca1047d0ba455c4ec30192f917da70bc4bf02",
+      "bytes": 62
+    },
+    "tests/slam-recovery/navigation-patch-tests-002.log": {
+      "sha256": "828d3be1324cb42a75a28d1481f99bb90d3f4f58244b63314cf4054f2c6dc0a4",
+      "bytes": 110
+    },
+    "tests/slam-recovery/navigation-patch-tests-003.log": {
+      "sha256": "259d356cf26c03bb08d26d04d47028c4fa84c36f572eacf3a67dedf30a0208b1",
+      "bytes": 100
+    },
+    "tests/slam-recovery/navigation-patch-tests-004.log": {
+      "sha256": "aa4076e06f2c2b5a420b57d39db5badc792d60efd39a3141367f73551cb186e4",
+      "bytes": 100
+    },
+    "tests/slam-recovery/navigation-patch-tests-005.log": {
+      "sha256": "422616d0bb197b56d7941390953f74edc4d439326c886a503caa3a5e57ee0cc8",
+      "bytes": 100
+    },
+    "tests/slam-recovery/navigation-patch-tests.log": {
+      "sha256": "afa9aa59c65dbed73e9e34e355c57eb8ff0cef11ac989d36ad2c89d0cfb0bcd4",
+      "bytes": 735
+    },
+    "tests/trace-reconciliation-go-test.log": {
+      "sha256": "c62baaf4c117c56064af81eaf0a1cd3fd8decc87a3b3821be865bb0bf68ac018",
+      "bytes": 140
+    },
+    "tests/ui-state-tests.log": {
+      "sha256": "78862aa1dae0e4379a70a5f6490e956fd3299afab18870215950aabf674c9647",
+      "bytes": 17489
+    },
+    "tests/web-tests-final.log": {
+      "sha256": "bb8bf2c05fa309cc15f8f1e07dd61f4b2f0091da0d9499d4132793cd23592eb5",
+      "bytes": 52128
+    },
+    "ui-accessibility-result.json": {
+      "sha256": "c80b02b870368083f22299218083c23d3bac9e02f00ec0a845848094f0de4e01",
+      "bytes": 585
+    },
+    "ui-final-reopen-check.json": {
+      "sha256": "7c0254559695bcabcc9b4a3701c9ce2b12ee77150455eaa71688aa2bf91838df",
+      "bytes": 283
+    },
+    "versions/agent-cohort-002/metadata.json": {
+      "sha256": "5f1eb95fa09b123de92c4b439d6bd441acdf26e7d1c1ebb2cd899bc47be47519",
+      "bytes": 217
+    },
+    "versions/agent-cohort-003/metadata.json": {
+      "sha256": "5e5a387ca4ee95021e98cf976f31392192109cca6a49866141d005bea9d14667",
+      "bytes": 218
+    },
+    "versions/agent-cohort-004-ui-only/metadata.json": {
+      "sha256": "357f4bb6f3c4be58a048d7902f1539fda78f28943991f297815682582d8d887d",
+      "bytes": 218
+    },
+    "versions/image-build/metadata.json": {
+      "sha256": "8f158d8ad288f768c0e00749de6cbdf0c35cfa58dc94b9f53439459f386743ed",
+      "bytes": 1732
+    },
+    "versions/slam-recovery/gateway-patch-manifest.json": {
+      "sha256": "85a1872d57268a5afe58561b27eab6c5676102c37d407f225cabaa6cde99ab8d",
+      "bytes": 1254
+    },
+    "versions/slam-recovery/live-final-file-verification-002.json": {
+      "sha256": "89164490c0788956d7bb7e316ff0916c26723fd02ec8311ef8f888bae31eb011",
+      "bytes": 1448
+    },
+    "versions/slam-recovery/live-final-file-verification.json": {
+      "sha256": "7ffc21dd6a75b72f7cbf2e9a8615d5bd1996448b039c1395969a010de7875e71",
+      "bytes": 1572
+    },
+    "versions/slam-recovery/live-patch-manifest.json": {
+      "sha256": "7adf2901fe9ba1277f7adf1076c48df0700d22df934dec96110a6d4b496b0cf4",
+      "bytes": 393
+    },
+    "versions/slam-recovery/navigation-patch-002-manifest.json": {
+      "sha256": "570671d86205635f8890fc83b3ea26e87ca030b87a1a5e1e1e4b14422da966c4",
+      "bytes": 406
+    }
+  },
+  "excluded": [
+    "browser recording ZIP and request headers/cookies",
+    "screenshots",
+    "configuration/credential/browser session/token storage",
+    "binaries",
+    "whole databases",
+    "new sensor captures",
+    "full-period ROS raw logs (retained locally; frozen task windows and observer start evidence bundled)"
+  ],
+  "packagerSHA256": "f207d4361ccc55e509d6e7f976a967918376a776a536854584466a5aba8c87b9",
+  "auditManifestsVerified": 4,
+  "credentialPatternScan": "passed for allowlisted textual inputs; no credential source files read",
+  "scope": "Frozen execution audits plus separately captured operator/odometry/version/test evidence. This package never overwrites original audits.",
+  "assembly": "README and independent VERIFICATION report added after packaging; final file inventory regenerated."
+}

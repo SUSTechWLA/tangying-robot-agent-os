@@ -1,0 +1,3 @@
+# Preserve byte-exact tool logs and the CSV writer's CRLF for evidence hashes.
+evidence/tests/*.log -whitespace
+evidence/campaign-metrics.csv whitespace=cr-at-eol

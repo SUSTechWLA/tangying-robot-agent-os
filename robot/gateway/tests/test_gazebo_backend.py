@@ -159,6 +159,23 @@ def test_backend_caps_navigation_wait_by_command_deadline(monkeypatch):
     assert len(deadlines) == 1 and 0 < deadlines[0] <= 1.2
 
 
+def test_navigation_failure_payload_keeps_command_and_nav2_diagnostic():
+    import json
+    backend = captured_backend()
+    diagnostic = {"nav2Action": {"status": 6, "errorCode": 208,
+                                  "errorMessage": "No valid path"}}
+    backend.node.navigate = lambda *_args, **_kwargs: {
+        "ok": False, "code": "NAV2_ACTION_ENDED", "message": "NAV2_ACTION_ENDED",
+        "goalId": "goal-1", "failureObservation": diagnostic}
+    command = Command(schema_version="robot.v1", task_id="t", command_id="failed-navigation",
+                      capability="navigation.navigate",
+                      parameters={"goalPose": [0.1, 0., 0., 1., 0., 0., 0.]})
+    result = validate_result(backend.execute(command))
+    assert not result.success and result.code == "NAV2_ACTION_ENDED"
+    assert json.loads(result.payload["navigationFailureJson"]) == {
+        "goalId": "goal-1", "commandId": "failed-navigation", "observation": diagnostic}
+
+
 def test_wheel_axes_rotate_about_model_y_not_the_rotated_wheel_frame():
     import math
     import xml.etree.ElementTree as ET

@@ -26,7 +26,7 @@
         <a href="#diagnostics" data-nav="diagnostics" data-developer><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 20"/></svg>开发诊断</a>
       </nav>
       <div class="sidebar-bottom">
-        <div class="environment-note"><span class="environment-orbit" aria-hidden="true"></span><div><strong>机器人服务</strong><p id="environment-description">连接后读取可用服务与状态</p></div></div>
+        <div class="environment-note"><span class="environment-orbit" aria-hidden="true"></span><div><strong>机器人服务</strong><p id="environment-description">连接后显示机器人与服务状态。</p></div></div>
         <button id="audience-toggle" class="audience-toggle" type="button" aria-pressed="false"><span id="audience-label">开发模式</span><span aria-hidden="true">⇄</span></button>
         <p id="audience-description">简洁的日常操作界面</p>
       </div>
@@ -378,6 +378,7 @@
           <select id="adapter" hidden aria-hidden="true" tabindex="-1"><option value="" selected disabled>等待机器人连接…</option></select>
           <button id="create">生成任务</button>
         </div>
+        <p id="planning-status" class="hint" role="status" aria-live="polite" hidden></p>
         <details id="planning-failures" hidden>
           <summary>未生成任务的规划记录</summary>
           <p class="hint">这里显示本页最近 10 次规划失败。保存记录编号或证据链接，刷新页面后仍可凭链接回溯；记录不代表已批准任务。</p>
@@ -403,6 +404,7 @@
         <details id="local-recovery" class="local-recovery" hidden aria-labelledby="local-recovery-heading">
           <summary><strong id="local-recovery-heading">如何继续这个任务</strong><span class="hint">查看处理步骤</span></summary>
           <div id="local-recovery-content" role="status" aria-live="polite"></div>
+          <div id="local-reconciliation" hidden></div>
           <p class="hint">继续前会核对已完成的动作；无法确认的物理结果需要先由维护人员核对。</p>
         </details>
       </section>

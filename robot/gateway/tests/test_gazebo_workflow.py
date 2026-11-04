@@ -373,6 +373,18 @@ def test_a_busy_robot_is_news_rather_than_a_transport_failure():
     assert result["ok"] is False and result["code"] == "NAVIGATION_BUSY"
 
 
+def test_refused_goal_preserves_frozen_nav2_diagnostic_without_retry():
+    observation = {"ready": True, "nav2Action": {
+        "status": 6, "errorCode": 208, "errorMessage": "No valid path"}}
+    recorder = _Recorder([{"state": "FAILED", "message": "NAV2_ACTION_ENDED",
+                           "failureObservation": observation}])
+    result = a_client(recorder).navigate(planar(1, 0, 0))
+    assert not result["ok"] and result["code"] == "NAV2_ACTION_ENDED"
+    assert result["failureObservation"] == observation
+    assert result["goalId"] == "a" * 64
+    assert len([call for call in recorder.calls if call[0] == "POST"]) == 1
+
+
 def test_navigation_waits_for_pre_admission_map_readiness_with_same_command():
     calls = []
     client = a_client(lambda *_args, **_kwargs: None, readiness_poll_s=.001)

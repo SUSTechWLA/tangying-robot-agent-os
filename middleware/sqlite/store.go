@@ -253,9 +253,9 @@ func (s *Store) ReconcileStep(ctx context.Context, record middleware.StepRecord,
 	result, err := s.db.ExecContext(ctx, `
         UPDATE step_runs SET
             reconcile_outcome = ?, reconcile_actor = ?, reconcile_note = ?, reconcile_at = ?
-        WHERE task_id = ? AND step_id = ? AND reconcile_outcome = ''
+        WHERE task_id = ? AND step_id = ? AND status = ? AND reconcile_outcome = ''
     `, string(reconciliation.Outcome), reconciliation.Actor, reconciliation.Note,
-		encodeTime(reconciliation.RecordedAt), record.TaskID, record.StepID)
+		encodeTime(reconciliation.RecordedAt), record.TaskID, record.StepID, string(middleware.StepStarted))
 	if err != nil {
 		return err
 	}

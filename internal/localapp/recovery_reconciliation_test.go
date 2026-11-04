@@ -77,6 +77,9 @@ func TestRecoveryReconciliationDoesNotInventPermissionOrCompletion(t *testing.T)
 				if err != nil || view.CanResume || view.RequiresReconciliation || view.ReasonCode != scenario.reason || len(view.CompletedStepIDs) != 0 {
 					t.Fatalf("restart=%v reconciliation misrepresented as replay permission/completion: %+v %v", restarted, view, err)
 				}
+				if len(view.Reconciliations) != 1 || view.Reconciliations[0].Outcome != string(scenario.outcome) || view.Reconciliations[0].OriginalStatus != string(middleware.StepStarted) || view.Reconciliations[0].Actor != "fixture-operator" || view.Reconciliations[0].Note == "" {
+					t.Fatalf("reconciliation provenance lost: %+v", view.Reconciliations)
+				}
 				if err := app.Resume(task.ID); err == nil {
 					t.Fatal("executor accepted recovery without completed or retry-safe execution proof")
 				}
@@ -94,6 +97,56 @@ func TestRecoveryReconciliationDoesNotInventPermissionOrCompletion(t *testing.T)
 			current, err := service.Get(ctx, task.ID)
 			if err != nil || current.State != taskgraph.StateCancelled {
 				t.Fatalf("explicit cancellation after reconciliation failed: %+v %v", current, err)
+			}
+		})
+	}
+}
+
+func TestReconciliationRejectsLiveAndKnownSteps(t *testing.T) {
+	for _, scenario := range []string{"active", "queued", "read-only", "completed", "missing"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := context.Background()
+			store, err := sqlite.Open(filepath.Join(t.TempDir(), "tasks.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Close()
+			service := tasks.NewService(store, intent.NewDeterministicParser())
+			task, err := service.Create(ctx, "把红色杯子放进右侧收纳盒", "mujoco")
+			if err != nil {
+				t.Fatal(err)
+			}
+			app := New(service, agent.NewRunner(store, nil, nil), memory.NewQueue[string](1))
+			record := middleware.StepRecord{TaskID: task.ID, StepID: "step", Capability: "navigation.navigate", SafetyLevel: "physical_motion"}
+			if scenario == "read-only" {
+				record.Capability = "observe_scene"
+			}
+			if scenario != "missing" {
+				if err := store.MarkStepStarted(ctx, record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			switch scenario {
+			case "active":
+				app.active[task.ID] = func() {}
+			case "queued":
+				app.queued[task.ID] = struct{}{}
+			case "completed":
+				if err := store.MarkStepCompleted(ctx, record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := app.ReconcileStep(ctx, record, middleware.StepReconciliation{Outcome: middleware.StepOutcomeAbandoned, Actor: "fixture", Note: "must be rejected", RecordedAt: time.Now().UTC()}); err == nil {
+				t.Fatal("ineligible action accepted")
+			}
+			runs, err := store.ListStepRuns(ctx, task.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, run := range runs {
+				if run.Reconciled != nil {
+					t.Fatal("refused conclusion persisted")
+				}
 			}
 		})
 	}

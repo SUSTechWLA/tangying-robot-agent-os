@@ -1,0 +1,9 @@
+{
+  "taskId": "task-86a1f1438b266353b5a9e4965ed6c1fa",
+  "taskSucceeded": true,
+  "structuredEvidence": true,
+  "childEvidence": true,
+  "pageErrors": [],
+  "checkedAt": "2026-11-04T05:56:20.979Z",
+  "scope": "Read-only task reopening after UI-only restart; no extra robot actions"
+}

@@ -1,0 +1,11 @@
+/usr/lib/python3/dist-packages/_pytest/config/__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: IndexError: 3 (from /tmp/navigation-patch-test/test/conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest '/tmp/navigation-patch-test/test/conftest.py'.
+/tmp/navigation-patch-test/test/conftest.py:5: in <module>
+    ROOT = PACKAGE.parents[3]
+/usr/lib/python3.12/pathlib.py:281: in __getitem__
+    raise IndexError(idx)
+E   IndexError: 3
